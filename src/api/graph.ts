@@ -1,6 +1,7 @@
 import { BrowserAuthError, InteractionRequiredAuthError } from "@azure/msal-browser";
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { graphScopes } from "@/auth/msalConfig";
+import { CHOOSE_ACCOUNT_MESSAGE, resolveAccount } from "@/auth/activeAccount";
 import { GRAPH_BASE, USE_MOCK } from "./config";
 import { authErrorLine, describeAuthError } from "@/lib/authErrors";
 
@@ -134,21 +135,22 @@ async function acquireGraphToken(scopes: string[], allowInteractive: boolean): P
   const instance = getMsalInstance();
   if (!instance) throw new Error("MSAL instance not initialised");
 
-  // Fall back to the first known account when no active one is selected yet.
-  // Queries in the app tree can fire in the same commit that MSAL reports an
-  // authenticated user but before the active account has been set (child
-  // effects run before the parent's), and treating that as "session expired"
-  // meant a perfectly good sign-in immediately surfaced a session warning.
-  let account = instance.getActiveAccount();
+  // Which account to act as — auth/activeAccount.ts holds the rule. Queries in
+  // the app tree can fire in the same commit that MSAL reports an
+  // authenticated user but before AuthGate's effect has set the active
+  // account (child effects run before the parent's), so a SINGLE cached
+  // account is taken as unambiguous and activated here. More than one with
+  // none active is never guessed at: `accounts[0]` was how a colleague's
+  // cached account got attached to someone else's writes on a shared PC
+  // (2026-09-02; the fallback here was still live on 2026-10-16).
+  const all = instance.getAllAccounts();
+  const account = resolveAccount(instance.getActiveAccount(), all);
   if (!account) {
-    account = instance.getAllAccounts()[0] ?? null;
-    if (account) instance.setActiveAccount(account);
+    // Signed out, or ambiguous — either way the caller should be looking at
+    // SignInPage. Throw SessionExpiredError so the gate re-renders cleanly.
+    throw new SessionExpiredError(all.length > 1 ? CHOOSE_ACCOUNT_MESSAGE : "Not signed in");
   }
-  if (!account) {
-    // Genuinely signed out — caller should have routed to SignInPage. Throw
-    // SessionExpiredError so the gate re-renders cleanly.
-    throw new SessionExpiredError("Not signed in");
-  }
+  if (!instance.getActiveAccount()) instance.setActiveAccount(account);
 
   try {
     const result = await instance.acquireTokenSilent({ scopes, account });

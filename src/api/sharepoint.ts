@@ -1,4 +1,5 @@
 import { getMsalInstance } from "@/auth/AuthProvider";
+import { resolveAccount } from "@/auth/activeAccount";
 import { SP_SITE_URL, USE_MOCK } from "./config";
 import { GraphError, fetchWithRetry } from "./graph";
 import { describeAuthError, isReauthenticable } from "@/lib/authErrors";
@@ -76,8 +77,9 @@ export async function spFetch<T>(
   // sign-in, before the active account was selected). Degrade rather than
   // reporting a session expiry — SP REST is a best-effort side channel here
   // (attachments, site users) and must never be able to take the whole app
-  // into "your session expired".
-  const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
+  // into "your session expired". Two cached accounts and none chosen is
+  // treated the same way — never `accounts[0]` (auth/activeAccount.ts).
+  const account = resolveAccount(instance.getActiveAccount(), instance.getAllAccounts());
   if (!account) {
     throw new SharePointUnavailableError("Not signed in yet — SharePoint REST call skipped.");
   }
@@ -168,7 +170,7 @@ export async function spFetch<T>(
 export async function refreshSharePointAccess(): Promise<void> {
   const instance = getMsalInstance();
   if (!instance) throw new SharePointUnavailableError("Not signed in.", "reauth");
-  const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
+  const account = resolveAccount(instance.getActiveAccount(), instance.getAllAccounts());
   if (!account) throw new SharePointUnavailableError("Not signed in.", "reauth");
   if (!SP_SITE_URL) {
     throw new SharePointUnavailableError(

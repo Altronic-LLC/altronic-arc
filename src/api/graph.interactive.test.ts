@@ -74,6 +74,48 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("which account a request is made as", () => {
+  // The shared-PC misattribution (2026-09-02) survived the AuthGate fix
+  // because this client fell back to `getAllAccounts()[0]` whenever nothing
+  // was active. Two cached accounts and no choice is a question for the
+  // sign-in page, never a guess made here.
+  it("refuses to pick between two cached accounts when none is active", async () => {
+    const OTHER = { homeAccountId: "acct-2", username: "someone.else@altronic-llc.com" };
+    msal.getActiveAccount.mockReturnValue(null);
+    msal.getAllAccounts.mockReturnValue([ACCOUNT, OTHER]);
+
+    await expect(graphFetch("/me")).rejects.toMatchObject({
+      name: "SessionExpiredError",
+      message: expect.stringMatching(/more than one microsoft account/i),
+    });
+    expect(msal.setActiveAccount).not.toHaveBeenCalled();
+    expect(msal.acquireTokenSilent).not.toHaveBeenCalled();
+  });
+
+  it("takes the ONE cached account as unambiguous and activates it", async () => {
+    msal.getActiveAccount.mockReturnValue(null);
+    msal.getAllAccounts.mockReturnValue([ACCOUNT]);
+    msal.acquireTokenSilent.mockResolvedValue({ accessToken: "tok" });
+
+    await graphFetch("/me");
+
+    expect(msal.setActiveAccount).toHaveBeenCalledWith(ACCOUNT);
+    expect(msal.acquireTokenSilent).toHaveBeenCalledWith(
+      expect.objectContaining({ account: ACCOUNT }),
+    );
+  });
+
+  it("reports plain 'not signed in' when nothing is cached", async () => {
+    msal.getActiveAccount.mockReturnValue(null);
+    msal.getAllAccounts.mockReturnValue([]);
+
+    await expect(graphFetch("/me")).rejects.toMatchObject({
+      name: "SessionExpiredError",
+      message: "Not signed in",
+    });
+  });
+});
+
 describe("concurrent re-auth", () => {
   it("shows ONE popup for many simultaneous expired requests", async () => {
     const popup = deferred<{ accessToken: string; account: typeof ACCOUNT }>();

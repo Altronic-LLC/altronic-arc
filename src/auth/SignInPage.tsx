@@ -3,6 +3,7 @@ import { LogIn, PlayCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { graphScopes } from "@/auth/msalConfig";
+import { CHOOSE_ACCOUNT_MESSAGE } from "@/auth/activeAccount";
 import { USE_MOCK } from "@/api/config";
 import { resetSessionExpired } from "@/hooks/useSessionExpiry";
 import { Brandmark } from "@/components/brand/Brandmark";
@@ -20,10 +21,13 @@ interface SignInPageProps {
   onDemoBypass?: () => void;
   /**
    * `"expired"` when the user was already signed in and the token went stale —
-   * they're being asked to sign in again, not for the first time. Changes the
-   * wording only; the button does the same thing.
+   * they're being asked to sign in again, not for the first time. `"choose"`
+   * when more than one account is cached on this browser and none has been
+   * chosen (see auth/activeAccount.ts). Both change the wording only; the
+   * button does the same thing, and its `prompt: "select_account"` is what
+   * makes that the right thing in both cases.
    */
-  reason?: "expired";
+  reason?: "expired" | "choose";
   /**
    * Why, when the session ended for something the user must act on — an
    * expired password, an account-risk flag. Shown instead of the generic
@@ -185,6 +189,11 @@ export function SignInPage({ onDemoBypass, reason, detail }: SignInPageProps) {
               <p className="mt-8 max-w-sm text-sm text-fg-muted">
                 Your Microsoft sign-in expired while the tab was idle. Sign in
                 again to pick up where you left off — nothing has been lost.
+              </p>
+            ) : reason === "choose" ? (
+              <p className="mt-8 max-w-sm text-sm text-fg-muted">
+                {CHOOSE_ACCOUNT_MESSAGE} ARC never guesses which one is yours,
+                so everything you do is recorded under the right name.
               </p>
             ) : (
               <p className="mt-8 max-w-sm text-sm text-fg-muted">

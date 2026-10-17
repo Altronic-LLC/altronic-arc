@@ -1,6 +1,7 @@
 import { graphFetch, graphFetchAll, GraphError } from "./graph";
 import { SITES } from "./config";
 import type { GraphListItem } from "@/types/task";
+import { odataString } from "@/lib/odata";
 
 // =============================================================================
 // Shared plumbing for the two Parts List modules (altronicParts.ts and
@@ -95,9 +96,8 @@ export async function patchItem(listId: string, id: number, fields: Record<strin
  * Case-insensitive, like SharePoint's own text comparison.
  */
 export async function titleExists(listId: string, partNumber: string): Promise<boolean> {
-  const value = partNumber.trim().replace(/'/g, "''");
   const res = await graphFetch<{ value: GraphListItem[] }>(
-    `${itemsPath(listId)}?$select=id&$filter=fields/Title eq '${encodeURIComponent(value)}'&$top=1`,
+    `${itemsPath(listId)}?$select=id&$filter=fields/Title eq ${odataString(partNumber.trim())}&$top=1`,
   );
   return (res.value ?? []).length > 0;
 }
@@ -108,9 +108,8 @@ export async function titleExists(listId: string, partNumber: string): Promise<b
  * (reuse that row). Same indexed Title filter as `titleExists`.
  */
 export async function rowsForTitle(listId: string, partNumber: string): Promise<{ id: number; signOffStatus: string }[]> {
-  const value = partNumber.trim().replace(/'/g, "''");
   const res = await graphFetch<{ value: GraphListItem[] }>(
-    `${itemsPath(listId)}?$select=id&$expand=fields($select=Title,SignOffStatus)&$filter=fields/Title eq '${encodeURIComponent(value)}'`,
+    `${itemsPath(listId)}?$select=id&$expand=fields($select=Title,SignOffStatus)&$filter=fields/Title eq ${odataString(partNumber.trim())}`,
   );
   return (res.value ?? []).map((item) => ({
     id: parseInt(item.id, 10),

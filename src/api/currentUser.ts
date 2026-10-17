@@ -1,6 +1,7 @@
 import { graphFetch } from "./graph";
 import { SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
 import { ensureSiteUserLookupId } from "./siteUsers";
+import { odataString } from "@/lib/odata";
 
 // Module-level dedup map. Multiple components (DetailView, CommentComposer,
 // Header) can call useCurrentUser on first page mount, each firing its own
@@ -63,7 +64,7 @@ async function doResolve(email: string): Promise<number> {
   const path =
     `/sites/${SP_SITE_ID}/lists('User Information List')/items?` +
     `$expand=fields($select=Id,EMail,UserName,Title)` +
-    `&$filter=fields/EMail eq '${encodeURIComponent(email)}'` +
+    `&$filter=fields/EMail eq ${odataString(email)}` +
     `&$top=1`;
 
   try {

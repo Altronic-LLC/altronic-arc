@@ -252,8 +252,9 @@ src/
 │
 ├── auth/
 │   ├── msalConfig.ts             Client ID, tenant, redirect URI, scopes
+│   ├── activeAccount.ts          Which cached account ARC may act as (active, or the only one, or nobody)
 │   ├── AuthProvider.tsx          MSAL bootstrap + MsalProvider wrapper
-│   ├── AuthGate.tsx              Blocks the app until signed in; shows SignInPage on expiry
+│   ├── AuthGate.tsx              Blocks the app until signed in AND unambiguous; shows SignInPage on expiry / to choose
 │   └── SignInPage.tsx            Sign-in screen (first sign-in AND re-auth)
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
@@ -604,6 +605,7 @@ src/
 │   ├── grayMarketAlerts.ts      Gray Market intake alert + the testing/engineering/production change alert (pure)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
 │   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
+│   ├── odata.ts                  `odataString()` — the ONE way a string goes into a `$filter`
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
 │   ├── agenda.ts                 My agenda (pure) — whose tasks/EIRs, which dates, the window, LOCAL-day grouping, the badge count
@@ -10547,32 +10549,65 @@ feeds every "who did this" field in the app — went out under Anisha's
 identity instead of her own. Nothing on screen looked wrong; there was no
 error to notice.
 
-The fix, in both `AuthGate.tsx` and `AuthProvider.tsx`: auto-activate ONLY
-when there is **exactly one** cached account. With two or more, activate
-nothing — `useIsAuthenticated()` then reads `false`, `AuthGate` falls
-through to `SignInPage`, and `SignInPage`'s sign-in button asks MSAL for
-`prompt: "select_account"`, forcing Microsoft's own account picker rather
-than ever guessing. A genuine multi-account ambiguity now costs one visible
-click; silently misattributing someone's identity cost nothing visible at
-all, which is the wrong trade to make by default.
+The first fix (2026-09-02), in both `AuthGate.tsx` and `AuthProvider.tsx`:
+auto-activate ONLY when there is **exactly one** cached account. With two or
+more, activate nothing, on the assumption that `useIsAuthenticated()` would
+then read `false` and `AuthGate` would fall through to `SignInPage`.
+
+**That assumption was wrong, and the bug stayed live for six weeks** (found
+by the 2026-10-16 review). Three readers still guessed:
+
+- msal-react's `useIsAuthenticated()` returns `allAccounts.length > 0` — true
+  for ANY cached account, active or not — so `AuthGate` rendered the app
+  anyway with two accounts cached and none chosen.
+- `api/graph.ts` (and `sharepoint.ts`, `fabric.ts`) fell back to
+  `getAllAccounts()[0]` whenever nothing was active, and activated it.
+- `hooks/useCurrentUser.ts` read `msal.accounts[0]` outright and never
+  looked at the active account at all — so even a correct pick in the
+  Microsoft dialog could still be written up under the first cached name.
+
+And `AuthGate.test.tsx` mocked `useIsAuthenticated` to a constant `true`, so
+its two-account test only asserted that `setActiveAccount` wasn't called —
+which was true — and never that the sign-in page appeared, which was false.
+
+**The rule now lives in ONE place, `auth/activeAccount.ts`**:
+`resolveAccount(active, all)` is the active account, or the only cached one,
+or `null`. Every reader uses it:
+
+- `AuthGate` renders the app only when `resolveAccount()` is non-null;
+  otherwise `SignInPage reason="choose"`, whose button asks MSAL for
+  `prompt: "select_account"` — Microsoft's own picker, never a guess.
+- `graph.ts`, `sharepoint.ts` and `fabric.ts` throw their "not signed in"
+  error (with `CHOOSE_ACCOUNT_MESSAGE` when the cause is two accounts)
+  instead of picking one. A single cached account is still activated there,
+  because queries can fire in the same commit as the sign-in, before
+  `AuthGate`'s effect has activated it.
+- `useCurrentUser`, `useMyIdentity` and `useCurrentUserEmails` share
+  `useSignedInAccount()`, keyed on the account id because MSAL hands back a
+  fresh `AccountInfo` object from every `getActiveAccount()` call.
+
+A genuine multi-account ambiguity costs one visible click; silently
+misattributing someone's identity cost nothing visible at all, which is the
+wrong trade to make by default.
 
 Three things about this fix:
 
-- **It's duplicated in two files on purpose**, same as it was duplicated
-  before the fix — `AuthGate` runs on every render while MSAL is settling,
-  `AuthProvider` runs once at boot before `AuthGate` ever mounts. Fixing
-  only one would leave the other race still open.
 - **This is not specific to Gray Market Requests.** `useCurrentUser()` feeds
   every "who did this" field across the whole app — Requestor, Assigned,
   Watchers auto-add, comment authorship, every intake alert's actor
   exclusion. The bug reached Gray Market Requests because that's where it
   happened to be noticed first.
-- **Pinned in `AuthGate.test.tsx`**, not `AuthProvider.test.tsx` — the
-  latter constructs a real `PublicClientApplication` and has no existing
-  test harness to extend proportionately for one duplicated condition;
-  `AuthGate`'s coverage of the same one-line guard stands in for both.
-  Verified by reintroducing the bug (`accounts.length > 0`) and confirming
-  the "does NOT auto-pick... when MORE THAN ONE is cached" test fails.
+- **Pinned at every layer**, because the first fix was pinned at one and the
+  others drifted: `activeAccount.test.ts` (the rule), `AuthGate.test.tsx`
+  (two cached + none active shows the picker, with `isAuthenticated` mocked
+  to the `true` msal-react really reports), `graph.interactive.test.ts`
+  (two cached + none active rejects, never `setActiveAccount`), and
+  `useCurrentUser.test.tsx` (the active account wins over `accounts[0]`).
+- **A test that mocks the thing under test proves nothing.** The original
+  two-account test passed for six weeks over a live bug because the mock, not
+  the code, decided what `isAuthenticated` was. When a guard depends on a
+  library's answer, assert what the USER sees, not which internal call
+  happened.
 
 ### The header's Refresh button refetches; it does NOT reload
 

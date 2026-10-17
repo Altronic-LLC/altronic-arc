@@ -1,0 +1,53 @@
+name: Checks
+
+# Runs on every pull request so a red suite is caught BEFORE it reaches main.
+# deploy.yml still runs the same tests after merge and still gates the deploy;
+# the difference is that a failure there blocks every deploy until main is
+# fixed, whereas a failure here only blocks the one PR that caused it.
+#
+# Make this a REQUIRED status check in the branch protection rules for main
+# (Settings → Branches → main → "Require status checks to pass" → "Checks /
+# verify"), or it is advisory only.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new push to the same PR cancels the run for the previous push.
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Changelog and version.json agree
+        # The footer version (top CHANGELOG entry) and the deploy-detection
+        # signal must match — see CLAUDE.md, "Changelog protocol". Drift means
+        # everyone on the new build sees a spurious "new version" banner.
+        run: |
+          top=$(grep -m1 -oE 'version: "[0-9]+\.[0-9]+\.[0-9]+"' src/data/changelog.ts | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          pub=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' public/version.json)
+          echo "changelog=$top version.json=$pub"
+          test "$top" = "$pub"

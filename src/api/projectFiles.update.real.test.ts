@@ -21,7 +21,13 @@ vi.mock("./graph", () => {
       super(`Graph ${status} ${statusText} at ${url}: ${body}`);
     }
   }
-  return { graphFetch, graphFetchAll: vi.fn(), GraphError };
+  // The siblings read is paged (graphFetchAll) so it can't miss a folder past
+  // the first page; here it walks the same mock as the single-page call.
+  const graphFetchAll = vi.fn(async (url: string) => {
+    const page = (await graphFetch(url)) as { value?: unknown[] } | undefined;
+    return page?.value ?? [];
+  });
+  return { graphFetch, graphFetchAll, GraphError };
 });
 
 vi.mock("./config", async (importOriginal) => {

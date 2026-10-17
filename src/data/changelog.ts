@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.191.2",
+    date: "2026-10-16",
+    changes: [
+      "On a browser where more than one person has signed in, ARC now asks which account is yours instead of picking one — so nothing is recorded under someone else's name",
+      "Creating or moving a Project Folder now checks every existing folder, not just the first thousand",
+      "Part-number lookups and the sign-in user lookup handle an apostrophe in the value correctly",
+    ],
+  },
+  {
     version: "0.191.1",
     date: "2026-10-16",
     changes: [
