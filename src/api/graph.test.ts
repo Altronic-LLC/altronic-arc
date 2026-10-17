@@ -1,5 +1,38 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { decodeJwtClaims, fetchWithRetry, parseRetryAfterMs, retryDelayMs } from "./graph";
+import {
+  decodeJwtClaims,
+  describeRequestBody,
+  fetchWithRetry,
+  parseRetryAfterMs,
+  retryDelayMs,
+} from "./graph";
+
+// The failure log is forwarded by the "Notify app manager" e-mail, so it must
+// name what was sent without carrying any of it (SEC-10).
+describe("describeRequestBody", () => {
+  it("names a list write's columns without their values", () => {
+    const out = describeRequestBody(
+      JSON.stringify({ fields: { Title: "Secret customer", Price: 1234.5, AssignedToLookupId: 7 } }),
+    );
+    expect(out).toBe("fields.{Title,Price,AssignedToLookupId}");
+    expect(out).not.toContain("Secret customer");
+    expect(out).not.toContain("1234");
+  });
+
+  it("names top-level keys and one level of nesting", () => {
+    expect(
+      describeRequestBody(JSON.stringify({ message: { subject: "s", body: {} }, saveToSentItems: false })),
+    ).toBe("message.{subject,body}, saveToSentItems");
+  });
+
+  it("describes non-object bodies by type and size only", () => {
+    expect(describeRequestBody(undefined)).toBe("(none)");
+    expect(describeRequestBody("not json at all")).toBe("(text, 15 chars)");
+    expect(describeRequestBody(JSON.stringify(["a", "b"]))).toBe("(array)");
+    expect(describeRequestBody(JSON.stringify({}))).toBe("(empty object)");
+    expect(describeRequestBody(new Blob(["x"]))).toBe("(non-string body)");
+  });
+});
 
 // Build a fake JWT payload-only token. Header and signature don't matter for
 // the decoder — it only looks at the middle segment.

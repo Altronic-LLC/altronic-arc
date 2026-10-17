@@ -326,9 +326,17 @@ script exists; until then, copy the lines.
 12. **Logs carry no PII.** A new `console.*` in `src/` names field names and
     ids, not request bodies or people. The `errorBuffer` → "Notify app
     manager" e-mail forwards console output, so a console line can end up in
-    somebody's inbox.
+    somebody's inbox. To log what a request sent, use `describeRequestBody()`
+    from `api/graph.ts` — it gives the field names and never the values.
 
-13. **A test never mocks the thing it guards.** The two-account AuthGate test
+13. **Deploys only move forward.** `deploy.yml`'s first step refuses to
+    publish a version lower than the one live, because Pages serves whichever
+    deploy finished last and re-running an old green run used to roll the site
+    back silently. An intentional rollback is a manual run with `ref` set to
+    the known-good commit and `allow_rollback` ticked. A red run on a commit
+    that has since been superseded is history: don't re-run it.
+
+14. **A test never mocks the thing it guards.** The two-account AuthGate test
     passed for six weeks over a live bug because it mocked
     `useIsAuthenticated`. Assert what the user sees. Pin the clock
     (`vi.setSystemTime`) in anything that derives a year or a date. A slow
@@ -386,9 +394,9 @@ Stable IDs; cite them in commit messages when closing one.
 - **CQ-01** no ESLint/Prettier despite `eslint-disable` comments — add, with `react-hooks` and `@typescript-eslint`, into `pr.yml`
 - **DEP-01** framework majors (react-router 7 first — the only production advisory — then vite 8 + vitest 5, tailwind 4, msal 5, React 19)
 - **DEP-02** `qz-tray` LGPL-2.1 — legal confirmation that the separate chunk satisfies it
-- **TEST-03** coverage is claimed at 100 % and measured nowhere; `usePanelRoles`, `usePartsRoles`, `openOrdersRoles`, `msalConfig` untested
-- **Process** (2026-10-17) auto-merge and delete-branch-on-merge are ON; "require status checks" is ON but the required-checks list is still EMPTY — add `verify` (from the Checks workflow) or the gate is advisory; `enforce_admins` left off by choice while the team is two people; one required review still means the author's second account or the other person approves
-- **OPS-05** deploys can go backwards: re-running an old *successful* deploy republishes that old build and Pages serves whichever deploy finished last (happened 2026-10-17, 80 minutes on 0.191.2 while main said 0.191.3). Add a `deploy.yml` step that reads the live `version.json` and fails if the version about to publish is lower, with an `allow_rollback` input for the intentional case. Until then: only ever re-run the LATEST green deploy, or use `workflow_dispatch` with a `ref`
+- **TEST-03** coverage is claimed at 100 % and measured nowhere — run it once, publish the number, ratchet thresholds
+- **ARCH-05** `api/email.ts` imports the UI toast; moving it out means rewriting the ten tests that assert email-failure toasts through that mock
+- **Process** (2026-10-17) `verify` (Checks workflow, GitHub Actions app) is a REQUIRED status check on `main`, branches must be up to date, auto-merge and delete-branch-on-merge are ON. Still open by choice: `enforce_admins` is off, so an admin merge can bypass the check while the team is two people; one required review means the author's second account or the other person approves. Revisit both when a third contributor joins
 
 ## File-by-file overview
 

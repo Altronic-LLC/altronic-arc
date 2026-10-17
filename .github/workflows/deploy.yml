@@ -12,6 +12,13 @@ on:
         description: "Commit SHA or tag to deploy (blank = this branch's head)"
         required: false
         default: ""
+      allow_rollback:
+        # Deploys only move forward unless this is ticked — see the
+        # "Refuse to go backwards" step below.
+        description: "Allow publishing a LOWER version than the one live (an intentional rollback)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -33,6 +40,40 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+
+      - name: Refuse to go backwards
+        # GitHub Pages serves whichever deploy FINISHED last. Re-running an old
+        # successful run republishes that old build over anything newer, and the
+        # in-app update banner can't warn anyone because version.json goes back
+        # with it. That happened on 2026-10-17: a re-run put 0.191.2 live for 80
+        # minutes while main was on 0.191.3 (review finding OPS-05).
+        #
+        # So: compare the version this commit would publish with the one live,
+        # and stop if it is LOWER. Equal is fine (docs-only commits keep the
+        # version). An intentional rollback ticks `allow_rollback` on a manual
+        # run. Runs before install and tests, so a refused run fails in seconds.
+        # If the live file can't be read (first deploy, Pages down), it warns
+        # and carries on rather than blocking a deploy on an outage.
+        env:
+          ALLOW_ROLLBACK: ${{ inputs.allow_rollback || false }}
+          LIVE_URL: https://altronic-llc.github.io/altronic-arc/version.json
+        run: |
+          next=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' public/version.json)
+          live=$(curl -fsS --max-time 15 "$LIVE_URL?cb=$GITHUB_RUN_ID" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          echo "live=${live:-unknown} next=$next allow_rollback=$ALLOW_ROLLBACK"
+          if [ -z "$live" ]; then
+            echo "::warning::Couldn't read the live version.json; skipping the forward-only check."
+            exit 0
+          fi
+          lowest=$(printf '%s\n%s\n' "$live" "$next" | sort -V | head -n1)
+          if [ "$next" != "$live" ] && [ "$lowest" = "$next" ]; then
+            if [ "$ALLOW_ROLLBACK" = "true" ]; then
+              echo "::warning::Rolling back from $live to $next (allow_rollback was set)."
+            else
+              echo "::error::This run would publish $next over the live $live. If that is an intentional rollback, run 'Deploy to GitHub Pages' by hand with allow_rollback ticked. Otherwise re-run the LATEST green deploy instead."
+              exit 1
+            fi
+          fi
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:

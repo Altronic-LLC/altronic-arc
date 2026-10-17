@@ -93,24 +93,36 @@ function persistUnseen(ids: Set<string>) {
   }
 }
 
+/**
+ * The only shape the scanner reads from any item list: an id, and comments
+ * carrying their HTML. Every department's item type satisfies it, so the
+ * lists are passed as they are, with no `any` and no casts (CQ-03).
+ */
+interface MentionScannable {
+  id: number | string;
+  comments?: ReadonlyArray<{ bodyHtml: string }> | null;
+}
+
+type ScannableList = ReadonlyArray<MentionScannable> | undefined;
+
 function checkForMentions(
-  tasks: any[] | undefined,
-  eirs: any[] | undefined,
-  operationsTasks: any[] | undefined,
-  buildRequests: any[] | undefined,
-  buildRequestItems: any[] | undefined,
-  panelOrders: any[] | undefined,
-  panelTasks: any[] | undefined,
+  tasks: ScannableList,
+  eirs: ScannableList,
+  operationsTasks: ScannableList,
+  buildRequests: ScannableList,
+  buildRequestItems: ScannableList,
+  panelOrders: ScannableList,
+  panelTasks: ScannableList,
   userEmail: string | undefined,
 ): Set<UnseenMentionId> {
   if (!userEmail) return new Set();
 
   const mentioned = new Set<UnseenMentionId>();
 
-  const scan = (items: any[] | undefined, prefix: string) => {
+  const scan = (items: ScannableList, prefix: string) => {
     if (!Array.isArray(items)) return;
     for (const item of items) {
-      if (Array.isArray(item.comments) && isUserMentionedInComments(item.comments, userEmail)) {
+      if (Array.isArray(item.comments) && isUserMentionedInComments([...item.comments], userEmail)) {
         mentioned.add(`${prefix}:${item.id}` as UnseenMentionId);
       }
     }
