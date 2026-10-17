@@ -19,7 +19,8 @@ CONTEXT
 - Purpose of the system: ARC (Altronic Resource Center) — one web app, behind one Microsoft sign-in, that replaces per-department Power Apps / Power Automate / SharePoint views for every Altronic department (Engineering, Panels, Operations, Coils, QC, Supply Chain, Sales). ~120 screens over ~93 SharePoint lists on 7 sites.
 - Stack: React 18 + Vite + TypeScript SPA on GitHub Pages; MSAL.js (Entra ID, PKCE); Microsoft Graph v1.0 with Sites.Selected for all data, SharePoint REST (AllSites.Manage) for attachments, Fabric API for GraphQL (read-only SAP cost); TanStack Query; Vitest + RTL. NO backend of ARC's own; Power Automate flows (owned outside the repo) handle guest notifications and a few column updates.
 - Deployment context: internal tool for ~200 staff. Public repository. Handles employee PII, customer/supplier names, part numbers and pricing (business-sensitive; the Pricing lists have unique SharePoint permissions). Not regulated, no payments.
-- Team size and maturity: effectively one maintainer (Ray White) plus one regular contributor (Tim Webster); no dedicated security review; CLAUDE.md is the working manual and must stay current.
+- Team size and maturity: two contributors, Ray White (maintainer) and Tim Webster; no dedicated security review; CLAUDE.md is the working manual and must stay current, including its "Corporate IT architecture and security policies" section — check the code against every policy loaded there.
+- Accepted by the business, do not report as findings: occasional duplicate sequence numbers (client-side numbering), 2026-10-17.
 - Anything I already know is a problem: [fill in — open items from the previous report's section H and the BACKLOG review item]
 
 RULES

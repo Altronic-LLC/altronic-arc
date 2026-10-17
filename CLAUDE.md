@@ -252,6 +252,29 @@ world, anything in a `VITE_*` variable ends up in the bundle, and the only
 thing standing between a user and the data is SharePoint's own permission on
 the list — never a check the client makes.
 
+Contributors: **Ray White** (maintainer) and **Tim Webster**.
+
+### Corporate IT architecture and security policies
+
+ARC is built with Claude Code reading this file, which means a policy written
+here is applied to every future change automatically, not remembered by
+whoever happens to be working. That is how ARC is kept aligned with the
+company's IT architecture and security standards as they are handed down.
+
+**How to load a policy:** add it below as its own `####` entry with the issuing
+body, the document name or link, the date, and the rule itself in plain
+words — quote the binding sentence where there is one. Add the grep or check
+that proves compliance when one exists, the way the invariants below do.
+
+**Precedence:** a policy in this section outranks every other rule in this
+file, every convenience, and every earlier decision recorded under "Decisions
+on record". When a requested change would break one, stop and say so in the
+PR or the conversation, naming the policy, instead of working around it. When
+a new policy conflicts with existing code, list the conflict under "Findings
+carried open" with an ID so it is tracked to closure.
+
+_No corporate policies have been loaded yet._
+
 ### The invariants
 
 Each rule has a grep. Run the whole set with `npm run standards` once that
@@ -288,12 +311,13 @@ script exists; until then, copy the lines.
    `graphFetch` with `$top=`: a single page silently drops everything past it.
    `grep -rnE -B2 '\$top=(999|500|200)' src/api --include=*.ts | grep "graphFetch<" | grep -v All` → must be empty. (`$top=1` existence checks are the one legitimate single-page read.)
 
-7. **No client-side sequence numbers for a new list.** `length + 1` and
-   `max + 1` over a cached list duplicate under concurrency and after deletes.
-   Until a shared `allocateNumber()` exists, copy the EIR pattern
-   (`lib/eirNumber.ts` + `api/eirs.ts`: fresh read at save, verify the written
-   number, renumber on collision) AND set *Enforce unique values* on the
-   number column in SharePoint so the server rejects the loser.
+7. **Sequence numbers: prefer the EIR pattern for a new list.** Numbers are
+   computed in the browser, and `length + 1` / `max + 1` over a cached list can
+   duplicate under concurrency or after deletes. **The business has accepted
+   occasional duplicates for now (2026-10-17)**, so this is guidance, not a
+   gate: for a NEW numbered list, use the EIR pattern (`lib/eirNumber.ts` +
+   `api/eirs.ts`: fresh read at save, verify the written number, renumber on
+   collision), which costs little and avoids most of them.
 
 8. **No new names or addresses in `src/`.** Notification recipients come from
    the Admin → Notification recipients lists or a `VITE_*` variable (and that
@@ -352,7 +376,8 @@ Paste into the PR description and tick each line.
 - [ ] Every `$filter` string uses `odataString()`; every list read pages; every rendered HTML goes through `sanitiseHtml()`
 - [ ] No `accounts[0]`; identity through `useCurrentUser` / `resolveAccount`
 - [ ] No new hardcoded people, customers or secrets in `src/`; nothing described as "security" that the client enforces
-- [ ] New number column: EIR allocation pattern + *Enforce unique values* in SharePoint
+- [ ] New number column: EIR allocation pattern (duplicates are accepted, but this keeps them rare)
+- [ ] Nothing in the change conflicts with a loaded corporate policy (see "Corporate IT architecture and security policies")
 - [ ] New dependency: licence and maintenance checked; lazy-loaded if heavy
 - [ ] Tests for the change; none mock what they assert; `npm run typecheck`, `npm test`, `npm run build` pass locally (or the PR's `Checks` run is green)
 - [ ] CLAUDE.md updated if a rule was learned, a decision was made, or a file was added or removed
@@ -364,13 +389,13 @@ make us revisit them. A new entry here is itself a `docs:` PR.
 
 | Decision | Status | Revisit when |
 |---|---|---|
-| **SharePoint is the database; ARC has no backend.** Graph `Sites.Selected` per site, SP REST for attachments, Power Automate for anything that must run without a user. Zero infrastructure, tenant-native permissions/versioning/backup, non-developers can edit lists and views. Cost: no transactions, no server-side rules, no secrets, no scheduled code, 5,000-item threshold, client-side numbering. | Active (2025) | Any list needs a *second* server-side rule beyond uniqueness; a third numbering race ships; a list passes ~20,000 rows and needs filtering; an audit-log, retention or field-level-security requirement arrives; or a scheduled job can't be expressed in Power Automate. The first backend is a small Azure Function for number allocation, mail policy and scheduled notifications — not a rewrite. See the 2026-10-16 architecture assessment (private artifact, linked from BACKLOG). |
+| **SharePoint is the database; ARC has no backend.** Graph `Sites.Selected` per site, SP REST for attachments, Power Automate for anything that must run without a user. Zero infrastructure, tenant-native permissions/versioning/backup, non-developers can edit lists and views. Cost: no transactions, no server-side rules, no secrets, no scheduled code, 5,000-item threshold, client-side numbering. | Active (2025) | A list needs a server-side rule that SharePoint permissions can't express; a list passes ~20,000 rows and needs filtering; an audit-log, retention or field-level-security requirement arrives; a scheduled job can't be expressed in Power Automate; or a loaded corporate policy requires a server. The first backend is a small serverless function for mail policy, scheduled notifications and signing — not a rewrite. See the 2026-10-16 architecture assessment (private artifact, linked from BACKLOG). |
 | **`Sites.Selected`, granted per site collection.** Narrowest Graph scope; an admin grants each site once. | Active | A feature needs a site the admin won't grant, or tenant-wide search. |
 | **MSAL cache in `localStorage`.** Users stay signed in across restarts. Shared PCs are handled by `resolveAccount()` + the picker, not by the cache location. | Active (2026-09-02, re-fixed 2026-10-16) | Kiosk builds could switch to `sessionStorage`; a token-theft incident would force it everywhere. |
 | **QZ Tray signing key embedded in the public bundle.** Self-signed cert, trusted only on machines Cooper configures; the alternative was a signing endpoint. | **Accepted risk** (Ray, 2026-09-09) | A backend exists anyway (move signing there), or the cert is ever trusted outside kiosk machines. |
 | **Notifications are sent as the shared mailbox using each user's own token** (`Mail.Send.Shared`, Send-As per user). | Active, with a known gap | Send-As should move to a security group (BACKLOG #1); an Exchange transport rule should limit the mailbox to internal recipients. A backend would replace this with a service identity. |
 | **Public repository.** Lets GitHub Pages host for free on the current plan. Exposes code, staff addresses in `config.ts`, fixture data and incident notes. | **Deferred** (2026-10-17): not ready to change hosting, so the repo stays public and the fix is the **scrub route** — recipients to the Admin → Notification recipients lists with env fallbacks only, synthetic people and customers in every mock fixture, incident narratives out of this file, `scripts/data/*.csv` reviewed. | Hosting is revisited (Vercel or Azure Static Web Apps, both deploy from a private repo), or a second leak class appears. |
-| **Numbers are allocated in the client.** Tolerated with the EIR pattern; to be replaced by `allocateNumber()` + *Enforce unique values*. | Tolerated (ARCH-01) | The next duplicate number, or the next new numbered list. |
+| **Numbers are allocated in the client.** Occasional duplicates are possible under concurrency or after deletes; the EIR pattern keeps them rare. | **Accepted by the business** (2026-10-17) | The business decides duplicates are no longer acceptable on a list; the fix then is a Counters list updated with `If-Match`, or a server-side allocator. |
 | **Guests and scheduled sends go through Power Automate, not ARC.** | Active (2026-09-23) | A flow needs ARC's business rules (then it belongs in a backend ARC owns). |
 
 ### Audit cadence
@@ -388,7 +413,6 @@ Stable IDs; cite them in commit messages when closing one.
 - **SEC-02** QZ key in the bundle — accepted, recorded above
 - **SEC-04** shared-mailbox Send-As is per user and unaudited — group grant + transport rule (IT)
 - **SEC-06** no Content-Security-Policy (`<meta>` CSP is possible on Pages; needs browser testing against QZ `wss://`, Fabric, mermaid)
-- **ARCH-01** `allocateNumber()` + *Enforce unique values* across every numbered list
 - **ARCH-02** mock fixtures ship in the production bundle — lazy-load them behind `USE_MOCK`
 - **ARCH-03 / ARCH-04** `types/task.ts`, `App.tsx`, `config.ts`, `email.ts`, `ManualView.tsx` and eight hooks over 600 lines want splitting
 - **CQ-01** no ESLint/Prettier despite `eslint-disable` comments — add, with `react-hooks` and `@typescript-eslint`, into `pr.yml`

@@ -17,11 +17,13 @@ needs detail, add a sub-bullet underneath it.
   private artifact: <https://claude.ai/artifact/DgFS3a2w9fxn6jFUNgFpVi>.
   The open IDs and their one-line meanings are listed in CLAUDE.md under
   **Engineering standards → Findings carried open**; cite the ID in the
-  commit that closes one. First three, in order: make `Checks / verify` a
-  required status check (process), decide the public-repo question
-  (SEC-03), `allocateNumber()` + *Enforce unique values* (ARCH-01). Re-run
-  `docs/reviews/REVIEW-PROMPT.md` in January 2027 or after any auth,
-  permission or numbering change.
+  commit that closes one. First three, in order: scrub the public
+  repository (SEC-03), shared-mailbox Send-As by security group (SEC-04,
+  IT), react-router 7 (SEC-09 / DEP-01). Load corporate IT architecture and
+  security policies into CLAUDE.md as they arrive. Duplicate sequence numbers
+  are accepted by the business for now. Re-run
+  `docs/reviews/REVIEW-PROMPT.md` in January 2027 or after any auth or
+  permission change.
 
 - **Grant shared-mailbox access automatically for new starters.** Every
   new Altronic employee who will use ARC has to be added to
