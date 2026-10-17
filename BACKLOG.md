@@ -12,6 +12,17 @@ needs detail, add a sub-bullet underneath it.
 
 ## Next up
 
+- **Work through the 2026-10-16 audit's open findings.** The report (full
+  audit, post-fix update and the SharePoint-as-backend assessment) is a
+  private artifact: <https://claude.ai/artifact/DgFS3a2w9fxn6jFUNgFpVi>.
+  The open IDs and their one-line meanings are listed in CLAUDE.md under
+  **Engineering standards → Findings carried open**; cite the ID in the
+  commit that closes one. First three, in order: make `Checks / verify` a
+  required status check (process), decide the public-repo question
+  (SEC-03), `allocateNumber()` + *Enforce unique values* (ARCH-01). Re-run
+  `docs/reviews/REVIEW-PROMPT.md` in January 2027 or after any auth,
+  permission or numbering change.
+
 - **Grant shared-mailbox access automatically for new starters.** Every
   new Altronic employee who will use ARC has to be added to
   `automation@altronic-llc.com` by hand (Send-As + FullAccess — see the
