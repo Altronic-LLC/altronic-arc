@@ -1,5 +1,6 @@
 import { useState, type MouseEvent } from "react";
-import { CircleCheck, CircleDot, ExternalLink, Github, Loader2, Plus } from "lucide-react";
+import { CircleCheck, CircleDot, ExternalLink, Loader2, Plus } from "lucide-react";
+import { GitHubMark } from "@/components/GitHubMark";
 import { BUSINESS_IT_PROJECT_URL, BUSINESS_IT_REPO, USE_MOCK } from "@/api/config";
 import {
   findLinkedIssue,
@@ -41,7 +42,7 @@ export function GitHubConnectBar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-fg">
-      <Github className="h-4 w-4 shrink-0 text-fg-muted" />
+      <GitHubMark className="h-4 w-4 shrink-0 text-fg-muted" />
       <span className="min-w-0 flex-1">
         {status === "disconnected" && (
           <>
