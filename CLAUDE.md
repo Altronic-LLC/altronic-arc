@@ -237,6 +237,158 @@ The footer reads `CURRENT_VERSION` automatically, so the two places you
 change the version are the top entry of `CHANGELOG` and `public/version.json`
 — and they must always match.
 
+## Engineering standards — compliance checklist (read before any feature)
+
+ARC had a full architecture, security and engineering-standards audit on
+2026-10-16 (`docs/reviews/`). This section is the standing contract that came
+out of it: the invariants the codebase is now known to satisfy, how to prove
+each one in ten seconds, and the checklist a PR must pass. Every rule here is
+either a bug that shipped or a weakness the audit found — the "why" is kept
+short because the long form is in **Cross-cutting rules** further down.
+
+The repository is **public** and ARC has **no backend of its own**. Those two
+facts drive most of the rules below: anything in `src/` is readable by the
+world, anything in a `VITE_*` variable ends up in the bundle, and the only
+thing standing between a user and the data is SharePoint's own permission on
+the list — never a check the client makes.
+
+### The invariants
+
+Each rule has a grep. Run the whole set with `npm run standards` once that
+script exists; until then, copy the lines.
+
+1. **Identity comes from `resolveAccount()`, never from `accounts[0]`.**
+   `auth/activeAccount.ts` is the one rule (active account, or the only cached
+   one, or nobody). Reading `accounts[0]` / `getAllAccounts()[0]` is how a
+   colleague's cached account got attached to someone else's writes on a
+   shared PC — twice.
+   `grep -rnE "accounts\[0\]|getAllAccounts\(\)\[0\]" src --include=*.ts --include=*.tsx | grep -v test | grep -vE ":\s*(//|/?\*)" | grep -v accountNumber` → exactly three lines, all `instance.setActiveAccount(accounts[0])` inside an `accounts.length === 1` guard (`AuthGate.tsx`, `AuthProvider.tsx` ×2).
+
+2. **SharePoint permission is the boundary. UI gating is navigation.** A role
+   list, a `RequireAdmin`, a hidden button or a `can*` predicate decides what
+   someone *sees*; what they can *do* is decided by the list's permissions in
+   SharePoint, which a modified client cannot change. So: a sensitive list gets
+   unique permissions in SharePoint (the Pricing lists are the model), and
+   nothing in the client is described, in code or in the manual, as "security".
+
+3. **Nothing secret in the bundle.** `VITE_*` is public by construction. No
+   API keys, flow URLs with `sig=`, PATs or client secrets — per-user tokens
+   (MSAL, the GitHub PAT) stay in the user's browser. The ONE exception is the
+   QZ Tray signing key, an accepted decision (see "Decisions on record").
+
+4. **Every string in a `$filter` goes through `odataString()`.**
+   `lib/odata.ts` quotes, doubles embedded `'` and percent-encodes.
+   `encodeURIComponent` alone leaves `'` in place and ends the literal early.
+   `grep -rnE "\\\$filter=[^\`]*eq '" src/api --include=*.ts | grep -v test` → must be empty.
+
+5. **Every `dangerouslySetInnerHTML` goes through `sanitiseHtml()`.**
+   `grep -rn -A1 dangerouslySetInnerHTML src --include=*.tsx | grep -v test | grep "__html" | grep -v sanitiseHtml` → must be empty (the `__html:` line, same line or the next, is where the call sits).
+
+6. **List reads page.** `graphFetchAll` / `graphFetchAllScoped`, never a bare
+   `graphFetch` with `$top=`: a single page silently drops everything past it.
+   `grep -rnE -B2 '\$top=(999|500|200)' src/api --include=*.ts | grep "graphFetch<" | grep -v All` → must be empty. (`$top=1` existence checks are the one legitimate single-page read.)
+
+7. **No client-side sequence numbers for a new list.** `length + 1` and
+   `max + 1` over a cached list duplicate under concurrency and after deletes.
+   Until a shared `allocateNumber()` exists, copy the EIR pattern
+   (`lib/eirNumber.ts` + `api/eirs.ts`: fresh read at save, verify the written
+   number, renumber on collision) AND set *Enforce unique values* on the
+   number column in SharePoint so the server rejects the loser.
+
+8. **No new names or addresses in `src/`.** Notification recipients come from
+   the Admin → Notification recipients lists or a `VITE_*` variable (and that
+   variable is added to `deploy.yml`'s named list). Mock people are synthetic.
+   Mock customers, contacts and phone numbers are invented, not "shaped after
+   the real rows". The existing hardcoded recipient defaults in `api/config.ts`
+   are a carried finding (SEC-03), not a pattern to extend.
+
+9. **Layering holds.** `lib/` imports nothing from `api/`, `hooks/`,
+   `components/` or `views/` (types excepted). `api/` imports nothing from
+   `hooks/`, `components/` or `views/`. A new list is `api/<list>.ts` (mock
+   branch + real branch) → `hooks/use<List>.ts` → `views/`.
+   `grep -rnE 'from "@/(api|hooks|components|views)/' src/lib --include=*.ts | grep -v test | grep -v "import type"` → empty, and
+   `grep -rnE 'from "@/(hooks|components|views)/' src/api --include=*.ts | grep -v test | grep -v "import type"` → only `api/email.ts`'s `pushToast` import (the known exception, ARCH-05) until it is removed.
+
+10. **The PR is green before it is reviewed.** `.github/workflows/pr.yml`
+    (typecheck, full suite, changelog ↔ `version.json` agreement) must pass;
+    it is meant to be a required status check on `main`. The changelog
+    protocol above applies; `package.json`'s version follows the changelog.
+    Check `origin/main`'s top changelog entry before numbering — two releases
+    on one day collide.
+
+11. **Supply chain.** Actions are pinned to commit SHAs with the tag in a
+    trailing comment; Dependabot (`.github/dependabot.yml`) bumps both. A new
+    dependency is checked for licence (nothing GPL/LGPL/AGPL unless isolated
+    in its own chunk and reviewed — `qz-tray` is the one case) and for a
+    release in the last 18 months; prefer a platform API (Web Crypto, `fetch`,
+    `Intl`) to a package.
+
+12. **Logs carry no PII.** A new `console.*` in `src/` names field names and
+    ids, not request bodies or people. The `errorBuffer` → "Notify app
+    manager" e-mail forwards console output, so a console line can end up in
+    somebody's inbox.
+
+13. **A test never mocks the thing it guards.** The two-account AuthGate test
+    passed for six weeks over a live bug because it mocked
+    `useIsAuthenticated`. Assert what the user sees. Pin the clock
+    (`vi.setSystemTime`) in anything that derives a year or a date. A slow
+    render is fixed, not given a longer timeout.
+
+### Per-PR checklist
+
+Paste into the PR description and tick each line.
+
+- [ ] Changelog entry at the top of `src/data/changelog.ts`, same version in `public/version.json` and `package.json`, same bullets in the commit message (or `chore:` / `docs:` with none, for zero-behaviour changes)
+- [ ] New `VITE_*` variable → added to `deploy.yml`'s named list and documented in `.env.example`
+- [ ] New list → `api/` with mock + real branches, `hooks/`, `views/`; sorting and column filters on any table; the file-by-file overview, About diagrams and User Manual updated
+- [ ] Every `$filter` string uses `odataString()`; every list read pages; every rendered HTML goes through `sanitiseHtml()`
+- [ ] No `accounts[0]`; identity through `useCurrentUser` / `resolveAccount`
+- [ ] No new hardcoded people, customers or secrets in `src/`; nothing described as "security" that the client enforces
+- [ ] New number column: EIR allocation pattern + *Enforce unique values* in SharePoint
+- [ ] New dependency: licence and maintenance checked; lazy-loaded if heavy
+- [ ] Tests for the change; none mock what they assert; `npm run typecheck`, `npm test`, `npm run build` pass locally (or the PR's `Checks` run is green)
+- [ ] CLAUDE.md updated if a rule was learned, a decision was made, or a file was added or removed
+
+### Decisions on record
+
+The architecture decisions that shape ARC, their status, and what would
+make us revisit them. A new entry here is itself a `docs:` PR.
+
+| Decision | Status | Revisit when |
+|---|---|---|
+| **SharePoint is the database; ARC has no backend.** Graph `Sites.Selected` per site, SP REST for attachments, Power Automate for anything that must run without a user. Zero infrastructure, tenant-native permissions/versioning/backup, non-developers can edit lists and views. Cost: no transactions, no server-side rules, no secrets, no scheduled code, 5,000-item threshold, client-side numbering. | Active (2025) | Any list needs a *second* server-side rule beyond uniqueness; a third numbering race ships; a list passes ~20,000 rows and needs filtering; an audit-log, retention or field-level-security requirement arrives; or a scheduled job can't be expressed in Power Automate. The first backend is a small Azure Function for number allocation, mail policy and scheduled notifications — not a rewrite. See the 2026-10-16 architecture assessment (private artifact, linked from BACKLOG). |
+| **`Sites.Selected`, granted per site collection.** Narrowest Graph scope; an admin grants each site once. | Active | A feature needs a site the admin won't grant, or tenant-wide search. |
+| **MSAL cache in `localStorage`.** Users stay signed in across restarts. Shared PCs are handled by `resolveAccount()` + the picker, not by the cache location. | Active (2026-09-02, re-fixed 2026-10-16) | Kiosk builds could switch to `sessionStorage`; a token-theft incident would force it everywhere. |
+| **QZ Tray signing key embedded in the public bundle.** Self-signed cert, trusted only on machines Cooper configures; the alternative was a signing endpoint. | **Accepted risk** (Ray, 2026-09-09) | A backend exists anyway (move signing there), or the cert is ever trusted outside kiosk machines. |
+| **Notifications are sent as the shared mailbox using each user's own token** (`Mail.Send.Shared`, Send-As per user). | Active, with a known gap | Send-As should move to a security group (BACKLOG #1); an Exchange transport rule should limit the mailbox to internal recipients. A backend would replace this with a service identity. |
+| **Public repository.** Lets GitHub Pages host for free on the current plan. Exposes code, staff addresses in `config.ts`, fixture data and incident notes. | **Open decision** (SEC-03, 2026-10-16) | Decide: private repo (needs a plan that allows Pages), or scrub (recipients to lists, synthetic fixtures, incident notes out of CLAUDE.md). |
+| **Numbers are allocated in the client.** Tolerated with the EIR pattern; to be replaced by `allocateNumber()` + *Enforce unique values*. | Tolerated (ARCH-01) | The next duplicate number, or the next new numbered list. |
+| **Guests and scheduled sends go through Power Automate, not ARC.** | Active (2026-09-23) | A flow needs ARC's business rules (then it belongs in a backend ARC owns). |
+
+### Audit cadence
+
+`docs/reviews/README.md` has the table: every PR (`Checks`), every feature
+(this checklist), weekly (Dependabot), quarterly and after any auth,
+permission or numbering change (re-run `docs/reviews/REVIEW-PROMPT.md`).
+Reports are private and are **not** committed — this is a public repo.
+
+### Findings carried open from the 2026-10-16 audit
+
+Stable IDs; cite them in commit messages when closing one.
+
+- **SEC-03** public repo carries staff addresses, hardcoded recipients, fixture data from real rows — decision above
+- **SEC-02** QZ key in the bundle — accepted, recorded above
+- **SEC-04** shared-mailbox Send-As is per user and unaudited — group grant + transport rule (IT)
+- **SEC-06** no Content-Security-Policy (`<meta>` CSP is possible on Pages; needs browser testing against QZ `wss://`, Fabric, mermaid)
+- **ARCH-01** `allocateNumber()` + *Enforce unique values* across every numbered list
+- **ARCH-02** mock fixtures ship in the production bundle — lazy-load them behind `USE_MOCK`
+- **ARCH-03 / ARCH-04** `types/task.ts`, `App.tsx`, `config.ts`, `email.ts`, `ManualView.tsx` and eight hooks over 600 lines want splitting
+- **CQ-01** no ESLint/Prettier despite `eslint-disable` comments — add, with `react-hooks` and `@typescript-eslint`, into `pr.yml`
+- **DEP-01** framework majors (react-router 7 first — the only production advisory — then vite 8 + vitest 5, tailwind 4, msal 5, React 19)
+- **DEP-02** `qz-tray` LGPL-2.1 — legal confirmation that the separate chunk satisfies it
+- **TEST-03** coverage is claimed at 100 % and measured nowhere; `usePanelRoles`, `usePartsRoles`, `openOrdersRoles`, `msalConfig` untested
+- **Process** `Checks / verify` not yet a required status check; `enforce_admins` off; auto-merge disabled; one required review on a two-person team means the author's second account or the other person must approve
+
 ## File-by-file overview
 
 Keep this current when adding/removing files (see "Architectural changes"
@@ -11187,6 +11339,12 @@ After any non-trivial change:
 6. Try adding a comment (it should appear at the top of the thread)
 7. Toggle the theme (everything should re-skin cleanly)
 8. `npm run build` — production build succeeds
+9. The **Engineering standards — compliance checklist** near the top of this
+   file: run its greps (identity, `$filter`, `dangerouslySetInnerHTML`,
+   `$top`, layering) and tick the per-PR list in the PR description
+10. If the change touches auth, permissions, numbering or a new list,
+    schedule a re-run of `docs/reviews/REVIEW-PROMPT.md` — don't wait for the
+    quarter
 
 For real-mode testing, set `VITE_USE_MOCK=false` and confirm:
 - Login pops up on first navigation
