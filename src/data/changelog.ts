@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.191.3",
+    date: "2026-10-17",
+    changes: [
+      "Icon set updated; the Feature Requests GitHub button now shows the GitHub mark drawn by ARC itself, since the icon set no longer ships brand logos",
+    ],
+  },
+  {
     version: "0.191.2",
     date: "2026-10-16",
     changes: [
