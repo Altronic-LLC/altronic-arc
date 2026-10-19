@@ -265,7 +265,13 @@ describe("ScnsView — the row cap", () => {
     await waitFor(() => expect(tableFirstColumn()).toHaveLength(151));
     expect(screen.queryByText(/show all/)).toBeNull();
 
-    await user.type(screen.getByPlaceholderText(/scn#, product/i), "DD");
+    // The filter change is a status PILL, not the search box. The box waits
+    // out a 250ms debounce and then re-renders ~300 rows (card + table), and
+    // that didn't fit waitFor's 1s inside a full-suite run — it failed twice
+    // in four runs on 2026-10-19. A pill applies at once, through the same
+    // reset effect. Found by text: *ByRole over 300 rows is the slow query.
+    const allPill = screen.getAllByText("All").find((el) => el.tagName === "BUTTON");
+    await user.click(allPill!);
     await waitFor(() => expect(screen.getByText(/Showing 150 — show all/)).toBeInTheDocument());
   });
 });
