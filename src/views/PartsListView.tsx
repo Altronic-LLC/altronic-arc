@@ -845,7 +845,7 @@ function PartCards<T>({
                     return (
                       <div key={c.key} className="min-w-0">
                         <dt className="text-fg-muted">{c.label}</dt>
-                        <dd className="break-words text-fg">{v}</dd>
+                        <dd className="wrap-break-word text-fg">{v}</dd>
                       </div>
                     );
                   })}
@@ -967,7 +967,7 @@ function RangeField<T>({
           aria-label={`Search ${field.label} as a range`}
           title={ranged ? "Back to a text search" : "Search a range — From and To"}
           className={cn(
-            "h-5 w-5 rounded text-[11px] font-bold leading-none",
+            "h-5 w-5 rounded-sm text-[11px] font-bold leading-none",
             ranged ? "bg-fg text-bg" : "border border-border text-fg-muted hover:border-fg-muted hover:text-fg",
           )}
         >

@@ -89,7 +89,7 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
               e.stopPropagation();
               handleOpen();
             }}
-            className="shrink-0 rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
+            className="shrink-0 rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
             aria-label="Open task"
             title="Open task"
           >
@@ -148,7 +148,7 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
         ref={mergeRefs}
         style={style}
         onClick={handleOpen}
-        className="block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-sm transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]"
+        className="block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-xs transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]"
       >
         {cardContent}
       </button>
@@ -166,7 +166,7 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
       {...attributes}
       {...listeners}
       className={cn(
-        "group cursor-grab rounded-lg border bg-surface p-3 shadow-sm transition-shadow active:cursor-grabbing",
+        "group cursor-grab rounded-lg border bg-surface p-3 shadow-xs transition-shadow active:cursor-grabbing",
         isDragging
           ? "border-accent opacity-50 shadow-lg"
           : "border-border hover:border-fg-muted hover:shadow-md",

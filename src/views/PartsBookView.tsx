@@ -78,7 +78,7 @@ function DescriptionListsLink() {
   return (
     <Link
       to="/engineering/parts/descriptions"
-      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-sm transition-colors hover:bg-surface-2"
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2"
     >
       <ListTree className="h-4 w-4" />
       Descriptions
@@ -155,7 +155,7 @@ export function PartsBookView() {
         <div className="flex shrink-0 gap-2">
           <Link
             to="/engineering/parts/search"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-sm transition-colors hover:bg-surface-2"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2"
           >
             <Globe className="h-4 w-4" />
             Global Search
@@ -177,13 +177,13 @@ export function PartsBookView() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="601, 601110, or a description…"
-            className="h-10 w-full rounded-md border border-border bg-surface px-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+            className="h-10 w-full rounded-md border border-border bg-surface px-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
             inputMode="search"
             autoComplete="off"
           />
           <button
             type="submit"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white shadow-xs hover:bg-accent/90"
           >
             <Search className="h-4 w-4" />
             Go

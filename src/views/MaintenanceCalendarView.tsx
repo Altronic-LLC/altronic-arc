@@ -202,7 +202,7 @@ export default function MaintenanceCalendarView() {
         <button
           type="button"
           onClick={() => setAddingWorkOrder(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           New work order
@@ -308,11 +308,11 @@ function Legend() {
   return (
     <div className="flex flex-wrap items-center gap-4 text-xs text-fg-muted">
       <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-6 rounded border border-border bg-surface" aria-hidden="true" />
+        <span className="h-3 w-6 rounded-sm border border-border bg-surface" aria-hidden="true" />
         Work order — a real, logged job
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className={cn("h-3 w-6 rounded", PROJECTED_OUTLINE_CLASS)} aria-hidden="true" />
+        <span className={cn("h-3 w-6 rounded-sm", PROJECTED_OUTLINE_CLASS)} aria-hidden="true" />
         Scheduled — projected from a PM schedule, nothing logged yet
       </span>
     </div>
@@ -337,7 +337,7 @@ function OverdueStrip({
   return (
     <section
       aria-label="Overdue maintenance"
-      className="rounded-xl border border-cooper-red/40 bg-cooper-red/[0.04] p-3"
+      className="rounded-xl border border-cooper-red/40 bg-cooper-red/4 p-3"
     >
       <h2 className="text-[11px] font-semibold uppercase tracking-wider text-cooper-red">
         Overdue — {entries.length} outstanding
@@ -462,7 +462,7 @@ function MonthGrid({
               // button below is what a screen reader gets.
               onClick={onAdd ? () => onAdd(day) : undefined}
               className={cn(
-                "group flex min-h-[7rem] flex-col gap-1 border-b border-r border-border p-1.5 transition-colors last:border-r-0 hover:bg-surface-2",
+                "group flex min-h-28 flex-col gap-1 border-b border-r border-border p-1.5 transition-colors last:border-r-0 hover:bg-surface-2",
                 onAdd && "cursor-pointer",
                 otherMonth && "bg-surface-2/40",
               )}
@@ -487,7 +487,7 @@ function MonthGrid({
                     }}
                     aria-label={`Add a maintenance schedule starting ${dayLabel(day)}`}
                     title={`Add a maintenance schedule starting ${dayLabel(day)}`}
-                    className="rounded p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+                    className="rounded-sm p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -496,7 +496,7 @@ function MonthGrid({
 
               {/* Scrolls rather than truncating to "+3 more": a busy day is
                   exactly the day whose jobs you want to read. */}
-              <div className="flex max-h-[6rem] flex-col gap-1 overflow-y-auto">
+              <div className="flex max-h-24 flex-col gap-1 overflow-y-auto">
                 {entries.map((entry) => (
                   <DayChip key={entry.key} entry={entry} onOpen={onOpen} />
                 ))}
@@ -540,7 +540,7 @@ function DayChip({
       }}
       title={chipTitle(entry)}
       className={cn(
-        "flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[11px] transition-colors hover:border-accent",
+        "flex w-full items-center gap-1 rounded-sm px-1.5 py-1 text-left text-[11px] transition-colors hover:border-accent",
         projected ? PROJECTED_OUTLINE_CLASS : "border border-border bg-surface",
         entry.overdue ? "text-cooper-red" : "text-fg",
       )}

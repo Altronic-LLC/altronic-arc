@@ -116,7 +116,7 @@ export function GitHubConnectDialog({
   };
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[12vh]"
+      className="fixed inset-0 z-60 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[12vh]"
       {...overlayDismiss}
     >
       <div
@@ -338,7 +338,7 @@ export function CreateIssueDialog({
   const overlayDismiss = useOverlayDismiss(onCancel);
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[15vh]"
+      className="fixed inset-0 z-60 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[15vh]"
       {...overlayDismiss}
     >
       <div

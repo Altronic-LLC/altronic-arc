@@ -268,7 +268,7 @@ export function MonthlyFpyChart({
 function Legend({ swatch, label, line }: { swatch: string; label: string; line?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={cn(line ? "h-0.5 w-3 rounded-full" : "h-2.5 w-2.5 rounded-sm", swatch)} />
+      <span className={cn(line ? "h-0.5 w-3 rounded-full" : "h-2.5 w-2.5 rounded-xs", swatch)} />
       {label}
     </span>
   );

@@ -145,7 +145,7 @@ function RequestsList({ access: _access }: { access: MyPricingAccess }) {
         actions={
           <button
             onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" /> New request
           </button>
@@ -161,7 +161,7 @@ function RequestsList({ access: _access }: { access: MyPricingAccess }) {
               aria-pressed={status === pill}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                status === pill ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                status === pill ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
               )}
             >
               {pill}
@@ -267,7 +267,7 @@ function RequestsList({ access: _access }: { access: MyPricingAccess }) {
                       </td>
                       <td className="whitespace-nowrap px-4 py-2 font-mono text-xs text-fg">{r.altronicPartNumber}</td>
                       <td className="max-w-[20rem] truncate px-4 py-2 text-fg">{r.description}</td>
-                      <td className="max-w-[14rem] truncate px-4 py-2 text-fg">{r.customerName || "—"}</td>
+                      <td className="max-w-56 truncate px-4 py-2 text-fg">{r.customerName || "—"}</td>
                       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{r.requestedBy?.displayName ?? "—"}</td>
                       <td className="px-4 py-2">
                         <PricingStatusChip status={r.status} />

@@ -103,7 +103,7 @@ export function AgendaView() {
               className={cn(
                 "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 option === days
-                  ? "bg-surface text-fg shadow-sm"
+                  ? "bg-surface text-fg shadow-xs"
                   : "text-fg-muted hover:text-fg",
               )}
             >
@@ -184,7 +184,7 @@ function AgendaRow({ item }: { item: AgendaItem }) {
       >
         <span
           className={cn(
-            "w-fit shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+            "w-fit shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
             item.kind === "task"
               ? "bg-superior-blue/10 text-superior-blue"
               : "bg-cooper-green/10 text-cooper-green",

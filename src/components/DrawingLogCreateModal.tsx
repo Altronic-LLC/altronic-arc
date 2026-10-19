@@ -132,7 +132,7 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
             <button
               type="submit"
               disabled={busy}
-              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
             >
               {busy ? "Saving…" : "Add drawing"}
             </button>

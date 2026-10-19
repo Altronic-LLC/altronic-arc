@@ -276,7 +276,7 @@ export function EirDetailView() {
                 <button
                   type="button"
                   onClick={() => setPromoteOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
                   title="Create a task from this EIR"
                 >
                   <ArrowUpRight className="h-4 w-4" />
@@ -734,7 +734,7 @@ function InlineTitle({
             setEditing(false);
           }
         }}
-        className="flex-1 rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-2xl"
+        className="flex-1 rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-2xl"
       />
     </div>
   );
@@ -850,7 +850,7 @@ function EditableTextCard({
             onChange={(e) => setDraft(e.target.value)}
             rows={5}
             aria-label={`${title} (checklist)`}
-            className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+            className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
         ) : (
           <RichTextEditor
@@ -970,7 +970,7 @@ function LinkedTaskCard({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="e.g. T115 — or paste a Power Apps task link"
-          className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
         />
       ) : linkedTask ? (
         <button
@@ -1150,7 +1150,7 @@ function InlineTextField({
         placeholder={placeholder}
         disabled={disabled}
         title={disabled ? disabledHint : undefined}
-        className={`w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60 ${
           mono ? "font-mono" : ""
         }`}
       />
@@ -1191,7 +1191,7 @@ function InlineSelectField({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         title={disabled ? disabledHint : undefined}
-        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <option value="">{emptyLabel}</option>
         {options.map((o) => (
@@ -1294,7 +1294,7 @@ function SidebarSelect<T extends string>({
         disabled={disabled}
         title={disabled ? disabledHint : undefined}
         onChange={(e) => onChange(e.target.value as T)}
-        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {options.map((o) => (
           <option key={o || "__empty"} value={o}>

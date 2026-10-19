@@ -169,7 +169,7 @@ export function AdminEirRolesView() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <UserPlus className="h-4 w-4" /> Add user
         </button>
@@ -437,7 +437,7 @@ function NewEirRoleModal({
                   value={manualEmail}
                   onChange={(ev) => setManualEmail(ev.target.value)}
                   placeholder="someone@altronic-llc.com"
-                  className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 />
                 <span className="text-[11px] text-fg-muted">
                   Must match how the person signs in — a typo here creates a row
@@ -453,7 +453,7 @@ function NewEirRoleModal({
                   value={manualName}
                   onChange={(ev) => setManualName(ev.target.value)}
                   placeholder="Jane Smith"
-                  className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 />
               </label>
               <button
@@ -495,7 +495,7 @@ function NewEirRoleModal({
               value={note}
               onChange={(ev) => setNote(ev.target.value)}
               placeholder="Role / context for granting access"
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
           </label>
           {error && (
@@ -514,7 +514,7 @@ function NewEirRoleModal({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {submitting ? "Adding…" : "Add user"}
             </button>

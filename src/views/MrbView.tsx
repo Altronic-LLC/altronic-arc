@@ -226,7 +226,7 @@ export function MrbView() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           New Entry
@@ -241,7 +241,7 @@ export function MrbView() {
             aria-pressed={tab === t.id}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              tab === t.id ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+              tab === t.id ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
             )}
           >
             {t.label}

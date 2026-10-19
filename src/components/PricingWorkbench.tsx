@@ -217,14 +217,14 @@ export function PricingWorkbench({
                     saveMpg();
                   }
                 }}
-                className="input !h-9 !w-24 uppercase"
+                className="input h-9! w-24! uppercase"
               />
             )}
           </FieldColumn>
           <NumberField
             label="Cost"
             prefix="$"
-            width="!w-32"
+            width="w-32!"
             value={cost}
             onChange={(v) => {
               setCost(v);
@@ -236,7 +236,7 @@ export function PricingWorkbench({
           <NumberField
             label="Distributor discount"
             suffix="%"
-            width="!w-20"
+            width="w-20!"
             value={discount}
             onChange={(v) => {
               setDiscount(v);
@@ -254,7 +254,7 @@ export function PricingWorkbench({
           <NumberField
             label="Customer discount"
             suffix="%"
-            width="!w-20"
+            width="w-20!"
             value={custDiscount}
             onChange={(v) => {
               setCustDiscount(v);
@@ -281,8 +281,8 @@ export function PricingWorkbench({
                       setInputValue("");
                     }}
                     className={cn(
-                      "rounded px-2 text-[11px] font-semibold uppercase tracking-wider",
-                      inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                      "rounded-sm px-2 text-[11px] font-semibold uppercase tracking-wider",
+                      inputKind === k ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
                     )}
                   >
                     {k === "gm" ? "Target GM" : "List price"}
@@ -292,7 +292,7 @@ export function PricingWorkbench({
             }
             prefix={inputKind === "list" ? "$" : undefined}
             suffix={inputKind === "gm" ? "%" : undefined}
-            width={inputKind === "gm" ? "!w-20" : "!w-32"}
+            width={inputKind === "gm" ? "w-20!" : "w-32!"}
             value={inputValue}
             onChange={setInputValue}
             disabled={locked}
@@ -341,7 +341,7 @@ export function PricingWorkbench({
                 type="button"
                 onClick={submit}
                 disabled={!canSubmit}
-                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-50"
               >
                 {price.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {history?.history.length ? "Save new price" : "Set price"}
@@ -398,7 +398,7 @@ function NumberField({
   prefix,
   suffix,
   source,
-  width = "!w-28",
+  width = "w-28!",
 }: {
   /** The input's accessible name; drawn as the label unless `header` replaces it. */
   label: string;
@@ -422,7 +422,7 @@ function NumberField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={cn("input !h-9 tabular-nums text-right", width)}
+        className={cn("input h-9! tabular-nums text-right", width)}
       />
       {suffix && <span className="text-fg-muted">{suffix}</span>}
     </FieldColumn>

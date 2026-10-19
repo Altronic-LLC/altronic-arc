@@ -826,7 +826,7 @@ export function DigitalQcView() {
               onChange={(event) => setFilterText(event.target.value)}
               placeholder="Filter all fields"
               aria-label="Filter all fields"
-              className="w-full rounded-md border border-border bg-surface-2 py-2 pl-9 pr-3 text-sm text-fg outline-none focus:border-accent"
+              className="w-full rounded-md border border-border bg-surface-2 py-2 pl-9 pr-3 text-sm text-fg outline-hidden focus:border-accent"
             />
           </label>
           {filterText && (

@@ -108,7 +108,7 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
       role="dialog"
       aria-modal="true"
       aria-labelledby="promote-eir-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <div className="flex w-full max-w-lg flex-col bg-bg shadow-2xl sm:max-h-[90vh] sm:rounded-lg">
@@ -158,7 +158,7 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
               disabled={busy}
               maxLength={255}
               placeholder="Title for the new task"
-              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
             />
           </label>
 
@@ -222,7 +222,7 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
             type="button"
             onClick={handleConfirm}
             disabled={busy || !trimmedTitle || chosenProject === null}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
             {busy ? "Creating…" : "Create task"}
@@ -239,7 +239,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
         {label}
       </span>
-      <span className="min-w-0 break-words text-right text-fg">{value}</span>
+      <span className="min-w-0 wrap-break-word text-right text-fg">{value}</span>
     </div>
   );
 }

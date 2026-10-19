@@ -280,7 +280,7 @@ export function MaintenanceDetailView() {
                     ? `This work order is ${task.status.toLowerCase()}.`
                     : completion.hint
                 }
-                className="inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-cooper-green/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-cooper-green/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 {task.status === "Complete" ? "Completed" : "Mark Complete"}

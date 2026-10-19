@@ -394,14 +394,14 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
                   <span className="inline-flex gap-1" aria-label="Revisions">
                     {ascendingRevs.map((r) =>
                       r.id === q.id ? (
-                        <span key={r.id} className="rounded bg-surface-2 px-1.5 text-xs font-semibold text-fg">
+                        <span key={r.id} className="rounded-sm bg-surface-2 px-1.5 text-xs font-semibold text-fg">
                           R{r.rev}
                         </span>
                       ) : (
                         <Link
                           key={r.id}
                           to={`/sales/quotes/${r.id}`}
-                          className="rounded px-1.5 text-xs font-semibold text-accent hover:underline"
+                          className="rounded-sm px-1.5 text-xs font-semibold text-accent hover:underline"
                         >
                           R{r.rev}
                         </Link>
@@ -472,7 +472,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
               type="button"
               onClick={() => setPdfProblems(null)}
               aria-label="Dismiss"
-              className="rounded p-0.5 text-fg-muted hover:text-fg"
+              className="rounded-sm p-0.5 text-fg-muted hover:text-fg"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1153,7 +1153,7 @@ function ComponentRow({
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             aria-label={`${expanded ? "Hide" : "Show"} discussion for component ${label}`}
-            className="rounded p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+            className="rounded-sm p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
           >
             <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
           </button>
@@ -1264,7 +1264,7 @@ function ComponentThread({ item, mentionCandidates }: { item: QuoteItem; mention
       data-testid={`component-panel-${item.id}`}
       className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_16rem]"
     >
-      <div className="flex min-w-0 flex-col gap-4 break-words">
+      <div className="flex min-w-0 flex-col gap-4 wrap-break-word">
         <div className="min-w-0" data-panel-part="attachments">
           <AttachmentsSection parent="quoteItem" itemId={item.id} />
         </div>
@@ -1292,7 +1292,7 @@ function ComponentThread({ item, mentionCandidates }: { item: QuoteItem; mention
           </div>
         </div>
       </div>
-      <div className="min-w-0 break-words" data-panel-part="watchers">
+      <div className="min-w-0 wrap-break-word" data-panel-part="watchers">
         <SidebarField label="Watchers">
           <PersonMultiField
             value={item.watchers}

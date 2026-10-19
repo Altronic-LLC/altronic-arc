@@ -182,7 +182,7 @@ function SearchBox({
         <ul
           role="listbox"
           aria-label={`${label} matches`}
-          className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-surface shadow-lg sm:min-w-[22rem]"
+          className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-surface shadow-lg sm:min-w-88"
         >
           {search.isLoading && !search.data && <li className="px-3 py-2 text-xs text-fg-muted">Searching…</li>}
           {search.data?.length === 0 && !search.isFetching && <li className="px-3 py-2 text-xs text-fg-muted">No SAP customer matches.</li>}

@@ -506,7 +506,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
             form="part-form"
             disabled={busy || !gate.allowed}
             title={gate.allowed ? undefined : gate.hint}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {uploadSheet.isPending ? "Uploading datasheet…" : "Add part"}
@@ -538,7 +538,7 @@ export function NewPartButton({ prefix }: { prefix: string | null }) {
         onClick={() => setOpen(true)}
         disabled={!gate.allowed}
         title={gate.resolving ? gate.hint : undefined}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
       >
         <Plus className="h-4 w-4" />
         New part
@@ -578,7 +578,7 @@ function NewListRequest({ prefix, partNumber, description }: { prefix: string; p
               { onSuccess: (to) => setSentFor({ prefix, to }) },
             )
           }
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
         >
           {request.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           Ask the SAP admin for list {prefix}
@@ -631,7 +631,7 @@ function LinkedListsFullRequest({
           type="button"
           disabled={request.isPending}
           onClick={() => request.mutate({ category, lists, description }, { onSuccess: setSentTo })}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
         >
           {request.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           Ask the SAP admin for the next {category} list

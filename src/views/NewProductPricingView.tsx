@@ -121,7 +121,7 @@ function WorksheetList() {
         actions={
           <button
             onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" /> New worksheet
           </button>
@@ -136,7 +136,7 @@ function WorksheetList() {
               aria-pressed={status === pill}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
-                status === pill ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                status === pill ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
               )}
             >
               {pill}
@@ -199,8 +199,8 @@ function WorksheetList() {
                         {w.status === "Cancelled" && <span className="ml-2 text-[10px] font-semibold text-fg-muted">CANCELLED</span>}
                       </td>
                       <td className="px-4 py-2 text-fg-muted">R{w.rev}</td>
-                      <td className="max-w-[22rem] truncate px-4 py-2 text-fg">{w.productName}</td>
-                      <td className="max-w-[14rem] truncate px-4 py-2 text-fg">{w.customerName || "—"}</td>
+                      <td className="max-w-88 truncate px-4 py-2 text-fg">{w.productName}</td>
+                      <td className="max-w-56 truncate px-4 py-2 text-fg">{w.customerName || "—"}</td>
                       <td className="whitespace-nowrap px-4 py-2 tabular-nums">{formatMoney(w.unitCost)}</td>
                       <td className="whitespace-nowrap px-4 py-2 tabular-nums">{formatMoney(w.listPrice)}</td>
                       <td className="whitespace-nowrap px-4 py-2 tabular-nums">{formatPct(w.baseGM)}</td>

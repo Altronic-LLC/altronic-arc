@@ -273,7 +273,7 @@ export function TeradyneLogView() {
             onClick={() => setShowNew(true)}
             disabled={listUnavailable}
             title={listUnavailable ? "You do not have access to a required SharePoint list" : undefined}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New entry</span>
@@ -479,7 +479,7 @@ export function TeradyneLogView() {
                     <Td className="whitespace-nowrap text-right">
                       <button
                         onClick={() => setEditing(e)}
-                        className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+                        className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
                         aria-label={`Edit ${e.title}`}
                         title="Edit entry"
                       >
@@ -488,7 +488,7 @@ export function TeradyneLogView() {
                       {isAdmin && (
                         <button
                           onClick={() => handleDelete(e)}
-                          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red focus:opacity-100 group-hover:opacity-100"
+                          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red focus:opacity-100 group-hover:opacity-100"
                           aria-label={`Delete ${e.title}`}
                           title="Delete entry"
                         >

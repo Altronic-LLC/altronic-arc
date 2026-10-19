@@ -99,7 +99,7 @@ export function CriticalityChip({ criticality }: { criticality: string | null })
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+        "inline-flex items-center rounded-sm px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
         colorClass,
       )}
     >
@@ -122,7 +122,7 @@ export function AssetStatusChip({ assetStatus }: { assetStatus: string | null })
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+        "inline-flex items-center rounded-sm px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
         colorClass,
       )}
     >
@@ -158,7 +158,7 @@ export function ScheduleBasisChip({ basis }: { basis: ScheduleBasis | null }) {
     <span
       title={BASIS_HINTS[basis]}
       className={cn(
-        "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium",
+        "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium",
         meter
           ? "border-superior-blue/40 bg-superior-blue/5 text-superior-blue"
           : "border-border text-fg-muted",
@@ -285,7 +285,7 @@ export function ScheduledChip() {
 
 /** Shared dashed-outline treatment for anything representing a projection. */
 export const PROJECTED_OUTLINE_CLASS =
-  "border border-dashed border-superior-blue/50 bg-superior-blue/[0.03]";
+  "border border-dashed border-superior-blue/50 bg-superior-blue/3";
 
 /**
  * "3 days late" / "due in 2 days" / "due today".

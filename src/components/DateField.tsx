@@ -61,7 +61,7 @@ export interface DateFieldProps {
  */
 const MONTH_YEAR_SELECT_CLASS =
   "cursor-pointer rounded-md border border-transparent bg-surface px-1 py-0.5 text-sm font-medium text-fg " +
-  "hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
+  "hover:border-border focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -182,7 +182,7 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
         aria-expanded={open}
         className={cn(
           "flex w-full items-center justify-between gap-2 rounded-md border border-border bg-bg px-2 py-1 text-left text-sm text-fg",
-          "focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20",
+          "focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20",
           "disabled:cursor-not-allowed disabled:opacity-60",
           className,
         )}
@@ -219,7 +219,7 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
         <div
           role="dialog"
           aria-label="Choose a date"
-          className="absolute left-0 top-full z-30 mt-1 w-[19rem] rounded-lg border border-border bg-surface p-2 shadow-lg"
+          className="absolute left-0 top-full z-30 mt-1 w-76 rounded-lg border border-border bg-surface p-2 shadow-lg"
         >
           <div className="mb-1 flex items-center justify-between gap-1">
             <button

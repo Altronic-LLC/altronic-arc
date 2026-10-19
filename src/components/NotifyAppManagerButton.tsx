@@ -202,7 +202,7 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
               placeholder="e.g. I tried to drag a card to In Progress on the Kanban and the page reloaded."
-              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm"
+              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg outline-hidden focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm"
             />
           </label>
 
@@ -227,9 +227,9 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
               // console error is usually past the width of this box, and the
               // person reading the preview is deciding whether it's the error
               // they just hit.
-              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded bg-bg p-2 font-mono text-[11px] leading-snug text-fg">
+              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded-sm bg-bg p-2 font-mono text-[11px] leading-snug text-fg">
                 {captured.map((e, i) => (
-                  <li key={i} className="whitespace-pre-wrap break-words" title={e.message}>
+                  <li key={i} className="whitespace-pre-wrap wrap-break-word" title={e.message}>
                     <span
                       className={cn(
                         "mr-1 font-semibold uppercase",
@@ -313,7 +313,7 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={handleSend}
             disabled={sending || (!description.trim() && captured.length === 0)}
-            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending
               ? "Sending…"

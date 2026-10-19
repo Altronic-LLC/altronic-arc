@@ -187,14 +187,14 @@ export function AdminProjectsView() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="e.g. 0042-New Engine Variant Trials"
-              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               disabled={createProject.isPending}
             />
           </label>
           <button
             type="submit"
             disabled={!newTitle.trim() || createProject.isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             {createProject.isPending ? "Creating…" : "Create"}
@@ -212,7 +212,7 @@ export function AdminProjectsView() {
           value={search}
           onChange={setSearch}
           placeholder="Search projects…"
-          className="h-9 w-full max-w-xs rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="h-9 w-full max-w-xs rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
         />
       </div>
 
@@ -292,7 +292,7 @@ function ProjectTable({
       {items.length === 0 ? (
         <p className="py-2 text-xs text-fg-muted">No projects in this series yet.</p>
       ) : (
-        <div className="scroll-elegant flex max-h-[22rem] flex-col gap-1.5 overflow-y-auto pr-1">
+        <div className="scroll-elegant flex max-h-88 flex-col gap-1.5 overflow-y-auto pr-1">
           {items.map((p) => (
             <ProjectRow
               key={p.lookupId}
@@ -355,7 +355,7 @@ function ProjectRow({
             }
           }}
           placeholder="e.g. 0017-AMP-5000 Refresh (number + name)"
-          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           maxLength={255}
         />
         <button
@@ -388,7 +388,7 @@ function ProjectRow({
       <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={startEdit}
-          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
+          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
           aria-label="Edit project number / name"
           title="Edit number / name"
         >
@@ -396,7 +396,7 @@ function ProjectRow({
         </button>
         <button
           onClick={() => onDelete(project)}
-          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red group-hover:opacity-100 focus:opacity-100"
+          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red group-hover:opacity-100 focus:opacity-100"
           aria-label={`Delete ${project.title}`}
           title="Delete project"
         >

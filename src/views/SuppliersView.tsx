@@ -144,7 +144,7 @@ export function SuppliersView() {
           </a>
           <button
             onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
             New supplier
@@ -250,7 +250,7 @@ function Row({ supplier, onOpen }: { supplier: Supplier; onOpen: () => void }) {
         </span>
       </td>
       <td className="px-4 py-2 text-fg-muted">{supplier.status || "—"}</td>
-      <td className="max-w-[14rem] truncate px-4 py-2 text-fg-muted">
+      <td className="max-w-56 truncate px-4 py-2 text-fg-muted">
         {supplier.coreCompetencies.join(", ") || "—"}
       </td>
       <td className="px-4 py-2 text-fg-muted">{supplier.assignedBuyer?.displayName || "—"}</td>

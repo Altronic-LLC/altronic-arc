@@ -168,7 +168,7 @@ export function DevFabricTestView() {
         <h1 className="text-lg font-semibold text-fg">Fabric GraphQL test</h1>
         <p className="mt-1 text-sm text-fg-muted">
           Dev-only — this page doesn't exist in the deployed app. It runs the real{" "}
-          <code className="rounded bg-bg-subtle px-1">api/fabric.ts</code> transport: a silent MSAL token on
+          <code className="rounded-sm bg-bg-subtle px-1">api/fabric.ts</code> transport: a silent MSAL token on
           ARC's own app registration, then a POST to the Fabric GraphQL endpoint. ARC only ever reads from
           Fabric, so there is nothing here that writes.
         </p>
@@ -197,7 +197,7 @@ export function DevFabricTestView() {
         </label>
         <p className="mt-2 text-xs text-fg-muted">
           Lets you test everything <em>before</em> ARC's app registration has the Fabric scope. Run{" "}
-          <code className="rounded bg-surface px-1">
+          <code className="rounded-sm bg-surface px-1">
             az account get-access-token --resource https://analysis.windows.net/powerbi/api --query
             accessToken -o tsv
           </code>{" "}
@@ -213,14 +213,14 @@ export function DevFabricTestView() {
           <button
             type="button"
             onClick={() => setQuery(COUNT_QUERY)}
-            className="rounded border border-border px-2 py-0.5 text-xs text-fg-muted hover:border-cooper-red hover:text-cooper-red"
+            className="rounded-sm border border-border px-2 py-0.5 text-xs text-fg-muted hover:border-cooper-red hover:text-cooper-red"
           >
             Row count
           </button>
           <button
             type="button"
             onClick={() => setQuery(ROWS_QUERY)}
-            className="rounded border border-border px-2 py-0.5 text-xs text-fg-muted hover:border-cooper-red hover:text-cooper-red"
+            className="rounded-sm border border-border px-2 py-0.5 text-xs text-fg-muted hover:border-cooper-red hover:text-cooper-red"
           >
             Fetch rows
           </button>

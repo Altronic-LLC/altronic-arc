@@ -183,7 +183,7 @@ export function FeatureRequestsView() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           Suggest a Feature
@@ -222,7 +222,7 @@ export function FeatureRequestsView() {
             className={cn(
               "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
               status === s
-                ? "border-accent bg-accent text-white shadow-sm"
+                ? "border-accent bg-accent text-white shadow-xs"
                 : "border-border bg-surface text-fg-muted hover:border-fg-muted hover:text-fg",
             )}
           >

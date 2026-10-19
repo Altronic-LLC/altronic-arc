@@ -748,7 +748,7 @@ export function DashboardView() {
             </button>
           </div>
           {failedSources.some((s) => s.error) && (
-            <div className="mt-1.5 break-words pl-6 font-mono text-[11px] opacity-80">
+            <div className="mt-1.5 wrap-break-word pl-6 font-mono text-[11px] opacity-80">
               {failedSources
                 .filter((s) => s.error)
                 .map((s) => `${s.name}: ${(s.error as Error).message}`)
@@ -1345,8 +1345,8 @@ function ScopeToggle({
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           className={cn(
-            "rounded-sm px-3 py-1 font-medium transition-colors",
-            value === o.value ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+            "rounded-xs px-3 py-1 font-medium transition-colors",
+            value === o.value ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
           )}
         >
           {o.label}

@@ -110,7 +110,7 @@ export function ProjectFoldersView() {
         {atRoot ? (
           <button
             onClick={() => setShowNewFolder(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
           >
             <FolderPlus className="h-4 w-4" />
             New project folder
@@ -126,7 +126,7 @@ export function ProjectFoldersView() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={upload.isPending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {upload.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -200,7 +200,7 @@ export function ProjectFoldersView() {
                 {atRoot && !/^misc/i.test(entry.name) && (
                   <button
                     onClick={() => setEditingFolder(entry)}
-                    className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface hover:text-fg"
+                    className="shrink-0 rounded-sm p-1 text-fg-muted hover:bg-surface hover:text-fg"
                     title="Edit folder name and project"
                     aria-label={`Edit ${entry.name}`}
                   >
@@ -209,7 +209,7 @@ export function ProjectFoldersView() {
                 )}
                 <button
                   onClick={() => openInSharePoint(entry)}
-                  className="shrink-0 rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100"
+                  className="shrink-0 rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100"
                   title="Open folder in SharePoint"
                   aria-label="Open folder in SharePoint"
                 >

@@ -33,7 +33,7 @@ export function QuotesNav() {
           className={({ isActive }) =>
             cn(
               "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-              isActive ? "bg-accent text-white shadow-sm" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+              isActive ? "bg-accent text-white shadow-xs" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
             )
           }
         >

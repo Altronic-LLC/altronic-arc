@@ -147,7 +147,7 @@ function RolesManager() {
         <div>
           <button
             onClick={() => setEditing(null)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
           >
             <UserPlus className="h-4 w-4" /> Add person
           </button>
@@ -361,7 +361,7 @@ function QuoteRoleModal({
           <h2 className="font-display text-lg font-semibold text-fg">
             {editing ? `Edit ${entry.displayName || entry.email}` : "Add person to Quote Roles"}
           </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -463,7 +463,7 @@ function QuoteRoleModal({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {editing ? "Save" : "Add person"}

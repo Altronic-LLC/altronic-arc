@@ -238,7 +238,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
           <h2 className="inline-flex items-center gap-2 font-display text-lg font-semibold text-fg">
             <Calculator className="h-5 w-5 text-cooper-green" /> Price calculator
           </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -258,7 +258,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
                 }
               }}
               placeholder="Optional — brings in SAP's cost"
-              className="input !h-9 !w-56 font-mono text-sm"
+              className="input h-9! w-56! font-mono text-sm"
             />
             <button
               type="button"
@@ -312,7 +312,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Optional — what you're pricing"
-            className="input !h-9"
+            className="input h-9!"
           />
         </label>
 
@@ -332,7 +332,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
               aria-label="COGS"
               value={cogs}
               onChange={(e) => setCogs(e.target.value)}
-              className="input !h-9 !w-28 text-right tabular-nums"
+              className="input h-9! w-28! text-right tabular-nums"
             />
           </FieldColumn>
           <FieldColumn
@@ -349,8 +349,8 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
                       setValue("");
                     }}
                     className={cn(
-                      "rounded px-2 text-[11px] font-semibold uppercase tracking-wider",
-                      mode === m ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                      "rounded-sm px-2 text-[11px] font-semibold uppercase tracking-wider",
+                      mode === m ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
                     )}
                   >
                     {m === "gm" ? "GM wanted" : "Manual price"}
@@ -367,7 +367,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
               aria-label={mode === "gm" ? "GM wanted" : "Manual price"}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              className={cn("input !h-9 text-right tabular-nums", mode === "gm" ? "!w-20" : "!w-28")}
+              className={cn("input h-9! text-right tabular-nums", mode === "gm" ? "w-20!" : "w-28!")}
             />
             {mode === "gm" && <span className="text-fg-muted">%</span>}
           </FieldColumn>

@@ -107,7 +107,7 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
                         item.checked ? setPending(item) : onToggle(item.lineIndex)
                     : undefined
                 }
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-accent"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-accent"
               />
               <span className="min-w-0">
                 <span className={cn(item.checked && [mutedColor, "line-through"])}>
@@ -189,7 +189,7 @@ function ConfirmToggleModal({
         <h2 className="font-display text-base font-semibold text-fg">
           Are you sure you want to uncheck this box?
         </h2>
-        <p className="mt-2 break-words text-sm text-fg-muted">
+        <p className="mt-2 wrap-break-word text-sm text-fg-muted">
           "{item.text || "(empty item)"}"
           {item.stamp ? ` — it was checked by ${item.stamp}.` : ""}
           {" "}Your name and the current time will be recorded as unchecking it.
@@ -204,7 +204,7 @@ function ConfirmToggleModal({
           <button
             onClick={onYes}
             autoFocus
-            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
           >
             Yes
           </button>

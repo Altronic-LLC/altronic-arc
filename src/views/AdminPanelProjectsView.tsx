@@ -103,7 +103,7 @@ export function AdminPanelProjectsView() {
         </h2>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           New project
@@ -117,7 +117,7 @@ export function AdminPanelProjectsView() {
           No projects yet. Click "New project" to add the first one.
         </div>
       ) : (
-        <div className="scroll-elegant flex max-h-[36rem] flex-col gap-1.5 overflow-y-auto pr-1">
+        <div className="scroll-elegant flex max-h-144 flex-col gap-1.5 overflow-y-auto pr-1">
           {sorted.map((p) => (
             <ProjectRow
               key={p.id}
@@ -167,12 +167,12 @@ function ProjectRow({
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm font-semibold text-fg">{project.title}</span>
             {project.projectType && (
-              <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+              <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
                 {project.projectType}
               </span>
             )}
             {project.department && (
-              <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+              <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
                 {project.department}
               </span>
             )}
@@ -190,7 +190,7 @@ function ProjectRow({
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => setEditing(true)}
-            className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
+            className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
             aria-label="Edit project"
             title="Edit project"
           >
@@ -351,7 +351,7 @@ function ProjectFormModal({
             <button
               type="submit"
               disabled={submitting || !refNo.trim()}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {submitting ? "Saving…" : "Save"}
             </button>

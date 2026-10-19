@@ -47,7 +47,7 @@ export function MaintenanceTaskRow({ task, onOpen, now }: MaintenanceTaskRowProp
           {task.dueStatus && (
             <span
               title="Maintained automatically — ARC never writes this column."
-              className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted"
+              className="inline-flex items-center rounded-sm border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted"
             >
               {task.dueStatus}
             </span>
@@ -86,7 +86,7 @@ export function MaintenanceTaskRow({ task, onOpen, now }: MaintenanceTaskRowProp
         <div className="flex flex-wrap items-center gap-1.5">
           <CategoryChip category={task.category} />
           {task.taskType && (
-            <span className="inline-flex items-center rounded border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+            <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
               {task.taskType}
             </span>
           )}

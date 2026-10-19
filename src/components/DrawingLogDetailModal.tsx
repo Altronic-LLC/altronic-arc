@@ -206,7 +206,7 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
                 <button
                   type="submit"
                   disabled={busy}
-                  className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+                  className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
                 >
                   {busy ? "Saving…" : "Save details"}
                 </button>
@@ -309,7 +309,7 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
                                   disabled={busy}
                                   aria-label={`Edit change in slot ${String(c.slot).padStart(2, "0")}`}
                                   title="Correct this change"
-                                  className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                                  className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
                                 >
                                   <Pencil className="h-3 w-3" />
                                 </button>
@@ -358,7 +358,7 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
                 setEditing(true);
               }}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:opacity-50"
             >
               <Pencil className="h-3.5 w-3.5" />
               Edit details
@@ -501,7 +501,7 @@ function AddChangeForm({
         <div className="flex items-end gap-2">
           <button
             type="submit"
-            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
+            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white shadow-xs hover:bg-accent/90"
           >
             Record
           </button>

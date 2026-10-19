@@ -141,7 +141,7 @@ export function FaitsView() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           New FAIT
@@ -156,7 +156,7 @@ export function FaitsView() {
             aria-pressed={status === tab}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              status === tab ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+              status === tab ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
             )}
           >
             {tab}
@@ -299,10 +299,10 @@ function Row({
       <td className="max-w-[20rem] truncate px-4 py-2 text-fg" title={fait.values.description}>
         {fait.values.description || "—"}
       </td>
-      <td className="max-w-[14rem] truncate px-4 py-2 text-fg-muted" title={fait.values.supplierName}>
+      <td className="max-w-56 truncate px-4 py-2 text-fg-muted" title={fait.values.supplierName}>
         {fait.values.supplierName || "—"}
       </td>
-      <td className="max-w-[12rem] truncate px-4 py-2 text-fg-muted" title={projectTitle}>
+      <td className="max-w-48 truncate px-4 py-2 text-fg-muted" title={projectTitle}>
         {projectTitle || "—"}
       </td>
       <td className="px-4 py-2">

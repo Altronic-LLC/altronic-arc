@@ -376,7 +376,7 @@ export function ErDiagram({
             onClick={actualSize}
             title="Actual size (100%)"
             aria-label="Actual size"
-            className="min-w-[3.25rem] border-x border-border px-2 py-1.5 tabular-nums text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            className="min-w-13 border-x border-border px-2 py-1.5 tabular-nums text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
           >
             {Math.round(view.scale * 100)}%
           </button>
@@ -427,7 +427,7 @@ export function ErDiagram({
         onPointerCancel={onPointerUp}
         onKeyDown={onKeyDown}
         className={cn(
-          "relative cursor-grab touch-none select-none overflow-hidden rounded-md border border-border bg-bg outline-none focus-visible:ring-2 focus-visible:ring-accent/40 active:cursor-grabbing",
+          "relative cursor-grab touch-none select-none overflow-hidden rounded-md border border-border bg-bg outline-hidden focus-visible:ring-2 focus-visible:ring-accent/40 active:cursor-grabbing",
           expanded ? "min-h-0 flex-1" : "h-[min(70vh,760px)] min-h-[420px]",
         )}
       >

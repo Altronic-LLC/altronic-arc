@@ -99,7 +99,7 @@ export function SapComparisonCard({ ws, readOnly }: { ws: NewProductWorksheet; r
               }
             }}
             placeholder="SAP part numbers — paste several at once"
-            className="input !h-9 min-h-9 !w-80 max-w-full resize-y py-1.5"
+            className="input h-9! min-h-9 w-80! max-w-full resize-y py-1.5"
           />
           <button
             type="submit"
@@ -159,7 +159,7 @@ export function SapComparisonCard({ ws, readOnly }: { ws: NewProductWorksheet; r
                     </td>
                   ) : (
                     <>
-                      <td className="min-w-[10rem] px-2 py-1.5 text-xs">{r.part.description || "—"}</td>
+                      <td className="min-w-40 px-2 py-1.5 text-xs">{r.part.description || "—"}</td>
                       <td className="px-2 py-1.5">{r.part.mpg || "—"}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{formatMoney(r.part.listPrice)}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums" title={r.figures?.discountFromSap ? "SAP's discount for the MPG" : "SAP has none for the MPG — the standard 34%"}>
@@ -177,7 +177,7 @@ export function SapComparisonCard({ ws, readOnly }: { ws: NewProductWorksheet; r
                         aria-label={`Remove ${r.sapPartNumber}`}
                         disabled={update.isPending}
                         onClick={() => save(parts.filter((p) => p !== r.sapPartNumber))}
-                        className="rounded p-0.5 text-fg-muted hover:text-cooper-red"
+                        className="rounded-sm p-0.5 text-fg-muted hover:text-cooper-red"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

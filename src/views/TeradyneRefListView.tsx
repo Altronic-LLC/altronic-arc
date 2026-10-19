@@ -266,7 +266,7 @@ function RefList({ kind }: { kind: TeradyneRefKind }) {
             <button
               type="submit"
               disabled={!canCreate || createRef.isPending}
-              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
               {createRef.isPending ? "Adding…" : "Add"}
@@ -288,7 +288,7 @@ function RefList({ kind }: { kind: TeradyneRefKind }) {
           Nothing here yet. Add the first {config.singular} above.
         </div>
       ) : (
-        <div className="scroll-elegant flex max-h-[36rem] flex-col gap-1.5 overflow-y-auto pr-1">
+        <div className="scroll-elegant flex max-h-144 flex-col gap-1.5 overflow-y-auto pr-1">
           {rows.map((row) => (
             <RefRow
               key={row.lookupId}
@@ -384,7 +384,7 @@ function RefRow({
             onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
             aria-label="Remark number"
             placeholder="No."
-            className="w-16 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-16 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           />
         )}
         {config.fields.includes("firstLast") && (
@@ -395,14 +395,14 @@ function RefRow({
               onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
               onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
               placeholder="First"
-              className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
             <input
               value={draft.lastName ?? ""}
               onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
               onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
               placeholder="Last"
-              className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
           </>
         )}
@@ -412,7 +412,7 @@ function RefRow({
             value={draft.title}
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
-            className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             maxLength={255}
           />
         )}
@@ -425,7 +425,7 @@ function RefRow({
             }
             onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
             placeholder="Clock"
-            className="w-20 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-20 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           />
         )}
         {config.fields.includes("workCenter") && (
@@ -434,7 +434,7 @@ function RefRow({
             onChange={(e) => setDraft({ ...draft, workCenter: e.target.value })}
             onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
             placeholder="Work center"
-            className="w-28 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-28 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           />
         )}
         {config.fields.includes("testOnStation") && (
@@ -443,7 +443,7 @@ function RefRow({
             onChange={(e) => setDraft({ ...draft, testOnStation: e.target.value })}
             onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
             placeholder="Station"
-            className="w-28 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-28 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           />
         )}
         <button
@@ -481,7 +481,7 @@ function RefRow({
           {isRemark(row) && (
             <span
               className={cn(
-                "shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px]",
+                "shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[11px]",
                 row.idRem != null
                   ? "bg-surface-2 text-fg"
                   : "border border-dashed border-border text-fg-muted",
@@ -505,7 +505,7 @@ function RefRow({
         </span>
         <button
           onClick={startEdit}
-          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
           aria-label={`Edit ${row.title}`}
           title="Edit"
         >
@@ -514,7 +514,7 @@ function RefRow({
         <button
           onClick={onDelete}
           disabled={usageLoading || inUse > 0}
-          className="rounded p-1 text-fg-muted transition-opacity hover:bg-surface hover:text-cooper-red disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-fg-muted"
+          className="rounded-sm p-1 text-fg-muted transition-opacity hover:bg-surface hover:text-cooper-red disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-fg-muted"
           aria-label={`Delete ${row.title}`}
           title={
             usageLoading

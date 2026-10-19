@@ -451,7 +451,7 @@ export function Header() {
   const visitFilterQuery = visitReportFilterSearch(search);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface shadow-sm">
+    <header className="sticky top-0 z-40 border-b border-border bg-surface shadow-xs">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 sm:px-6">
         <div className="flex items-center justify-between gap-3 sm:flex-1">
           <Link to="/" className="flex min-w-0 items-center gap-2 text-fg sm:gap-3">
@@ -723,7 +723,7 @@ function NavLink({
       title={title}
       className={cn(
         "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:flex-initial",
-        active ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+        active ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
         dimmed && !active && "opacity-40 hover:opacity-100",
       )}
     >
@@ -778,7 +778,7 @@ function DepartmentsMenu({
         aria-expanded={open}
         className={cn(
           "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:flex-initial",
-          active ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+          active ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
         )}
       >
         <Library className="h-4 w-4" />

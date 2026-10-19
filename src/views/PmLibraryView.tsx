@@ -188,7 +188,7 @@ export default function PmLibraryView() {
             onClick={() => setCreating(true)}
             disabled={!manageGate.allowed}
             title={manageGate.allowed ? undefined : manageGate.hint}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             New schedule
@@ -273,7 +273,7 @@ export default function PmLibraryView() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[64rem] text-sm">
+            <table className="w-full min-w-5xl text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
                   <Th>Schedule</Th>
@@ -397,12 +397,12 @@ function ScheduleRow({
             <span className="text-xs text-fg-muted">{schedule.category}</span>
           )}
           {schedule.requiresShutdown && (
-            <span className="rounded bg-ajax-yellow/20 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ajax-yellow">
+            <span className="rounded-sm bg-ajax-yellow/20 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ajax-yellow">
               Shutdown
             </span>
           )}
           {schedule.lotoRequired && (
-            <span className="rounded bg-cooper-red/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-cooper-red">
+            <span className="rounded-sm bg-cooper-red/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-cooper-red">
               LOTO
             </span>
           )}

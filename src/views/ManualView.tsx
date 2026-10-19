@@ -1206,11 +1206,11 @@ const SECTIONS: ManualSection[] = [
         <H3>Sending and confirmation</H3>
         <P>
           Press{" "}
-          <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">
+          <kbd className="rounded-sm border border-border bg-bg px-1 py-0.5 text-[10px]">
             Ctrl
           </kbd>
           +
-          <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">
+          <kbd className="rounded-sm border border-border bg-bg px-1 py-0.5 text-[10px]">
             Enter
           </kbd>{" "}
           to send, or click <strong>Send</strong>. Comments appear in the
@@ -8156,12 +8156,12 @@ export function ManualView() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder='Search the manual (e.g. "how do I mention someone")'
-            className="h-10 w-full rounded-md border border-border bg-bg pl-9 pr-9 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+            className="h-10 w-full rounded-md border border-border bg-bg pl-9 pr-9 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />

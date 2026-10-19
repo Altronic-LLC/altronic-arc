@@ -206,7 +206,7 @@ export function MaintenanceAssetsView() {
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-[14rem] flex-1">
+        <div className="min-w-56 flex-1">
           <SearchInput
             value={filters.q}
             onChange={(q) => patch({ q })}
@@ -285,7 +285,7 @@ export function MaintenanceAssetsView() {
             {filtered.length !== assets.length ? ` (${assets.length} in the register)` : ""}
           </p>
           <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-            <table className="w-full min-w-[64rem] border-collapse text-sm">
+            <table className="w-full min-w-5xl border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-left text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                   <Th>Asset</Th>
@@ -457,7 +457,7 @@ function AssetRow({
               <span
                 key={gap}
                 title={ASSET_GAP_HINTS[gap]}
-                className="rounded border border-ajax-yellow/50 bg-ajax-yellow/10 px-1 py-px text-[10px] font-medium text-fg"
+                className="rounded-sm border border-ajax-yellow/50 bg-ajax-yellow/10 px-1 py-px text-[10px] font-medium text-fg"
               >
                 {ASSET_GAP_LABELS[gap]}
               </span>
@@ -565,7 +565,7 @@ function MachineHoursCell({
             }
           }}
           className={cn(
-            "w-24 rounded-md border bg-bg px-2 py-1 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent/20",
+            "w-24 rounded-md border bg-bg px-2 py-1 text-sm text-fg focus:outline-hidden focus:ring-2 focus:ring-accent/20",
             invalid ? "border-cooper-red" : "border-accent",
           )}
         />
@@ -594,7 +594,7 @@ function MachineHoursCell({
           : editHint
       }
       aria-label={`Machine hours for ${equipmentLabel(asset)}`}
-      className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-sm transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-sm transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
     >
       <Gauge className="h-3.5 w-3.5 text-fg-muted" />
       {asset.currentMachineHours === null ? (

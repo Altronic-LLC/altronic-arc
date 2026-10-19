@@ -395,7 +395,7 @@ function InlineTitle({ value, onSave }: { value: string; onSave: (next: string) 
           setEditing(false);
         }
       }}
-      className="w-full rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-2xl"
+      className="w-full rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-2xl"
     />
   );
 }
@@ -469,7 +469,7 @@ function DescriptionCard({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={5}
-          className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+          className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
         />
       ) : value ? (
         <DescriptionView

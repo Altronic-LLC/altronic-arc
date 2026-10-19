@@ -60,7 +60,7 @@ export function PanelOrderRow({ order, onOpen }: PanelOrderRowProps) {
             </span>
           )}
           {order.customer && (
-            <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+            <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
               {order.customer}
             </span>
           )}
@@ -74,7 +74,7 @@ export function PanelOrderRow({ order, onOpen }: PanelOrderRowProps) {
           {order.projectRef ? (
             <span
               title={order.projectRef.title}
-              className="inline-flex max-w-[16rem] truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
+              className="inline-flex max-w-[16rem] truncate rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
             >
               {order.projectRef.title || `Project #${order.projectRef.lookupId}`}
             </span>

@@ -405,7 +405,7 @@ export function DriveLibraryView({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy || !!error}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {busy ? "Uploading…" : "Upload files"}
@@ -608,7 +608,7 @@ export function DriveLibraryView({
                 <tbody className="divide-y divide-border">
                   {rows.map((entry) => (
                     <tr key={entry.id} className="hover:bg-surface-2/50">
-                      <td className="max-w-[28rem] px-4 py-2">
+                      <td className="max-w-md px-4 py-2">
                         {entryName(entry)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{modifiedLabel(entry)}</td>
@@ -623,7 +623,7 @@ export function DriveLibraryView({
                               onClick={() => openExternal(entry.webUrl)}
                               title="Open folder in SharePoint"
                               aria-label={`Open ${entry.name} in SharePoint`}
-                              className="rounded p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+                              className="rounded-sm p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </button>
@@ -814,7 +814,7 @@ function DeleteDialog({
         <form onSubmit={confirm} className="flex flex-col gap-3">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
             <Trash2 className="h-4 w-4 shrink-0 text-cooper-red" />
-            <span className="min-w-0 break-words">{question}</span>
+            <span className="min-w-0 wrap-break-word">{question}</span>
           </h2>
           <p className="text-sm text-fg-muted">
             {needsTyped ? "The folder and everything in it go" : "It goes"} to {recycleBinOwner}

@@ -116,7 +116,7 @@ export function CsaListingsView() {
         {isAdmin && (
           <button
             onClick={() => setShowNew(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New listing</span>
@@ -207,7 +207,7 @@ export function CsaListingsView() {
                         <button
                           type="button"
                           onClick={() => setViewingFiles(l)}
-                          className="mx-auto flex items-center justify-center rounded p-1 text-fg-muted transition-colors hover:bg-surface hover:text-accent"
+                          className="mx-auto flex items-center justify-center rounded-sm p-1 text-fg-muted transition-colors hover:bg-surface hover:text-accent"
                           aria-label={`Open attachments for ${csaListingLabel(l)}`}
                           title="Open attachments"
                         >
@@ -221,7 +221,7 @@ export function CsaListingsView() {
                       <Td className="whitespace-nowrap text-right">
                         <button
                           onClick={() => setEditing(l)}
-                          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+                          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
                           aria-label={`Edit ${csaListingLabel(l)}`}
                           title="Edit listing"
                         >
@@ -229,7 +229,7 @@ export function CsaListingsView() {
                         </button>
                         <button
                           onClick={() => handleDelete(l)}
-                          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red focus:opacity-100 group-hover:opacity-100"
+                          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red focus:opacity-100 group-hover:opacity-100"
                           aria-label={`Delete ${csaListingLabel(l)}`}
                           title="Delete listing"
                         >

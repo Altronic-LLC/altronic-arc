@@ -2065,7 +2065,7 @@ export function AboutView() {
         <strong className="text-fg">For contributors:</strong> if you add a
         new view, route, hook category, API surface, or SharePoint list, edit
         the data arrays at the top of{" "}
-        <code className="rounded bg-bg px-1 py-0.5">src/views/AboutView.tsx</code>{" "}
+        <code className="rounded-sm bg-bg px-1 py-0.5">src/views/AboutView.tsx</code>{" "}
         in the same commit.
       </div>
     </div>
@@ -2181,7 +2181,7 @@ function DirectoryStatusSection() {
             <p className="text-xs leading-relaxed text-fg-muted">
               Most often this means your signed-in session predates the permission being
               granted, or{" "}
-              <code className="rounded bg-bg px-1 py-0.5">User.ReadBasic.All</code> hasn't been
+              <code className="rounded-sm bg-bg px-1 py-0.5">User.ReadBasic.All</code> hasn't been
               admin-consented on the <strong>Engineering Task System</strong> app registration
               yet. Click below to re-request access — if a Microsoft prompt appears asking to
               “read all users’ basic profiles,” the consent hasn't been granted (an admin can
@@ -2438,7 +2438,7 @@ function DiagramNode({
   return (
     <div
       className={cn(
-        "rounded-md border px-3 py-2 shadow-sm",
+        "rounded-md border px-3 py-2 shadow-xs",
         PALETTE[node.palette],
         className,
       )}
@@ -2463,7 +2463,7 @@ function Legend({
         <span key={it.label} className="inline-flex items-center gap-1.5">
           <span
             className={cn(
-              "inline-block h-3 w-3 rounded-sm border",
+              "inline-block h-3 w-3 rounded-xs border",
               PALETTE[it.palette],
             )}
           />

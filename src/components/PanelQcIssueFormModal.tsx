@@ -165,7 +165,7 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
   );
 
   const footerBar = (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-5 py-3 shadow-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-5 py-3 shadow-xs">
       <div>
         {/* Status has no place on the New Issue form (it always starts
             "Created") — only shown once the issue exists, and bundled into
@@ -194,7 +194,7 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-8">
-      <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-5 py-3 shadow-sm">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-5 py-3 shadow-xs">
         <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
           <ClipboardCheck className="h-4 w-4 text-accent" />
           {issue ? <><span>Edit Panel QC Issue</span><span className="ml-2 font-mono text-xs font-normal text-fg-muted">{issue.tagNumber || "No TAG"}</span></> : "New Panel QC Issue"}
