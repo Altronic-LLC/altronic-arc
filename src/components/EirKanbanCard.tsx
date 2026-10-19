@@ -80,7 +80,7 @@ export function EirKanbanCard({ eir, onOpen, dragDisabled = false }: EirKanbanCa
           <div className="flex items-center gap-1.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-fg-muted">
             <span>{eir.eirNo || `#${eir.id}`}</span>
             {eir.requestType && (
-              <span className="rounded border border-border bg-surface-2 px-1 py-px">
+              <span className="rounded-sm border border-border bg-surface-2 px-1 py-px">
                 {eir.requestType}
               </span>
             )}
@@ -100,7 +100,7 @@ export function EirKanbanCard({ eir, onOpen, dragDisabled = false }: EirKanbanCa
               e.stopPropagation();
               handleOpen();
             }}
-            className="shrink-0 rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
+            className="shrink-0 rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
             aria-label="Open EIR"
             title="Open EIR"
           >
@@ -128,7 +128,7 @@ export function EirKanbanCard({ eir, onOpen, dragDisabled = false }: EirKanbanCa
       )}
 
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+        <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
           {eir.resolution}
         </span>
         {eir.taskPromotedFlag && (
@@ -139,7 +139,7 @@ export function EirKanbanCard({ eir, onOpen, dragDisabled = false }: EirKanbanCa
         {eir.ltbDate && (
           <span
             title="Last-time-buy date"
-            className="inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted"
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted"
           >
             <CalendarClock className="h-3 w-3" />
             LTB{" "}
@@ -178,7 +178,7 @@ export function EirKanbanCard({ eir, onOpen, dragDisabled = false }: EirKanbanCa
         ref={mergeRefs}
         style={style}
         onClick={handleOpen}
-        className="block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-sm transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]"
+        className="block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-xs transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]"
       >
         {cardContent}
       </button>
@@ -196,7 +196,7 @@ export function EirKanbanCard({ eir, onOpen, dragDisabled = false }: EirKanbanCa
       {...attributes}
       {...listeners}
       className={cn(
-        "group cursor-grab rounded-lg border bg-surface p-3 shadow-sm transition-shadow active:cursor-grabbing",
+        "group cursor-grab rounded-lg border bg-surface p-3 shadow-xs transition-shadow active:cursor-grabbing",
         isDragging
           ? "border-accent opacity-50 shadow-lg"
           : "border-border hover:border-fg-muted hover:shadow-md",

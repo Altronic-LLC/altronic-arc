@@ -471,7 +471,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-form-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <form
@@ -538,7 +538,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Short, action-oriented summary"
                   className={cn(
-                    "w-full min-w-0 border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm",
+                    "w-full min-w-0 border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm",
                     editNumbering?.prefix ? "rounded-r-md" : "rounded-md",
                   )}
                   required
@@ -605,7 +605,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 }}
                 rows={4}
                 placeholder="What needs to be done? Acceptance criteria, links, context…"
-                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
                 )}
               />
@@ -753,7 +753,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                   checked={meAssigned}
                   onChange={(e) => toggleAssignMe(e.target.checked)}
                   disabled={!me.email}
-                  className="h-4 w-4 rounded border-border accent-accent"
+                  className="h-4 w-4 rounded-sm border-border accent-accent"
                 />
                 Add myself as an assignee
               </label>
@@ -774,7 +774,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 value={softwareRevision}
                 onChange={(e) => setSoftwareRevision(e.target.value)}
                 placeholder="e.g. v3.2.1, firmware-2026.04"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
             </FieldLabel>
           </div>
@@ -796,7 +796,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
               !title.trim() ||
               (mode === "create" && parentProjectId === "")
             }
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />

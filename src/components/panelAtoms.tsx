@@ -25,7 +25,7 @@ export function PanelOrderStatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+        "inline-flex items-center rounded-sm border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
         STATUS_STYLES[status] ?? "bg-surface-2 text-fg-muted border-border",
         className,
       )}
@@ -52,7 +52,7 @@ export function PanelTaskStatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+        "inline-flex items-center rounded-sm border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
         TASK_STATUS_STYLES[status] ?? "bg-surface-2 text-fg-muted border-border",
         className,
       )}

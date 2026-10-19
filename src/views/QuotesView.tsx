@@ -339,7 +339,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
         {createGate.allowed && (
           <button
             onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
             New quote
@@ -356,7 +356,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
               aria-pressed={status === pill}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                status === pill ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                status === pill ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
               )}
             >
               {pill}

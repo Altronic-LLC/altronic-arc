@@ -100,7 +100,7 @@ export function DrawingLogsView() {
         {isAdmin && (
           <button
             onClick={() => setCreating(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New drawing</span>
@@ -125,7 +125,7 @@ export function DrawingLogsView() {
             className={cn(
               "rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
               log.kind === kind
-                ? "border-accent bg-accent text-white shadow-sm"
+                ? "border-accent bg-accent text-white shadow-xs"
                 : "border-border bg-surface text-fg-muted hover:border-fg-muted hover:text-fg",
             )}
           >
@@ -220,7 +220,7 @@ export function DrawingLogsView() {
                       }
                     }}
                     aria-label={`Open ${drawingLogLabel(e)}`}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-2/60 focus:bg-surface-2 focus:outline-none"
+                    className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-2/60 focus:bg-surface-2 focus:outline-hidden"
                   >
                     {columns.map((f, i) => (
                       <Td

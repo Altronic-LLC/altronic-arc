@@ -62,7 +62,7 @@ export function PricingNav() {
             className={({ isActive }) =>
               cn(
                 "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-                isActive ? "bg-accent text-white shadow-sm" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+                isActive ? "bg-accent text-white shadow-xs" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
               )
             }
           >
@@ -214,8 +214,8 @@ export function PricingHeader({
 export type PricingTone = "price" | "reference";
 
 const CARD_TONE: Record<PricingTone, string> = {
-  price: "border-l-4 border-l-cooper-green bg-cooper-green/[0.03]",
-  reference: "border-l-4 border-l-superior-blue bg-superior-blue/[0.03]",
+  price: "border-l-4 border-l-cooper-green bg-cooper-green/3",
+  reference: "border-l-4 border-l-superior-blue bg-superior-blue/3",
 };
 
 export function PricingCard({
@@ -260,7 +260,7 @@ export function ReadField({
   return (
     <div className={cn("min-w-0", wide && "sm:col-span-2")}>
       <dt className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</dt>
-      <dd className="mt-0.5 whitespace-pre-wrap break-words text-sm text-fg">
+      <dd className="mt-0.5 whitespace-pre-wrap wrap-break-word text-sm text-fg">
         {empty ? <span className="text-fg-muted">—</span> : children}
       </dd>
     </div>
@@ -289,7 +289,7 @@ export function ActionButton({
       disabled={disabled}
       title={title}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         primary
           ? "bg-accent text-white hover:bg-accent/90"
           : "border border-border bg-surface text-fg hover:bg-surface-2",

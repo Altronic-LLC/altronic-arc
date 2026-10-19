@@ -296,7 +296,7 @@ function DropdownShell({
       className={cn(
         "z-20 flex max-h-80 flex-col rounded-lg border border-border bg-surface shadow-lg",
         panelPlacement === "above"
-          ? "fixed z-[100]"
+          ? "fixed z-100"
           : "absolute left-0 right-0 top-full mt-1",
       )}
     >
@@ -484,7 +484,7 @@ function SearchablePanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={searchPlaceholder ?? "Search…"}
-            className="w-full rounded-md border border-border bg-bg py-1.5 pl-7 pr-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-full rounded-md border border-border bg-bg py-1.5 pl-7 pr-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           />
         </div>
       </div>
@@ -515,7 +515,7 @@ function SearchablePanel({
                   <span
                     data-indicator="checkbox"
                     className={cn(
-                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
                       selected
                         ? "border-accent bg-accent text-white"
                         : "border-border bg-surface",

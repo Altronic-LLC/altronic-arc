@@ -127,7 +127,7 @@ export function AdminAdminsView() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <UserPlus className="h-4 w-4" /> Add admin
         </button>
@@ -280,7 +280,7 @@ function NewAdminModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="someone@altronic-llc.com"
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
           </label>
           {error && (
@@ -299,7 +299,7 @@ function NewAdminModal({
             <button
               type="submit"
               disabled={submitting || !email.trim()}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {submitting ? "Adding…" : "Add admin"}
             </button>

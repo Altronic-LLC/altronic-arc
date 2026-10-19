@@ -174,7 +174,7 @@ export function TestSheetFormModal({ mode, sheet, fromTask, onClose }: TestSheet
       role="dialog"
       aria-modal="true"
       aria-labelledby="ts-form-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <form
@@ -328,7 +328,7 @@ export function TestSheetFormModal({ mode, sheet, fromTask, onClose }: TestSheet
           <button
             type="submit"
             disabled={busy || !title.trim()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === "create" ? (busy ? "Creating…" : "Create") : busy ? "Saving…" : "Save"}

@@ -199,7 +199,7 @@ export function HarnessProductionLogView() {
           <button
             onClick={() => setShowNew(true)}
             disabled={!HARNESS_CONFIGURED || listUnavailable}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus className="h-4 w-4" />
             New entry
@@ -369,7 +369,7 @@ export function HarnessProductionLogView() {
                         </Td>
                         <Td className="whitespace-nowrap text-fg-muted">{e.builtBy || "—"}</Td>
                         <Td className="whitespace-nowrap text-fg-muted">{e.visualCheck || "—"}</Td>
-                        <Td className="max-w-[22rem] text-fg-muted">
+                        <Td className="max-w-88 text-fg-muted">
                           <span className="block truncate" title={e.comments}>
                             {e.comments || "—"}
                           </span>
@@ -377,7 +377,7 @@ export function HarnessProductionLogView() {
                         <Td className="whitespace-nowrap text-right">
                           <button
                             onClick={() => setEditing(e)}
-                            className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+                            className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
                             aria-label={`Edit ${e.title}`}
                             title="Edit entry"
                           >
@@ -386,7 +386,7 @@ export function HarnessProductionLogView() {
                           {isAdmin && (
                             <button
                               onClick={() => handleDelete(e)}
-                              className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red focus:opacity-100 group-hover:opacity-100"
+                              className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red focus:opacity-100 group-hover:opacity-100"
                               aria-label={`Delete ${e.title}`}
                               title="Delete entry"
                             >

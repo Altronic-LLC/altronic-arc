@@ -197,7 +197,7 @@ function ReferenceListPanel({
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder={tab.kind === "departments" ? "e.g. MACH SHOP" : "e.g. COMPRESSOR ROOM"}
-              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm disabled:cursor-not-allowed disabled:opacity-50"
               disabled={create.isPending || !canEdit}
               title={canEdit ? undefined : editHint}
             />
@@ -206,7 +206,7 @@ function ReferenceListPanel({
             type="submit"
             disabled={!newTitle.trim() || create.isPending || !canEdit}
             title={canEdit ? undefined : editHint}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             {create.isPending ? "Adding…" : "Add"}
@@ -320,7 +320,7 @@ function ValueRow({
             if (e.key === "Enter") save();
           }}
           aria-label={`Rename ${value.title}`}
-          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           maxLength={255}
         />
         <button
@@ -370,7 +370,7 @@ function ValueRow({
           }}
           disabled={!canEdit}
           title={canEdit ? undefined : editHint}
-          className="rounded px-1.5 py-1 text-xs text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-hover:disabled:opacity-50"
+          className="rounded-sm px-1.5 py-1 text-xs text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 disabled:group-hover:opacity-50"
           aria-label={`Rename ${value.title}`}
         >
           Rename
@@ -379,7 +379,7 @@ function ValueRow({
           <button
             onClick={() => onSetActive(false)}
             disabled={!canEdit}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-hover:disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-xs text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 disabled:group-hover:opacity-50"
             // Not "Delete": records already pointing at it keep showing it,
             // and saying otherwise would promise something this can't do.
             title={
@@ -397,7 +397,7 @@ function ValueRow({
             onClick={() => onSetActive(true)}
             disabled={!canEdit}
             title={canEdit ? undefined : editHint}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-xs text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Restore ${value.title}`}
           >
             <ArrowUpFromLine className="h-3.5 w-3.5" />

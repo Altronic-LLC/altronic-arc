@@ -74,8 +74,8 @@ function ScopeButton({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "rounded px-3 py-1 font-medium transition-colors",
-        active ? "bg-accent text-white shadow-sm" : "text-fg-muted hover:text-fg",
+        "rounded-sm px-3 py-1 font-medium transition-colors",
+        active ? "bg-accent text-white shadow-xs" : "text-fg-muted hover:text-fg",
       )}
     >
       {children}

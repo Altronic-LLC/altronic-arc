@@ -460,7 +460,7 @@ function ApprovalPanel({
             setOpen(true);
           }}
           disabled={pending}
-          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
           Approve
@@ -576,7 +576,7 @@ function ApproveDialog({
             <button
               type="submit"
               disabled={blocked}
-              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
             >
               Approve
             </button>
@@ -739,7 +739,7 @@ function SuggestCorrectionDialog({
             <button
               type="submit"
               disabled={!ready}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
             >
               {pending && <Loader2 className="h-4 w-4 animate-spin" />}
               Send
@@ -1134,7 +1134,7 @@ function DeleteDialog({
             <button
               type="submit"
               disabled={!ready}
-              className="rounded-md bg-cooper-red px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-cooper-red/90 disabled:opacity-50"
+              className="rounded-md bg-cooper-red px-4 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-cooper-red/90 disabled:opacity-50"
             >
               Delete part number
             </button>

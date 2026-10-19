@@ -80,7 +80,7 @@ export function UserMenu() {
               <div className="truncate text-[11px] text-fg-muted">{user.email}</div>
             )}
             {USE_MOCK && (
-              <div className="mt-1 inline-block rounded bg-ajax-yellow/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ajax-yellow">
+              <div className="mt-1 inline-block rounded-sm bg-ajax-yellow/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ajax-yellow">
                 Demo mode
               </div>
             )}

@@ -211,7 +211,7 @@ export function AttachmentsSection({ parent, itemId, readOnly = false }: Attachm
       onPaste={readOnly ? undefined : handlePaste}
       {...(readOnly ? {} : dropProps)}
       className={cn(
-        "rounded-lg border bg-surface p-4 focus:outline-none focus:ring-2 focus:ring-accent/30 sm:p-5",
+        "rounded-lg border bg-surface p-4 focus:outline-hidden focus:ring-2 focus:ring-accent/30 sm:p-5",
         dragging ? "border-accent ring-2 ring-accent/30" : "border-border",
       )}
     >

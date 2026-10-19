@@ -426,7 +426,7 @@ export function AssetEditModal({ asset, onClose }: AssetEditModalProps) {
             form="asset-form"
             disabled={locked}
             title={gate.allowed ? undefined : gate.hint}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {isCreate ? "Add asset" : "Save changes"}

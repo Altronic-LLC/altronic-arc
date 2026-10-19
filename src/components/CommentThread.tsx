@@ -208,7 +208,7 @@ function ReplyBox({
         <button
           type="button"
           onClick={onClose}
-          className="rounded px-1.5 py-0.5 hover:bg-surface-2 hover:text-fg"
+          className="rounded-sm px-1.5 py-0.5 hover:bg-surface-2 hover:text-fg"
         >
           Cancel
         </button>
@@ -324,7 +324,7 @@ function CommentItem({
           <button
             type="button"
             onClick={onReply}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
             title="Reply to this comment"
           >
             <Reply className="h-3 w-3" />
@@ -334,7 +334,7 @@ function CommentItem({
         {canEdit && (
           <button
             onClick={() => setEditing(true)}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
             title="Edit comment"
           >
             <Pencil className="h-3 w-3" />
@@ -658,7 +658,7 @@ function CommentEditor({
         disabled={busy}
         rows={4}
         autoFocus
-        className="w-full resize-y rounded-md bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
+        className="w-full resize-y rounded-md bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:outline-hidden focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />
       )}
 
@@ -773,7 +773,7 @@ function CommentEditor({
               checked={renotify}
               onChange={(e) => setRenotify(e.target.checked)}
               disabled={busy}
-              className="h-3.5 w-3.5 rounded border-border"
+              className="h-3.5 w-3.5 rounded-sm border-border"
             />
             Notify everyone again
           </label>
@@ -796,7 +796,7 @@ function CommentEditor({
               ((rich ? nonEmptyRichHtml(richHtml) === "" : text.trim().length === 0) &&
                 attachments.length === 0)
             }
-            className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy
               ? attachments.length > 0 && uploadFile
@@ -899,10 +899,10 @@ function EditorAttachmentChip({
         <img
           src={attachment.objectUrl}
           alt={attachment.filename}
-          className="h-10 w-10 shrink-0 rounded object-cover"
+          className="h-10 w-10 shrink-0 rounded-sm object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-surface-2 text-fg-muted">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-surface-2 text-fg-muted">
           <Paperclip className="h-4 w-4" />
         </div>
       )}
@@ -914,7 +914,7 @@ function EditorAttachmentChip({
       </div>
       <button
         onClick={onRemove}
-        className="absolute right-1 top-1 rounded p-0.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        className="absolute right-1 top-1 rounded-sm p-0.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
         aria-label="Remove attachment"
       >
         <X className="h-3.5 w-3.5" />

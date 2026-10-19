@@ -167,7 +167,7 @@ export function QuoteLineModal({
       <div role="dialog" aria-modal="true" aria-label="Add a quote line" onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-surface p-5 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-fg">Add a line</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -183,7 +183,7 @@ export function QuoteLineModal({
                 setError(null);
                 setDiscountTouched(false);
               }}
-              className={cn("rounded-md px-3 py-1.5 text-sm font-medium", kind === k.kind ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg")}
+              className={cn("rounded-md px-3 py-1.5 text-sm font-medium", kind === k.kind ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg")}
             >
               {k.label}
             </button>

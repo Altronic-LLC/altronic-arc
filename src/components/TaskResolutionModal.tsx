@@ -37,7 +37,7 @@ export function TaskResolutionModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-resolution-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <div className="flex w-full max-w-lg flex-col bg-bg shadow-2xl sm:max-h-[90vh] sm:rounded-lg">
@@ -74,7 +74,7 @@ export function TaskResolutionModal({
             onChange={(e) => setText(e.target.value)}
             rows={5}
             placeholder="Describe how this was resolved — the fix, the outcome, any part numbers or references…"
-            className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+            className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
         </div>
 
@@ -91,7 +91,7 @@ export function TaskResolutionModal({
             type="button"
             onClick={() => onConfirm(trimmed)}
             disabled={busy || trimmed.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-cooper-green/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-cooper-green/90 disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />

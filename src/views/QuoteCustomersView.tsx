@@ -121,7 +121,7 @@ function CustomersRegister({ canManage }: { canManage: boolean }) {
           <div>
             <button
               onClick={() => setEditing(null)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
             >
               <Plus className="h-4 w-4" />
               Add customer
@@ -186,7 +186,7 @@ function CustomersRegister({ canManage }: { canManage: boolean }) {
                 <div key={c.id} className="flex items-start gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs font-semibold text-fg">
+                      <span className="rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-xs font-semibold text-fg">
                         {c.code}
                       </span>
                       <span className="truncate font-medium text-fg">{c.name}</span>

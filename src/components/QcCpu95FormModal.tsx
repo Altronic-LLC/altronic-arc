@@ -203,7 +203,7 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
             type="submit"
             form="qc-cpu95-form"
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {mode === "create" ? "Save test sheet" : "Save changes"}
@@ -286,7 +286,7 @@ function SectionFields({
               checked={values[field.key] === "Yes"}
               onChange={(e) => onChange(field.key, e.target.checked ? "Yes" : "")}
               disabled={disabled}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-accent focus:ring-accent/40"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border text-accent focus:ring-accent/40"
             />
             {field.label}
           </label>
@@ -309,7 +309,7 @@ function SectionFields({
               checked={(values[field.key] ?? "") === "Yes"}
               onChange={(e) => onChange(field.key, e.target.checked ? "Yes" : "")}
               disabled={disabled}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-accent focus:ring-accent/40"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border text-accent focus:ring-accent/40"
             />
             {field.label}
           </label>

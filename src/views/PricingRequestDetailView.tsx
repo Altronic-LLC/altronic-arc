@@ -388,7 +388,7 @@ function Dialog({
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-fg">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -412,11 +412,11 @@ Stable IDs; cite them in commit messages when closing one.
 - **SEC-03** public repo carries staff addresses, hardcoded recipients, fixture data from real rows — closed by the planned move to a private repo on Azure Static Web Apps, see the decision above
 - **SEC-02** QZ key in the bundle — accepted, recorded above
 - **SEC-04** shared-mailbox Send-As is per user and unaudited — group grant + transport rule (IT)
-- **SEC-06** no Content-Security-Policy (`<meta>` CSP is possible on Pages; needs browser testing against QZ `wss://`, Fabric, mermaid)
+- **SEC-06** no Content-Security-Policy (`<meta>` CSP is possible on Pages; needs browser testing against QZ `wss://` and Fabric)
 - **ARCH-02** mock fixtures ship in the production bundle — lazy-load them behind `USE_MOCK`
 - **ARCH-03 / ARCH-04** `types/task.ts`, `App.tsx`, `config.ts`, `email.ts`, `ManualView.tsx` and eight hooks over 600 lines want splitting
 - **CQ-01** no ESLint/Prettier despite `eslint-disable` comments — add, with `react-hooks` and `@typescript-eslint`, into `pr.yml`
-- **DEP-01** framework majors (react-router 7 first — the only production advisory — then vite 8 + vitest 5, tailwind 4, msal 5, React 19)
+- **DEP-01** framework majors — react-router 7, vite 8 and tailwind 4 DONE 2026-10-19 (`npm audit` clean, mermaid removed as unused); still open: vitest 5, msal 5, React 19, TypeScript 7, jsdom 30, none with an advisory
 - **DEP-02** `qz-tray` LGPL-2.1 — legal confirmation that the separate chunk satisfies it
 - **TEST-03** coverage is claimed at 100 % and measured nowhere — run it once, publish the number, ratchet thresholds
 - **ARCH-05** `api/email.ts` imports the UI toast; moving it out means rewriting the ten tests that assert email-failure toasts through that mock
@@ -957,7 +957,6 @@ src/
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
 │   ├── ListAccessNotice.tsx        SharePoint list permission notice + retry
 │   ├── ListAccessIndicator.tsx     Footer "you don't have access to X" — sentence, or icon + popup
-│   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
 │   ├── maintenanceAtoms.tsx      CMMS badges/chips + the dashed 'projected, not a record' treatment
@@ -5089,7 +5088,8 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   left accent bar and light tints — never on text, where blue on the dark
   theme is hard to read. A new pricing card picks a tone by what it holds,
   or none.
-- **A width on an `.input` needs `!`** (`!w-24`, `!px-1.5`). `.input` in
+- **A width on an `.input` needs `!`** (`w-24!`, `px-1.5!` — a suffix since
+  Tailwind 4). `.input` in
   `globals.css` sets `width: 100%` AFTER Tailwind's utilities, so a plain
   `w-20` is silently ignored — that is why the break fields once stretched
   across the card. Fixing `.input` itself would resize every screen in ARC,
@@ -7589,7 +7589,7 @@ it live as "really fast... almost not visible": at full-screen scale a
 down the shared `fade-in` utility (which nothing else in the app used at
 the time, but a FUTURE small-UI-element caller shouldn't silently inherit a
 kiosk-length timing because this file happened to change its duration),
-`kiosk-fade` in `tailwind.config.js` is a separate named animation at
+`kiosk-fade` (`--animate-kiosk-fade` in `globals.css`'s `@theme`) is a separate named animation at
 1000ms — long enough to see, short enough not to feel sluggish against a
 60-second dwell time. Still no true crossfade: the outgoing report simply
 unmounts as the incoming one mounts, re-keyed on the report's own `key` so
@@ -8483,7 +8483,52 @@ selects' own `bg-surface` / `text-fg` classes.
 Two themes, light and dark, controlled by a `.dark` class on `<html>`.
 All colours flow through CSS variables defined in `src/styles/globals.css`
 and exposed to Tailwind as `bg-bg`, `text-fg`, `border-border`, etc.
-Adding a new colour means adding a CSS var first and then a Tailwind alias.
+Adding a new colour means adding a CSS var first and then a `--color-*` entry
+in the `@theme` block at the top of `globals.css`.
+
+### Tailwind 4 — configured in CSS, kept looking like Tailwind 3
+
+ARC moved from Tailwind 3 to 4 on 2026-10-19 (the npm audit chore; the only
+fix for the braces → micromatch → chokidar advisory chain). There is **no
+`tailwind.config.js` or `postcss.config.js` any more**: the theme lives in
+`@theme` in `src/styles/globals.css`, and Tailwind runs as the
+`@tailwindcss/vite` plugin. The `@tailwindcss/upgrade` codemod did the class
+renames; the rest was made deliberately so nothing on screen moved.
+Screenshots of nine screens, both themes, desktop and phone width, plus three
+open modals, compared pixel for pixel with Tailwind 3: identical except the
+detail-page titles (below). Four things in `globals.css` hold that, and each
+is a silent visual change if removed:
+
+- **The custom rules (`.input`, `.select`, the h1/h2/h3 font, `.comment-html`,
+  `.mention`, the scrollbars) sit in `@layer utilities`, AFTER Tailwind's
+  own.** Tailwind 3 emitted them as plain CSS after the utilities, so
+  specificity then source order decided. Unlayered in v4 they would beat
+  EVERY utility, `hover:`/`focus:`/`dark:` included; in `@layer components`
+  every utility would beat them. Checked in the built CSS, not assumed.
+- **Text sizes keep v3's ABSOLUTE line-heights** (`--text-xs--line-height:
+  1rem`, …). v4 writes them as ratios, which render the same on the element
+  but INHERIT differently: a `text-[10px]` chip in a `text-xs` row went from
+  16px to 13.3px, shrinking every badge in every list. This one change took
+  the screenshot diff from up to 20% to zero.
+- **`@custom-variant hover (&:hover)`** — v4 fires `hover:` only on devices
+  that can hover; v3 also showed it on a tap.
+- **Preflight compat in `@layer base`**: border colour gray-200 (not
+  currentColor), buttons `cursor: pointer`, placeholders gray-400.
+
+What DID change, accepted: **an explicit `leading-*` now beats a responsive
+`sm:text-*`**. The twelve detail-page titles are `text-xl leading-tight
+sm:text-2xl`; v3 let `sm:text-2xl`'s line-height win (32px), v4 honours
+`leading-tight` (30px). 2px tighter, and what the class list said all along.
+
+Two syntax changes worth knowing: **the important modifier is a SUFFIX**
+(`w-20!`, not `!w-20`; the prefix still works but is deprecated), and
+renamed scales (`shadow-sm`→`shadow-xs`, `rounded`→`rounded-sm`,
+`outline-none`→`outline-hidden`, `ring`→`ring-3`). **The codemod also
+rewrote those words in PROSE** — "the ring", "rounded to the cent", "on blur"
+in changelog entries, test names, comments and the manual — so if it is ever
+run again, read every changed line that isn't a class string.
+
+Browser floor is now Safari 16.4+, Chrome 111+, Firefox 128+.
 
 The accent colour is Cooper Red (`#CB2C30`). Cooper brand secondary colours
 are available as Tailwind classes (`text-cooper-green`, `bg-ajax-yellow`, etc.).
@@ -8573,8 +8618,7 @@ looked at. Three things it had to learn:
   for the result.
 - **Page errors are printed** after the capture (exceptions, `console.error`,
   `console.warn`) — a screenshot alone can't show why something didn't
-  happen. React Router's two "Future Flag" warnings are always there; ignore
-  them.
+  happen.
 
 ### The header fits every width — labels at 2xl, the buttons wrap below
 

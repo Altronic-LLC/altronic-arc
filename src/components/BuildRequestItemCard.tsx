@@ -147,14 +147,14 @@ export function BuildRequestItemCard({
               </span>
             )}
             {item.partType && (
-              <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+              <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
                 {item.partType}
               </span>
             )}
             {checklistDefs.length > 0 && (
               <span
                 className={cn(
-                  "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                  "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
                   progress.done === progress.total
                     ? "border-cooper-green/40 bg-cooper-green/10 text-cooper-green"
                     : "border-border bg-surface-2 text-fg-muted",
@@ -255,13 +255,13 @@ export function BuildRequestItemCard({
                     {checklistDefs.map((def) => (
                       <label
                         key={def.field}
-                        className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm text-fg hover:bg-surface"
+                        className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 text-sm text-fg hover:bg-surface"
                       >
                         <input
                           type="checkbox"
                           checked={!!item.checklist[def.field]}
                           onChange={(e) => patch({ [def.field]: e.target.checked })}
-                          className="h-4 w-4 rounded border-border"
+                          className="h-4 w-4 rounded-sm border-border"
                         />
                         <span className={cn(item.checklist[def.field] && "text-fg-muted line-through")}>
                           {def.label}
@@ -416,7 +416,7 @@ function PartProductionControl({
                 if (b.allowed) onPress(b.target);
               }}
               className={cn(
-                "inline-flex w-fit items-center rounded-md px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors",
+                "inline-flex w-fit items-center rounded-md px-3 py-1.5 text-xs font-semibold shadow-xs transition-colors",
                 b.primary
                   ? "bg-cooper-red text-white hover:bg-cooper-red/90"
                   : "border border-cooper-red/50 bg-surface text-cooper-red hover:bg-cooper-red/10",
@@ -547,7 +547,7 @@ function TextAreaField({
           if (draft !== value) onSave(draft);
         }}
         rows={2}
-        className="w-full resize-y rounded-md border border-border bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+        className="w-full resize-y rounded-md border border-border bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
       />
     </label>
   );

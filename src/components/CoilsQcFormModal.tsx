@@ -150,7 +150,7 @@ export function CoilsQcFormModal({
           {error && <p className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-sm text-cooper-red">{error}</p>}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1 text-sm text-fg-muted">
-              <div className="flex items-center justify-between"><span>Coil part number <span className="text-cooper-red">*</span></span><button type="button" aria-label="Add coil part number" title="Add coil part number" onClick={() => setShowAddPart((show) => !show)} className="rounded p-0.5 text-accent hover:bg-accent/10"><Plus className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between"><span>Coil part number <span className="text-cooper-red">*</span></span><button type="button" aria-label="Add coil part number" title="Add coil part number" onClick={() => setShowAddPart((show) => !show)} className="rounded-sm p-0.5 text-accent hover:bg-accent/10"><Plus className="h-4 w-4" /></button></div>
               <div className={!draft.coilPartNumber ? "rounded-md ring-1 ring-cooper-red" : undefined}>
                 <SingleSelect options={options} selected={draft.coilPartNumber || null} onChange={(value) => setDraft((current) => ({ ...current, coilPartNumber: value ?? "" }))} allLabel="Select part number" searchPlaceholder="Search part numbers" ariaLabel="Coil part number" />
               </div>

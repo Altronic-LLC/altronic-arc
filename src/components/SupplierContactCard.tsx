@@ -96,7 +96,7 @@ export function SupplierContactCard({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-fg">{supplierContactLabel(contact)}</span>
             {contact.status && (
-              <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+              <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
                 {contact.status}
               </span>
             )}
@@ -242,7 +242,7 @@ function TextAreaField({
           if (draft !== value) onSave(draft);
         }}
         rows={2}
-        className="w-full resize-y rounded-md border border-border bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+        className="w-full resize-y rounded-md border border-border bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
       />
     </label>
   );

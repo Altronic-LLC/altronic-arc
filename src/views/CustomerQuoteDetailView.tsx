@@ -204,9 +204,9 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
               <span className="inline-flex gap-1" aria-label="Revisions">
                 {revs.map((r) =>
                   r.id === q.id ? (
-                    <span key={r.id} className="rounded bg-surface-2 px-1.5 text-xs font-semibold">R{r.rev}</span>
+                    <span key={r.id} className="rounded-sm bg-surface-2 px-1.5 text-xs font-semibold">R{r.rev}</span>
                   ) : (
-                    <Link key={r.id} to={`/sales/pricing/quote/${r.id}`} className="rounded px-1.5 text-xs font-semibold text-accent hover:underline">
+                    <Link key={r.id} to={`/sales/pricing/quote/${r.id}`} className="rounded-sm px-1.5 text-xs font-semibold text-accent hover:underline">
                       R{r.rev}
                     </Link>
                   ),
@@ -218,7 +218,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-2 text-xs text-fg-muted">
             Status
-            <select value={q.status} onChange={(e) => setStatus(e.target.value as CustomerQuoteStatus)} className="input !h-8 !w-auto !py-0" aria-label="Quote status">
+            <select value={q.status} onChange={(e) => setStatus(e.target.value as CustomerQuoteStatus)} className="input h-8! w-auto! py-0!" aria-label="Quote status">
               {CUSTOMER_QUOTE_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -335,7 +335,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                                     saveLines(q.lines.map((x) => (x.id === l.id ? { ...x, customerPartNumber: v || undefined } : x)));
                                   }
                                 }}
-                                className="input mt-1 !h-7 !w-48 !px-2 text-xs"
+                                className="input mt-1 h-7! w-48! px-2! text-xs"
                               />
                             ) : (
                               l.customerPartNumber && (
@@ -394,7 +394,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                                     saveLines(q.lines.map((x) => (x.id === l.id ? { ...x, quantity: n } : x)));
                                   } else e.target.value = String(l.quantity);
                                 }}
-                                className="input !h-8 !w-20 !px-2 text-right tabular-nums"
+                                className="input h-8! w-20! px-2! text-right tabular-nums"
                               />
                             ) : (
                               <span className="tabular-nums">{l.quantity}</span>
@@ -408,7 +408,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                                 type="button"
                                 aria-label={`Remove ${l.partNumber || l.description}`}
                                 onClick={() => saveLines(q.lines.filter((x) => x.id !== l.id))}
-                                className="rounded p-1 text-fg-muted hover:text-cooper-red"
+                                className="rounded-sm p-1 text-fg-muted hover:text-cooper-red"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -552,7 +552,7 @@ function QuoteHeaderModal({
       <div role="dialog" aria-modal="true" aria-label="Edit quote details" onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-surface p-5 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-fg">Edit {quote.quoteNumber}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -573,7 +573,7 @@ function QuoteHeaderModal({
           </div>
           <label className="flex flex-col gap-1 text-xs">
             <span className="font-semibold uppercase tracking-wider text-fg-muted">Valid for (days)</span>
-            <input type="number" min={1} value={validity} onChange={(e) => setValidity(e.target.value)} className="input !w-32" />
+            <input type="number" min={1} value={validity} onChange={(e) => setValidity(e.target.value)} className="input w-32!" />
           </label>
           <p className="text-[11px] text-fg-muted">
             Line prices aren't changed — a line keeps the price it was added at.

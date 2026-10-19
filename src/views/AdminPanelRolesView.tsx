@@ -93,7 +93,7 @@ export function AdminPanelRolesView() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <UserPlus className="h-4 w-4" /> Add role
         </button>
@@ -147,7 +147,7 @@ export function AdminPanelRolesView() {
                         onChange={(ev) =>
                           update.mutate({ id: e.id, role: ev.target.value as PanelRole })
                         }
-                        className="select max-w-[12rem]"
+                        className="select max-w-48"
                       >
                         {!e.role && <option value="">Not set</option>}
                         {PANEL_ROLE_CHOICES.map((r) => (
@@ -315,7 +315,7 @@ function NewPanelRoleModal({
             <button
               type="submit"
               disabled={submitting || !selectedUser || !role}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {submitting ? "Adding…" : "Add role"}
             </button>

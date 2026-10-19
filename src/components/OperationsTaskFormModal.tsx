@@ -256,7 +256,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
       role="dialog"
       aria-modal="true"
       aria-labelledby="operations-task-form-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <form
@@ -308,7 +308,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Short, action-oriented summary"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
                 required
                 maxLength={255}
               />
@@ -356,7 +356,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
                 }}
                 rows={4}
                 placeholder="What needs to be done?"
-                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
             </label>
 
@@ -477,7 +477,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
           <button
             type="submit"
             disabled={busy || !title.trim()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />

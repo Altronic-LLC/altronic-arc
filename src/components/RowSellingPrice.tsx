@@ -88,7 +88,7 @@ export function RowSellingPrice({
   const overridden = pricing.distributorDiscountPct !== null;
 
   return (
-    <section aria-label={`${label} — own selling price`} className="mt-3 rounded-lg border border-border border-l-4 border-l-cooper-green bg-cooper-green/[0.03] p-3">
+    <section aria-label={`${label} — own selling price`} className="mt-3 rounded-lg border border-border border-l-4 border-l-cooper-green bg-cooper-green/3 p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
           <Tag className="h-3.5 w-3.5" /> Own selling price
@@ -120,8 +120,8 @@ export function RowSellingPrice({
                     set({ input: { kind: k.kind, value: Number.NaN } });
                   }}
                   className={cn(
-                    "rounded px-2 text-[11px] font-semibold uppercase tracking-wider",
-                    pricing.input.kind === k.kind ? "bg-surface-2 text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                    "rounded-sm px-2 text-[11px] font-semibold uppercase tracking-wider",
+                    pricing.input.kind === k.kind ? "bg-surface-2 text-fg shadow-xs" : "text-fg-muted hover:text-fg",
                   )}
                 >
                   {k.label}
@@ -142,7 +142,7 @@ export function RowSellingPrice({
               setValueText(e.target.value);
               set({ input: { kind: pricing.input.kind, value: asNumber(e.target.value) } });
             }}
-            className={cn("input !h-9 text-right tabular-nums", pricing.input.kind === "gm" ? "!w-20" : "!w-28")}
+            className={cn("input h-9! text-right tabular-nums", pricing.input.kind === "gm" ? "w-20!" : "w-28!")}
           />
           {pricing.input.kind === "gm" && <span className="text-fg-muted">%</span>}
         </FieldColumn>
@@ -163,7 +163,7 @@ export function RowSellingPrice({
               const n = e.target.value.trim() === "" ? null : Number(e.target.value);
               set({ distributorDiscountPct: n === null || !Number.isFinite(n) ? null : n });
             }}
-            className="input !h-9 !w-20 text-right tabular-nums"
+            className="input h-9! w-20! text-right tabular-nums"
           />
           <span className="text-fg-muted">%</span>
         </FieldColumn>
@@ -226,7 +226,7 @@ export function RowSellingPrice({
                         value={t.minQty}
                         disabled={readOnly}
                         onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, minQty: Number(e.target.value) } : x)))}
-                        className="input !h-8 !w-20 tabular-nums"
+                        className="input h-8! w-20! tabular-nums"
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -237,7 +237,7 @@ export function RowSellingPrice({
                         value={t.discountPct}
                         disabled={readOnly}
                         onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, discountPct: Number(e.target.value) } : x)))}
-                        className="input !h-8 !w-20 tabular-nums"
+                        className="input h-8! w-20! tabular-nums"
                       />
                     </td>
                     <td className="px-2 py-1 text-right tabular-nums">{formatMoney(priced?.price ?? null)}</td>
@@ -248,7 +248,7 @@ export function RowSellingPrice({
                           type="button"
                           aria-label={`Remove ${label} break ${i + 1}`}
                           onClick={() => setTiers(tiers.filter((_, j) => j !== i))}
-                          className="rounded p-0.5 text-fg-muted hover:text-cooper-red"
+                          className="rounded-sm p-0.5 text-fg-muted hover:text-cooper-red"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>

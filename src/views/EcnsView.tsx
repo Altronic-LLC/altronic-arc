@@ -154,7 +154,7 @@ export function EcnsView() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           New ECN
@@ -323,10 +323,10 @@ function Row({
           <EcnOnHoldChip onHold={ecn.values.onHold ?? ""} />
         </span>
       </td>
-      <td className="max-w-[12rem] truncate px-4 py-2 text-fg-muted" title={projectTitle}>
+      <td className="max-w-48 truncate px-4 py-2 text-fg-muted" title={projectTitle}>
         {projectTitle || "—"}
       </td>
-      <td className="max-w-[14rem] truncate px-4 py-2 text-fg-muted" title={ecn.values.finalAssemblyPartNumbers}>
+      <td className="max-w-56 truncate px-4 py-2 text-fg-muted" title={ecn.values.finalAssemblyPartNumbers}>
         {ecn.values.finalAssemblyPartNumbers || "—"}
       </td>
       <td className="max-w-[24rem] truncate px-4 py-2 text-fg-muted" title={summary}>

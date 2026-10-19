@@ -122,7 +122,7 @@ export function WhereAmIView() {
         </div>
         <button
           onClick={() => setAdding(new Date())}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           Add
@@ -254,7 +254,7 @@ function MonthGrid({
               key={key}
               onClick={() => onAdd(day)}
               className={cn(
-                "group flex min-h-[7rem] min-w-0 cursor-pointer flex-col gap-1 border-b border-r border-border p-1.5 transition-colors hover:bg-surface-2",
+                "group flex min-h-28 min-w-0 cursor-pointer flex-col gap-1 border-b border-r border-border p-1.5 transition-colors hover:bg-surface-2",
                 otherMonth && "bg-surface-2/40",
                 selected && "bg-accent/5 ring-2 ring-inset ring-accent",
               )}
@@ -279,7 +279,7 @@ function MonthGrid({
                       ? `Close ${dayLabel(day)}`
                       : `Show everything on ${dayLabel(day)}`
                   }
-                  className="flex flex-1 items-center rounded px-0.5 py-0.5 text-left hover:bg-surface"
+                  className="flex flex-1 items-center rounded-sm px-0.5 py-0.5 text-left hover:bg-surface"
                 >
                   <span
                     className={cn(
@@ -300,7 +300,7 @@ function MonthGrid({
                   }}
                   aria-label={`Add to ${dayLabel(day)}`}
                   title={`Add to ${dayLabel(day)}`}
-                  className="rounded p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+                  className="rounded-sm p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -319,7 +319,7 @@ function MonthGrid({
                       onEdit(entry);
                     }}
                     title={entry.title}
-                    className="w-full shrink-0 truncate rounded border border-border bg-surface px-1.5 py-1 text-left text-[11px] text-fg transition-colors hover:border-accent"
+                    className="w-full shrink-0 truncate rounded-sm border border-border bg-surface px-1.5 py-1 text-left text-[11px] text-fg transition-colors hover:border-accent"
                   >
                     {entry.title}
                   </button>
@@ -331,7 +331,7 @@ function MonthGrid({
                       e.stopPropagation();
                       onSelectDay(day);
                     }}
-                    className="shrink-0 rounded px-1.5 py-0.5 text-left text-[11px] font-medium text-accent hover:underline"
+                    className="shrink-0 rounded-sm px-1.5 py-0.5 text-left text-[11px] font-medium text-accent hover:underline"
                   >
                     +{hidden} more
                   </button>

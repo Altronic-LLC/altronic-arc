@@ -103,7 +103,7 @@ export function SortableHeader<K extends string>({
           type="button"
           onClick={() => onToggleSort(columnKey)}
           aria-label={`Sort by ${label}`}
-          className="rounded p-0.5 text-fg-muted hover:text-fg"
+          className="rounded-sm p-0.5 text-fg-muted hover:text-fg"
         >
           <SortIcon active={active} direction={sortDirection} />
         </button>
@@ -214,7 +214,7 @@ export function ColumnFilterButton({
           ref={panelRef}
           role="listbox"
           style={{ left: portalPosition.left, top: portalPosition.top, width: portalPosition.width }}
-          className="fixed z-[100] flex max-h-72 flex-col rounded-lg border border-border bg-surface normal-case tracking-normal text-fg shadow-lg"
+          className="fixed z-100 flex max-h-72 flex-col rounded-lg border border-border bg-surface normal-case tracking-normal text-fg shadow-lg"
         >
           <div className="border-b border-border p-2">
             <input
@@ -222,7 +222,7 @@ export function ColumnFilterButton({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
-              className="w-full rounded-md border border-border bg-bg px-2 py-1 text-xs font-normal text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="w-full rounded-md border border-border bg-bg px-2 py-1 text-xs font-normal text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
           </div>
           <div className="flex-1 overflow-y-auto p-1">
@@ -256,7 +256,7 @@ export function ColumnFilterButton({
 
 function CheckboxMark({ checked }: { checked: boolean }) {
   return (
-    <span className={cn("flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border", checked ? "border-accent bg-accent text-white" : "border-border bg-surface")}>
+    <span className={cn("flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border", checked ? "border-accent bg-accent text-white" : "border-border bg-surface")}>
       {checked && <Check className="h-2.5 w-2.5" />}
     </span>
   );

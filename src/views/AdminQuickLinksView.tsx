@@ -145,7 +145,7 @@ export function AdminQuickLinksView() {
                             onClick={() => move.mutate({ id: link.id, direction: "up" })}
                             disabled={i === 0 || move.isPending}
                             aria-label={`Move ${link.label} up`}
-                            className="rounded p-0.5 text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+                            className="rounded-sm p-0.5 text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             <ArrowUp className="h-3.5 w-3.5" />
                           </button>
@@ -153,7 +153,7 @@ export function AdminQuickLinksView() {
                             onClick={() => move.mutate({ id: link.id, direction: "down" })}
                             disabled={i === deptLinks.length - 1 || move.isPending}
                             aria-label={`Move ${link.label} down`}
-                            className="rounded p-0.5 text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+                            className="rounded-sm p-0.5 text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             <ArrowDown className="h-3.5 w-3.5" />
                           </button>
@@ -321,7 +321,7 @@ function QuickLinkFormModal({
               onChange={(e) => setLabel(e.target.value)}
               placeholder="CAD Vault"
               disabled={submitting}
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
           </label>
 
@@ -335,7 +335,7 @@ function QuickLinkFormModal({
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://…"
               disabled={submitting}
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
           </label>
 
@@ -372,7 +372,7 @@ function QuickLinkFormModal({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {submitting ? "Saving…" : "Save"}
             </button>

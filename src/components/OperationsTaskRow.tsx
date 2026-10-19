@@ -85,7 +85,7 @@ export function OperationsTaskRow({ task, onOpen, department }: OperationsTaskRo
         <div className="flex flex-wrap items-center gap-1.5">
           <CategoryChip category={task.taskType} />
           {task.location && (
-            <span className="inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+            <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
               <MapPin className="h-2.5 w-2.5" />
               {task.location}
             </span>

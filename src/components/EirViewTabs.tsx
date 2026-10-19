@@ -76,7 +76,7 @@ function ViewTab({
       className={cn(
         "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
         active
-          ? "bg-accent text-white shadow-sm"
+          ? "bg-accent text-white shadow-xs"
           : "text-fg-muted hover:bg-surface-2 hover:text-fg",
       )}
     >

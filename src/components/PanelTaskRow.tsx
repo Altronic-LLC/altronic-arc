@@ -42,7 +42,7 @@ export function PanelTaskRow({ task, onOpen }: PanelTaskRowProps) {
         <div className="flex flex-wrap items-center gap-2">
           <PanelTaskStatusBadge status={task.status} />
           {task.taskType && (
-            <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+            <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
               {task.taskType}
             </span>
           )}
@@ -63,7 +63,7 @@ export function PanelTaskRow({ task, onOpen }: PanelTaskRowProps) {
           {task.projectRef ? (
             <span
               title={task.projectRef.title}
-              className="inline-flex max-w-[16rem] truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
+              className="inline-flex max-w-[16rem] truncate rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
             >
               {task.projectRef.title || `Project #${task.projectRef.lookupId}`}
             </span>

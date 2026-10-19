@@ -74,7 +74,7 @@ export function NewWorksheetFormModal({
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h2 className="font-display text-lg font-semibold text-fg">New product worksheet</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -95,7 +95,7 @@ export function NewWorksheetFormModal({
           </div>
           <label className="flex flex-col gap-1 text-xs">
             <span className="font-semibold uppercase tracking-wider text-fg-muted">Expected annual volume</span>
-            <input type="number" min={0} value={volume} onChange={(e) => setVolume(e.target.value)} className="input max-w-[12rem]" />
+            <input type="number" min={0} value={volume} onChange={(e) => setVolume(e.target.value)} className="input max-w-48" />
           </label>
           {error && (
             <div role="alert" className="rounded-md border border-cooper-red/40 bg-cooper-red/10 px-2 py-1.5 text-xs text-cooper-red">

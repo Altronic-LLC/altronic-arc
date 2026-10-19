@@ -68,7 +68,7 @@ export function CsaAttachmentsModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded p-1 text-fg-muted hover:bg-muted hover:text-fg"
+            className="shrink-0 rounded-sm p-1 text-fg-muted hover:bg-muted hover:text-fg"
           >
             <X className="h-4 w-4" />
           </button>

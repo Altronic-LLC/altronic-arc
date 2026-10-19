@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -10,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // During `npm run dev`, base is "/" (no prefix). On build (GitHub Actions sets
 // NODE_ENV=production), we use /altronic-arc/ (the GitHub repo name).
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   base: mode === "production" ? "/altronic-arc/" : "/",
   resolve: {
     // Mirror the `@/*` alias declared in tsconfig.json so Rollup can resolve

@@ -560,7 +560,7 @@ export function CommentComposer({
         disabled={disabled || busy}
         autoFocus={autoFocus}
         rows={4}
-        className="w-full resize-y rounded-md bg-bg p-3 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
+        className="w-full resize-y rounded-md bg-bg p-3 text-base text-fg placeholder:text-fg-muted focus:outline-hidden focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />
       )}
 
@@ -682,15 +682,15 @@ export function CommentComposer({
           )}
           <span className="hidden whitespace-nowrap text-xs text-fg-muted sm:inline">
             Press{" "}
-            <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">Ctrl</kbd>+
-            <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">Enter</kbd>{" "}
+            <kbd className="rounded-sm border border-border bg-bg px-1 py-0.5 text-[10px]">Ctrl</kbd>+
+            <kbd className="rounded-sm border border-border bg-bg px-1 py-0.5 text-[10px]">Enter</kbd>{" "}
             to send
           </span>
         </div>
         <button
           onClick={handleSend}
           disabled={!canSend}
-          className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" />
           {busy
@@ -754,10 +754,10 @@ function AttachmentChip({
         <img
           src={attachment.objectUrl}
           alt={attachment.filename}
-          className="h-10 w-10 shrink-0 rounded object-cover"
+          className="h-10 w-10 shrink-0 rounded-sm object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-surface text-fg-muted">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-surface text-fg-muted">
           <Paperclip className="h-4 w-4" />
         </div>
       )}
@@ -769,7 +769,7 @@ function AttachmentChip({
       </div>
       <button
         onClick={onRemove}
-        className="absolute right-1 top-1 rounded p-0.5 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+        className="absolute right-1 top-1 rounded-sm p-0.5 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
         aria-label="Remove attachment"
       >
         <X className="h-3.5 w-3.5" />

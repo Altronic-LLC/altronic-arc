@@ -137,7 +137,7 @@ function ChecklistRow({
       <div className="flex flex-wrap items-center gap-1.5">
         {item.onEcn && (
           <span
-            className="rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-accent"
+            className="rounded-sm border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-accent"
             title="Column A on the form — details MUST be on the ECN."
           >
             Must be on ECN
@@ -145,7 +145,7 @@ function ChecklistRow({
         )}
         {item.requiresReview && (
           <span
-            className="rounded border border-ajax-yellow/40 bg-ajax-yellow/10 px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ajax-yellow-fg"
+            className="rounded-sm border border-ajax-yellow/40 bg-ajax-yellow/10 px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-ajax-yellow-fg"
             title="Column D on the form — needs a department review before the ECN is released."
           >
             Needs department review
@@ -155,7 +155,7 @@ function ChecklistRow({
           <button
             type="button"
             onClick={() => onShowRaci(item.key)}
-            className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[0.65rem] font-medium text-fg-muted hover:bg-muted hover:text-fg"
+            className="inline-flex items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-[0.65rem] font-medium text-fg-muted hover:bg-muted hover:text-fg"
             title="Who is involved in this step (RACI)"
           >
             <Users className="h-3 w-3" />
@@ -194,7 +194,7 @@ function ChecklistRow({
           onBlur={() => commitFindings(draft)}
           placeholder="Findings / comments"
           rows={1}
-          className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none"
+          className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden"
           style={{ minHeight: "2.25rem" }}
         />
       </label>

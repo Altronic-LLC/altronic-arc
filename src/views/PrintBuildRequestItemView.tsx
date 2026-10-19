@@ -78,7 +78,7 @@ export function PrintBuildRequestItemView() {
               </p>
             </div>
           </div>
-          <div className="rounded-sm border border-gray-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-700">
+          <div className="rounded-xs border border-gray-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-700">
             Confidential
           </div>
         </div>
@@ -99,7 +99,7 @@ export function PrintBuildRequestItemView() {
       </header>
 
       {header?.leadFree && (
-        <div className="mb-5 break-inside-avoid rounded border-2 border-green-700 bg-green-50 px-4 py-2 text-center font-display text-base font-bold uppercase tracking-[0.2em] text-green-800">
+        <div className="mb-5 break-inside-avoid rounded-sm border-2 border-green-700 bg-green-50 px-4 py-2 text-center font-display text-base font-bold uppercase tracking-[0.2em] text-green-800">
           ⚠ Lead Free (RoHS) build — use lead-free process
         </div>
       )}

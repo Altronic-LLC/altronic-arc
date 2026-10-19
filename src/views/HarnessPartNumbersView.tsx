@@ -98,7 +98,7 @@ export function HarnessPartNumbersView() {
           disabled={!isAdmin || !HARNESS_CONFIGURED}
           aria-disabled={!isAdmin}
           title={isAdmin ? undefined : lockHint}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
           Add part number
@@ -166,7 +166,7 @@ export function HarnessPartNumbersView() {
                   <td className="px-3 py-2">
                     <span
                       className={cn(
-                        "rounded px-1.5 py-0.5 text-[11px] font-semibold",
+                        "rounded-sm px-1.5 py-0.5 text-[11px] font-semibold",
                         p.active ? "bg-cooper-green/15 text-cooper-green" : "bg-surface-2 text-fg-muted",
                       )}
                     >
@@ -179,7 +179,7 @@ export function HarnessPartNumbersView() {
                       disabled={!isAdmin}
                       title={isAdmin ? "Rename / describe" : lockHint}
                       aria-label={`Edit ${p.title}`}
-                      className="rounded p-1 text-fg-muted hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-sm p-1 text-fg-muted hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -188,7 +188,7 @@ export function HarnessPartNumbersView() {
                       disabled={!isAdmin || setActive.isPending}
                       title={isAdmin ? (p.active ? "Retire" : "Restore") : lockHint}
                       aria-label={`${p.active ? "Retire" : "Restore"} ${p.title}`}
-                      className="rounded p-1 text-fg-muted hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-sm p-1 text-fg-muted hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {p.active ? <Archive className="h-3.5 w-3.5" /> : <ArchiveRestore className="h-3.5 w-3.5" />}
                     </button>
@@ -261,7 +261,7 @@ function PartNumberDialog({
       >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-fg">{part ? "Edit part number" : "Add part number"}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -285,7 +285,7 @@ function PartNumberDialog({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg focus:border-accent focus:outline-none sm:text-sm"
+            className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg focus:border-accent focus:outline-hidden sm:text-sm"
           />
         </label>
         {error && <p className="rounded-md bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">{error}</p>}

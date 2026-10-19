@@ -87,7 +87,7 @@ export function DefectBreakdownDonut({
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
         aria-label={`${monthLabel} defect breakdown. ${total.toLocaleString()} ${unitLabel.toLowerCase()} tested. ${summary}`}
-        className={cn("shrink-0", large ? "h-72 w-72 sm:h-96 sm:w-96 lg:h-[30rem] lg:w-[30rem]" : "h-40 w-40")}
+        className={cn("shrink-0", large ? "h-72 w-72 sm:h-96 sm:w-96 lg:h-120 lg:w-120" : "h-40 w-40")}
       >
         <circle
           cx={CENTER}
@@ -175,7 +175,7 @@ export function DefectBreakdownDonut({
           segments.map((s, i) => (
             <div key={s.label} className={cn("flex items-center", large ? "gap-3" : "gap-2")}>
               <span
-                className={cn("shrink-0 rounded-sm", large ? "h-4 w-4" : "h-2.5 w-2.5")}
+                className={cn("shrink-0 rounded-xs", large ? "h-4 w-4" : "h-2.5 w-2.5")}
                 style={{ backgroundColor: colors[i] }}
               />
               <span className="min-w-0 flex-1 truncate text-fg">{s.label}</span>

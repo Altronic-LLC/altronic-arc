@@ -409,14 +409,14 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                     setMpg(e.target.value.toUpperCase());
                     touch();
                   }}
-                  className="input !h-9 !w-36"
+                  className="input h-9! w-36!"
                   placeholder="Optional"
                 />
               </FieldColumn>
               <Num
                 label="Distributor discount"
                 suffix="%"
-                width="!w-24"
+                width="w-24!"
                 value={discount}
                 disabled={readOnly}
                 onChange={(v) => {
@@ -444,8 +444,8 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                           touch();
                         }}
                         className={cn(
-                          "rounded px-2 text-[11px] font-semibold uppercase tracking-wider",
-                          inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                          "rounded-sm px-2 text-[11px] font-semibold uppercase tracking-wider",
+                          inputKind === k ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
                         )}
                       >
                         {k === "gm" ? "Target GM" : k === "list" ? "List price" : "Customer price"}
@@ -455,7 +455,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                 }
                 suffix={inputKind === "gm" ? "%" : undefined}
                 prefix={inputKind === "gm" ? undefined : "$"}
-                width={inputKind === "gm" ? "!w-20" : "!w-32"}
+                width={inputKind === "gm" ? "w-20!" : "w-32!"}
                 hint={
                   inputKind === "gm"
                     ? "Rounded to the dollar."
@@ -552,7 +552,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                             setTiers(tiers.map((x, j) => (j === i ? { ...x, minQty: Number(e.target.value) } : x)));
                             touch();
                           }}
-                          className="input !w-20 tabular-nums"
+                          className="input w-20! tabular-nums"
                         />
                       </td>
                       <td className="px-2 py-1">
@@ -566,7 +566,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                             setTiers(tiers.map((x, j) => (j === i ? { ...x, discountPct: Number(e.target.value) } : x)));
                             touch();
                           }}
-                          className="input !w-20 tabular-nums"
+                          className="input w-20! tabular-nums"
                         />
                       </td>
                       <td className="px-2 py-1 text-right tabular-nums">{formatMoney(breaks.find((b) => b.minQty === t.minQty)?.price ?? null)}</td>
@@ -580,7 +580,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                               setTiers(tiers.filter((_, j) => j !== i));
                               touch();
                             }}
-                            className="rounded p-0.5 text-fg-muted hover:text-cooper-red"
+                            className="rounded-sm p-0.5 text-fg-muted hover:text-cooper-red"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -697,7 +697,7 @@ function Num({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={cn("input !h-9 text-right tabular-nums", width)}
+        className={cn("input h-9! text-right tabular-nums", width)}
       />
       {suffix && <span className="text-fg-muted">{suffix}</span>}
     </FieldColumn>
@@ -803,7 +803,7 @@ function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
           placeholder="SAP part #"
           value={part}
           onChange={(e) => setPart(e.target.value)}
-          className="input !min-w-0 flex-1 font-mono"
+          className="input min-w-0! flex-1 font-mono"
         />
         <button
           type="button"
@@ -817,7 +817,7 @@ function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
       {ws.history.length > 1 && (
         <label className="mt-2 flex items-center gap-2 whitespace-nowrap text-xs text-fg-muted">
           Compare
-          <select value={compareRev} onChange={(e) => setCompareRev(Number(e.target.value))} className="input !h-8 !w-16 !px-2 !py-0" aria-label="Revision to compare">
+          <select value={compareRev} onChange={(e) => setCompareRev(Number(e.target.value))} className="input h-8! w-16! px-2! py-0!" aria-label="Revision to compare">
             {ws.history.map((h) => (
               <option key={h.rev} value={h.rev}>
                 R{h.rev}
@@ -884,7 +884,7 @@ function NewRevisionDialog({
       <div role="dialog" aria-modal="true" aria-label={`Save as R${rev}`} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl">
         <h2 className="font-display text-lg font-semibold text-fg">Save as R{rev}</h2>
         <p className="mt-1 text-sm text-fg-muted">The current revision stays exactly as it is. Say what changed.</p>
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="input mt-3 !w-full" autoFocus aria-label="What changed" />
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="input mt-3 w-full!" autoFocus aria-label="What changed" />
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg">
             Cancel

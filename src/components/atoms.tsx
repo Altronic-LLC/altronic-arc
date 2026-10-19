@@ -89,7 +89,7 @@ export function LabelChip({ label }: { label: Label }) {
 export function CategoryChip({ category }: { category: string | null }) {
   if (!category) return null;
   return (
-    <span className="inline-flex items-center rounded border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+    <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
       {category}
     </span>
   );
