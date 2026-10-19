@@ -80,12 +80,12 @@ export const MOCK_SAP_PARTS: SapPart[] = [
  * show up as comparables or quote parts.
  */
 export const MOCK_SAP_MATERIAL_COSTS: { sapPartNumber: string; description: string; plant: string; unitCost: number }[] = [
-  { sapPartNumber: "1000-1644-00", description: "I.C., 74HC4051N", plant: "4222", unitCost: 0.2495 },
-  { sapPartNumber: "1000-4869-00", description: "CAPACITOR, 1NF, 2000V, CERAMIC, 10%, 120", plant: "4222", unitCost: 0.0655 },
-  { sapPartNumber: "1000-1310-00", description: "RESISTOR,10K,330mW,1% .141 X .098", plant: "4222", unitCost: 0.0188 },
-  { sapPartNumber: "1000-1266-00", description: "RESISTOR, 2KΩ, 0.4W, 1%, AXIAL", plant: "4222", unitCost: 0.0188 },
-  { sapPartNumber: "1000-0219-00", description: "COIL SUB ASSEMBLY (591011C)", plant: "4222", unitCost: 35.15 },
-  { sapPartNumber: "1026-4001-00", description: "POT 5K OHM WIREWOUND 2W, 10-TURN, LINEAR", plant: "4222", unitCost: 40.26 },
+  { sapPartNumber: "9100-0001-00", description: "I.C., DEMO MULTIPLEXER", plant: "4222", unitCost: 0.2493 },
+  { sapPartNumber: "9100-0002-00", description: "CAPACITOR, DEMO CERAMIC", plant: "4222", unitCost: 0.0611 },
+  { sapPartNumber: "9100-0003-00", description: "RESISTOR, DEMO A", plant: "4222", unitCost: 0.0177 },
+  { sapPartNumber: "9100-0004-00", description: "RESISTOR, DEMO B", plant: "4222", unitCost: 0.0177 },
+  { sapPartNumber: "9100-0005-00", description: "COIL, DEMO SUB ASSEMBLY", plant: "4222", unitCost: 33.10 },
+  { sapPartNumber: "9100-0006-00", description: "POTENTIOMETER, DEMO", plant: "4222", unitCost: 38.20 },
 ];
 
 export const MOCK_SAP_EXTRA_PLANT_COSTS: { sapPartNumber: string; plant: string; unitCost: number }[] = [

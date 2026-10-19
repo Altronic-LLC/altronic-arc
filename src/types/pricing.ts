@@ -380,7 +380,7 @@ export interface SapPart {
  */
 export interface SapMaterialCost {
   plant: string;
-  /** SAP's `Material` — the dashed SAP part number, 1000-4869-00. */
+  /** SAP's `Material` — the dashed SAP part number, 9100-0002-00. */
   sapPartNumber: string;
   /** SAP's `MaterialDescription` — replaces the Calculator's description on every new lookup. */
   description: string;
@@ -392,6 +392,8 @@ export interface SapCustomer {
   soldTo: string;
   name: string;
   customerGroup: string;
+  /** SAP's label for the group ("Z9 — Demo Group"), for display only. */
+  customerGroupLabel?: string;
 }
 
 // -----------------------------------------------------------------------------

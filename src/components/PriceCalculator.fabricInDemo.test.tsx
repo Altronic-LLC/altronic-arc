@@ -61,7 +61,7 @@ describe("Calculator in the dev demo with live Fabric", () => {
       if (query.includes("first: 1)")) return { vw_cogs_material_apis: { items: [] } };
       return {
         vw_cogs_material_apis: {
-          items: [{ Plant: "4222", Material: "1000-1644-00", MaterialDescription: "I.C., 74HC4051N", UnitCost: 0.2495 }],
+          items: [{ Plant: "4222", Material: "9100-0001-00", MaterialDescription: "I.C., DEMO MULTIPLEXER", UnitCost: 0.2493 }],
         },
       };
     });
@@ -70,16 +70,16 @@ describe("Calculator in the dev demo with live Fabric", () => {
     });
 
     const dialog = await open();
-    await userEvent.type(dialog.getByLabelText("SAP part number"), "1000164400{Enter}");
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "9100000100{Enter}");
     expect(await dialog.findByText("Sign in to SAP to bring in the live cost — or type it.")).toBeInTheDocument();
 
     await userEvent.click(dialog.getByRole("button", { name: "Sign in to SAP" }));
     expect(signInToFabric).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(0.2495));
-    expect(dialog.getByLabelText("Description")).toHaveValue("I.C., 74HC4051N");
+    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(0.2493));
+    expect(dialog.getByLabelText("Description")).toHaveValue("I.C., DEMO MULTIPLEXER");
     expect(dialog.queryByRole("button", { name: "Sign in to SAP" })).toBeNull();
     // It asked the live view, not the demo's part list.
-    expect(fabricQuery.mock.calls.at(-1)?.[1]).toEqual({ sap: "1000-1644-00" });
+    expect(fabricQuery.mock.calls.at(-1)?.[1]).toEqual({ sap: "9100-0001-00" });
   });
 
   it("warms the live lookup once as the Calculator opens — a one-row query", async () => {

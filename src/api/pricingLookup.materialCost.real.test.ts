@@ -26,16 +26,16 @@ beforeEach(() => {
 
 const row = (plant: string, cost: number) => ({
   Plant: plant,
-  Material: "1000-4869-00",
-  MaterialDescription: "CAPACITOR, 1NF",
+  Material: "9100-0002-00",
+  MaterialDescription: "CAPACITOR, DEMO",
   UnitCost: cost,
 });
 
 describe("lookupSapMaterialCosts (real mode)", () => {
   it("asks ONE equality on Material for four columns — kept narrow for speed", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [row("4230", 0.07), row("4222", 0.0655)] } });
+    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [row("4230", 0.07), row("4222", 0.0611)] } });
 
-    const out = await lookupSapMaterialCosts("1000486900");
+    const out = await lookupSapMaterialCosts("9100000200");
 
     const [query, variables] = fabricQuery.mock.calls[0];
     expect(query).toContain("vw_cogs_material_apis(");
@@ -43,16 +43,16 @@ describe("lookupSapMaterialCosts (real mode)", () => {
     expect(query).not.toContain("OldMaterialNumber");
     expect(query).not.toContain("or:");
     expect(query).toContain("items { Plant Material MaterialDescription UnitCost }");
-    expect(variables).toEqual({ sap: "1000-4869-00" });
+    expect(variables).toEqual({ sap: "9100-0002-00" });
     expect(out.map((r) => [r.plant, r.unitCost, r.description])).toEqual([
-      ["4222", 0.0655, "CAPACITOR, 1NF"],
-      ["4230", 0.07, "CAPACITOR, 1NF"],
+      ["4222", 0.0611, "CAPACITOR, DEMO"],
+      ["4230", 0.07, "CAPACITOR, DEMO"],
     ]);
   });
 
   it("never asks Fabric about a half-typed or non-SAP number", async () => {
     expect(await lookupSapMaterialCosts("1000-4869-0")).toEqual([]);
-    expect(await lookupSapMaterialCosts("711078")).toEqual([]);
+    expect(await lookupSapMaterialCosts("910002")).toEqual([]);
     expect(fabricQuery).not.toHaveBeenCalled();
   });
 

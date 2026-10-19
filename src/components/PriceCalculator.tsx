@@ -201,7 +201,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
   }
 
   function sapHint(): string {
-    if (!lookedUp) return sap.trim() && !whole ? "All 10 digits, like 1000-4869-00." : "Enter it and press Look up.";
+    if (!lookedUp) return sap.trim() && !whole ? "All 10 digits, like 9100-0002-00." : "Enter it and press Look up.";
     if (costs.isFetching) return "Looking it up in SAP…";
     if (costs.isError) return describeSapCostFailure(costs.error);
     if (!row) {

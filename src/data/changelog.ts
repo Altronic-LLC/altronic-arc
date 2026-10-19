@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.192.0",
+    date: "2026-10-19",
+    changes: [
+      "Pricing requests look the part up in SAP as you type — enter either the SAP or the Altronic number and the other fills in",
+      "Pick the customer from SAP by sold-to number or by name, as you type; the customer group comes with it",
+      "Faster SAP part lookups",
+    ],
+  },
+  {
     version: "0.191.3",
     date: "2026-10-17",
     changes: [

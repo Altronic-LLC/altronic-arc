@@ -115,7 +115,7 @@ describe("PriceCalculatorDialog", () => {
     await userEvent.type(dialog.getByLabelText("SAP part number"), "200103101");
     expect(dialog.getByLabelText("SAP part number")).toHaveValue("2001-0310-1");
     expect(dialog.getByRole("button", { name: "Look up" })).toBeDisabled();
-    expect(dialog.getByText("All 10 digits, like 1000-4869-00.")).toBeInTheDocument();
+    expect(dialog.getByText("All 10 digits, like 9100-0002-00.")).toBeInTheDocument();
     await userEvent.type(dialog.getByLabelText("SAP part number"), "5");
     await userEvent.click(dialog.getByRole("button", { name: "Look up" }));
 
@@ -189,9 +189,9 @@ describe("PriceCalculatorDialog", () => {
 
   it("knows the real SAP parts read from the live view, so the demo answers for them", async () => {
     const dialog = await open();
-    await userEvent.type(dialog.getByLabelText("SAP part number"), "1000164400{Enter}");
-    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(0.2495));
-    expect(dialog.getByLabelText("Description")).toHaveValue("I.C., 74HC4051N");
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "9100000100{Enter}");
+    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(0.2493));
+    expect(dialog.getByLabelText("Description")).toHaveValue("I.C., DEMO MULTIPLEXER");
   });
 
   it("names the SAP part and its plant in the copied results", async () => {

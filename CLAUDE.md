@@ -819,7 +819,7 @@ src/
 │   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
 │   ├── erLayout.ts               About-page ER diagram geometry — department groups packed, connectors routed round cards (pure)
 │   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
-│   ├── sapMaterialCost.ts        The Calculator's SAP cost lookup (pure) — the Fabric cost view's row → SapMaterialCost, the 10-digit SAP # key, a row per plant
+│   ├── sapMaterialCost.ts        SAP rows from Fabric (pure) — cost per plant, the part lookup (SapPart), the customer search terms + rows, the 10-digit SAP # key
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -4637,7 +4637,7 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
     the GM and profit. The GM shown is what the ROUNDED price earns.
   - **A price from a GM is rounded UP to the cent** (`priceForGm`; Ray,
     2026-10-15: "why doesn't the GM line up"). Rounding to the NEAREST cent
-    let a cheap part fall short of the target — $0.2495 at 60% is $0.62375,
+    let a cheap part fall short of the target — $0.2493 at 60% is $0.62325,
     and $0.62 earns only 59.8% — so the price never goes below the GM asked
     for ($0.63, 60.4%). The cents are trimmed to 12 significant digits first,
     or float noise bumps an exact price a cent ($2.10 at 30% is $3.00, which
@@ -4723,7 +4723,7 @@ falls back to the admins.
   The workbench is keyed on `${id}-${status}`, so opening a Submitted request
   (→ In Review) REMOUNTS it — a test must wait for In Review before typing.
 
-#### SAP data — the Fabric seam, NOT wired yet
+#### SAP data — the Fabric seam, partly wired
 
 `api/pricingLookup.ts` is the ONE seam to SAP: parts (by either number),
 customers, per-MPG distributor discounts, each customer group's discounts
@@ -4741,7 +4741,10 @@ then:
   rather than breaking. `usePricingLookup`'s queries report `notConnected` and
   never retry it.
 
-Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
+Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`. **Three
+lookups are live now** — the Calculator's cost (below), and the request
+form's part and customer lookups (the section after it). Each has its own
+switch; everything else in the seam still throws.
 
 #### The Calculator's cost view — the first real Fabric read
 
@@ -4766,7 +4769,7 @@ What the live rows taught, each load-bearing:
   day: "it needs to be faster… only look for the SAP number and the unit
   cost"). The first version OR'd `Material` with `OldMaterialNumber` (two
   `varchar(max)` columns) and returned eight columns, and was noticeably slow.
-  Now: one `eq` on `Material` (the dashed SAP #, 1000-4869-00), and only
+  Now: one `eq` on `Material` (the dashed SAP #, 9100-0002-00), and only
   `Plant`, `Material`, `MaterialDescription`, `UnitCost` back. **Don't widen
   it again without measuring** — an Altronic-number search is the OR that was
   dropped. The box dashes as typed, and Look up waits for all 10 digits
@@ -4806,9 +4809,10 @@ open to every pricing role, but the plan gives only managers and admins
 so — the typed COGS box still works for everyone. Whether requesters should
 see SAP cost is Ray's call, still open.
 
-**The demo knows real parts, and says it's the demo.** `MOCK_SAP_MATERIAL_COSTS`
-holds rows copied from the live view (1000-1644-00 at $0.2495, and the five
-from the first live query), cost lookup ONLY — they aren't in the part
+**The demo knows a few parts, and says it's the demo.** `MOCK_SAP_MATERIAL_COSTS`
+holds INVENTED rows shaped like the live view (9100-0001-00 at $0.2493 and
+five more) — never rows copied from SAP, since the repo is public (rule 8;
+real rows were copied here once and scrubbed in v0.192.0). Cost lookup ONLY — they aren't in the part
 catalogue, so they never appear as comparables or quote parts. A number the
 demo doesn't hold says "isn't in the demo data — the demo isn't connected to
 SAP. Try 2001-0310-15" (`SAP_COST_LOOKUP_IS_DEMO`), never "SAP doesn't have
@@ -4845,6 +4849,45 @@ with a git-ignored `.env.fabric.local` holding the repo's `VITE_*` variables
 out) and `VITE_USE_MOCK=false`. That server reads and writes LIVE SharePoint.
 `/dev/fabric-test` there runs any GraphQL query by hand.
 
+
+#### The request form's part and customer lookups
+
+Ray, 2026-10-17. Two more lookups read the warehouse, both on
+`SAP_PART_LOOKUP_LIVE` / `SAP_CUSTOMER_LOOKUP_LIVE` (`!USE_MOCK ||
+FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
+
+- **Part — `lookupSapPart`, on `vw_cogs_material_apis`**, six columns
+  (`SAP_PART_FIELDS`: Plant, Material, OldMaterialNumber, MaterialDescription,
+  MaterialPriceGroup, UnitCost). A 10-digit SAP # is ONE `eq` on `Material`;
+  otherwise the Altronic number, upper-cased, is one `eq` on
+  `OldMaterialNumber`; an SAP miss falls back to the Altronic number. Never an
+  OR across the two `varchar(max)` columns — that is what made the first cost
+  lookup slow. The first plant by number gives the cost; the view holds no
+  list price. `toSapPart` in `lib/sapMaterialCost.ts`.
+- **The form looks the part up AS YOU TYPE** — at once on the 10th SAP digit,
+  else 400 ms after typing stops — and warms the endpoint as it opens. It
+  fills only BLANK boxes, so a typed Altronic number is kept.
+- **Customer — `searchSapCustomers(query, by)`, on `rpt.vw_sales_customer`**
+  (`vw_sales_customers`), four columns (`SAP_CUSTOMER_FIELDS`). The picker is
+  ALWAYS three fields (Ray: "not a single field that changes"): **Sold-to #**
+  searches `CUSTOMER` with `startsWith`, **Customer name** searches
+  `CUSTOMER_NAME` with `contains`, tried as typed / Title Case / UPPER CASE
+  (the warehouse matches case exactly — `sapCustomerSearchTerms`), and
+  **Customer group** is read-only, filled from `CUSTOMER_GROUP`. Not
+  `CUSTOMER_LABEL`: searching the joined label was the first version and was
+  replaced. 250 ms debounce, `keepPreviousData`, at most 25, one row per
+  sold-to (`sapCustomersFromRows`). A group label of "(not mapped)" is no
+  group, and the picker says the standard discount applies.
+- **Typing in a box CLEARS the group** while SAP can be searched, so a
+  hand-edited name can't keep another customer's discount.
+- **A failed search SHOWS Fabric's message** and leaves the boxes typeable —
+  "can't be searched from your account" was once hidden behind a generic line.
+- **A lookup that can't run never blocks a request** — `askSap` in
+  `usePricingRequests.ts` reads not-connected, sign-in and request failures
+  as "not found, not connected", so the request still routes.
+- Pinned in `pricingLookup.part.real.test.ts` and
+  `pricingLookup.customer.real.test.ts` (`USE_MOCK: false`). **Every value in
+  them is invented** — the repo is public.
 #### New Product Pricing — worksheets for products not yet in SAP
 
 - **A worksheet holds SUB-ASSEMBLIES and standalone PARTS** — both rows of NP

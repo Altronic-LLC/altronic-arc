@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import {
   isPricingDataNotConnected,
   isRetryableSapCostFailure,
@@ -28,8 +28,11 @@ import {
 
 const STALE_MS = 5 * 60_000;
 
+// Retry only a network blip or a server error, once. A refused token or query
+// fails the same way every time, and retrying it twice is what made a failing
+// lookup feel slow (Ray, 2026-10-17).
 function retry(count: number, err: unknown) {
-  return !isPricingDataNotConnected(err) && count < 2;
+  return isRetryableSapCostFailure(err) && count < 1;
 }
 
 function connectionOf(q: { error: unknown }) {
@@ -66,13 +69,16 @@ export function useSapMaterialCosts(partNumber: string, enabled = true) {
   return { ...q, ...connectionOf(q) };
 }
 
-export function useSapCustomerSearch(query: string) {
+/** SAP customers as they type — by sold-to number or by name. */
+export function useSapCustomerSearch(query: string, by: "number" | "name" = "name") {
   const trimmed = query.trim();
   const q = useQuery<SapCustomer[]>({
-    queryKey: ["pricing-sap", "customers", trimmed.toLowerCase()],
-    queryFn: () => searchSapCustomers(trimmed),
+    queryKey: ["pricing-sap", "customers", by, trimmed.toLowerCase()],
+    queryFn: () => searchSapCustomers(trimmed, by),
     enabled: trimmed.length >= 2,
     staleTime: STALE_MS,
+    // The last matches stay up while the next search runs.
+    placeholderData: keepPreviousData,
     retry,
   });
   return { ...q, ...connectionOf(q) };

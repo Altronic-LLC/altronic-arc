@@ -12,8 +12,15 @@ import {
   MOCK_SAP_MPG_DISCOUNTS,
 } from "@/data/pricingMockData";
 import {
+  SAP_CUSTOMER_FIELDS,
+  sapCustomerSearchTerms,
+  sapCustomersFromRows,
+  type SapCustomerRow,
+  SAP_PART_FIELDS,
   sapMaterialLookupKey,
   sapMaterialPlants,
+  toSapPart,
+  type SapPartRow,
   SAP_MATERIAL_COST_FIELDS,
   toSapMaterialCost,
   type SapMaterialCostRow,
@@ -193,12 +200,48 @@ export function isRetryableSapCostFailure(err: unknown): boolean {
 }
 
 /**
+ * Whether the part lookup reads LIVE SAP (Fabric's cost view): real mode, or
+ * the dev demo with FABRIC_IN_DEMO. Otherwise it reads the demo's part list.
+ */
+export const SAP_PART_LOOKUP_LIVE = !USE_MOCK || FABRIC_IN_DEMO;
+
+/** Whether a part can be looked up at all — the demo always can; live needs Fabric. */
+export const SAP_PART_LOOKUP_CONNECTED = SAP_PART_LOOKUP_LIVE ? FABRIC_ENABLED : true;
+
+async function liveSapPartRows(column: "Material" | "OldMaterialNumber", value: string): Promise<SapPartRow[]> {
+  // ONE equality and six small columns, like the Calculator's lookup — the
+  // value travels as a variable, never interpolated.
+  const query = `query($v: String!) {
+  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
+    items { ${SAP_PART_FIELDS.join(" ")} }
+  }
+}`;
+  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapPartRow[] | null } | null }>(query, { v: value });
+  return data.vw_cogs_material_apis?.items ?? [];
+}
+
+/**
  * A part, by Altronic number or SAP number — the SAP number wins when both are
  * given and they disagree, since that is the key SAP itself uses. null when
  * SAP doesn't hold it (yet).
+ *
+ * LIVE (Ray, 2026-10-17): from the cost view. A 10-digit SAP number is matched
+ * against `Material`; otherwise the Altronic number against
+ * `OldMaterialNumber`, upper-cased (old numbers carry letters). An SAP number
+ * SAP doesn't hold falls back to the Altronic number when one was typed. The
+ * view has no list price, so `listPrice` is null.
  */
 export async function lookupSapPart(args: { altronicPartNumber?: string; sapPartNumber?: string }): Promise<SapPart | null> {
-  if (!USE_MOCK) notConnected();
+  if (SAP_PART_LOOKUP_LIVE) {
+    if (!FABRIC_ENABLED) notConnected();
+    const sapKey = sapMaterialLookupKey(args.sapPartNumber ?? "");
+    const alt = (args.altronicPartNumber ?? "").trim().toUpperCase();
+    if (sapKey) {
+      const part = toSapPart(await liveSapPartRows("Material", sapKey));
+      if (part || !alt) return part;
+    }
+    return alt ? toSapPart(await liveSapPartRows("OldMaterialNumber", alt)) : null;
+  }
   const sap = norm(args.sapPartNumber ?? "");
   const alt = norm(args.altronicPartNumber ?? "");
   const parts = pricingMockDb.sapParts;
@@ -209,14 +252,42 @@ export async function lookupSapPart(args: { altronicPartNumber?: string; sapPart
   return mockDelay(found ? { ...found } : null);
 }
 
-/** Customers whose name or sold-to matches every word typed. At most 25. */
-export async function searchSapCustomers(query: string): Promise<SapCustomer[]> {
-  if (!USE_MOCK) notConnected();
-  const words = norm(query).split(/\s+/).filter(Boolean);
-  const hits = MOCK_SAP_CUSTOMERS.filter((c) => {
-    const hay = `${c.name} ${c.soldTo}`.toLowerCase();
-    return words.every((w) => hay.includes(w));
-  });
+/** Whether the customer search reads LIVE SAP (`vw_sales_customer`), as the part lookup does. */
+export const SAP_CUSTOMER_LOOKUP_LIVE = SAP_PART_LOOKUP_LIVE;
+export const SAP_CUSTOMER_LOOKUP_CONNECTED = SAP_CUSTOMER_LOOKUP_LIVE ? FABRIC_ENABLED : true;
+
+/**
+ * Customers matching what was typed. At most 25.
+ * LIVE (Ray, 2026-10-17): the Sold-to # field searches CUSTOMER (`startsWith`,
+ * as typed); the Customer name field searches CUSTOMER_NAME (`contains`, the
+ * text tried as typed / Title Case / UPPER CASE, because the warehouse matches
+ * case exactly). One column either way.
+ */
+export async function searchSapCustomers(query: string, by: "number" | "name" = "name"): Promise<SapCustomer[]> {
+  if (SAP_CUSTOMER_LOOKUP_LIVE) {
+    if (!FABRIC_ENABLED) notConnected();
+    const terms = by === "number" ? (query.trim().length >= 2 ? [query.trim()] : []) : sapCustomerSearchTerms(query);
+    if (terms.length === 0) return [];
+    const variables: Record<string, string> = {};
+    const clauses = terms.map((term, i) => {
+      variables[`q${i}`] = term;
+      return by === "number" ? `{ CUSTOMER: { startsWith: $q${i} } }` : `{ CUSTOMER_NAME: { contains: $q${i} } }`;
+    });
+    const declared = terms.map((_t, i) => `$q${i}: String!`).join(", ");
+    const filter = clauses.length === 1 ? clauses[0] : `{ or: [${clauses.join(", ")}] }`;
+    const gql = `query(${declared}) {
+  vw_sales_customers(first: 25, filter: ${filter}) {
+    items { ${SAP_CUSTOMER_FIELDS.join(" ")} }
+  }
+}`;
+    const data = await fabricQuery<{ vw_sales_customers?: { items?: SapCustomerRow[] | null } | null }>(gql, variables);
+    return sapCustomersFromRows(data.vw_sales_customers?.items ?? []);
+  }
+  const q = norm(query);
+  const words = q.split(/\s+/).filter(Boolean);
+  const hits = MOCK_SAP_CUSTOMERS.filter((c) =>
+    by === "number" ? c.soldTo.toLowerCase().startsWith(q) : words.every((w) => c.name.toLowerCase().includes(w)),
+  );
   return mockDelay(hits.slice(0, 25).map((c) => ({ ...c })));
 }
 

@@ -1,4 +1,4 @@
-import type { SapMaterialCost } from "@/types/pricing";
+import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
 import { formatSapPartNumber, SAP_PART_NUMBER_DIGITS } from "./sapPartNumber";
 
 // =============================================================================
@@ -51,7 +51,7 @@ export function toSapMaterialCost(row: SapMaterialCostRow): SapMaterialCost {
 }
 
 /**
- * The SAP number to look up, in the view's dashed form (1000-4869-00) — or
+ * The SAP number to look up, in the view's dashed form (9100-0002-00) — or
  * null until a whole 10-digit number has been typed, so a half-typed one
  * never reaches Fabric.
  */
@@ -66,4 +66,98 @@ export function sapMaterialPlants(rows: SapMaterialCost[]): SapMaterialCost[] {
   return rows
     .filter((r) => (seen.has(r.plant) ? false : (seen.add(r.plant), true)))
     .sort((a, b) => a.plant.localeCompare(b.plant, undefined, { numeric: true }));
+}
+
+// -----------------------------------------------------------------------------
+// The part lookup (Ray, 2026-10-17) — the same view answers "which part is
+// this?" for the request form and the pricing panel: SAP # ↔ Altronic (old) #,
+// description, material price group and cost. The view holds NO list price.
+// -----------------------------------------------------------------------------
+
+/** The view's row as the part lookup asks for it. */
+export interface SapPartRow extends SapMaterialCostRow {
+  OldMaterialNumber?: string | null;
+  MaterialPriceGroup?: string | null;
+}
+
+export const SAP_PART_FIELDS = [
+  "Plant",
+  "Material",
+  "OldMaterialNumber",
+  "MaterialDescription",
+  "MaterialPriceGroup",
+  "UnitCost",
+] as const;
+
+/**
+ * One part from its rows (a row per plant). The FIRST plant, by plant number,
+ * gives the cost — the same plant the Calculator brings in first. null when
+ * there are no rows.
+ */
+export function toSapPart(rows: SapPartRow[]): SapPart | null {
+  const sorted = [...rows].sort((a, b) => text(a.Plant).localeCompare(text(b.Plant), undefined, { numeric: true }));
+  const first = sorted[0];
+  if (!first) return null;
+  return {
+    sapPartNumber: text(first.Material),
+    altronicPartNumber: text(first.OldMaterialNumber),
+    description: text(first.MaterialDescription),
+    mpg: text(first.MaterialPriceGroup),
+    listPrice: null,
+    cost: toSapMaterialCost(first).unitCost,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// The customer lookup (Ray, 2026-10-17) — `rpt.vw_sales_customer`, as
+// `vw_sales_customers`: CUSTOMER (the sold-to number), CUSTOMER_NAME, and
+// CUSTOMER_LABEL ("900101 Northwind, LLC"). Searching the LABEL finds a
+// customer by number OR name with ONE column. CUSTOMER_GROUP is the code that
+// decides the discount (Z9); CUSTOMER_GROUP_LABEL reads "Z9 — Demo Group".
+// Many customers have NO group (NULL / "(not mapped)") — left blank, so the
+// discount falls back to the standard 34%.
+// -----------------------------------------------------------------------------
+
+export interface SapCustomerRow {
+  CUSTOMER?: string | null;
+  CUSTOMER_NAME?: string | null;
+  CUSTOMER_LABEL?: string | null;
+  CUSTOMER_GROUP?: string | null;
+  CUSTOMER_GROUP_LABEL?: string | null;
+}
+
+export const SAP_CUSTOMER_FIELDS = ["CUSTOMER", "CUSTOMER_NAME", "CUSTOMER_GROUP", "CUSTOMER_GROUP_LABEL"] as const;
+
+export function toSapCustomer(row: SapCustomerRow): SapCustomer {
+  const group = text(row.CUSTOMER_GROUP);
+  const label = text(row.CUSTOMER_GROUP_LABEL);
+  return {
+    soldTo: text(row.CUSTOMER),
+    name: text(row.CUSTOMER_NAME),
+    customerGroup: group,
+    // "(not mapped)" says nothing a blank group doesn't.
+    customerGroupLabel: group && label && label !== "(not mapped)" ? label : undefined,
+  };
+}
+
+/**
+ * What a typed search is matched against, in the label. The warehouse matches
+ * case EXACTLY and names are mixed case ("Northwind, LLC"), so the text is
+ * tried as typed, in Title Case and in UPPER CASE — at most three, on one
+ * column. Fewer than 2 characters asks nothing.
+ */
+export function sapCustomerSearchTerms(query: string): string[] {
+  const q = query.trim().replace(/\s+/g, " ");
+  if (q.length < 2) return [];
+  const title = q.toLowerCase().replace(/(^|[\s(&/-])([a-z])/g, (_m, sep: string, c: string) => sep + c.toUpperCase());
+  return [...new Set([q, title, q.toUpperCase()])];
+}
+
+/** One row per sold-to number, sorted by name. */
+export function sapCustomersFromRows(rows: SapCustomerRow[]): SapCustomer[] {
+  const seen = new Set<string>();
+  return rows
+    .map(toSapCustomer)
+    .filter((c) => c.soldTo && (seen.has(c.soldTo) ? false : (seen.add(c.soldTo), true)))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

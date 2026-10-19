@@ -48,7 +48,7 @@ export function marginPct(price: number, cost: number): number {
 /**
  * The customer price that earns AT LEAST `gmPct` on `cost`, rounded UP to the
  * cent (Ray, 2026-10-15). Rounding to the nearest cent let a cheap part fall
- * short of the GM asked for — $0.2495 at 60% is $0.62375, and $0.62 earns only
+ * short of the GM asked for — $0.2493 at 60% is $0.62325, and $0.62 earns only
  * 59.8% — so the price never goes below the target, and the GM shown is what
  * that price really earns (60.4% at $0.63). The cents figure is trimmed to 12
  * significant digits first, as `roundCents` does: $2.10 at 30% is exactly

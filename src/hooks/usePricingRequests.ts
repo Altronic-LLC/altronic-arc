@@ -14,6 +14,7 @@ import {
 } from "@/api/pricingRequests";
 import { getPricingHistoryForRequest, recordPricing } from "@/api/pricingHistory";
 import { isPricingDataNotConnected, lookupSapPart, mockAddPartToSap } from "@/api/pricingLookup";
+import { FabricAuthError, FabricNotConfiguredError, FabricRequestError } from "@/api/fabric";
 import { USE_MOCK } from "@/api/config";
 import { notifyChangeEmails, notifyMentions } from "@/api/email";
 import type { Person } from "@/types/task";
@@ -197,11 +198,23 @@ export function routeNewRequest(
   return { inSap: false, ...typed };
 }
 
-async function askSap(args: { altronicPartNumber: string; sapPartNumber: string }) {
+/** Exported for tests — ask SAP about a new request's part, never letting an unreachable SAP block it. */
+export async function askSap(args: { altronicPartNumber: string; sapPartNumber: string }) {
   try {
     return { part: await lookupSapPart(args), notConnected: false };
   } catch (err) {
-    if (isPricingDataNotConnected(err)) return { part: null, notConnected: true };
+    // SAP that can't be asked — not connected, OR a live lookup this account
+    // can't make (requesters have no Fabric query rights) or can't reach —
+    // never blocks a request: a typed SAP number is the requester's word, and
+    // the pricing team checks it (Ray, 2026-10-17).
+    if (
+      isPricingDataNotConnected(err) ||
+      err instanceof FabricAuthError ||
+      err instanceof FabricRequestError ||
+      err instanceof FabricNotConfiguredError
+    ) {
+      return { part: null, notConnected: true };
+    }
     throw err;
   }
 }

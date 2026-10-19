@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Paperclip, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
 import type { SubAssembly, SubAssemblyLine } from "@/types/pricing";
 import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
-import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
+import { SAP_PART_LOOKUP_CONNECTED } from "@/api/pricingLookup";
 import { useSapPart } from "@/hooks/usePricingLookup";
 import { importSubAssemblyCsv, lineLabel, mergeUpload, type UploadChanges } from "@/lib/subAssemblyCsv";
 import { lineUnitCost, overheadFactor, subAssemblyCost } from "@/lib/pricingMath";
@@ -685,7 +685,8 @@ export function PartCard({
       <div className="flex flex-wrap items-end gap-3">
         <span className="mb-2 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-fg-muted">Part</span>
         <NumberInputs draft={draft} onChange={(d) => set({ altronicPartNumber: d.altronicPartNumber, sapPartNumber: d.sapPartNumber })} readOnly={readOnly} />
-        {!readOnly && SAP_DATA_CONNECTED && (
+        {/* Live from SAP's cost view (Ray, 2026-10-17) — a part only needs its cost. */}
+        {!readOnly && SAP_PART_LOOKUP_CONNECTED && (
           <button
             type="button"
             onClick={() => setLookup({ altronicPartNumber: draft.altronicPartNumber.trim(), sapPartNumber: draft.sapPartNumber.trim() })}

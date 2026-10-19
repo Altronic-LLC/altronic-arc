@@ -18,7 +18,7 @@ import {
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import { useComparables, useCustomerDiscount, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { usePriceRequest, useSetPricingRequestMpg } from "@/hooks/usePricingRequests";
-import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
+import { SAP_DATA_CONNECTED, SAP_PART_LOOKUP_CONNECTED } from "@/api/pricingLookup";
 import { FieldColumn, FieldLabel, PRICE_PANEL, PricingCard } from "./pricingAtoms";
 import { ChoicePills } from "./ChoicePills";
 import { cn } from "@/lib/cn";
@@ -181,7 +181,9 @@ export function PricingWorkbench({
     <div className="flex flex-col gap-4" data-testid="pricing-workbench">
       {!SAP_DATA_CONNECTED && (
         <p className="rounded-lg border border-ajax-yellow/40 bg-ajax-yellow/10 px-4 py-3 text-sm text-fg">
-          SAP costing data isn't connected to ARC yet, so cost and discounts are typed in and there are no comparables.
+          {SAP_PART_LOOKUP_CONNECTED
+            ? "The cost comes from SAP. SAP's discounts and comparable parts aren't connected to ARC yet, so discounts are typed in and there are no comparables."
+            : "SAP costing data isn't connected to ARC yet, so cost and discounts are typed in and there are no comparables."}
         </p>
       )}
 

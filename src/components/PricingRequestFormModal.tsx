@@ -4,6 +4,10 @@ import type { Person } from "@/types/task";
 import type { SapCustomer } from "@/types/pricing";
 import { useCreatePricingRequest } from "@/hooks/usePricingRequests";
 import { useSapPart } from "@/hooks/usePricingLookup";
+import { needsSapSignIn, warmSapCostLookup } from "@/api/pricingLookup";
+import { sapMaterialLookupKey } from "@/lib/sapMaterialCost";
+import { signInToFabric } from "@/api/fabric";
+import { pushToast } from "./Toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
@@ -55,6 +59,32 @@ export function PricingRequestFormModal({
   }, [sapPart]);
   function lookUp() {
     setLookup({ altronicPartNumber: altronic.trim(), sapPartNumber: sap.trim() });
+  }
+  // Look up AS THEY TYPE (Ray, 2026-10-17): an SAP number the moment its 10th
+  // digit lands, an Altronic number after a short pause. Leaving a box still
+  // looks up too. Fabric is woken as the form opens.
+  useEffect(() => {
+    void warmSapCostLookup();
+  }, []);
+  useEffect(() => {
+    const whole = sapMaterialLookupKey(sap) !== null;
+    const t = setTimeout(lookUp, whole ? 0 : 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [altronic, sap]);
+  // Dev demo with live SAP only: nothing has signed in to Microsoft yet.
+  const signInNeeded = found.isError && needsSapSignIn(found.error);
+  const [signingIn, setSigningIn] = useState(false);
+  async function signIn() {
+    setSigningIn(true);
+    try {
+      await signInToFabric();
+      await found.refetch();
+    } catch (err) {
+      pushToast({ message: `Couldn't sign in to SAP: ${err instanceof Error ? err.message : String(err)}` });
+    } finally {
+      setSigningIn(false);
+    }
   }
 
   useEffect(() => {
@@ -136,11 +166,27 @@ export function PricingRequestFormModal({
             </Field>
           </div>
           <p className="-mt-1 text-[11px] text-fg-muted" role="status">
-            {sapPart
+            {signInNeeded ? (
+              <>
+                Sign in to SAP to look the part up —{" "}
+                <button
+                  type="button"
+                  onClick={() => void signIn()}
+                  disabled={signingIn}
+                  className="font-semibold text-accent hover:underline disabled:opacity-50"
+                >
+                  {signingIn ? "signing in…" : "Sign in to SAP"}
+                </button>
+              </>
+            ) : sapPart
               ? `Found in SAP: ${sapPart.altronicPartNumber} · ${sapPart.sapPartNumber} — ${sapPart.description}`
               : found.isFetching
                 ? "Looking it up in SAP…"
-                : "Either number will do — ARC looks the other one up in SAP."}
+                : found.isError && !found.notConnected
+                  ? "SAP couldn't be checked from here — type both numbers if you know them. The pricing team checks it."
+                  : found.isSuccess && (lookup.altronicPartNumber || lookup.sapPartNumber)
+                    ? "Not found in SAP — the request goes to be set up in SAP first."
+                    : "Either number will do — ARC looks the other one up in SAP."}
           </p>
           <Field label="Description" required hint="Replaced by SAP's description once ARC finds the part — yours is kept too.">
             <input value={description} onChange={(e) => setDescription(e.target.value)} className="input" />

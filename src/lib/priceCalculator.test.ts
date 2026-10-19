@@ -11,9 +11,9 @@ describe("calculate", () => {
   });
 
   it("rounds UP to the cent, so a cheap part never earns less than the GM asked for", () => {
-    // Ray's 74HC4051N: $0.2495 at 60% is $0.62375. To the nearest cent that was
+    // A cheap demo part: $0.2493 at 60% is $0.62325. To the nearest cent that was
     // $0.62 — only 59.8%. Rounded up it is $0.63, 60.4%.
-    const r = calculate({ cogs: 0.2495, mode: "gm", gm: 60, price: null });
+    const r = calculate({ cogs: 0.2493, mode: "gm", gm: 60, price: null });
     expect(r.price).toBe(0.63);
     expect(r.gm).toBeGreaterThanOrEqual(60);
     expect(r.gm).toBeCloseTo(60.4, 1);
