@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Camera,
   AlertTriangle,
   ArrowRight,
   BadgeCheck,
@@ -1201,6 +1202,17 @@ export function DashboardView() {
           description="Altronic's documentation folder — browse, add, edit and organise files."
           to={"/sales/documentation"}
           onClick={() => navigate("/sales/documentation")}
+        />
+        {/* Application Photos (BusinessIT#48) — a shared photo folder, so a
+            description rather than a count. All four tones are taken here;
+            green pairs it with Sales Documentation, the other Sales folder. */}
+        <TypeCard
+          name="Application Photos"
+          icon={<Camera className="h-5 w-5" />}
+          tone="cooper-green"
+          description="The Sales photo storehouse — browse and organise pictures, or take one on a phone or iPad."
+          to={"/sales/application-photos"}
+          onClick={() => navigate("/sales/application-photos")}
         />
         {/* Sales Pricing — a real card for whoever has access; everybody else
             still sees "Coming soon", so the review stays private. */}

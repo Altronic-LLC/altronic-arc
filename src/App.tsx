@@ -148,6 +148,9 @@ const ScnDetailView = lazy(() =>
 const SupplyChainFilesView = lazy(() =>
   import("@/views/SupplyChainFilesView").then((m) => ({ default: m.SupplyChainFilesView })),
 );
+const ApplicationPhotosView = lazy(() =>
+  import("@/views/ApplicationPhotosView").then((m) => ({ default: m.ApplicationPhotosView })),
+);
 const SalesDocumentationView = lazy(() =>
   import("@/views/SalesDocumentationView").then((m) => ({ default: m.SalesDocumentationView })),
 );
@@ -640,6 +643,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="Supply Chain files" />}>
                   <SupplyChainFilesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/application-photos"
+              element={
+                <Suspense fallback={<LoadingTasks noun="application photos" />}>
+                  <ApplicationPhotosView />
                 </Suspense>
               }
             />

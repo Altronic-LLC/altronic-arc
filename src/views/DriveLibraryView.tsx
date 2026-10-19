@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
+  Camera,
   ChevronRight,
   Download,
   ExternalLink,
@@ -29,6 +30,7 @@ import { SortableHeader } from "@/components/SortableTableHeader";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { pushToast } from "@/components/Toast";
 import { cn } from "@/lib/cn";
+import { renameCameraPhotos } from "@/lib/cameraPhoto";
 
 // =============================================================================
 // A folder-library browser — shared by SCN Documents (Ray, 2026-10-07: "create
@@ -113,6 +115,19 @@ const COLUMNS: SortColumn<DriveEntry>[] = [
   },
 ];
 
+/**
+ * A touch screen — a phone or an iPad — where the camera button makes sense.
+ * On a desktop the `capture` hint is ignored and the button would only open
+ * the same file picker Upload does, so it isn't offered there.
+ */
+export function hasTouchCamera(): boolean {
+  try {
+    return typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}
+
 function openExternal(url: string) {
   if (url && url !== "#") window.open(url, "_blank", "noopener,noreferrer");
 }
@@ -138,6 +153,11 @@ export interface DriveLibraryViewProps {
   fileInputTestId: string;
   hooks: DriveLibraryHooks;
   download: (itemId: string) => Promise<Blob>;
+  /**
+   * A "Take photo" button on a phone or iPad that opens the camera, the photo
+   * saved under the time it was taken (BusinessIT#48 — Application Photos).
+   */
+  takePhoto?: boolean;
 }
 
 export function DriveLibraryView({
@@ -154,6 +174,7 @@ export function DriveLibraryView({
   fileInputTestId,
   hooks,
   download,
+  takePhoto = false,
 }: DriveLibraryViewProps) {
   const [params, setParams] = useSearchParams();
   const folderId = params.get("folder") || null;
@@ -167,6 +188,9 @@ export function DriveLibraryView({
   const currentWebUrl = folderId ? (path?.[path.length - 1]?.webUrl ?? "") : rootWebUrl;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [touchCamera] = useState(hasTouchCamera);
+  const showCamera = takePhoto && touchCamera;
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -209,6 +233,13 @@ export function DriveLibraryView({
     const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // allow re-picking the same file
     startUpload(files);
+  }
+
+  // An iPhone calls every camera shot "image.jpg"; name it by when it was taken.
+  function handleCaptured(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    startUpload(renameCameraPhotos(files, new Date()));
   }
 
   const trimmedName = newFolderName.trim();
@@ -379,6 +410,28 @@ export function DriveLibraryView({
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {busy ? "Uploading…" : "Upload files"}
           </button>
+          {showCamera && (
+            <>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                data-testid={`${fileInputTestId}-camera`}
+                onChange={handleCaptured}
+              />
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={busy || !!error}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
+              >
+                <Camera className="h-4 w-4" />
+                Take photo
+              </button>
+            </>
+          )}
           {currentWebUrl && (
             <a
               href={currentWebUrl}
@@ -392,8 +445,9 @@ export function DriveLibraryView({
           )}
         </div>
         <p className="text-xs text-fg-muted">
-          Edit opens the file in Word / Excel for the web — changes save straight back to
-          this folder.
+          {takePhoto
+            ? "Open shows a photo in SharePoint. On a phone or iPad, Take photo opens the camera and saves the picture to this folder, named by when it was taken."
+            : "Edit opens the file in Word / Excel for the web — changes save straight back to this folder."}
         </p>
       </header>
 

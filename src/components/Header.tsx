@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import {
+  Camera,
   BadgeCheck,
   Building2,
   Calculator,
@@ -385,6 +386,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         // Contacts, Special Pricing and Capacity live on a customer's own
         // detail page, not as separate screens — see CLAUDE.md.
         matchesPath: (p) => p.startsWith("/sales/customer"),
+      },
+      {
+        to: "/sales/application-photos",
+        label: "Application Photos",
+        icon: <Camera className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/application-photos"),
       },
       {
         to: "/sales/documentation",

@@ -505,6 +505,7 @@ src/
 │   ├── driveLibrary.ts           Shared folder-library engine (SCN Documents, Supply Chain Files, Sales Documentation) — list/breadcrumb/folder/upload/rename/delete
 │   ├── supplyChainFiles.ts       Supply Chain Files — General/Supply Chain Files in the PMO library, on driveLibrary
 │   ├── salesDocumentation.ts     Sales Documentation (BusinessIT#24) — Main Channel in the AltronicDocumentation subsite's library, on driveLibrary
+│   ├── applicationPhotos.ts      Application Photos (BusinessIT#48) — General/A-Application Photos in the ALTRONICSALESTEAM library, on driveLibrary
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -610,6 +611,7 @@ src/
 │   ├── driveLibraryHooks.ts      Shared hooks factory for every folder library (listing, breadcrumb, new folder, upload, rename, delete)
 │   ├── useSupplyChainFiles.ts    Supply Chain Files — driveLibraryHooks configured for the PMO folder
 │   ├── useSalesDocumentation.ts  Sales Documentation — driveLibraryHooks configured for Main Channel
+│   ├── useApplicationPhotos.ts   Application Photos — driveLibraryHooks configured for General/A-Application Photos
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useQuotes.ts              Quote queries, numbered create, diffed edits, watchers, comment thread, New rev
@@ -818,6 +820,7 @@ src/
 │   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
 │   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
 │   ├── erLayout.ts               About-page ER diagram geometry — department groups packed, connectors routed round cards (pure)
+│   ├── cameraPhoto.ts            Photos from the phone/iPad camera — renamed "Photo YYYY-MM-DD HH-MM-SS.jpg" (an iPhone calls every shot image.jpg)
 │   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
 │   ├── sapMaterialCost.ts        SAP rows from Fabric (pure) — cost per plant, the part lookup (SapPart), the customer search terms + rows, the 10-digit SAP # key
 │   └── pcbChecklist.ts           PCB-category task checklist logic
@@ -1043,6 +1046,7 @@ src/
 │   ├── DriveLibraryView.tsx      THE folder-library screen — SCN Documents, Supply Chain Files and Sales Documentation are thin configs of it
 │   ├── SupplyChainFilesView.tsx  Supply Chain Files (/supply-chain/files)
 │   ├── SalesDocumentationView.tsx Sales Documentation (/sales/documentation) — Main Channel, AltronicDocumentation subsite
+│   ├── ApplicationPhotosView.tsx Application Photos (/sales/application-photos) — the photo storehouse, with Take photo on a phone or iPad
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -4223,6 +4227,48 @@ SCNs list header and an SCN's detail page. Pieces: `api/scnDocuments.ts`,
   read-only access) flows through the global MutationCache learner like every
   other refused write, and marks the drive denied for the session — "Check
   again" clears it.
+
+### Application Photos (Customer Service / Sales, ALTRONICSALESTEAM site)
+
+BusinessIT#48 (Ray, 2026-10-19): "Add this folder structure and capability in
+ARC for this location, including subfolders, deletion, changes, and
+attachment removal. It will serve as a storehouse for pictures", then "users
+can also upload or take photos directly in that tool if they are on their
+phone or iPad". `ApplicationPhotosView` at `/sales/application-photos`, under
+Customer Service / Sales (menu + a `cooper-green` Dashboard card — all four
+tones were taken, and green pairs it with Sales Documentation, the other
+Sales folder). Pieces: `api/applicationPhotos.ts`,
+`hooks/useApplicationPhotos.ts`, `lib/cameraPhoto.ts`.
+
+- **The folder is `General/A-Application Photos` in the DEFAULT drive of
+  `SITES.salesTeam`** — read off Ray's screenshot (Documents › General ›
+  A-Application Photos). It is the shared `driveLibrary` engine rooted at
+  that folder, the Supply Chain Files arrangement exactly: subfolders,
+  upload (chunked above 4 MB, `rename` on a clash — never overwrite),
+  download, rename and delete (recycle bin, 93 days), no admin gate. Its own
+  `APPS` entry (`needsDrive`, `drivePath`) locks just this screen when the
+  library or folder is refused. **ARC never creates the folder**, and it was
+  not checked live at build time — a missing or renamed folder shows the
+  "couldn't load" notice naming the path.
+- **Take photo is DriveLibraryView's opt-in `takePhoto` prop**, a second
+  hidden input with `accept="image/*"` and `capture="environment"` (the rear
+  camera). It shows only on a TOUCH screen (`hasTouchCamera`, `(pointer:
+  coarse)`): on a desktop `capture` is ignored and the button would just be a
+  second Upload. The other three libraries don't pass the prop and are
+  unchanged. Upload files still offers the photo library on iOS.
+- **A camera photo is RENAMED to when it was taken** (`renameCameraPhotos`):
+  `Photo 2026-10-19 14-52-03.jpg`, local time, no colons (SharePoint refuses
+  them), ` (2)` for a second from one capture. An iPhone hands every camera
+  shot over as `image.jpg`, so without this the folder fills with image.jpg,
+  image 1.jpg … The bytes and type are untouched.
+- **No thumbnails yet.** Open shows the photo in SharePoint's viewer. Graph
+  can hand back `thumbnails` for a drive item, but whether those URLs load
+  in an `<img>` from this origin is unverified — the Supplier Logo lesson
+  (an `<img>` carries no token, and a raw SharePoint file URL has no CORS).
+  Test that live before building a grid view.
+- Pinned in `applicationPhotos.real.test.ts` (`USE_MOCK: false`),
+  `ApplicationPhotosView.test.tsx` (the camera button only on a touch
+  screen, and the rename — verified by removing it) and `cameraPhoto.test.ts`.
 
 ### Insourcing Quotes (Customer Service / Sales, PMO site)
 

@@ -68,6 +68,7 @@ import { IGNITION_QC_FAMILY_LIST_IDS } from "./ignitionQc";
 import { OPEN_ORDERS_PATH } from "./openOrdersFiles";
 import { SUPPLY_CHAIN_FILES_PATH } from "./supplyChainFiles";
 import { SALES_DOCUMENTATION_PATH } from "./salesDocumentation";
+import { APPLICATION_PHOTOS_PATH } from "./applicationPhotos";
 import { PROJECT_FOLDERS_PATH } from "./projectFiles";
 
 export type SiteKey = keyof typeof SITES;
@@ -272,6 +273,16 @@ export const APPS: AppSpec[] = [
     lists: [],
     needsDrive: true,
     drivePath: SALES_DOCUMENTATION_PATH,
+  },
+  // General/A-Application Photos in the Sales library (BusinessIT#48) — a
+  // folder, so a refused library (or a missing folder) locks it alone.
+  {
+    path: "/sales/application-photos",
+    label: "Application Photos",
+    site: "salesTeam",
+    lists: [],
+    needsDrive: true,
+    drivePath: APPLICATION_PHOTOS_PATH,
   },
   { path: "/sales/visit-reports", label: "Visit Reports", site: "salesTeam", lists: ids(SP_VISIT_REPORTS_LIST_ID) },
   {

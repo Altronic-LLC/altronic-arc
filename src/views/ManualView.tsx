@@ -3499,6 +3499,42 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "application-photos",
+    title: "Application Photos",
+    group: "Customer Service / Sales",
+    keywords: ["application photos", "photos", "pictures", "camera", "take photo", "ipad", "phone", "upload", "folder"],
+    searchText:
+      "Application Photos at /sales/application-photos, under Departments > Customer Service / Sales: the Sales team's photo storehouse, General/A-Application Photos in the Documents library of the ALTRONICSALESTEAM SharePoint site, with its whole folder tree. Open folders, create subfolders with New folder, upload photos or any file (drag and drop, several at once), download, rename and delete files and folders. On a phone or iPad, Take photo opens the camera and saves the picture straight into the folder you are in, named by the date and time it was taken; Upload files there also lets you pick from the photo library. Open shows a photo in SharePoint. Deleted items go to the site's recycle bin for 93 days. Your SharePoint permissions on the folder decide what you can change.",
+    render: () => (
+      <>
+        <P>
+          <strong>Application Photos</strong>, under Customer Service / Sales
+          in the Departments menu and on the Sales Dashboard, is the Sales
+          team's photo storehouse — the A-Application Photos folder in the
+          ALTRONICSALESTEAM Documents library (Documents › General), with
+          every folder and picture in it.
+        </P>
+        <P>
+          It works like Sales Documentation: click a folder to go into it,{" "}
+          <strong>New folder</strong> makes a subfolder,{" "}
+          <strong>Upload files</strong> adds photos (or drop them on the list),{" "}
+          <strong>Open</strong> shows a photo in SharePoint,{" "}
+          <strong>Download</strong> saves a copy, and every photo and folder
+          has Rename and Delete. A deleted item goes to the ALTRONICSALESTEAM
+          site's recycle bin and can be restored for 93 days.
+        </P>
+        <P>
+          <strong>On a phone or iPad</strong>, <strong>Take photo</strong>{" "}
+          opens the camera. The picture is saved straight into the folder you
+          have open, named by the date and time it was taken — for example
+          "Photo 2026-10-19 14-52-03.jpg" — so it can be found later. Upload
+          files there also lets you choose from the photo library. What you
+          can change is decided by your SharePoint permissions on the folder.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "visit-reports",
     title: "Visit Reports",
     group: "Customer Service / Sales",

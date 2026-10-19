@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.193.0",
+    date: "2026-10-19",
+    changes: [
+      "New Application Photos under Customer Service / Sales — the Sales team's photo storehouse (Documents › General › A-Application Photos), with subfolders, upload, download, rename and delete",
+      "On a phone or iPad, Take photo opens the camera and saves the picture straight to the folder, named by when it was taken",
+    ],
+  },
+  {
     version: "0.192.0",
     date: "2026-10-19",
     changes: [
