@@ -788,6 +788,7 @@ src/
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── mrbFields.ts              MRB column descriptors (field_1…field_23 decoded) + the drifted-choice guard
 │   ├── mrbMapper.ts              Graph item → MrbEntry, and back; the DIFFED write, state + price rules
+│   ├── mrbExport.ts              The MRB meeting export — which entries (date window, all undecided), the PDF and the xlsx (both dynamically imported)
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
 │   ├── grayMarketAlerts.ts      Gray Market intake alert + the testing/engineering/production change alert (pure)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
@@ -917,6 +918,7 @@ src/
 │   ├── QuoteLineModal.tsx            Add a customer-quote line — worksheet (pinned rev), SAP part, priced request, or free line
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
+│   ├── MrbExportModal.tsx        Export for the MRB meeting — date presets / From–To, PDF or Excel, a live count
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
 │   ├── FeatureRequestGitHub.tsx  GitHub connect bar + token dialog, per-row issue link / Create issue, confirm dialog
 │   ├── GitHubMark.tsx            Inline GitHub mark (lucide 1.x dropped brand icons); sized like a lucide icon
@@ -3539,6 +3541,28 @@ Seven things that shape this feature:
 **No delete**, in the UI or the module — an MRB entry records material that
 was rejected and what was decided, and most of the list is retained history.
 `mrb.test.ts` asserts the module exports nothing matching /delete|remove/.
+
+**The meeting export** (`lib/mrbExport.ts` + `components/MrbExportModal.tsx`,
+2026-10-20) — an **Export** button on the register, pressed before the MRB
+meeting: a date window (presets or From/To, default last 30 days) as a
+landscape PDF to print or an xlsx. Five rules, each pinned in
+`mrbExport.test.ts`:
+
+- **Two sections, Needs disposition then Decided**, oldest first, undated
+  last, each with a cost total.
+- **Every undecided live entry goes in by default, WHATEVER its date** — the
+  backlog is what the meeting is for; a window-only pack would let an old
+  undecided entry sit for ever. A checkbox keeps it to the window.
+- **Decided entries go in only inside the window**, bounds inclusive.
+- **Archive rows never go in**, and the export ignores the tab and filters on
+  screen — it reads the whole register.
+- **Dates compare as `yyyy-mm-dd` keys** (`toDateInputValue`, UTC — MRB dates
+  are midday UTC); the presets are LOCAL days ending today.
+
+On the PDF the undecided rows are taller with Disposition blank, so the
+decision can be written in; `rowPageBreak: "avoid"` keeps a row on one page.
+The workbook has a Status column, real dates and numbers, a frozen header and
+an autofilter.
 
 **On a phone the list is CARDS, not the table** — `MrbView` renders two
 siblings over the same `shown` rows, a `sm:hidden` card list and a

@@ -4502,6 +4502,31 @@ const SECTIONS: ManualSection[] = [
           rounding that never followed that rule.
         </Tip>
 
+        <H3>Exporting for the MRB meeting</H3>
+        <P>
+          Press <strong>Export</strong> at the top of the register before the
+          meeting. Pick the <strong>MRB dates</strong> to cover — Last 7 days,
+          Last 30 days, This month, This year, or your own From and To — and a
+          format: <strong>PDF</strong> to print, or <strong>Excel</strong> to
+          sort and filter. The dialog shows how many entries and how much cost
+          will go in before you press Export.
+        </P>
+        <P>
+          The export has two sections: <strong>Needs disposition</strong>{" "}
+          first, then the entries in those dates that were already{" "}
+          <strong>Decided</strong>. Each is oldest first, with a cost total.
+          On the PDF the undecided rows are taller, with the Disposition left
+          blank, so the board&rsquo;s decision can be written in by hand.
+        </P>
+        <Tip>
+          By default every entry still needing a disposition is included,
+          even one older than the dates you picked — an undecided entry from
+          last quarter is exactly what the meeting should look at. Untick{" "}
+          <strong>Include every entry still needing a disposition</strong> to
+          keep strictly to the dates. Archive entries are never exported, and
+          the export ignores the tab and filters on screen.
+        </Tip>
+
         <H3>Discussion and watchers</H3>
         <P>
           Each entry has a <strong>Discussion</strong> thread at the bottom
