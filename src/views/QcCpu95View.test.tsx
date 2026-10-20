@@ -17,6 +17,16 @@ vi.mock("@/components/QcCpu95FormModal", () => ({
   ),
 }));
 
+const pdf = vi.hoisted(() => ({
+  generate: vi.fn(async () => new Blob(["%PDF"], { type: "application/pdf" })),
+  download: vi.fn(),
+}));
+vi.mock("@/lib/qcCpu95Pdf", () => ({
+  generateQcCpu95Pdf: pdf.generate,
+  qcCpu95PdfFileName: (r: unknown) => (r ? "filled.pdf" : "QCFRM-012 CPU-95 blank.pdf"),
+}));
+vi.mock("@/hooks/useQuotePdf", () => ({ downloadBlob: pdf.download }));
+
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -49,6 +59,14 @@ describe("QcCpu95View", () => {
     state.isLoading = true;
     renderWithProviders(<QcCpu95View />);
     expect(screen.getByText(/\w+ cpu-95 test sheets$/i)).toBeInTheDocument();
+  });
+
+  it("exports the BLANK form from the list", async () => {
+    renderWithProviders(<QcCpu95View />);
+    await userEvent.click(screen.getByRole("button", { name: "Blank form" }));
+    await waitFor(() => expect(pdf.download).toHaveBeenCalled());
+    expect(pdf.generate).toHaveBeenCalledWith(null, expect.objectContaining({ exportedOn: expect.any(String) }));
+    expect(pdf.download).toHaveBeenCalledWith(expect.any(Blob), "QCFRM-012 CPU-95 blank.pdf");
   });
 
   it("shows an empty state with no test sheets", () => {

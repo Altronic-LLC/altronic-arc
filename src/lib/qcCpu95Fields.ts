@@ -97,7 +97,8 @@ const FIRING_LETTERS_20 = [
   "FL", "FR", "KL", "KR", "LL", "LR", "ML", "MR", "NL", "NR",
 ] as const;
 
-const FIRING_LETTERS: Record<"16" | "18" | "20", readonly string[]> = {
+/** Exported for the paper-sheet export, which prints all three letter columns side by side. */
+export const FIRING_LETTERS: Record<"16" | "18" | "20", readonly string[]> = {
   "16": FIRING_LETTERS_16,
   "18": FIRING_LETTERS_18,
   "20": FIRING_LETTERS_20,

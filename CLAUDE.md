@@ -746,6 +746,8 @@ src/
 │   ├── qcForms.ts                QC Forms registry — one entry per controlled form, drives the search/button dashboard
 │   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~200 fields) + per-field Altmode visibility
 │   ├── qcCpu95Mapper.ts          Graph item → QcCpu95Record, and back; qcCpu95Altmode() (part number → 0-6)
+│   ├── qcCpu95Sheet.ts           The QCFRM-012 REV 2 paper sheet as a layout model (pure) — blank, or filled with the Altmode's visible fields
+│   ├── qcCpu95Pdf.ts             qcCpu95Sheet → PDF (jsPDF, dynamically imported); long values continue on a last page
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -883,7 +885,8 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
-│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven
+│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven; Export (filled form) in edit mode
+│   ├── QcFormExportButton.tsx    Shared QC Forms export button — build a PDF, download it, toast a failure
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
@@ -5363,6 +5366,37 @@ pairs its input with its own auxiliary button the same way.
 **No delete** — a test sheet is a signed, dated record (Final Test By /
 Final Inspection By), the same "correct with an edit" treatment as FAIT and
 Visit Reports. `api/qcCpu95.ts` has no delete function at all.
+
+**Export reproduces the paper sheet** (Tim, 2026-10-20) — **Blank form** on
+the list and **Export** in the edit form, both through the shared
+`QcFormExportButton`. `lib/qcCpu95Sheet.ts` is a pure layout model in PIXELS
+of the 950 × 1230 scan of the paper form; `lib/qcCpu95Pdf.ts` scales it to
+Letter and draws it with jsPDF (Times for the form, blue Helvetica for
+entries). Six things that are load-bearing:
+
+- **It is the "95" sheet, FORM QCFRM-012 REV 2** — the combined 16/18/20-cyl
+  sheet ARC's columns were built from, plus its Post Test Inspection page.
+  One sheet covers every Altmode, so the blank export needs no variant pick.
+  The 95C, 95C-3516, Varispark and EVS sheets (and the old REV 0) carry
+  checklists ARC has no columns for and are NOT reproduced.
+- **A filled sheet prints only `qcCpu95VisibleFields(altMode)`**, the edit
+  form's rule, so a stale value on a hidden field never reaches paper. The
+  791962/52-18 readings go in the SAME 20V/24V blanks as the standard ones
+  (`firstVisible`), and the final-test labels switch to 140/160/180 V.
+- **ARC holds ONE firing-angle spec and ONE actual per cylinder**, and the
+  paper has TEST and SHIP sub-columns. The value is centred across both
+  rather than guessed into one. Only the active cylinder grid is filled.
+- **Exports the SAVED record, not the draft** on screen; the footer says
+  so while there are unsaved edits.
+- **Lines with no ARC column stay blank**: Memory No., the ON/OFF log, the
+  whole inspection page. Defects / NCM (ARC-only) print above Comments.
+- **Nothing is cut off**: a `wrap` op that overflows prints "(continued on
+  page N)" and the full text goes on a continuation page.
+
+The built-in fonts encode WinAnsi only, so typed values go through
+`toWinAnsi` (Greek μ → micro sign µ, anything unencodable → `?`). Check a
+layout change BY EYE, not only by test: generate a PDF and render it to PNG
+(PyMuPDF into the scratchpad worked; no tool here views a PDF directly).
 
 **Any signed-in user can create or edit** — no admin gate, matching Visit
 Reports and QC Time Tracking. Reading and searching are open to everyone;

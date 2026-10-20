@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.195.0",
+    date: "2026-10-20",
+    changes: [
+      "QC Forms: CPU-95 (QCFRM-012) has a Blank form button on the list — download the paper test sheet and its Post Test Inspection page as a PDF to fill in by hand",
+      "An open CPU-95 test sheet has an Export button that downloads it as the filled-in paper form, showing only the fields that apply to its part number",
+      "The filled form lists any flagged defects, and comments too long for the sheet carry on to a last page",
+    ],
+  },
+  {
     version: "0.194.0",
     date: "2026-10-20",
     changes: [

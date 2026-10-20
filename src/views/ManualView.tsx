@@ -3127,9 +3127,13 @@ const SECTIONS: ManualSection[] = [
       "firing angle",
       "varispark",
       "evs",
+      "export",
+      "pdf",
+      "blank form",
+      "print",
     ],
     searchText:
-      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the sections and fields that apply to the unit's Altronic Part Number, entered at the top — the paper form has several variants (CPU-95, CPU-95C, Varispark, EVS, and a combined 16/18/20-cylinder sheet) and typing the part number picks the matching one automatically, including which firing-angle cylinder grid and which voltage/current set to show. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports.",
+      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the sections and fields that apply to the unit's Altronic Part Number, entered at the top — the paper form has several variants (CPU-95, CPU-95C, Varispark, EVS, and a combined 16/18/20-cylinder sheet) and typing the part number picks the matching one automatically, including which firing-angle cylinder grid and which voltage/current set to show. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses). Firing-angle spec and actual print across the TEST and SHIP columns; Memory No., the ON/OFF log and the inspection page stay blank; flagged defects are listed above Comments; long comments continue on a last page.",
     render: () => (
       <>
         <P>
@@ -3159,6 +3163,31 @@ const SECTIONS: ManualSection[] = [
           delete — each row is a signed, dated test record, the same
           "correct with an edit" rule as FAIT and Visit Reports.
         </P>
+        <P>
+          <strong>Exporting the paper form.</strong> Both exports download a
+          PDF of the paper sheet (FORM QCFRM-012 REV 2, the combined
+          16/18/20-cylinder sheet) plus its Post Test Inspection page:
+        </P>
+        <UL>
+          <LI>
+            <strong>Blank form</strong>, on the list, gives an empty sheet to
+            fill in by hand. One sheet covers every CPU-95 part number.
+          </LI>
+          <LI>
+            <strong>Export</strong>, at the bottom of an open test sheet, gives
+            that sheet filled in, with only the fields that apply to its part
+            number. It exports the <em>saved</em> sheet, so save first to
+            include changes you've just made.
+          </LI>
+        </UL>
+        <Tip>
+          ARC keeps one firing-angle spec and one actual per cylinder, so each
+          is printed across the TEST and SHIP columns. Lines ARC has no field
+          for, such as Memory No., the ON/OFF log and the whole Post Test
+          Inspection page, stay blank to fill in by hand. Any defects flagged
+          on the sheet are listed above Comments. Comments too long for the
+          sheet carry on to a page at the end.
+        </Tip>
       </>
     ),
   },

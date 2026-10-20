@@ -17,7 +17,17 @@ vi.mock("@/hooks/useQcCpu95", () => ({
   useUpdateQcCpu95Record: () => ({ mutateAsync: updateRecord, isPending: false }),
 }));
 
-import { screen } from "@testing-library/react";
+const pdf = vi.hoisted(() => ({
+  generate: vi.fn(async () => new Blob(["%PDF"], { type: "application/pdf" })),
+  download: vi.fn(),
+}));
+vi.mock("@/lib/qcCpu95Pdf", () => ({
+  generateQcCpu95Pdf: pdf.generate,
+  qcCpu95PdfFileName: () => "QCFRM-012 CPU-95 25564.pdf",
+}));
+vi.mock("@/hooks/useQuotePdf", () => ({ downloadBlob: pdf.download }));
+
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { qcCpu95EmptyValues } from "@/lib/qcCpu95Fields";
@@ -69,6 +79,26 @@ describe("editing an existing test sheet", () => {
       expect.objectContaining({ id: 1, values: expect.objectContaining({ serialNumber: "25564" }) }),
     );
     expect(createRecord).not.toHaveBeenCalled();
+  });
+});
+
+describe("exporting the filled form", () => {
+  it("is offered only on a saved sheet", () => {
+    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    expect(screen.queryByRole("button", { name: "Export" })).not.toBeInTheDocument();
+  });
+
+  it("exports the SAVED sheet, not the unsaved edit, and says so", async () => {
+    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    expect(screen.queryByText(/save to include your changes/i)).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Customer"), "Changed Co");
+    expect(screen.getByText(/save to include your changes/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(pdf.download).toHaveBeenCalledWith(expect.any(Blob), "QCFRM-012 CPU-95 25564.pdf"));
+    expect(pdf.generate).toHaveBeenCalledWith(RECORD, expect.objectContaining({ exportedOn: expect.any(String) }));
+    expect(updateRecord).not.toHaveBeenCalled();
   });
 });
 

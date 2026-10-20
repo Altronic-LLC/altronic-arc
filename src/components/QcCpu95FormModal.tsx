@@ -16,6 +16,9 @@ import { DateField } from "./DateField";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { SuggestInput } from "./SuggestInput";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+import { QcFormExportButton } from "./QcFormExportButton";
+import { generateQcCpu95Pdf, qcCpu95PdfFileName } from "@/lib/qcCpu95Pdf";
+import { toIsoDate } from "@/lib/dateInput";
 
 // =============================================================================
 // New / Edit QCFRM-012 (CPU-95) test sheet.
@@ -64,6 +67,11 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
     const visible = qcCpu95VisibleFields(altMode);
     return new Set(visible.map((f) => f.key));
   }, [altMode]);
+
+  const dirty = useMemo(
+    () => !!record && Object.keys(values).some((k) => (values[k] ?? "") !== (record.values[k] ?? "")),
+    [record, values],
+  );
 
   function set(key: string, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -190,7 +198,25 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
           {error && <p className="mt-4 text-sm text-cooper-red">{error}</p>}
         </form>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-3">
+          {record && (
+            // The SAVED sheet, not the draft on screen: a printed record of a
+            // test must match what's in SharePoint.
+            <div className="mr-auto flex flex-wrap items-center gap-2">
+              <QcFormExportButton
+                label="Export"
+                title="Download this test sheet as the filled-in QCFRM-012 paper form (PDF)"
+                disabled={busy}
+                build={async () => ({
+                  blob: await generateQcCpu95Pdf(record, { exportedOn: toIsoDate(new Date()) }),
+                  fileName: qcCpu95PdfFileName(record),
+                })}
+              />
+              {dirty && (
+                <span className="text-xs text-fg-muted">Exports the saved sheet — save to include your changes.</span>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={onClose}

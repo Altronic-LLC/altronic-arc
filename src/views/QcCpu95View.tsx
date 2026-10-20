@@ -12,6 +12,9 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { SortableHeader } from "@/components/SortableTableHeader";
 import { QcCpu95FormModal } from "@/components/QcCpu95FormModal";
+import { QcFormExportButton } from "@/components/QcFormExportButton";
+import { generateQcCpu95Pdf, qcCpu95PdfFileName } from "@/lib/qcCpu95Pdf";
+import { toIsoDate } from "@/lib/dateInput";
 
 // =============================================================================
 // QCFRM-012 (CPU-95) — list of submitted test sheets.
@@ -126,6 +129,14 @@ export function QcCpu95View() {
             Electrical test and inspection — CPU-95, CPU-95C, Varispark, and EVS variants.
           </p>
         </div>
+        <QcFormExportButton
+          label="Blank form"
+          title="Download a blank QCFRM-012 sheet (PDF) to fill in by hand"
+          build={async () => ({
+            blob: await generateQcCpu95Pdf(null, { exportedOn: toIsoDate(new Date()) }),
+            fileName: qcCpu95PdfFileName(null),
+          })}
+        />
         <button
           onClick={() => setShowNew(true)}
           className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
