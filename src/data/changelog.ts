@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.193.1",
+    date: "2026-10-20",
+    changes: [
+      "Coil Defect Log shows each entry's real date — an entry logged today no longer shows as yesterday",
+    ],
+  },
+  {
     version: "0.193.0",
     date: "2026-10-19",
     changes: [
