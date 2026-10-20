@@ -58,9 +58,9 @@ describe("Calculator in the dev demo with live Fabric", () => {
     let signedIn = false;
     fabricQuery.mockImplementation(async (query: string) => {
       if (!signedIn) throw new FabricAuthError("Not signed in.", "not-signed-in");
-      if (query.includes("first: 1)")) return { vw_cogs_material_apis: { items: [] } };
+      if (query.includes("first: 1)")) return { tbl_cogs_material_apis: { items: [] } };
       return {
-        vw_cogs_material_apis: {
+        tbl_cogs_material_apis: {
           items: [{ Plant: "4222", Material: "9100-0001-00", MaterialDescription: "I.C., DEMO MULTIPLEXER", UnitCost: 0.2493 }],
         },
       };
@@ -83,14 +83,14 @@ describe("Calculator in the dev demo with live Fabric", () => {
   });
 
   it("warms the live lookup once as the Calculator opens — a one-row query", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [] } });
+    fabricQuery.mockResolvedValue({ tbl_cogs_material_apis: { items: [] } });
     await open();
     await waitFor(() => expect(fabricQuery).toHaveBeenCalledTimes(1));
-    expect(fabricQuery.mock.calls[0][0]).toContain("vw_cogs_material_apis(first: 1)");
+    expect(fabricQuery.mock.calls[0][0]).toContain("tbl_cogs_material_apis(first: 1)");
   });
 
   it("says SAP doesn't have a part the live view doesn't hold — not 'not in the demo data'", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [] } });
+    fabricQuery.mockResolvedValue({ tbl_cogs_material_apis: { items: [] } });
     const dialog = await open();
     await userEvent.type(dialog.getByLabelText("SAP part number"), "9999000000{Enter}");
     expect(await dialog.findByText("SAP doesn't have 9999-0000-00.")).toBeInTheDocument();

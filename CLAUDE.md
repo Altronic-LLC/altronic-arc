@@ -4791,12 +4791,18 @@ lookups are live now** — the Calculator's cost (below), and the request
 form's part and customer lookups (the section after it). Each has its own
 switch; everything else in the seam still throws.
 
-#### The Calculator's cost view — the first real Fabric read
+#### The Calculator's cost table — the first real Fabric read
 
 Ray, 2026-10-15. ONE lookup in the seam is live: `lookupSapMaterialCosts`
-reads the warehouse view **`rpt.vw_cogs_material_api`**, exposed on the
-Fabric API for GraphQL as **`vw_cogs_material_apis`** (the SQL name plus an
-`s`, no schema prefix; field names match the SQL columns). Confirmed with a
+reads the warehouse TABLE **`tbl_cogs_material_api`**, exposed on the
+Fabric API for GraphQL as **`tbl_cogs_material_apis`** (the SQL name plus an
+`s`, no schema prefix; field names match the SQL columns). **It replaced the
+view `rpt.vw_cogs_material_api` on 2026-10-20** (Ray): same six columns, same
+dashed SAP numbers, and a warm lookup by SAP # took ~0.3s against ~1.9s on
+the view (by old number ~0.6s against ~1.8s). The first call of a session is
+still ~2.8s on either — the token and a cold endpoint, which the warm-up
+covers. Every query names it in one place per function in
+`api/pricingLookup.ts`; the old view still exists and nothing reads it. Confirmed with a
 live query on 2026-10-15 — introspection is OFF on the API item, so names are
 read from the warehouse explorer and proved with a query, not discovered.
 Only the Calculator uses it (`useSapMaterialCosts`); everything else in the
@@ -4824,10 +4830,9 @@ What the live rows taught, each load-bearing:
   page session, never throws — so the first lookup doesn't also pay for the
   silent token and a cold Fabric endpoint; and the lookup fires on the 10th
   digit, no click. Look up stays, and `lookupSeq` makes pressing it again on
-  the same number re-apply SAP's figures. What's left is Fabric's own time:
-  `Material` is `varchar(max)` in a VIEW, which the warehouse can't skip
-  through cheaply — a real table with a short `Material` column (refreshed by
-  a pipeline) is the fix on that side, Fabric's, not ARC's.
+  the same number re-apply SAP's figures. What was left was Fabric's own
+  time — `varchar(max)` columns in a VIEW — and the table that replaced the
+  view on 2026-10-20 fixed that on Fabric's side.
 - **The description FOLLOWS the part** (Ray: "whenever you enter a new SAP part
   number, the description must be … updated"). Every new lookup replaces it
   with SAP's `MaterialDescription`. When SAP doesn't hold the new number, a
@@ -4901,7 +4906,7 @@ Ray, 2026-10-17. Two more lookups read the warehouse, both on
 `SAP_PART_LOOKUP_LIVE` / `SAP_CUSTOMER_LOOKUP_LIVE` (`!USE_MOCK ||
 FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
 
-- **Part — `lookupSapPart`, on `vw_cogs_material_apis`**, six columns
+- **Part — `lookupSapPart`, on `tbl_cogs_material_apis`**, six columns
   (`SAP_PART_FIELDS`: Plant, Material, OldMaterialNumber, MaterialDescription,
   MaterialPriceGroup, UnitCost). A 10-digit SAP # is ONE `eq` on `Material`;
   otherwise the Altronic number, upper-cased, is one `eq` on

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SAP_MATERIAL_COST_FIELDS, sapMaterialLookupKey, sapMaterialPlants, toSapMaterialCost, toSapPart, sapCustomerSearchTerms } from "./sapMaterialCost";
 
 // The Calculator's SAP cost lookup — the pure half. Rows are shaped like the
-// live view's (rpt.vw_cogs_material_api, read 2026-10-15).
+// live view's (tbl_cogs_material_api, read 2026-10-15).
 
 const live = {
   Plant: "4222",

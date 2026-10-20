@@ -3,7 +3,7 @@ import { formatSapPartNumber, SAP_PART_NUMBER_DIGITS } from "./sapPartNumber";
 
 // =============================================================================
 // The Calculator's SAP cost lookup (Ray, 2026-10-15) — the pure half. Reads the
-// Fabric view `rpt.vw_cogs_material_api` (GraphQL `vw_cogs_material_apis`),
+// Fabric view `tbl_cogs_material_api` (GraphQL `tbl_cogs_material_apis`),
 // one row per material PER PLANT. The transport is `lookupSapMaterialCosts` in
 // api/pricingLookup.ts.
 //

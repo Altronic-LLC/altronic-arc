@@ -33,12 +33,12 @@ const row = (plant: string, cost: number) => ({
 
 describe("lookupSapMaterialCosts (real mode)", () => {
   it("asks ONE equality on Material for four columns — kept narrow for speed", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [row("4230", 0.07), row("4222", 0.0611)] } });
+    fabricQuery.mockResolvedValue({ tbl_cogs_material_apis: { items: [row("4230", 0.07), row("4222", 0.0611)] } });
 
     const out = await lookupSapMaterialCosts("9100000200");
 
     const [query, variables] = fabricQuery.mock.calls[0];
-    expect(query).toContain("vw_cogs_material_apis(");
+    expect(query).toContain("tbl_cogs_material_apis(");
     expect(query).toContain("filter: { Material: { eq: $sap } }");
     expect(query).not.toContain("OldMaterialNumber");
     expect(query).not.toContain("or:");
@@ -57,7 +57,7 @@ describe("lookupSapMaterialCosts (real mode)", () => {
   });
 
   it("is empty when SAP has nothing", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: null } });
+    fabricQuery.mockResolvedValue({ tbl_cogs_material_apis: { items: null } });
     expect(await lookupSapMaterialCosts("9999000000")).toEqual([]);
   });
 });

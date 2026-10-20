@@ -373,7 +373,7 @@ export interface SapPart {
 }
 
 /**
- * One material at one plant, from the Fabric view `rpt.vw_cogs_material_api`
+ * One material at one plant, from the Fabric view `tbl_cogs_material_api`
  * (Ray, 2026-10-15) — what the Calculator's SAP lookup reads. A material has a
  * row per plant, so a lookup can answer several. Deliberately just the cost:
  * the lookup is kept narrow for speed.

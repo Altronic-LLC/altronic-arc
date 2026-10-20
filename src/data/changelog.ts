@@ -20,6 +20,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.193.2",
+    date: "2026-10-20",
+    changes: ["Faster SAP part and cost lookups in Pricing"],
+  },
+  {
     version: "0.193.1",
     date: "2026-10-20",
     changes: [

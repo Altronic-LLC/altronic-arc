@@ -23,7 +23,7 @@ beforeEach(() => {
   fabricQuery.mockReset();
 });
 
-const rows = (...items: Record<string, unknown>[]) => ({ vw_cogs_material_apis: { items } });
+const rows = (...items: Record<string, unknown>[]) => ({ tbl_cogs_material_apis: { items } });
 const HARNESS = {
   Material: "9100-0007-15",
   OldMaterialNumber: "910007-15",

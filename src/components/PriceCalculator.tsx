@@ -80,7 +80,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
   }, [sap, description, cogs, mode, value]);
 
   // SAP's current cost (Ray, 2026-10-15), read from the Fabric view
-  // `rpt.vw_cogs_material_api` by SAP number only — kept narrow for speed. A
+  // `tbl_cogs_material_api` by SAP number only — kept narrow for speed. A
   // material has a row per plant: the first plant's cost is brought in, and a
   // picker offers the rest.
   // Applied ONCE per lookup (and per plant pick), so typing over the cost

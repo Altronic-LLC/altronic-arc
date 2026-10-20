@@ -68,14 +68,14 @@ export const MOCK_SAP_PARTS: SapPart[] = [
 
 /** Standard distributor discount per MPG. No CTL entry — SAP hasn't one, so 34% applies. */
 /**
- * The Calculator's cost view (`rpt.vw_cogs_material_api`) has a row per PLANT.
+ * The Calculator's cost view (`tbl_cogs_material_api`) has a row per PLANT.
  * Every mock part sits at plant 4222; this one is also stocked at 4211 at a
  * different cost, so the plant picker can be shown. 4230 sorts AFTER 4222, so
  * the demo part still brings in $120 first.
  */
 /**
- * Real rows from the live cost view (rpt.vw_cogs_material_api, read
- * 2026-10-15), so the Calculator's demo answers for SAP numbers people know.
+ * INVENTED rows shaped like the live cost table (`tbl_cogs_material_api`) —
+ * never copied from SAP, since the repo is public (rule 8).
  * Cost lookup ONLY — they're not in the part catalogue above, so they never
  * show up as comparables or quote parts.
  */

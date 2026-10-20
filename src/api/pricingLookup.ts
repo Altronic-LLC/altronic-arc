@@ -68,9 +68,10 @@ const norm = (s: string) => s.trim().toLowerCase();
 
 // -----------------------------------------------------------------------------
 // The Calculator's cost lookup — the FIRST real Fabric read (Ray, 2026-10-15).
-// One view, `rpt.vw_cogs_material_api`, exposed on the Fabric API for GraphQL
-// as `vw_cogs_material_apis`; field names match the SQL columns (confirmed
-// against a live query, 2026-10-15). Only the Calculator uses it — every
+// One TABLE, `tbl_cogs_material_api`, exposed on the Fabric API for GraphQL
+// as `tbl_cogs_material_apis`; field names match the SQL columns. It replaced
+// the view `rpt.vw_cogs_material_api` (Ray, 2026-10-20) — same six columns,
+// and a lookup by SAP # came back in ~0.3s against ~1.9s on the view. Only the Calculator uses it — every
 // other SAP fact above is still "not connected" until its own view exists.
 // -----------------------------------------------------------------------------
 
@@ -115,7 +116,7 @@ let warmed: Promise<void> | null = null;
 export function warmSapCostLookup(): Promise<void> {
   if (SAP_COST_LOOKUP_IS_DEMO || !FABRIC_ENABLED) return Promise.resolve();
   if (!warmed) {
-    warmed = fabricQuery("query { vw_cogs_material_apis(first: 1) { items { Plant } } }")
+    warmed = fabricQuery("query { tbl_cogs_material_apis(first: 1) { items { Plant } } }")
       .then(() => undefined)
       .catch(() => {
         // A failed warm-up (not signed in yet, say) is retried next time the
@@ -156,12 +157,12 @@ export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMat
   // ONE equality on Material and four columns — kept narrow for speed.
   // The number travels as a variable, never interpolated into the query.
   const query = `query($sap: String!) {
-  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { Material: { eq: $sap } }) {
+  tbl_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { Material: { eq: $sap } }) {
     items { ${SAP_MATERIAL_COST_FIELDS.join(" ")} }
   }
 }`;
-  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, { sap });
-  return sapMaterialPlants((data.vw_cogs_material_apis?.items ?? []).map(toSapMaterialCost));
+  const data = await fabricQuery<{ tbl_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, { sap });
+  return sapMaterialPlants((data.tbl_cogs_material_apis?.items ?? []).map(toSapMaterialCost));
 }
 
 /**
@@ -212,12 +213,12 @@ async function liveSapPartRows(column: "Material" | "OldMaterialNumber", value: 
   // ONE equality and six small columns, like the Calculator's lookup — the
   // value travels as a variable, never interpolated.
   const query = `query($v: String!) {
-  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
+  tbl_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
     items { ${SAP_PART_FIELDS.join(" ")} }
   }
 }`;
-  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapPartRow[] | null } | null }>(query, { v: value });
-  return data.vw_cogs_material_apis?.items ?? [];
+  const data = await fabricQuery<{ tbl_cogs_material_apis?: { items?: SapPartRow[] | null } | null }>(query, { v: value });
+  return data.tbl_cogs_material_apis?.items ?? [];
 }
 
 /**
