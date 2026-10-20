@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.194.0",
+    date: "2026-10-20",
+    changes: [
+      "MRB has an Export button for the MRB meeting — pick the dates to cover and download a PDF to print or an Excel workbook",
+      "The export lists entries needing a disposition first, then those already decided, each with a cost total; the printed PDF leaves room to write the board's decision in",
+      "Every entry still waiting on a disposition is included by default, even one older than the dates picked",
+    ],
+  },
+  {
     version: "0.193.2",
     date: "2026-10-20",
     changes: ["Faster SAP part and cost lookups in Pricing"],

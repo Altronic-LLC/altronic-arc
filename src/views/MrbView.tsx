@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronDown, ClipboardX, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ClipboardX, Download, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
 import { useMrbEntries } from "@/hooks/useMrb";
 import type { MrbEntry } from "@/types/task";
 import { MRB_DISPOSITIONS, MRB_WHERE_CAUSED } from "@/types/task";
@@ -23,6 +23,7 @@ import { dayLabel, type SortColumn } from "@/lib/tableSort";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { MrbFormModal } from "@/components/MrbFormModal";
+import { MrbExportModal } from "@/components/MrbExportModal";
 import { MrbArchiveChip, MrbDispositionChip } from "@/components/mrbAtoms";
 import { cn } from "@/lib/cn";
 
@@ -132,6 +133,7 @@ export function MrbView() {
   const { data: entries = [], isLoading } = useMrbEntries();
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
@@ -215,7 +217,10 @@ export function MrbView() {
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-superior-blue/10 text-superior-blue">
           <ClipboardX className="h-5 w-5" />
         </span>
-        <div className="min-w-0 flex-1">
+        {/* The min-width makes the buttons WRAP below on a phone rather than
+            squeezing this text to one word per line (the Suppliers header
+            lesson). */}
+        <div className="min-w-[14rem] flex-1">
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
             Material Review Board
           </h1>
@@ -224,13 +229,25 @@ export function MrbView() {
             it and what was decided to do with it.
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
-        >
-          <Plus className="h-4 w-4" />
-          New Entry
-        </button>
+        {/* For the meeting: a date window as a printable PDF or a workbook.
+            It reads the whole register, not the tab or filters on screen. */}
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => setShowExport(true)}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2 disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
+          >
+            <Plus className="h-4 w-4" />
+            New Entry
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg bg-surface-2 p-1">
@@ -410,6 +427,8 @@ export function MrbView() {
           </>
         )}
       </div>
+
+      {showExport && <MrbExportModal entries={entries} onClose={() => setShowExport(false)} />}
 
       {showNew && (
         <MrbFormModal

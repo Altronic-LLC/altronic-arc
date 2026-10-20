@@ -323,3 +323,15 @@ describe("MrbView — sorting", () => {
     expect(after[0]).toContain("ARCHIVE-ROW");
   });
 });
+
+describe("MrbView — Export for the meeting", () => {
+  it("opens the export dialog over the whole register, whatever tab is showing", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MrbView />, { route: "/supply-chain/mrb" });
+    await table();
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    const dialog = screen.getByRole("dialog", { name: "Export for MRB meeting" });
+    // Two undecided live entries (archive never), whatever the window.
+    expect(within(dialog).getByRole("status")).toHaveTextContent("2 need a disposition");
+  });
+});
