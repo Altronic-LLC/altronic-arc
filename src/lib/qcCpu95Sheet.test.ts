@@ -4,6 +4,7 @@ import { qcCpu95EmptyValues } from "./qcCpu95Fields";
 import {
   POST_TEST_INSPECTION_POINTS,
   qcCpu95DefectLabels,
+  qcCpu95IncludesInspectionPage,
   qcCpu95LogEntries,
   qcCpu95SheetLayout,
   sheetDate,
@@ -165,6 +166,14 @@ describe("a filled sheet", () => {
   it("hands the comments to the renderer to wrap, with a continuation title", () => {
     const pages = qcCpu95SheetLayout(record({ comments: "  Re-tested.  " }), "2026-10-20");
     expect(pages[0].ops.find((o) => o.type === "wrap")).toMatchObject({ text: "Re-tested.", title: "Comments" });
+  });
+
+  it("carries the Post Test Inspection page only for a 791950 part number", () => {
+    expect(qcCpu95SheetLayout(record({ altronicPartNumber: "791950-08" }), "2026-10-20")).toHaveLength(2);
+    expect(qcCpu95SheetLayout(record({ altronicPartNumber: " 791950-16-SS " }), "2026-10-20")).toHaveLength(2);
+    expect(qcCpu95SheetLayout(record({ altronicPartNumber: "791962-18" }), "2026-10-20")).toHaveLength(1);
+    expect(qcCpu95SheetLayout(record({ altronicPartNumber: "" }), "2026-10-20")).toHaveLength(1);
+    expect(qcCpu95IncludesInspectionPage(null)).toBe(true);
   });
 
   it("names the unit on the inspection page, which ARC otherwise leaves blank", () => {

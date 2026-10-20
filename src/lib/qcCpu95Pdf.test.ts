@@ -53,24 +53,39 @@ describe("the blank PDF", () => {
 
 describe("a filled PDF", () => {
   it("prints the record's values", async () => {
-    const { text, pages } = await render(record({ serialNumber: "25564", finalTestBy: "J. Tester" }));
+    const { text, pages } = await render(
+      record({ serialNumber: "25564", altronicPartNumber: "791950-16", finalTestBy: "J. Tester" }),
+    );
     expect(pages).toBe(2);
     expect(text).toContain("25564");
     expect(text).toContain("J. Tester");
     expect(text).toContain("Exported from ARC on 10/20/2026 — test sheet #42");
   });
 
+  it("is the test sheet alone for a part number that isn't 791950", async () => {
+    const { text, pages } = await render(record({ altronicPartNumber: "791962-18" }));
+    expect(pages).toBe(1);
+    expect(text).not.toContain("Post Test Inspection");
+  });
+
   it("continues long comments on a page of their own, in full", async () => {
     const comments = Array.from({ length: 30 }, (_, i) => `Note ${i + 1} about the retest.`).join(" ");
-    const { text, pages } = await render(record({ serialNumber: "25564", comments }));
+    const { text, pages } = await render(record({ serialNumber: "25564", altronicPartNumber: "791950-16", comments }));
     expect(pages).toBe(3);
     expect(text).toContain("(continued on page 3)");
     expect(text).toContain("Test sheet 25564 — continued");
     expect(text).toContain("Note 30 about the retest.");
   });
 
+  it("numbers the continuation page after the sheet alone when there's no inspection page", async () => {
+    const comments = Array.from({ length: 30 }, (_, i) => `Note ${i + 1}.`).join(" ");
+    const { text, pages } = await render(record({ altronicPartNumber: "791962-18", comments }));
+    expect(pages).toBe(2);
+    expect(text).toContain("(continued on page 2)");
+  });
+
   it("keeps a short comment on the sheet", async () => {
-    const { text, pages } = await render(record({ comments: "Re-tested OK." }));
+    const { text, pages } = await render(record({ altronicPartNumber: "791950-16", comments: "Re-tested OK." }));
     expect(pages).toBe(2);
     expect(text).toContain("Re-tested OK.");
   });

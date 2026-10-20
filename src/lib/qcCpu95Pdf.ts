@@ -50,7 +50,21 @@ export function toWinAnsi(text: string): string {
     .join("");
 }
 
+// Horizontal positions keep the scan's scale. VERTICAL positions stretch the
+// scan's content band (title to export stamp) over the page between the
+// margins: the paper leaves a fifth of the page empty at the bottom (Tim,
+// 2026-10-20: "way too much padding"), and the room goes to the gaps between
+// lines, which is where people write. Only positions move — text keeps its
+// size, so nothing is distorted.
+const CONTENT_TOP_PX = 66;
+const CONTENT_BOTTOM_PX = 1034;
+const MARGIN_TOP_PT = 32;
+const MARGIN_BOTTOM_PT = 28;
+const Y_SCALE = (PAGE_H - MARGIN_TOP_PT - MARGIN_BOTTOM_PT) / (CONTENT_BOTTOM_PX - CONTENT_TOP_PX);
+
 const P = (px: number) => px * SCALE;
+/** A y position on the scan → points on the page. */
+const Y = (px: number) => MARGIN_TOP_PT + (px - CONTENT_TOP_PX) * Y_SCALE;
 
 function setFont(doc: jsPDF, font: SheetFont, size: number, filled: boolean) {
   doc.setFont(filled ? "helvetica" : "times", font);
@@ -68,35 +82,35 @@ function drawOp(doc: jsPDF, op: SheetOp, overflow: Overflow[], continuationPage:
     case "line":
       doc.setDrawColor(...INK);
       doc.setLineWidth(0.5);
-      doc.line(P(op.x1), P(op.y1), P(op.x2), P(op.y2));
+      doc.line(P(op.x1), Y(op.y1), P(op.x2), Y(op.y2));
       return;
     case "rect":
       doc.setDrawColor(...INK);
       doc.setLineWidth(0.8);
       if (op.fill) {
         doc.setFillColor(217, 217, 217);
-        doc.rect(P(op.x), P(op.y), P(op.w), P(op.h), "F");
+        doc.rect(P(op.x), Y(op.y), P(op.w), op.h * Y_SCALE, "F");
       } else {
-        doc.rect(P(op.x), P(op.y), P(op.w), P(op.h));
+        doc.rect(P(op.x), Y(op.y), P(op.w), op.h * Y_SCALE);
       }
       return;
     case "check":
       doc.setDrawColor(...ENTRY);
       doc.setLineWidth(0.9);
-      doc.line(P(op.x - 5), P(op.y - 4), P(op.x - 1.5), P(op.y));
-      doc.line(P(op.x - 1.5), P(op.y), P(op.x + 6), P(op.y - 9));
+      doc.line(P(op.x - 5), Y(op.y - 4), P(op.x - 1.5), Y(op.y));
+      doc.line(P(op.x - 1.5), Y(op.y), P(op.x + 6), Y(op.y - 9));
       return;
     case "text": {
       const size = op.size ?? 8;
       setFont(doc, op.font ?? "normal", size, !!op.filled);
       const t = toWinAnsi(op.text);
-      doc.text(t, P(op.x), P(op.y), { align: op.align ?? "left" });
+      doc.text(t, P(op.x), Y(op.y), { align: op.align ?? "left" });
       if (op.underline) {
         const w = doc.getTextWidth(t);
         const x = op.align === "center" ? P(op.x) - w / 2 : op.align === "right" ? P(op.x) - w : P(op.x);
         doc.setDrawColor(...INK);
         doc.setLineWidth(0.5);
-        doc.line(x, P(op.y) + 1.2, x + w, P(op.y) + 1.2);
+        doc.line(x, Y(op.y) + 1.2, x + w, Y(op.y) + 1.2);
       }
       return;
     }
@@ -109,7 +123,7 @@ function drawOp(doc: jsPDF, op: SheetOp, overflow: Overflow[], continuationPage:
         overflow.push({ title: op.title, text: t });
         shown = [...lines.slice(0, op.maxLines - 1), `(continued on page ${continuationPage()})`];
       }
-      shown.forEach((line, i) => doc.text(line, P(op.x), P(op.y + i * op.lineHeight)));
+      shown.forEach((line, i) => doc.text(line, P(op.x), Y(op.y + i * op.lineHeight)));
       return;
     }
   }

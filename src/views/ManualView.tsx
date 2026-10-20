@@ -3133,7 +3133,7 @@ const SECTIONS: ManualSection[] = [
       "print",
     ],
     searchText:
-      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the sections and fields that apply to the unit's Altronic Part Number, entered at the top — the paper form has several variants (CPU-95, CPU-95C, Varispark, EVS, and a combined 16/18/20-cylinder sheet) and typing the part number picks the matching one automatically, including which firing-angle cylinder grid and which voltage/current set to show. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses). Firing-angle spec and actual print in the TEST columns (SHIP stays blank); the first ON/OFF line shows the created date and time and the sign-off date; Memory No. and the inspection page stay blank; flagged defects are listed above Comments; long comments continue on a last page.",
+      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the sections and fields that apply to the unit's Altronic Part Number, entered at the top — the paper form has several variants (CPU-95, CPU-95C, Varispark, EVS, and a combined 16/18/20-cylinder sheet) and typing the part number picks the matching one automatically, including which firing-angle cylinder grid and which voltage/current set to show. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses; the inspection page only for a 791950 part number). Firing-angle spec and actual print in the TEST columns (SHIP stays blank); the first ON/OFF line shows the created date and time and the sign-off date; Memory No. and the inspection page stay blank; flagged defects are listed above Comments; long comments continue on a last page.",
     render: () => (
       <>
         <P>
@@ -3166,7 +3166,9 @@ const SECTIONS: ManualSection[] = [
         <P>
           <strong>Exporting the paper form.</strong> Both exports download a
           PDF of the paper sheet (FORM QCFRM-012 REV 2, the combined
-          16/18/20-cylinder sheet) plus its Post Test Inspection page:
+          16/18/20-cylinder sheet). The Post Test Inspection page comes with
+          the blank form, and with a filled sheet only when its part number is
+          a 791950:
         </P>
         <UL>
           <LI>

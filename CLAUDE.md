@@ -5372,11 +5372,21 @@ the list and **Export** in the edit form, both through the shared
 `QcFormExportButton`. `lib/qcCpu95Sheet.ts` is a pure layout model in PIXELS
 of the 950 × 1230 scan of the paper form; `lib/qcCpu95Pdf.ts` scales it to
 Letter and draws it with jsPDF (Times for the form, blue Helvetica for
-entries). Six things that are load-bearing:
+entries). The things that are load-bearing:
 
 - **It is the "95" sheet, FORM QCFRM-012 REV 2** — the combined 16/18/20-cyl
   sheet ARC's columns were built from, plus its Post Test Inspection page.
   One sheet covers every Altmode, so the blank export needs no variant pick.
+  **The inspection page is "per QWI-342 and 791950 Print"**, so a filled
+  export carries it only for a part number starting `791950`
+  (`qcCpu95IncludesInspectionPage`, Tim, 2026-10-20); the blank form always
+  carries it.
+- **Height is stretched, width is not.** The paper leaves a fifth of the page
+  empty at the bottom; `qcCpu95Pdf.ts` maps the scan's content band
+  (`CONTENT_TOP_PX`–`CONTENT_BOTTOM_PX`) onto the page between the margins,
+  so the extra room goes between the lines. Text keeps its size. Times is
+  wider than the scan's font: leave room after a label (the header blanks
+  start at 250px for that reason).
   The 95C, 95C-3516, Varispark and EVS sheets (and the old REV 0) carry
   checklists ARC has no columns for and are NOT reproduced.
 - **A filled sheet prints only `qcCpu95VisibleFields(altMode)`**, the edit

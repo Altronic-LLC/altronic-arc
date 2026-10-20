@@ -24,7 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-10-20",
     changes: [
       "QC Forms: CPU-95 (QCFRM-012) has a Blank form button on the list — download the paper test sheet and its Post Test Inspection page as a PDF to fill in by hand",
-      "An open CPU-95 test sheet has an Export button that downloads it as the filled-in paper form, showing only the fields that apply to its part number",
+      "An open CPU-95 test sheet has an Export button that downloads it as the filled-in paper form, showing only the fields that apply to its part number — the Post Test Inspection page comes with 791950 part numbers only",
       "The filled form puts firing angles in the TEST columns, shows when the sheet was created and signed off on the ON/OFF line, lists any flagged defects, and carries comments too long for the sheet on to a last page",
     ],
   },

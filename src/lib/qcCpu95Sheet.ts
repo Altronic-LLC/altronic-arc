@@ -177,8 +177,9 @@ function header(ctx: Ctx) {
   left.forEach(([label, key], i) => {
     const y = 120 + i * ROW;
     text(ctx, LEFT, y, label);
-    // Starts clear of the longest label — on the paper they touch.
-    blank(ctx, 213, 345, y, key, true);
+    // Starts clear of the longest label ("POWER BD. DATE CODE" is ~150px in
+    // Times) — on the paper they touch.
+    blank(ctx, 250, 390, y, key, true);
   });
 
   const right: Array<[string, string]> = [
@@ -206,9 +207,10 @@ function startup(ctx: Ctx) {
   text(ctx, LEFT, 284, "20V INPUT", bold);
   text(ctx, 287, 284, "24V INPUT", bold);
 
-  text(ctx, 645, 271, "DATE", bold);
-  text(ctx, 700, 271, "TIME", bold);
-  text(ctx, 760, 271, "COMMENTS", bold);
+  // Centred over the values written under them; COMMENTS ends with its lines.
+  text(ctx, 636, 271, "DATE", { ...bold, align: "center" });
+  text(ctx, 702, 271, "TIME", { ...bold, align: "center" });
+  text(ctx, 810, 271, "COMMENTS", { ...bold, align: "right" });
   ["ON:", "OFF:", "ON:", "OFF:"].forEach((label, i) => {
     const y = 284 + i * ROW;
     text(ctx, 554, y, label);
@@ -222,8 +224,8 @@ function startup(ctx: Ctx) {
     [297, ctx.log.off],
   ] as const) {
     if (!entry) continue;
-    text(ctx, 650, y, entry.date, { filled: true, align: "center" });
-    if (entry.time) text(ctx, 724, y, entry.time, { filled: true, align: "center" });
+    text(ctx, 636, y, entry.date, { filled: true, align: "center" });
+    if (entry.time) text(ctx, 702, y, entry.time, { filled: true, align: "center" });
   }
 
   // Peak volts: 20V reading on the left, 24V reading in the middle. The
@@ -500,9 +502,22 @@ function inspectionPage(ctx: Ctx, record: QcCpu95Record | null) {
 }
 
 /**
+ * The Post Test Inspection page is "per QWI-342 and 791950 Print", so a
+ * filled sheet carries it only for a 791950 part number (Tim, 2026-10-20) —
+ * a 791962-18 sheet with a 791950 checklist behind it reads as a mistake.
+ * The blank form always carries it: it's printed before anyone knows which
+ * unit it's for.
+ */
+export function qcCpu95IncludesInspectionPage(record: QcCpu95Record | null): boolean {
+  if (!record) return true;
+  return (record.values.altronicPartNumber ?? "").trim().startsWith("791950");
+}
+
+/**
  * The paper sheet as draw operations — page 1 the test sheet, page 2 the Post
- * Test Inspection. `record === null` is the blank form. `exportedOn` is
- * `yyyy-mm-dd`, passed in so the output doesn't depend on the clock.
+ * Test Inspection (see `qcCpu95IncludesInspectionPage`). `record === null` is
+ * the blank form. `exportedOn` is `yyyy-mm-dd`, passed in so the output
+ * doesn't depend on the clock.
  */
 export function qcCpu95SheetLayout(record: QcCpu95Record | null, exportedOn: string): SheetPage[] {
   const altMode = record ? qcCpu95Altmode(record.values.altronicPartNumber ?? "") : null;
@@ -518,8 +533,9 @@ export function qcCpu95SheetLayout(record: QcCpu95Record | null, exportedOn: str
   signOff(sheet, record);
   footer(sheet, record, exportedOn);
 
+  if (!qcCpu95IncludesInspectionPage(record)) return [{ ops: sheet.ops }];
+
   const inspection: Ctx = { ops: [], values, visible, filled: !!record, log };
   inspectionPage(inspection, record);
-
   return [{ ops: sheet.ops }, { ops: inspection.ops }];
 }
