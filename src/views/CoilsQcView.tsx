@@ -13,7 +13,17 @@ import {
   useUpdateCoilDefectLogEntry,
 } from "@/hooks/useCoilsQc";
 import { COIL_DEFECT_FIELDS, defectTotal, parseOtherFaults, type CoilDefectLogEntry } from "@/lib/coilsQc";
+import { parseIsoDate } from "@/lib/dateInput";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
+
+/**
+ * `entry.date` is a bare `yyyy-mm-dd`. `new Date()` reads that as UTC midnight,
+ * which local getters show as the PREVIOUS day in every US timezone, so parse
+ * it as a local date instead.
+ */
+function displayDate(value: string): string | null {
+  return parseIsoDate(value)?.toLocaleDateString() ?? null;
+}
 
 function defectLabel(field: string): string {
   return field.replace(/([a-z])([A-Z])/g, "$1 $2");
@@ -90,7 +100,7 @@ export function CoilsQcView() {
             const showOther = expandedOtherId === entry.id;
             return <article key={entry.id} className="rounded-lg border border-border bg-surface p-4">
               <div className="flex items-start justify-between gap-3">
-                <div><h2 className="font-medium text-fg">{entry.coilPartNumber || "Unnamed coil"}</h2><p className="mt-0.5 text-sm text-fg-muted">{entry.date ? new Date(entry.date).toLocaleDateString() : "No date"}</p></div>
+                <div><h2 className="font-medium text-fg">{entry.coilPartNumber || "Unnamed coil"}</h2><p className="mt-0.5 text-sm text-fg-muted">{displayDate(entry.date) ?? "No date"}</p></div>
                 <button type="button" onClick={() => setEditingEntry(entry)} aria-label={`Edit ${entry.coilPartNumber || "coil defect entry"}`} className="rounded-md p-1.5 text-fg-muted hover:bg-surface-2 hover:text-fg"><Pencil className="h-4 w-4" /></button>
               </div>
               <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-fg-muted">Failed</dt><dd className="font-medium text-fg">{entry.failed}</dd></div><div><dt className="text-fg-muted">Named defects</dt><dd className="font-medium text-fg">{defectTotal(entry)} {mismatch && <AlertTriangle className="ml-1 inline h-3.5 w-3.5 text-ajax-yellow" />}</dd></div></dl>
@@ -115,7 +125,7 @@ export function CoilsQcView() {
                 const otherFaults = parseOtherFaults(entry.otherFaultTable);
                 const mismatch = entry.failed !== defectTotal(entry);
                 return <tr key={entry.id} className="border-t border-border align-top">
-                  <td className="px-4 py-3 text-fg-muted">{entry.date ? new Date(entry.date).toLocaleDateString() : "-"}</td>
+                  <td className="px-4 py-3 text-fg-muted">{displayDate(entry.date) ?? "-"}</td>
                   <td className="px-4 py-3 font-medium text-fg">{entry.coilPartNumber || "-"}</td>
                   <td className="px-4 py-3 text-right">{entry.failed}</td>
                   <td className="px-4 py-3 text-right">
