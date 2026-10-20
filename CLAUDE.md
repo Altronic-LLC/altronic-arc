@@ -5383,13 +5383,22 @@ entries). Six things that are load-bearing:
   form's rule, so a stale value on a hidden field never reaches paper. The
   791962/52-18 readings go in the SAME 20V/24V blanks as the standard ones
   (`firstVisible`), and the final-test labels switch to 140/160/180 V.
-- **ARC holds ONE firing-angle spec and ONE actual per cylinder**, and the
-  paper has TEST and SHIP sub-columns. The value is centred across both
-  rather than guessed into one. Only the active cylinder grid is filled.
+- **ARC holds ONE firing-angle spec and ONE actual per cylinder, and both
+  are the TEST figure** (Tim, 2026-10-20) — the paper's SHIP columns stay
+  blank. Only the active cylinder grid is filled.
 - **Exports the SAVED record, not the draft** on screen; the footer says
   so while there are unsaved edits.
-- **Lines with no ARC column stay blank**: Memory No., the ON/OFF log, the
-  whole inspection page. Defects / NCM (ARC-only) print above Comments.
+- **The ON/OFF log prints ONE entry** (Tim, 2026-10-20): ON = the item's
+  Created date and local time, OFF = the Final Test Date, else the Final
+  Inspection Date (date-only, so no time). The time is formatted by hand —
+  `toLocaleTimeString` emits a narrow no-break space WinAnsi can't print.
+- **Lines with no ARC column stay blank, as on the blank form**: Memory
+  No., the second ON/OFF pair, the whole inspection page. Defects / NCM
+  (ARC-only) print above Comments.
+- **The CPU-95 list holds only the "95" sheet.** Checked against the schema
+  snapshot 2026-10-20: ARC reads every data column except Project Tag, and
+  there are no columns for the 95C / 95C-3516 / Varispark / EVS-only checks
+  or the Post Test Inspection page. Don't go looking for them in this list.
 - **Nothing is cut off**: a `wrap` op that overflows prints "(continued on
   page N)" and the full text goes on a continuation page.
 

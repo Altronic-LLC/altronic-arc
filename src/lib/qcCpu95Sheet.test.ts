@@ -4,6 +4,7 @@ import { qcCpu95EmptyValues } from "./qcCpu95Fields";
 import {
   POST_TEST_INSPECTION_POINTS,
   qcCpu95DefectLabels,
+  qcCpu95LogEntries,
   qcCpu95SheetLayout,
   sheetDate,
   type SheetOp,
@@ -119,6 +120,19 @@ describe("a filled sheet", () => {
     expect(filledAt(pages, 375 + 6 * 13)).toEqual(["135", "135.5"]);
   });
 
+  it("writes spec and actual in the TEST columns and leaves SHIP blank", () => {
+    const pages = qcCpu95SheetLayout(
+      record({ altronicPartNumber: "791950-16", firingSpec16A: "0", firingActual16A: "0.5" }),
+      "2026-10-20",
+    );
+    const row = filledTexts(pages).filter((o) => o.y === 375);
+    // TEST spec blank is x 495–525, TEST actual 733–765; SHIP is 531–565 / 772–810.
+    expect(row.map((o) => [o.text, o.x])).toEqual([
+      ["0", 510],
+      ["0.5", 749],
+    ]);
+  });
+
   it("fills the 20-cyl grid for a 20-cyl unit and ignores the 16-cyl values", () => {
     const pages = qcCpu95SheetLayout(
       record({ altronicPartNumber: "791950-20", firingSpec20NR: "351", firingSpec16A: "5" }),
@@ -158,6 +172,34 @@ describe("a filled sheet", () => {
     expect(filledTexts(pages, 1).map((o) => o.text)).toEqual([
       "SERIAL NUMBER: 25564      ALTRONIC PART NO.: 791950-16",
     ]);
+  });
+});
+
+describe("the ON/OFF log entry", () => {
+  it("is ON when the sheet was created and OFF when it was signed off", () => {
+    const r = {
+      ...record({ finalTestDate: "2026-10-15", finalInspectionDate: "2026-10-16" }),
+      createdAt: new Date(2026, 9, 14, 7, 5),
+    };
+    expect(qcCpu95LogEntries(r)).toEqual({
+      on: { date: "10/14/2026", time: "7:05 AM" },
+      off: { date: "10/15/2026", time: "" },
+    });
+    const pages = qcCpu95SheetLayout(r, "2026-10-20");
+    expect(filledAt(pages, 284)).toEqual(["10/14/2026", "7:05 AM"]);
+    expect(filledAt(pages, 297)).toEqual(["10/15/2026"]);
+    // The second ON/OFF pair stays blank.
+    expect(filledAt(pages, 310)).toEqual([]);
+    expect(filledAt(pages, 323)).toEqual([]);
+  });
+
+  it("falls back to the Final Inspection Date, and prints nothing it doesn't know", () => {
+    expect(qcCpu95LogEntries(record({ finalInspectionDate: "2026-10-16" }))).toEqual({
+      on: null, // createdAt is the mapper's epoch fallback
+      off: { date: "10/16/2026", time: "" },
+    });
+    expect(qcCpu95LogEntries(record({}))).toEqual({ on: null, off: null });
+    expect(qcCpu95LogEntries(null)).toEqual({ on: null, off: null });
   });
 });
 

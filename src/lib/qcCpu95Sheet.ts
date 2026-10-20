@@ -19,8 +19,9 @@ import { qcCpu95Altmode } from "./qcCpu95Mapper";
 // `record === null` is the blank form. A filled form prints only the fields
 // `qcCpu95VisibleFields` shows for the record's Altmode — exactly what the
 // edit form shows — so a stale value on a hidden field never reaches paper.
-// Everything with no ARC column behind it (Memory No., the ON/OFF log, the
-// whole inspection page) stays a blank line to fill in by hand.
+// Everything with no ARC column behind it (Memory No., the rest of the ON/OFF
+// log, the whole inspection page) stays a blank line to fill in by hand, as
+// on the blank form.
 // =============================================================================
 
 export const SHEET_WIDTH = 950;
@@ -84,6 +85,36 @@ interface Ctx {
   values: Record<string, string>;
   visible: Set<string>;
   filled: boolean;
+  log: { on: LogEntry | null; off: LogEntry | null };
+}
+
+interface LogEntry {
+  date: string;
+  time: string;
+}
+
+/**
+ * The one ON/OFF log entry a filled sheet prints. ON is when the sheet was
+ * created in ARC (date and local time). OFF is when it was signed off — the
+ * Final Test Date, else the Final Inspection Date — which is date-only, so it
+ * has no time. A record with no created time (the mapper's epoch fallback)
+ * prints no ON.
+ */
+export function qcCpu95LogEntries(record: QcCpu95Record | null): { on: LogEntry | null; off: LogEntry | null } {
+  if (!record) return { on: null, off: null };
+  const created = record.createdAt;
+  const on =
+    created && created.getTime() > 0
+      ? {
+          date: `${String(created.getMonth() + 1).padStart(2, "0")}/${String(created.getDate()).padStart(2, "0")}/${created.getFullYear()}`,
+          // Formatted by hand: toLocaleTimeString puts a narrow no-break space
+          // before AM/PM, which WinAnsi can't print.
+          time: `${created.getHours() % 12 || 12}:${String(created.getMinutes()).padStart(2, "0")} ${created.getHours() < 12 ? "AM" : "PM"}`,
+        }
+      : null;
+  const signedOff = (record.values.finalTestDate || record.values.finalInspectionDate || "").trim();
+  const off = signedOff ? { date: sheetDate(signedOff), time: "" } : null;
+  return { on, off };
 }
 
 function text(ctx: Ctx, x: number, y: number, t: string, opts: Partial<Extract<SheetOp, { type: "text" }>> = {}) {
@@ -175,7 +206,6 @@ function startup(ctx: Ctx) {
   text(ctx, LEFT, 284, "20V INPUT", bold);
   text(ctx, 287, 284, "24V INPUT", bold);
 
-  // The ON/OFF log — no ARC columns, always blank.
   text(ctx, 645, 271, "DATE", bold);
   text(ctx, 700, 271, "TIME", bold);
   text(ctx, 760, 271, "COMMENTS", bold);
@@ -184,6 +214,17 @@ function startup(ctx: Ctx) {
     text(ctx, 554, y, label);
     underline(ctx, 597, 810, y);
   });
+  // ARC has no ON/OFF log columns. A filled sheet prints one entry (Tim,
+  // 2026-10-20): ON when the sheet was created, OFF when it was signed off.
+  // The rest of the log stays blank, as on the blank form.
+  for (const [y, entry] of [
+    [284, ctx.log.on],
+    [297, ctx.log.off],
+  ] as const) {
+    if (!entry) continue;
+    text(ctx, 650, y, entry.date, { filled: true, align: "center" });
+    if (entry.time) text(ctx, 724, y, entry.time, { filled: true, align: "center" });
+  }
 
   // Peak volts: 20V reading on the left, 24V reading in the middle. The
   // 791962/52-18 units read 140/160/180 V on the same two blanks.
@@ -335,14 +376,14 @@ function firingGrid(ctx: Ctx) {
     underline(ctx, 733, 765, y);
     underline(ctx, 772, 810, y);
 
-    // ARC records ONE spec and ONE actual per cylinder, not separate TEST and
-    // SHIP figures, so the value is written across both columns.
+    // ARC records ONE spec and ONE actual per cylinder, and both are the TEST
+    // figure (Tim, 2026-10-20) — SHIP stays blank.
     const letter = grid ? FIRING_LETTERS[grid][row] : undefined;
     if (!grid || !letter) continue;
     const spec = value(ctx, `firingSpec${grid}${letter}`);
     const actual = value(ctx, `firingActual${grid}${letter}`);
-    if (spec) text(ctx, 530, y, spec, { filled: true, align: "center" });
-    if (actual) text(ctx, 771, y, actual, { filled: true, align: "center" });
+    if (spec) text(ctx, 510, y, spec, { filled: true, align: "center" });
+    if (actual) text(ctx, 749, y, actual, { filled: true, align: "center" });
   }
 }
 
@@ -468,7 +509,8 @@ export function qcCpu95SheetLayout(record: QcCpu95Record | null, exportedOn: str
   const visible = new Set(qcCpu95VisibleFields(altMode).map((f) => f.key));
   const values = record?.values ?? {};
 
-  const sheet: Ctx = { ops: [], values, visible, filled: !!record };
+  const log = qcCpu95LogEntries(record);
+  const sheet: Ctx = { ops: [], values, visible, filled: !!record, log };
   header(sheet);
   startup(sheet);
   firingGrid(sheet);
@@ -476,7 +518,7 @@ export function qcCpu95SheetLayout(record: QcCpu95Record | null, exportedOn: str
   signOff(sheet, record);
   footer(sheet, record, exportedOn);
 
-  const inspection: Ctx = { ops: [], values, visible, filled: !!record };
+  const inspection: Ctx = { ops: [], values, visible, filled: !!record, log };
   inspectionPage(inspection, record);
 
   return [{ ops: sheet.ops }, { ops: inspection.ops }];
