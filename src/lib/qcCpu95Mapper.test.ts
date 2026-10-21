@@ -81,6 +81,12 @@ describe("QC_CPU95_PART_NUMBER_SUGGESTIONS", () => {
     expect(QC_CPU95_PART_NUMBER_SUGGESTIONS).toContain("791950-08");
   });
 
+  it("offers the part numbers with checks of their own: 791956-16, the 95C and both EVS", () => {
+    for (const pn of ["791956-16", "791955-16", "791963-16A", "791963-16E"]) {
+      expect(QC_CPU95_PART_NUMBER_SUGGESTIONS).toContain(pn);
+    }
+  });
+
   it("adds no alias for a part number that's already two digits", () => {
     expect(QC_CPU95_PART_NUMBER_SUGGESTIONS).not.toContain("791950-6");
     expect(QC_CPU95_PART_NUMBER_SUGGESTIONS.filter((pn) => pn === "791950-16")).toHaveLength(1);
@@ -118,8 +124,24 @@ describe("toQcCpu95Record", () => {
   });
 
   it("carries a plain number/text column through as a string", () => {
-    const record = toQcCpu95Record(item({ TestRPM: "1200" }));
+    const record = toQcCpu95Record(item({ TestRpm: "1200", Startup20vE1: 137 }));
     expect(record.values.testRpm).toBe("1200");
+    expect(record.values.startup20vE1).toBe("137");
+  });
+
+  it("reads a check's Yes / No / N/A, and anything else as unanswered", () => {
+    const record = toQcCpu95Record(item({ FinalMultiFire: "N/A", FinalGndSD: "No", FinalGndGLead: "Yes", InspClean: "maybe" }));
+    expect(record.values.finalMultiFire).toBe("N/A");
+    expect(record.values.finalGndSD).toBe("No");
+    expect(record.values.finalGndGLead).toBe("Yes");
+    expect(record.values.inspClean).toBe("");
+  });
+
+  it("reads the oven ON/OFF as a local date and time", () => {
+    const on = new Date(2026, 8, 18, 13, 5);
+    const record = toQcCpu95Record(item({ OvenOn: on.toISOString(), OvenOff: null }));
+    expect(record.values.ovenOn).toBe("2026-09-18T13:05");
+    expect(record.values.ovenOff).toBe("");
   });
 
   it("parses the numeric item id and the Graph-level created/modified stamps", () => {
@@ -138,7 +160,9 @@ describe("buildQcCpu95Fields", () => {
         AltronicPartNumber: "791950-16",
         InRepair: true,
         DateTested: "2026-05-13T12:00:00Z",
-        TestRPM: "1200",
+        TestRpm: "1200",
+        FinalMultiFire: "N/A",
+        OvenOn: "2026-09-18T18:05:00.000Z",
       }),
     );
     const fields = buildQcCpu95Fields(original.values);
@@ -146,7 +170,19 @@ describe("buildQcCpu95Fields", () => {
     expect(fields.AltronicPartNumber).toBe("791950-16");
     expect(fields.InRepair).toBe(true);
     expect(fields.DateTested).toBe("2026-05-13T12:00:00Z");
-    expect(fields.TestRPM).toBe("1200");
+    expect(fields.TestRpm).toBe("1200");
+    expect(fields.FinalMultiFire).toBe("N/A");
+    expect(fields.OvenOn).toBe("2026-09-18T18:05:00.000Z");
+  });
+
+  it("writes an unanswered check as null, never 'No'", () => {
+    const fields = buildQcCpu95Fields({ finalMultiFire: "", finalGndSD: "Yes" });
+    expect(fields.FinalMultiFire).toBeNull();
+    expect(fields.FinalGndSD).toBe("Yes");
+  });
+
+  it("writes a blank oven time as null", () => {
+    expect(buildQcCpu95Fields({ ovenOn: "" }).OvenOn).toBeNull();
   });
 
   it("writes a boolean column as a real boolean, not the string 'Yes'", () => {

@@ -1,5 +1,5 @@
 import type { GraphListItem, QcCpu95Record } from "@/types/task";
-import { QC_CPU95_FIELDS } from "./qcCpu95Fields";
+import { QC_CPU95_CHECK_CHOICES, QC_CPU95_FIELDS, QC_CPU95_VARIANT_PART_NUMBERS } from "./qcCpu95Fields";
 import {
   fromDateInputValue,
   parseSpDateOnly,
@@ -93,10 +93,33 @@ function unpaddedAlias(canonical: string): string | null {
 export const QC_CPU95_PART_NUMBER_SUGGESTIONS: string[] = [
   ...QC_CPU95_PART_NUMBERS,
   ...QC_CPU95_PART_NUMBERS.map(unpaddedAlias).filter((v): v is string => v !== null),
+  // Altmode 0, but each has checks of its own (`qcCpu95Variant` in qcCpu95Fields).
+  ...Object.values(QC_CPU95_VARIANT_PART_NUMBERS).flat(),
 ];
 
 function fieldRaw(fields: Record<string, unknown>, column: string): unknown {
   return fields[column];
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * A stored date-and-time (the oven ON/OFF) as `yyyy-mm-ddThh:mm` in the
+ * reader's local time — what the form edits. Blank or unreadable → "".
+ */
+export function toLocalDateTimeValue(raw: unknown): string {
+  if (raw === null || raw === undefined || raw === "") return "";
+  const d = new Date(String(raw));
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** The form's local `yyyy-mm-ddThh:mm` back to an ISO instant, or null. A date with no time is midnight. */
+export function fromLocalDateTimeValue(value: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(value.trim());
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] ?? 0), Number(m[5] ?? 0));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 export function toQcCpu95Record(item: GraphListItem): QcCpu95Record {
@@ -104,10 +127,15 @@ export function toQcCpu95Record(item: GraphListItem): QcCpu95Record {
   const values: Record<string, string> = {};
   for (const field of QC_CPU95_FIELDS) {
     const raw = fieldRaw(fields, field.column);
-    if (field.kind === "boolean") {
+    if (field.kind === "flag") {
       values[field.key] = raw === true || raw === "1" || raw === 1 ? CHECKED : "";
+    } else if (field.kind === "check") {
+      // Only a choice the column declares; anything else reads as unanswered.
+      values[field.key] = (QC_CPU95_CHECK_CHOICES as readonly unknown[]).includes(raw) ? String(raw) : "";
     } else if (field.kind === "date") {
       values[field.key] = toDateInputValue(parseSpDateOnly(raw));
+    } else if (field.kind === "datetime") {
+      values[field.key] = toLocalDateTimeValue(raw);
     } else if (raw === null || raw === undefined) {
       values[field.key] = "";
     } else {
@@ -131,12 +159,17 @@ export function buildQcCpu95Fields(values: Record<string, string>): Record<strin
   const fields: Record<string, unknown> = {};
   for (const field of QC_CPU95_FIELDS) {
     const raw = values[field.key] ?? "";
-    if (field.kind === "boolean") {
+    if (field.kind === "flag") {
       fields[field.column] = raw === CHECKED;
+    } else if (field.kind === "check") {
+      // A single-choice column: a bare string, or null for unanswered.
+      fields[field.column] = (QC_CPU95_CHECK_CHOICES as readonly string[]).includes(raw) ? raw : null;
     } else if (field.kind === "number") {
       fields[field.column] = raw.trim() === "" ? null : Number(raw);
     } else if (field.kind === "date") {
       fields[field.column] = toSpDateOnly(fromDateInputValue(raw));
+    } else if (field.kind === "datetime") {
+      fields[field.column] = fromLocalDateTimeValue(raw);
     } else {
       fields[field.column] = raw;
     }

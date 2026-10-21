@@ -1,0 +1,1302 @@
+{
+  "$comment": "The QCFRM-012 CPU-95 list on Altronic_PMO: every column, and where a migrated row's value comes from on the old CPU-95 list (Engineering site). The one copy of the layout: read by scripts/create-qc-cpu95-pmo-list.ps1 and scripts/migrate-qc-cpu95-to-pmo.ps1, so add a column here, never in a script. 'from' is the old internal name; 'transform' says how it is translated (voltageSet = [standard, 791952/62-18] by part number; lookupTitles = the lookup's titles joined). A firing slot is filled from the old grid for the unit's cylinder count, in firingLetters order. Types: title, text, note, number, date (date only), dateTime (date and time), check (choice Yes / No / N/A), flag (yes/no).",
+  "listName": "QCFRM-012 CPU-95 Test Sheets",
+  "checkChoices": [
+    "Yes",
+    "No",
+    "N/A"
+  ],
+  "firingLetters": {
+    "16": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "K",
+      "L",
+      "M",
+      "N",
+      "P",
+      "R",
+      "S",
+      "T",
+      "U",
+      "V"
+    ],
+    "18": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "K",
+      "L",
+      "M",
+      "N",
+      "P",
+      "R",
+      "S",
+      "T",
+      "U",
+      "V"
+    ],
+    "20": [
+      "AL",
+      "AR",
+      "BL",
+      "BR",
+      "CL",
+      "CR",
+      "DL",
+      "DR",
+      "EL",
+      "ER",
+      "FL",
+      "FR",
+      "KL",
+      "KR",
+      "LL",
+      "LR",
+      "ML",
+      "MR",
+      "NL",
+      "NR"
+    ]
+  },
+  "columns": [
+    {
+      "name": "Title",
+      "displayName": "Serial Number",
+      "type": "title",
+      "from": "Title"
+    },
+    {
+      "name": "AltronicPartNumber",
+      "displayName": "Altronic Part Number",
+      "type": "text",
+      "from": "AltronicPartNumber",
+      "indexed": true
+    },
+    {
+      "name": "SapNumber",
+      "displayName": "SAP Number",
+      "type": "text",
+      "from": null,
+      "description": "The SAP # on the unit's barcode label (e.g. 1000-7760-00)."
+    },
+    {
+      "name": "MemoryNumber",
+      "displayName": "Memory No.",
+      "type": "text",
+      "from": null,
+      "description": "The program the unit ships with, when it isn't the standard one."
+    },
+    {
+      "name": "Application",
+      "displayName": "Application",
+      "type": "text",
+      "from": null,
+      "description": "CPU-95C (791955-16) only - the application the unit is programmed for, e.g. 3516."
+    },
+    {
+      "name": "LogicBoardDateCode",
+      "displayName": "Logic Board Date Code",
+      "type": "text",
+      "from": "LogicBd_x002e_DateCode"
+    },
+    {
+      "name": "PowerBoardDateCode",
+      "displayName": "Power Board Date Code",
+      "type": "text",
+      "from": "PowerBoardDateCode"
+    },
+    {
+      "name": "MicroDateCode",
+      "displayName": "Micro Date Code",
+      "type": "text",
+      "from": "MicroDateCode"
+    },
+    {
+      "name": "Customer",
+      "displayName": "Customer",
+      "type": "text",
+      "from": "Customer"
+    },
+    {
+      "name": "InvoiceNumber",
+      "displayName": "Invoice Number",
+      "type": "text",
+      "from": "InvoiceNumber"
+    },
+    {
+      "name": "TestMemoryNumber",
+      "displayName": "Test Memory No.",
+      "type": "text",
+      "from": "TestMemoryNumber"
+    },
+    {
+      "name": "TestRpm",
+      "displayName": "Test RPM",
+      "type": "text",
+      "from": "TestRPM"
+    },
+    {
+      "name": "TestStandNumber",
+      "displayName": "Test Stand No.",
+      "type": "text",
+      "from": "TestStandNumber"
+    },
+    {
+      "name": "DateTested",
+      "displayName": "Date Tested",
+      "type": "date",
+      "from": "DateTested",
+      "indexed": true
+    },
+    {
+      "name": "ProjectReference",
+      "displayName": "Project Reference",
+      "type": "text",
+      "from": "ProjectTag",
+      "transform": "lookupTitles",
+      "description": "An Engineering project's title. Text, because the Projects list is on another site."
+    },
+    {
+      "name": "OvenOn",
+      "displayName": "Oven ON",
+      "type": "dateTime",
+      "from": null,
+      "description": "When the unit went into the oven."
+    },
+    {
+      "name": "OvenOff",
+      "displayName": "Oven OFF",
+      "type": "dateTime",
+      "from": null,
+      "description": "When the unit came out of the oven."
+    },
+    {
+      "name": "Startup20vE1",
+      "displayName": "Startup 20V Peak Volt E1",
+      "type": "number",
+      "from": [
+        "StartupPeakvoltE1130V",
+        "_x0037_91962_x002f_52_x002d_18St"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Startup24vE1",
+      "displayName": "Startup 24V Peak Volt E1",
+      "type": "number",
+      "from": [
+        "Startup24VInputPeakvoltE1130V",
+        "_x0037_91962_x002f_52_x002d_18St3"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Startup20vE2",
+      "displayName": "Startup 20V Peak Volt E2",
+      "type": "number",
+      "from": [
+        "StartupPeakVoltE2150V",
+        "_x0037_91962_x002f_52_x002d_18St0"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Startup24vE2",
+      "displayName": "Startup 24V Peak Volt E2",
+      "type": "number",
+      "from": [
+        "Startup24VInputPeakVoltE2150V",
+        "_x0037_91962_x002f_52_x002d_18St4"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Startup20vE3",
+      "displayName": "Startup 20V Peak Volt E3",
+      "type": "number",
+      "from": [
+        "StartupPeakVoltE3170V",
+        "_x0037_91962_x002f_52_x002d_18St1"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Startup24vE3",
+      "displayName": "Startup 24V Peak Volt E3",
+      "type": "number",
+      "from": [
+        "Startup24VInputPeakVoltE3170V",
+        "_x0037_91962_x002f_52_x002d_18St5"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Startup20vE3Current",
+      "displayName": "Startup 20V E3 Supply Current",
+      "type": "number",
+      "from": [
+        "E3SupplyCurrent",
+        "_x0037_91962_x002f_52_x002d_18St2"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Startup24vE3Current",
+      "displayName": "Startup 24V E3 Supply Current",
+      "type": "number",
+      "from": [
+        "Startup24VInputE3SupplyCurrentAm",
+        "_x0037_91962_x002f_52_x002d_18St6"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "StartupE1SupplyCurrent",
+      "displayName": "Startup E1 Single Supply Current",
+      "type": "number",
+      "from": null,
+      "description": "EVS (791963-16A, 791963-16E) only."
+    },
+    {
+      "name": "StartupACount",
+      "displayName": "Startup \"A\" Count",
+      "type": "number",
+      "from": "CountnumberofAoutput_x0028_E3S_x",
+      "description": "Count number of \"A\" output (E3S; E1S on EVS)."
+    },
+    {
+      "name": "StartupAverage",
+      "displayName": "Startup EAVG / CAVG",
+      "type": "number",
+      "from": "StartupEAVG",
+      "description": "EAVG, or CAVG on EVS."
+    },
+    {
+      "name": "StartupLowSpeed",
+      "displayName": "Startup Low Speed Operation",
+      "type": "check",
+      "description": "Low speed operation, vary speed, no misfiring.",
+      "from": "StartupLowspeedoperation_x002c_v"
+    },
+    {
+      "name": "StartupAlarmLedOff",
+      "displayName": "Startup Alarm LED Off",
+      "type": "check",
+      "description": "Alarm LED off, power LED on (95C: hall effect LED flashing).",
+      "from": "AlarmLEDoff_x002c_powerLEDon"
+    },
+    {
+      "name": "StartupUnitProgram",
+      "displayName": "Startup Unit Program",
+      "type": "check",
+      "description": "Unit program, RX TX LEDs ok.",
+      "from": "UnitProgram_x002c_RXTXLEDSok"
+    },
+    {
+      "name": "StartupACountSetup",
+      "displayName": "Startup A Count Setup",
+      "type": "check",
+      "description": "Verify \"A\" count setup, shorted secondary (E3S; E1S on EVS).",
+      "from": "VerifyAcountsetup_x002c_shorteds"
+    },
+    {
+      "name": "StartupGndGProgram",
+      "displayName": "Startup Gnd G Lead to Program",
+      "type": "check",
+      "description": "CPU-95C only. Gnd. \"G\" lead to program and verify display reads Shutdown.",
+      "from": null
+    },
+    {
+      "name": "StartupDisplayReady",
+      "displayName": "Startup Display Reads Ready",
+      "type": "check",
+      "description": "CPU-95C only. Display reads Ready.",
+      "from": null
+    },
+    {
+      "name": "Final20vE1",
+      "displayName": "Final 20V Peak Volt E1",
+      "type": "number",
+      "from": [
+        "FinalPeakvoltE1130V",
+        "_x0037_91962_x002f_52_x002d_18Fi"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Final24vE1",
+      "displayName": "Final 24V Peak Volt E1",
+      "type": "number",
+      "from": [
+        "Final24VInputPeakVoltE1130V",
+        "_x0037_91962_x002f_52_x002d_18Fi3"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Final20vE2",
+      "displayName": "Final 20V Peak Volt E2",
+      "type": "number",
+      "from": [
+        "FinalPeakVoltE2150V",
+        "_x0037_91962_x002f_52_x002d_18Fi0"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Final24vE2",
+      "displayName": "Final 24V Peak Volt E2",
+      "type": "number",
+      "from": [
+        "Final24VInputPeakVoltE2150V",
+        "_x0037_91962_x002f_52_x002d_18Fi4"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Final20vE3",
+      "displayName": "Final 20V Peak Volt E3",
+      "type": "number",
+      "from": [
+        "FinalPeakVoltE3170V",
+        "_x0037_91962_x002f_52_x002d_18Fi1"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Final24vE3",
+      "displayName": "Final 24V Peak Volt E3",
+      "type": "number",
+      "from": [
+        "Final24VInputPeakVoltE3170V",
+        "_x0037_91962_x002f_52_x002d_18Fi5"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Final20vE3Current",
+      "displayName": "Final 20V E3 Supply Current",
+      "type": "number",
+      "from": [
+        "FinalE3supplycurrentamps",
+        "_x0037_91962_x002f_52_x002d_18Fi2"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "Final24vE3Current",
+      "displayName": "Final 24V E3 Supply Current",
+      "type": "number",
+      "from": [
+        "Final24VInputE3supplycurrentamps",
+        "_x0037_91962_x002f_52_x002d_18Fi6"
+      ],
+      "transform": "voltageSet"
+    },
+    {
+      "name": "FinalE1SupplyCurrent",
+      "displayName": "Final E1 Single Supply Current",
+      "type": "number",
+      "from": null,
+      "description": "EVS (791963-16A, 791963-16E) only."
+    },
+    {
+      "name": "FinalACount",
+      "displayName": "Final \"A\" Count",
+      "type": "number",
+      "from": "FinalCountnumberofAoutput_x0028_",
+      "description": "Count number of \"A\" output (E3S; E1S on EVS)."
+    },
+    {
+      "name": "FinalAverage",
+      "displayName": "Final EAVG / CAVG",
+      "type": "number",
+      "from": "FinalEAVG",
+      "description": "EAVG, or CAVG on EVS."
+    },
+    {
+      "name": "FinalSixEnergyLevels",
+      "displayName": "Final Six Energy Levels",
+      "type": "check",
+      "description": "EVS (791963-16A, 791963-16E) only. Check all six energy levels with scope (compare to chart).",
+      "from": null
+    },
+    {
+      "name": "FinalGndGLead",
+      "displayName": "Final Gnd G Lead",
+      "type": "check",
+      "description": "Gnd. \"G\" lead, no display \"Shutdown\", alarm out on, fault out on, fire out off (18 n/a).",
+      "from": "FinalGnd_x002e_Glead_x002c_nodis"
+    },
+    {
+      "name": "FinalGndSD",
+      "displayName": "Final Gnd S/D",
+      "type": "check",
+      "description": "Gnd. S/D, no delay, display \"Shutdown\", alarm out on, fault out on, fire out off.",
+      "from": "Gnd_x002e_S_x002f_D_x002c_nodisp"
+    },
+    {
+      "name": "FinalCatFirePulses",
+      "displayName": "Final CAT Fire Pulses",
+      "type": "check",
+      "description": "CPU-95C only. Verify fire pulses out at CAT controller, result of S.D. in Auto Mode.",
+      "from": null
+    },
+    {
+      "name": "FinalEachOutputFiring",
+      "displayName": "Final Each Output Firing",
+      "type": "check",
+      "description": "Each output firing consistently, in sequence, no multiple firing.",
+      "from": "Eachoutputfiringconsistently_x00"
+    },
+    {
+      "name": "FinalMultiFire",
+      "displayName": "Final Multi-Fire",
+      "type": "check",
+      "description": "Multi-fire, no warnings (95C: multi strike, Gnd. misc. input).",
+      "from": "Multi_x002d_fire_x002c_nowarning"
+    },
+    {
+      "name": "FinalHDisconnect",
+      "displayName": "Final H Disconnect",
+      "type": "check",
+      "description": "CPU-95C only. Press \"H\" disconnect: unit quits firing, displays fault, alarm LED on, G.T. error message. Reset and unit starts firing.",
+      "from": null
+    },
+    {
+      "name": "FinalModeMessage",
+      "displayName": "Final Mode Message",
+      "type": "check",
+      "description": "CPU-95C only. Verify mode message corresponds with actual mode (Manual or Auto).",
+      "from": null
+    },
+    {
+      "name": "FinalLossOfReset",
+      "displayName": "Final Loss of Reset",
+      "type": "check",
+      "description": "Loss of reset, display \"Fault\", NO fire and all output switches open.",
+      "from": "Lossofreset_x002c_displayFault_x"
+    },
+    {
+      "name": "FinalInternal4Leds",
+      "displayName": "Final Internal 4 LEDs",
+      "type": "check",
+      "description": "Internal 4 LEDs normal operation.",
+      "from": "Internal4ledsnormaloperation"
+    },
+    {
+      "name": "Final2032VoltInput",
+      "displayName": "Final 20-32 Volt Input",
+      "type": "check",
+      "description": "20-32 Volt input, normal output operation.",
+      "from": "_x0032_0_x002d_32Voltinput_x002c"
+    },
+    {
+      "name": "FinalShortPrimary",
+      "displayName": "Final Short One Primary",
+      "type": "check",
+      "description": "Short one primary \"+\" wire to ground momentarily, check for warning and proper output identifier.",
+      "from": "Shortoneprimary_x002b_wiretogrou"
+    },
+    {
+      "name": "FinalAlarmOutputVerify",
+      "displayName": "Final Alarm Output Verify",
+      "type": "check",
+      "description": "Alarm output verify (disconnect one primary coil wire): \"primary open\" with designator, alarm out off, fault out on, fire out on.",
+      "from": "Alarmoutputverify_x0028_disconne"
+    },
+    {
+      "name": "FinalOpenSecondary",
+      "displayName": "Final Open One Secondary",
+      "type": "check",
+      "description": "Open one secondary output, verify warning, designator and 250-255 counts on that output (F1 key).",
+      "from": "Openonesecondaryoutput_x002c_ver"
+    },
+    {
+      "name": "Final791956Timing",
+      "displayName": "Final 791956-16 Timing",
+      "type": "check",
+      "description": "791956-16 only. Timing set at 3 degrees fixed advance.",
+      "from": "On791956_x002d_16Units_x002c_Tim"
+    },
+    {
+      "name": "FinalGlobalTiming",
+      "displayName": "Final Global Timing",
+      "type": "check",
+      "description": "Check global timing operation.",
+      "from": "Checkglobaltimingoperation"
+    },
+    {
+      "name": "FinalMagCal",
+      "displayName": "Final Mag Cal Switch",
+      "type": "check",
+      "description": "CPU-95C only. Verify Mag Cal switch retards 1 degree per increment for a total of 15 (Manual Mode only).",
+      "from": null
+    },
+    {
+      "name": "FinalIndividualTiming",
+      "displayName": "Final Individual Timing",
+      "type": "check",
+      "description": "Adjust 2 output timing offsets and verify (EVS: 1 output).",
+      "from": "Adjust2outputtimingoffsetsandver"
+    },
+    {
+      "name": "FinalSaveOffsets",
+      "displayName": "Final Save Offsets to EEPROM",
+      "type": "check",
+      "description": "Save offsets to EEPROM, power off-on, verify stored values.",
+      "from": "SaveoffsetstoEEPROM_x002c_powero"
+    },
+    {
+      "name": "FinalResetOffsets",
+      "displayName": "Final Reset Offsets",
+      "type": "check",
+      "description": "Reset all offset EEPROM values back to zero, verify.",
+      "from": "ResetalloffsetEEPROMvaluesbackto"
+    },
+    {
+      "name": "Final420maLoop",
+      "displayName": "Final 4-20 mA Loop",
+      "type": "check",
+      "description": "Check 4-20 mA loop operation.",
+      "from": "Check4_x002d_20mAloopoperation"
+    },
+    {
+      "name": "Final791956LossOfLoop",
+      "displayName": "Final 791956-16 Loss of Loop",
+      "type": "check",
+      "description": "791956-16 only. Verify loss of loop, display \"Fault\", no fire and all output switches open.",
+      "from": "On791956_x002d_16verifylossoflop"
+    },
+    {
+      "name": "FinalOneStep",
+      "displayName": "Final One Step",
+      "type": "check",
+      "description": "Verify one step operation (ground misc. input).",
+      "from": "Verifyonestepoperation_x0028_gro"
+    },
+    {
+      "name": "FinalOverspeed",
+      "displayName": "Final Overspeed",
+      "type": "check",
+      "description": "Verify overspeed operation (against set value).",
+      "from": "Verifyoverspeedoperation_x0028_a"
+    },
+    {
+      "name": "FinalTestMode",
+      "displayName": "Final Test Mode",
+      "type": "check",
+      "description": "Verify test mode (global and individual).",
+      "from": "Verifytestmode_x0028_globalandin"
+    },
+    {
+      "name": "Final791956Below250Rpm",
+      "displayName": "Final 791956-16 Below 250 RPM",
+      "type": "check",
+      "description": "791956-16 only. Verify that below 250 RPM max. energy is on.",
+      "from": "On791956_x002d_16verifythatbelow"
+    },
+    {
+      "name": "Final791956CanComm",
+      "displayName": "Final 791956-16 CAN Communication",
+      "type": "check",
+      "description": "791956-16 only. Verify CAN communication.",
+      "from": "On791956_x002d_16verifyCANcommun"
+    },
+    {
+      "name": "FinalTiming110Rpm",
+      "displayName": "Final Timing at 110 RPM",
+      "type": "check",
+      "description": "CPU-95C only. Timing: test program and ship program verified at 110 RPM.",
+      "from": null
+    },
+    {
+      "name": "FinalProgramMemory",
+      "displayName": "Final Program Memory per PO",
+      "type": "check",
+      "description": "Program or blank memory per purchase order.",
+      "from": "Programorblankmemoryperpurchaseo"
+    },
+    {
+      "name": "FinalNoChecksum",
+      "displayName": "Final No Checksum Faults",
+      "type": "check",
+      "description": "Verify no checksum or diagnostic faults.",
+      "from": "Verifynochecksumordiagnosticfaul"
+    },
+    {
+      "name": "FinalTriacLeakage",
+      "displayName": "Final Triac Leakage",
+      "type": "check",
+      "description": "Triac leakage test 20 uA maximum hot.",
+      "from": "Triacleakagetest20_x03bc_Amaximu"
+    },
+    {
+      "name": "FinalDiodeLeakage",
+      "displayName": "Final Diode Leakage",
+      "type": "check",
+      "description": "Diode leakage test uA maximum hot.",
+      "from": "Diodeleakagetest_x03bc_Amaximumh"
+    },
+    {
+      "name": "TestCurrentLoop",
+      "displayName": "Test Current Loop",
+      "type": "number",
+      "from": "TestCurrentLoop"
+    },
+    {
+      "name": "FinalCurrentLoop",
+      "displayName": "Final Current Loop",
+      "type": "number",
+      "from": "FinalCurrentLoop"
+    },
+    {
+      "name": "FiringActualsAtSpec",
+      "displayName": "Firing Actuals at Spec",
+      "type": "check",
+      "description": "Yes = every cylinder fired at its spec angle, and the Firing Actual slots stay blank. No = enter the actual angle for each cylinder that was off; a blank slot is at spec.",
+      "from": null,
+      "transform": "actualsAtSpec"
+    },
+    {
+      "name": "FiringSpec01",
+      "displayName": "Firing Spec 01",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 1
+      }
+    },
+    {
+      "name": "FiringSpec02",
+      "displayName": "Firing Spec 02",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 2
+      }
+    },
+    {
+      "name": "FiringSpec03",
+      "displayName": "Firing Spec 03",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 3
+      }
+    },
+    {
+      "name": "FiringSpec04",
+      "displayName": "Firing Spec 04",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 4
+      }
+    },
+    {
+      "name": "FiringSpec05",
+      "displayName": "Firing Spec 05",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 5
+      }
+    },
+    {
+      "name": "FiringSpec06",
+      "displayName": "Firing Spec 06",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 6
+      }
+    },
+    {
+      "name": "FiringSpec07",
+      "displayName": "Firing Spec 07",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 7
+      }
+    },
+    {
+      "name": "FiringSpec08",
+      "displayName": "Firing Spec 08",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 8
+      }
+    },
+    {
+      "name": "FiringSpec09",
+      "displayName": "Firing Spec 09",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 9
+      }
+    },
+    {
+      "name": "FiringSpec10",
+      "displayName": "Firing Spec 10",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 10
+      }
+    },
+    {
+      "name": "FiringSpec11",
+      "displayName": "Firing Spec 11",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 11
+      }
+    },
+    {
+      "name": "FiringSpec12",
+      "displayName": "Firing Spec 12",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 12
+      }
+    },
+    {
+      "name": "FiringSpec13",
+      "displayName": "Firing Spec 13",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 13
+      }
+    },
+    {
+      "name": "FiringSpec14",
+      "displayName": "Firing Spec 14",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 14
+      }
+    },
+    {
+      "name": "FiringSpec15",
+      "displayName": "Firing Spec 15",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 15
+      }
+    },
+    {
+      "name": "FiringSpec16",
+      "displayName": "Firing Spec 16",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 16
+      }
+    },
+    {
+      "name": "FiringSpec17",
+      "displayName": "Firing Spec 17",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 17
+      }
+    },
+    {
+      "name": "FiringSpec18",
+      "displayName": "Firing Spec 18",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 18
+      }
+    },
+    {
+      "name": "FiringSpec19",
+      "displayName": "Firing Spec 19",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 19
+      }
+    },
+    {
+      "name": "FiringSpec20",
+      "displayName": "Firing Spec 20",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Spec",
+        "slot": 20
+      }
+    },
+    {
+      "name": "FiringActual01",
+      "displayName": "Firing Actual 01",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 1
+      }
+    },
+    {
+      "name": "FiringActual02",
+      "displayName": "Firing Actual 02",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 2
+      }
+    },
+    {
+      "name": "FiringActual03",
+      "displayName": "Firing Actual 03",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 3
+      }
+    },
+    {
+      "name": "FiringActual04",
+      "displayName": "Firing Actual 04",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 4
+      }
+    },
+    {
+      "name": "FiringActual05",
+      "displayName": "Firing Actual 05",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 5
+      }
+    },
+    {
+      "name": "FiringActual06",
+      "displayName": "Firing Actual 06",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 6
+      }
+    },
+    {
+      "name": "FiringActual07",
+      "displayName": "Firing Actual 07",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 7
+      }
+    },
+    {
+      "name": "FiringActual08",
+      "displayName": "Firing Actual 08",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 8
+      }
+    },
+    {
+      "name": "FiringActual09",
+      "displayName": "Firing Actual 09",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 9
+      }
+    },
+    {
+      "name": "FiringActual10",
+      "displayName": "Firing Actual 10",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 10
+      }
+    },
+    {
+      "name": "FiringActual11",
+      "displayName": "Firing Actual 11",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 11
+      }
+    },
+    {
+      "name": "FiringActual12",
+      "displayName": "Firing Actual 12",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 12
+      }
+    },
+    {
+      "name": "FiringActual13",
+      "displayName": "Firing Actual 13",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 13
+      }
+    },
+    {
+      "name": "FiringActual14",
+      "displayName": "Firing Actual 14",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 14
+      }
+    },
+    {
+      "name": "FiringActual15",
+      "displayName": "Firing Actual 15",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 15
+      }
+    },
+    {
+      "name": "FiringActual16",
+      "displayName": "Firing Actual 16",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 16
+      }
+    },
+    {
+      "name": "FiringActual17",
+      "displayName": "Firing Actual 17",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 17
+      }
+    },
+    {
+      "name": "FiringActual18",
+      "displayName": "Firing Actual 18",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 18
+      }
+    },
+    {
+      "name": "FiringActual19",
+      "displayName": "Firing Actual 19",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 19
+      }
+    },
+    {
+      "name": "FiringActual20",
+      "displayName": "Firing Actual 20",
+      "type": "number",
+      "from": null,
+      "firing": {
+        "kind": "Actual",
+        "slot": 20
+      }
+    },
+    {
+      "name": "InspLabelMatches",
+      "displayName": "Inspection 01",
+      "type": "check",
+      "description": "Post Test Inspection: ensure label, test sheet, serial number and memory correspond to work order.",
+      "from": null
+    },
+    {
+      "name": "InspGasket",
+      "displayName": "Inspection 02",
+      "type": "check",
+      "description": "Post Test Inspection: ensure gasket (610674) has not shrunk and there are no tears.",
+      "from": null
+    },
+    {
+      "name": "InspCoverBoard",
+      "displayName": "Inspection 03",
+      "type": "check",
+      "description": "Post Test Inspection: ensure cover board (772065) installed with 4 screws (902439).",
+      "from": null
+    },
+    {
+      "name": "InspIoPlugs",
+      "displayName": "Inspection 04",
+      "type": "check",
+      "description": "Post Test Inspection: ensure 12 pin IO plug (204014), 6 pin IO plug (204015) and 5 pin IO plug (204016).",
+      "from": null
+    },
+    {
+      "name": "InspProgrammedMemory",
+      "displayName": "Inspection 05",
+      "type": "check",
+      "description": "Post Test Inspection: ensure check for programmed memory.",
+      "from": null
+    },
+    {
+      "name": "InspLidLatches",
+      "displayName": "Inspection 06",
+      "type": "check",
+      "description": "Post Test Inspection: ensure lid closed and latches secured.",
+      "from": null
+    },
+    {
+      "name": "InspEndPlateCaps",
+      "displayName": "Inspection 07",
+      "type": "check",
+      "description": "Post Test Inspection: ensure 3 caps (510516) installed on end plate fittings.",
+      "from": null
+    },
+    {
+      "name": "InspConnectorTorque",
+      "displayName": "Inspection 08",
+      "type": "check",
+      "description": "Post Test Inspection: ensure connector screws tight using Yellow-Green torque wrench at 12 lbf-in.",
+      "from": null
+    },
+    {
+      "name": "InspConnectorCap",
+      "displayName": "Inspection 09",
+      "type": "check",
+      "description": "Post Test Inspection: ensure cap (510517) installed on connector.",
+      "from": null
+    },
+    {
+      "name": "InspBottomScrews",
+      "displayName": "Inspection 10",
+      "type": "check",
+      "description": "Post Test Inspection: ensure counter sunk screws on bottom of unit are seated and tight.",
+      "from": null
+    },
+    {
+      "name": "InspShockMounts",
+      "displayName": "Inspection 11",
+      "type": "check",
+      "description": "Post Test Inspection: ensure shock mounts are correct, ground strap on right side.",
+      "from": null
+    },
+    {
+      "name": "InspClean",
+      "displayName": "Inspection 12",
+      "type": "check",
+      "description": "Post Test Inspection: ensure unit is clean, no chips or scratches.",
+      "from": null
+    },
+    {
+      "name": "InRepair",
+      "displayName": "In Repair",
+      "type": "flag",
+      "from": "InRepair"
+    },
+    {
+      "name": "AESolderDefect",
+      "displayName": "AE Solder Defect",
+      "type": "flag",
+      "from": "AESolderDefect"
+    },
+    {
+      "name": "ProcessSolderDefect",
+      "displayName": "Process Solder Defect",
+      "type": "flag",
+      "from": "ProcessSolderDefect"
+    },
+    {
+      "name": "AEWiringDeficiency",
+      "displayName": "AE Wiring Deficiency",
+      "type": "flag",
+      "from": "AEWiringDeficiency"
+    },
+    {
+      "name": "AEWrongOrMissingComponent",
+      "displayName": "AE Wrong or Missing Component",
+      "type": "flag",
+      "from": "AEWrongorMissingComponent"
+    },
+    {
+      "name": "AEAssemblyDeficiency",
+      "displayName": "AE Assembly Deficiency",
+      "type": "flag",
+      "from": "AEAssemblyDeficiency"
+    },
+    {
+      "name": "AEIdentificationDeficiency",
+      "displayName": "AE Identification Deficiency",
+      "type": "flag",
+      "from": "AEIdentificationDeficiency"
+    },
+    {
+      "name": "ProgrammingFirmware",
+      "displayName": "Programming / Firmware",
+      "type": "flag",
+      "from": "Programming_x002f_Firmware"
+    },
+    {
+      "name": "CoatingPottingDeficiency",
+      "displayName": "Coating / Potting Deficiency",
+      "type": "flag",
+      "from": "Coating_x002f_PottingDeficiency"
+    },
+    {
+      "name": "MachinePartPlacementDeficiency",
+      "displayName": "Machine Part Placement Deficiency",
+      "type": "flag",
+      "from": "MachinePartPlacementDeficiency"
+    },
+    {
+      "name": "PhysicalDamage",
+      "displayName": "Physical Damage",
+      "type": "flag",
+      "from": "PhysicalDamage"
+    },
+    {
+      "name": "NCMVendor",
+      "displayName": "NCM Vendor",
+      "type": "flag",
+      "from": "NCMVendor"
+    },
+    {
+      "name": "NCMInternal",
+      "displayName": "NCM Internal",
+      "type": "flag",
+      "from": "NCMInternal"
+    },
+    {
+      "name": "OtherDefect",
+      "displayName": "Other Defect",
+      "type": "flag",
+      "from": "Other"
+    },
+    {
+      "name": "Comments",
+      "displayName": "Comments",
+      "type": "note",
+      "from": "Comments"
+    },
+    {
+      "name": "FinalTestBy",
+      "displayName": "Final Test By",
+      "type": "text",
+      "from": "FinalTestBy"
+    },
+    {
+      "name": "FinalTestDate",
+      "displayName": "Final Test Date",
+      "type": "date",
+      "from": "FinalTestDate"
+    },
+    {
+      "name": "FinalInspectionBy",
+      "displayName": "Final Inspection By",
+      "type": "text",
+      "from": "FinalInspectionBy"
+    },
+    {
+      "name": "FinalInspectionDate",
+      "displayName": "Final Inspection Date",
+      "type": "date",
+      "from": "FinalInspectionDate"
+    },
+    {
+      "name": "LegacySource",
+      "displayName": "Legacy Source",
+      "type": "text",
+      "from": null,
+      "indexed": true,
+      "transform": "legacySource",
+      "description": "The CPU-95 (Engineering site) row this was copied from, e.g. CPU-95#123. Blank on sheets entered on this list."
+    },
+    {
+      "name": "LegacyCreated",
+      "displayName": "Legacy Created",
+      "type": "dateTime",
+      "from": null,
+      "transform": "legacyCreated",
+      "description": "When the original CPU-95 row was created. Blank on sheets entered on this list."
+    },
+    {
+      "name": "LegacyCreatedBy",
+      "displayName": "Legacy Created By",
+      "type": "text",
+      "from": null,
+      "transform": "legacyCreatedBy"
+    },
+    {
+      "name": "DataQualityNotes",
+      "displayName": "Data Quality Notes",
+      "type": "note",
+      "from": null,
+      "transform": "dataQualityNotes",
+      "description": "What the migration couldn't carry across cleanly, with the original value. Blank on sheets entered on this list."
+    }
+  ]
+}

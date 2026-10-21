@@ -2,14 +2,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, Loader2, X } from "lucide-react";
 import type { QcCpu95Record } from "@/types/task";
 import {
+  QC_CPU95_CHECK_CHOICES,
+  QC_CPU95_FIELDS,
   QC_CPU95_SECTIONS,
   qcCpu95EmptyValues,
   qcCpu95FieldLabel,
   qcCpu95FieldsInSection,
+  qcCpu95FiringLetter,
   qcCpu95SectionTitle,
+  qcCpu95StandardFiringSpecs,
   qcCpu95VisibleFields,
   type QcCpu95Field,
+  type QcCpu95Section,
 } from "@/lib/qcCpu95Fields";
+import { ChoicePills } from "./ChoicePills";
 import { qcCpu95Altmode, QC_CPU95_PART_NUMBER_SUGGESTIONS } from "@/lib/qcCpu95Mapper";
 import { useCreateQcCpu95Record, useUpdateQcCpu95Record } from "@/hooks/useQcCpu95";
 import { DateField } from "./DateField";
@@ -25,10 +31,10 @@ import { toIsoDate } from "@/lib/dateInput";
 //
 // Descriptor-driven: every section, field, and its widget come from
 // `lib/qcCpu95Fields.ts` — nothing here names an individual column. Which
-// fields render is `qcCpu95VisibleFields(altMode)`, recomputed live off the
-// Altronic Part Number field as the user types it, so picking a part number
-// immediately shows/hides the matching Startup/Final voltage set and the
-// 16/18/20-cylinder firing angle grid.
+// fields render is `qcCpu95VisibleFields(altMode, partNumber)`, recomputed
+// live off the Altronic Part Number field as the user types it, so picking a
+// part number immediately shows the unit's checks (95C, EVS, 791956-16) and
+// its 8/16/18/20-cylinder firing rows.
 //
 // The only client-side requirement is a Serial/Unit Number — everything else
 // on the real paper form is filled in over the course of the test, and a
@@ -64,17 +70,50 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
     [values.altronicPartNumber],
   );
   const visibleKeys = useMemo(() => {
-    const visible = qcCpu95VisibleFields(altMode);
+    const visible = qcCpu95VisibleFields(altMode, values.altronicPartNumber ?? "");
     return new Set(visible.map((f) => f.key));
-  }, [altMode]);
+  }, [altMode, values.altronicPartNumber]);
 
   const dirty = useMemo(
     () => !!record && Object.keys(values).some((k) => (values[k] ?? "") !== (record.values[k] ?? "")),
     [record, values],
   );
 
+  const standardSpecs = useMemo(
+    () => qcCpu95StandardFiringSpecs(values.altronicPartNumber ?? "", altMode),
+    [values.altronicPartNumber, altMode],
+  );
+
+  // Firing specs the operator has typed on this NEW sheet. A part number
+  // fills every other spec slot with its standard (Tim, 2026-10-21), and a
+  // changed part number refills them; a typed spec is the special case and
+  // is never overwritten. An edit never fills by itself — the saved sheet is
+  // what was tested — though "Fill standard specs" fills its blanks.
+  const typedSpecs = useRef(new Set<string>());
+
   function set(key: string, value: string) {
-    setValues((prev) => ({ ...prev, [key]: value }));
+    if (key.startsWith("firingSpec")) typedSpecs.current.add(key);
+    setValues((prev) => {
+      const next = { ...prev, [key]: value };
+      if (mode !== "create" || key !== "altronicPartNumber") return next;
+      const standard = qcCpu95StandardFiringSpecs(value, qcCpu95Altmode(value));
+      for (const field of QC_CPU95_FIELDS) {
+        if (!field.key.startsWith("firingSpec") || typedSpecs.current.has(field.key)) continue;
+        next[field.key] = standard?.[field.key] ?? "";
+      }
+      return next;
+    });
+  }
+
+  function fillStandardSpecs() {
+    if (!standardSpecs) return;
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const [key, angle] of Object.entries(standardSpecs)) {
+        if (angle && !(prev[key] ?? "").trim()) next[key] = angle;
+      }
+      return next;
+    });
   }
 
   // With ~200 fields — most of them plain text/number/checkbox inputs,
@@ -115,9 +154,12 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
     // whole and land on the next ACTUAL field, not on that button, or a
     // barcode scan's second CR would land on a control that does nothing
     // with typed characters instead of the field after it.
-    const ownLabel = target.closest("label");
+    // The same goes for a check's Yes / No / N/A pills and its Clear link:
+    // Enter skips the whole group, never stepping pill by pill or landing on
+    // Clear, where the next Enter would wipe the answer.
+    const ownGroup = target.closest("[data-enter-group]") ?? target.closest("label");
     let next = index + 1;
-    while (next < focusable.length && ownLabel && ownLabel.contains(focusable[next])) {
+    while (next < focusable.length && ownGroup && ownGroup.contains(focusable[next])) {
       next++;
     }
     focusable[next]?.focus();
@@ -184,12 +226,16 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
             {sectionsToRender.map((section) => (
               <SectionCard key={section} title={qcCpu95SectionTitle(section, altMode)}>
                 <SectionFields
+                  section={section}
                   fields={qcCpu95FieldsInSection(section).filter((f) => visibleKeys.has(f.key))}
                   values={values}
                   onChange={set}
                   disabled={busy}
                   firstFieldRef={section === "Header" ? firstFieldRef : undefined}
                   altMode={altMode}
+                  partNumber={values.altronicPartNumber ?? ""}
+                  standardSpecs={standardSpecs}
+                  onFillStandardSpecs={fillStandardSpecs}
                 />
               </SectionCard>
             ))}
@@ -252,117 +298,296 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 /**
- * Renders one section's fields. All-boolean sections (Final Checklist,
- * Defects / NCM) become a checklist; the firing-angle grids become a dense
- * grid of small number inputs matching the paper form's columns; everything
- * else is a labelled input grid.
+ * Renders one section's fields. Checks are Yes / No / N/A pills, one per row
+ * with the paper's wording; defect flags are checkboxes; the firing angles are
+ * a table of the unit's cylinder rows; everything else is a labelled input
+ * grid.
  */
 function SectionFields({
+  section,
   fields,
   values,
   onChange,
   disabled,
   firstFieldRef,
   altMode,
+  partNumber,
+  standardSpecs,
+  onFillStandardSpecs,
 }: {
+  section: QcCpu95Section;
   fields: QcCpu95Field[];
   values: Record<string, string>;
   onChange: (key: string, value: string) => void;
   disabled: boolean;
   firstFieldRef?: React.RefObject<HTMLInputElement>;
   altMode: number;
+  partNumber: string;
+  standardSpecs: Record<string, string> | null;
+  onFillStandardSpecs: () => void;
 }) {
-  const allBoolean = fields.every((f) => f.kind === "boolean");
-  const allFiringAngle = fields.every((f) => f.key.startsWith("firing"));
+  const label = (f: QcCpu95Field) => qcCpu95FieldLabel(f, altMode, partNumber);
 
-  if (allFiringAngle) {
-    // 2 across on a phone (Tim, 2026-09-17) — 4 made each box too cramped to
-    // tap/read comfortably. Letters are already declared in the paper form's
-    // own left-to-right, top-to-bottom order (A, B, C, D, …), and CSS grid's
-    // default row-major auto-flow lays them out exactly that way at every
-    // column count — no separate re-ordering needed for the narrower grid.
+  if (section === "Firing Angles") {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-6 md:grid-cols-8">
-        {fields.map((field) => (
-          <label key={field.key} className="block">
-            <span className="mb-0.5 block text-center text-[10px] font-semibold text-fg-muted">
-              {qcCpu95FieldLabel(field, altMode)}
-            </span>
-            <input
-              type="number"
-              step="any"
-              value={values[field.key] ?? ""}
-              onChange={(e) => onChange(field.key, e.target.value)}
-              disabled={disabled}
-              className="input px-1 py-1 text-center text-xs"
-            />
-          </label>
-        ))}
-      </div>
+      <FiringAngles
+        fields={fields}
+        values={values}
+        onChange={onChange}
+        disabled={disabled}
+        altMode={altMode}
+        partNumber={partNumber}
+        standardSpecs={standardSpecs}
+        onFillStandardSpecs={onFillStandardSpecs}
+      />
     );
   }
 
-  if (allBoolean) {
-    return (
-      <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
-        {fields.map((field) => (
-          <label key={field.key} className="flex items-start gap-2 text-sm text-fg">
-            <input
-              type="checkbox"
-              checked={values[field.key] === "Yes"}
-              onChange={(e) => onChange(field.key, e.target.checked ? "Yes" : "")}
-              disabled={disabled}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border text-accent focus:ring-accent/40"
-            />
-            {field.label}
-          </label>
-        ))}
-      </div>
-    );
-  }
+  const checks = fields.filter((f) => f.kind === "check");
+  const flags = fields.filter((f) => f.kind === "flag");
+  const inputs = fields.filter((f) => f.kind !== "check" && f.kind !== "flag");
 
-  // Mixed sections (e.g. Startup/Final carry a few checklist booleans
-  // alongside their voltage numbers): booleans get an inline checkbox row,
-  // matching the pure-checklist sections; everything else gets a labelled
-  // input. Both share one grid so the layout stays a single pass.
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {fields.map((field, i) =>
-        field.kind === "boolean" ? (
-          <label key={field.key} className="flex items-start gap-2 self-end pb-1.5 text-sm text-fg">
-            <input
-              type="checkbox"
-              checked={(values[field.key] ?? "") === "Yes"}
-              onChange={(e) => onChange(field.key, e.target.checked ? "Yes" : "")}
-              disabled={disabled}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border text-accent focus:ring-accent/40"
-            />
-            {field.label}
-          </label>
-        ) : (
-          <Field key={field.key} label={field.label}>
-            <FieldInput
+    <div className="flex flex-col gap-3">
+      {inputs.length > 0 && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {inputs.map((field, i) => (
+            <Field key={field.key} label={label(field)} plain={field.kind === "datetime" || field.kind === "date"}>
+              <FieldInput
+                field={field}
+                label={label(field)}
+                value={values[field.key] ?? ""}
+                onChange={(v) => onChange(field.key, v)}
+                disabled={disabled}
+                inputRef={i === 0 ? firstFieldRef : undefined}
+              />
+            </Field>
+          ))}
+        </div>
+      )}
+      {checks.length > 0 && (
+        <div className="divide-y divide-border/60">
+          {checks.map((field) => (
+            <CheckRow
+              key={field.key}
               field={field}
+              label={label(field)}
               value={values[field.key] ?? ""}
               onChange={(v) => onChange(field.key, v)}
               disabled={disabled}
-              inputRef={i === 0 ? firstFieldRef : undefined}
             />
-          </Field>
-        ),
+          ))}
+        </div>
       )}
+      {flags.length > 0 && (
+        <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+          {flags.map((field) => (
+            <label key={field.key} className="flex items-start gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                checked={values[field.key] === "Yes"}
+                onChange={(e) => onChange(field.key, e.target.checked ? "Yes" : "")}
+                disabled={disabled}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border text-accent focus:ring-accent/40"
+              />
+              {field.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A check: the paper's line, then Yes / No / N/A. Blank is "not answered",
+ * never a "No" nobody chose: nothing is selected, and Clear (shown once it's
+ * answered) puts it back. A "Not set" pill was tried first — fifty highlighted
+ * "Not set" pills on a new sheet read as fifty errors.
+ */
+function CheckRow({
+  field,
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  field: QcCpu95Field;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <span className="text-sm text-fg">{label}</span>
+      {/* data-enter-group: Enter skips the pills AND Clear as one field. */}
+      <div data-enter-group className="flex shrink-0 items-center gap-2">
+        <ChoicePills
+          label={label}
+          name={`qc-${field.key}`}
+          options={QC_CPU95_CHECK_CHOICES}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          disabled={disabled}
+          aria-label={`Clear ${label}`}
+          className={`text-xs text-fg-muted underline-offset-2 hover:text-fg hover:underline ${value ? "" : "invisible"}`}
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The firing angles: "All firing actuals at spec" on top, then one row per
+ * cylinder on the unit's grid. Operators draw a line for "at spec" (Tim,
+ * 2026-10-21), so Yes hides the actual boxes; otherwise the actual is typed
+ * only for a cylinder that was off, and a blank actual is at spec.
+ */
+function FiringAngles({
+  fields,
+  values,
+  onChange,
+  disabled,
+  altMode,
+  partNumber,
+  standardSpecs,
+  onFillStandardSpecs,
+}: {
+  fields: QcCpu95Field[];
+  values: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+  disabled: boolean;
+  altMode: number;
+  partNumber: string;
+  standardSpecs: Record<string, string> | null;
+  onFillStandardSpecs: () => void;
+}) {
+  const atSpecField = fields.find((f) => f.key === "firingActualsAtSpec");
+  const atSpec = values.firingActualsAtSpec === "Yes";
+  const slots = fields
+    .filter((f) => f.key.startsWith("firingSpec"))
+    .map((spec) => ({ spec, actual: fields.find((f) => f.key === `firingActual${spec.key.slice("firingSpec".length)}`) }));
+  const blankSpecs = slots.some(({ spec }) => !(values[spec.key] ?? "").trim() && standardSpecs?.[spec.key]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {standardSpecs && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-muted">
+          <span>
+            The standard spec for {partNumber.trim()} is {standardSpecs.firingSpec01}, {standardSpecs.firingSpec02},{" "}
+            {standardSpecs.firingSpec03} … — change any cylinder that differs.
+          </span>
+          {blankSpecs && (
+            <button
+              type="button"
+              onClick={onFillStandardSpecs}
+              disabled={disabled}
+              title="Fill the blank specs with the standard — specs already typed are kept"
+              className="font-medium text-accent underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              Fill standard specs
+            </button>
+          )}
+        </div>
+      )}
+      {atSpecField && (
+        <CheckRow
+          field={atSpecField}
+          label={atSpecField.label}
+          value={values.firingActualsAtSpec ?? ""}
+          onChange={(v) => onChange("firingActualsAtSpec", v)}
+          disabled={disabled}
+        />
+      )}
+      <p className="text-xs text-fg-muted">
+        {atSpec
+          ? "Every cylinder fired at its spec angle, so no actuals are recorded."
+          : "Type an actual only for a cylinder that was off — a blank actual is at spec."}
+      </p>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+        {slots.map(({ spec, actual }) => {
+          const letter = qcCpu95FiringLetter(spec.slot ?? 0, altMode);
+          return (
+            <div key={spec.key} className="flex items-center gap-2">
+              <span className="w-8 shrink-0 text-right text-xs font-semibold text-fg-muted">{letter}</span>
+              <input
+                type="number"
+                step="any"
+                aria-label={`Spec ${letter}`}
+                placeholder="Spec"
+                value={values[spec.key] ?? ""}
+                onChange={(e) => onChange(spec.key, e.target.value)}
+                disabled={disabled}
+                className="input w-24! px-1.5! py-1! text-center text-xs"
+              />
+              {actual && !atSpec && (
+                <input
+                  type="number"
+                  step="any"
+                  aria-label={`Actual ${letter}`}
+                  placeholder="Actual"
+                  value={values[actual.key] ?? ""}
+                  onChange={(e) => onChange(actual.key, e.target.value)}
+                  disabled={disabled}
+                  className="input w-24! px-1.5! py-1! text-center text-xs"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** A date and a time of day, held as local `yyyy-mm-ddThh:mm` (the oven ON/OFF log). */
+function DateTimeField({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  const [date = "", time = ""] = value.split("T");
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <DateField value={date} onChange={(d) => onChange(d ? `${d}T${time || "00:00"}` : "")} disabled={disabled} />
+      </div>
+      <input
+        type="time"
+        aria-label={`${label} time`}
+        value={date ? time : ""}
+        onChange={(e) => date && onChange(`${date}T${e.target.value || "00:00"}`)}
+        disabled={disabled || !date}
+        className="input w-32!"
+      />
     </div>
   );
 }
 
 function FieldInput({
   field,
+  label,
   value,
   onChange,
   disabled,
   inputRef,
 }: {
   field: QcCpu95Field;
+  label: string;
   value: string;
   onChange: (v: string) => void;
   disabled: boolean;
@@ -395,11 +620,12 @@ function FieldInput({
     );
   }
 
-  // "boolean" never reaches here — SectionFields renders every boolean field
-  // as its own inline checkbox row, in both the all-boolean and mixed cases.
+  // Checks and flags never reach here — SectionFields renders them as rows.
   switch (field.kind) {
     case "date":
       return <DateField value={value} onChange={onChange} disabled={disabled} />;
+    case "datetime":
+      return <DateTimeField label={label} value={value} onChange={onChange} disabled={disabled} />;
     case "multiline":
       return (
         <AutoGrowTextarea
@@ -438,18 +664,22 @@ function FieldInput({
 function Field({
   label,
   className,
+  plain,
   children,
 }: {
   label: string;
   className?: string;
+  /** A control with buttons of its own (a calendar) — a <label> around it would re-click them. */
+  plain?: boolean;
   children: React.ReactNode;
 }) {
+  const Tag = plain ? "div" : "label";
   return (
-    <label className={`block ${className ?? ""}`}>
+    <Tag className={`block ${className ?? ""}`}>
       <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
         {label}
       </span>
       {children}
-    </label>
+    </Tag>
   );
 }

@@ -1,6 +1,6 @@
 import type { jsPDF } from "jspdf";
 import type { QcCpu95Record } from "@/types/task";
-import { qcCpu95SheetLayout, SHEET_WIDTH, type SheetFont, type SheetOp } from "./qcCpu95Sheet";
+import { QC_CPU95_BLANK_VARIANTS, qcCpu95SheetLayout, SHEET_WIDTH, type SheetFont, type SheetOp } from "./qcCpu95Sheet";
 
 // =============================================================================
 // QCFRM-012 (CPU-95) → a PDF of the paper sheet. Draws the layout model from
@@ -21,13 +21,21 @@ const ENTRY: [number, number, number] = [25, 55, 140];
 export interface QcCpu95PdfOptions {
   /** `yyyy-mm-dd`; printed on a filled export. */
   exportedOn: string;
+  /** A blank form for one unit (`QC_CPU95_BLANK_VARIANTS` id); omitted = every variant. */
+  blankVariantId?: string | null;
   /** Tests turn this off to read the text back out of the PDF. */
   compress?: boolean;
 }
 
-/** "QCFRM-012 CPU-95 blank.pdf", or "QCFRM-012 CPU-95 25564.pdf" for a filled sheet. */
-export function qcCpu95PdfFileName(record: QcCpu95Record | null): string {
-  if (!record) return "QCFRM-012 CPU-95 blank.pdf";
+/**
+ * "QCFRM-012 CPU-95 blank.pdf" (or "… CPU-95C blank.pdf" for one unit), or
+ * "QCFRM-012 CPU-95 25564.pdf" for a filled sheet.
+ */
+export function qcCpu95PdfFileName(record: QcCpu95Record | null, blankVariantId?: string | null): string {
+  if (!record) {
+    const variant = QC_CPU95_BLANK_VARIANTS.find((v) => v.id === blankVariantId);
+    return variant ? `QCFRM-012 ${variant.fileTag} blank.pdf` : "QCFRM-012 CPU-95 blank.pdf";
+  }
   const serial = (record.values.serialNumber ?? "")
     .replace(/[\\/:*?"<>|]+/g, "-")
     .trim()
@@ -172,7 +180,7 @@ export function renderQcCpu95Pdf(doc: jsPDF, record: QcCpu95Record | null, opts:
     creator: "Altronic ARC",
   });
 
-  const pages = qcCpu95SheetLayout(record, opts.exportedOn);
+  const pages = qcCpu95SheetLayout(record, opts.exportedOn, opts.blankVariantId);
   const overflow: Overflow[] = [];
   // Continuation goes after every sheet page.
   const continuationPage = () => pages.length + 1;

@@ -14,7 +14,12 @@ import { SortableHeader } from "@/components/SortableTableHeader";
 import { QcCpu95FormModal } from "@/components/QcCpu95FormModal";
 import { QcFormExportButton } from "@/components/QcFormExportButton";
 import { generateQcCpu95Pdf, qcCpu95PdfFileName } from "@/lib/qcCpu95Pdf";
+import { QC_CPU95_BLANK_VARIANTS } from "@/lib/qcCpu95Sheet";
+import { ChoiceSelect } from "@/components/SearchableSelect";
 import { toIsoDate } from "@/lib/dateInput";
+
+/** The blank form's unit picker. Nothing picked ("") is every variant's lines on one sheet. */
+const BLANK_VARIANT_OPTIONS = QC_CPU95_BLANK_VARIANTS.map((v) => ({ value: v.id, label: v.label }));
 
 // =============================================================================
 // QCFRM-012 (CPU-95) — list of submitted test sheets.
@@ -99,6 +104,7 @@ export function QcCpu95View() {
   const [query, setQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<QcCpu95Record | null>(null);
+  const [blankVariant, setBlankVariant] = useState("");
 
   const filtered = useMemo(
     () => records.filter((r) => matches(r, query)),
@@ -126,17 +132,32 @@ export function QcCpu95View() {
             QCFRM-012 — CPU-95 Ignition Module
           </h1>
           <p className="text-sm text-fg-muted">
-            Electrical test and inspection — CPU-95, CPU-95C, Varispark, and EVS variants.
+            Electrical test and inspection — CPU-95, CPU-95C and EVS units.
           </p>
         </div>
-        <QcFormExportButton
-          label="Blank form"
-          title="Download a blank QCFRM-012 sheet (PDF) to fill in by hand"
-          build={async () => ({
-            blob: await generateQcCpu95Pdf(null, { exportedOn: toIsoDate(new Date()) }),
-            fileName: qcCpu95PdfFileName(null),
-          })}
-        />
+        {/* Which unit the blank form is for — only its lines, or every variant's. */}
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="min-w-0 flex-1 sm:w-64 sm:flex-none">
+            <ChoiceSelect
+              value={blankVariant}
+              onChange={setBlankVariant}
+              options={BLANK_VARIANT_OPTIONS}
+              emptyLabel="Every variant (all lines)"
+              ariaLabel="Blank form for"
+              title="Which unit the blank form is for"
+            />
+          </div>
+          <div className="shrink-0 whitespace-nowrap">
+            <QcFormExportButton
+              label="Blank form"
+              title="Download a blank QCFRM-012 sheet (PDF) to fill in by hand"
+              build={async () => ({
+                blob: await generateQcCpu95Pdf(null, { exportedOn: toIsoDate(new Date()), blankVariantId: blankVariant || null }),
+                fileName: qcCpu95PdfFileName(null, blankVariant || null),
+              })}
+            />
+          </div>
+        </div>
         <button
           onClick={() => setShowNew(true)}
           className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"

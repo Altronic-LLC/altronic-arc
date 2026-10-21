@@ -614,13 +614,15 @@ export const SP_FAIT_LIST_ID =
 
 /**
  * QCFRM-012 — CPU-95 Ignition Module Electrical Test and Inspection, the
- * first "QC Forms" module. The SharePoint list is named "CPU-95", on the
- * Engineering site. Any signed-in user can create/edit; no delete (each row
- * is a signed, dated test record).
+ * first "QC Forms" module. The SharePoint list is "QCFRM-012 CPU-95 Test
+ * Sheets" on Altronic_PMO (`SITES.pmo`), created 2026-10-21. It replaced the
+ * "CPU-95" list on the Engineering site (4843afdc-…), which is kept as an
+ * archive and no longer read. Any signed-in user can create/edit; no delete
+ * (each row is a signed, dated test record).
  */
 export const SP_QC_CPU95_LIST_ID =
   import.meta.env.VITE_SP_QC_CPU95_LIST_ID ||
-  "4843afdc-5697-4f44-8113-003cc220b57a";
+  "01d4cb25-a642-4652-b3db-0370f9a04b98";
 
 /**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.

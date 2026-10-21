@@ -21,11 +21,19 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.195.0",
-    date: "2026-10-20",
+    date: "2026-10-21",
     changes: [
+      "CPU-95 (QCFRM-012) test sheets now live on a new list, laid out for every CPU-95 unit — the sheets entered in ARC since September 18 were copied across",
+      "Each check is answered Yes, No or N/A, so a check that doesn't apply to a unit is recorded as such",
+      "The form shows each unit's own checks: the CPU-95C (791955-16), the EVS (791963-16A and 791963-16E) and the 791956-16, and only the firing-angle rows its cylinder count has",
+      "Firing angles have an \"All firing actuals at spec\" answer — say Yes and there's nothing more to type, or record just the cylinders that were off",
+      "A new test sheet fills in the standard firing-angle specs for the part number entered (791950-08/-16/-18, 791952-18, 791962-18, 791955-16 and others) — change any cylinder that's a special case; an existing sheet offers Fill standard specs for its blanks, and a blank form printed for one unit has its standard specs printed on it",
+      "Record the oven ON and OFF date and time, the SAP Number, Memory No. (Application on a CPU-95C) and the Post Test Inspection points on the sheet itself",
       "QC Forms: CPU-95 (QCFRM-012) has a Blank form button on the list — download the paper test sheet and its Post Test Inspection page as a PDF to fill in by hand",
-      "An open CPU-95 test sheet has an Export button that downloads it as the filled-in paper form, showing only the fields that apply to its part number — the Post Test Inspection page comes with 791950 part numbers only",
-      "The filled form puts firing angles in the TEST columns, shows when the sheet was created and signed off on the ON/OFF line, lists any flagged defects, and carries comments too long for the sheet on to a last page",
+      "Pick the unit beside Blank form (8, 16, 18 or 20 cylinder, 791952/62-18, 791956-16, CPU-95C or EVS) to get a sheet with only its firing rows, its own checks, and the lines it doesn't use marked N/A — or leave it on every variant",
+      "An open CPU-95 test sheet has an Export button that downloads it as the filled-in paper form, showing only the fields that apply to its part number, followed by the Post Test Inspection page, which every unit gets",
+      "The four \"On 791956-16\" checks now show only on a 791956-16 test sheet — they had been showing on 791952-18 and 791962-18 sheets instead",
+      "The filled form puts firing angles in the TEST columns (a line for all at spec), the oven times on the ON/OFF line, and ticks, No or N/A on every check and inspection point; it lists CPU-95C and EVS checks and any flagged defects above Comments, and carries comments too long for the sheet on to a last page",
     ],
   },
   {

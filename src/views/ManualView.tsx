@@ -3125,7 +3125,10 @@ const SECTIONS: ManualSection[] = [
       "controlled form",
       "altmode",
       "firing angle",
-      "varispark",
+      "at spec",
+      "n/a",
+      "oven",
+      "95c",
       "evs",
       "export",
       "pdf",
@@ -3133,7 +3136,7 @@ const SECTIONS: ManualSection[] = [
       "print",
     ],
     searchText:
-      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the sections and fields that apply to the unit's Altronic Part Number, entered at the top — the paper form has several variants (CPU-95, CPU-95C, Varispark, EVS, and a combined 16/18/20-cylinder sheet) and typing the part number picks the matching one automatically, including which firing-angle cylinder grid and which voltage/current set to show. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses; the inspection page only for a 791950 part number). Firing-angle spec and actual print in the TEST columns (SHIP stays blank); the first ON/OFF line shows the created date and time and the sign-off date; Memory No. and the inspection page stay blank; flagged defects are listed above Comments; long comments continue on a last page.",
+      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the checks and fields that apply to the unit's Altronic Part Number, entered at the top: its firing-angle cylinder rows (8, 16, 18 or 20), and its own checks — CPU-95C (791955-16), EVS (791963-16A, 791963-16E), 791956-16, and the higher peak volts of the 791952-18 and 791962-18. Each check is answered Yes, No or N/A; blank means not answered yet. Firing angles: answer All firing actuals at spec — Yes leaves the actuals blank; otherwise type an actual only for a cylinder that was off. Record the oven ON and OFF date and time, SAP Number and Memory No. in the form. The Post Test Inspection points are on every unit. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page — pick the unit beside it (8/16/18/20 cylinder, 791952/62-18, 791956-16, CPU-95C, EVS) for only that unit's lines, the rest printed N/A, or leave it empty for every variant; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses). A check prints a tick for Yes and the words for No or N/A; an at-spec firing column prints as a line; the oven ON/OFF prints on the first ON/OFF line; CPU-95C and EVS checks the sheet has no line for, and any flagged defects, are listed above Comments; long comments continue on a last page.",
     render: () => (
       <>
         <P>
@@ -3149,15 +3152,45 @@ const SECTIONS: ManualSection[] = [
           clicking a row opens the form.
         </P>
         <Tip>
-          The paper form has several variants — CPU-95, CPU-95C, Varispark,
-          EVS, and a combined 16/18/20-cylinder sheet. Enter the unit's{" "}
+          Every CPU-95 unit is tested on this one sheet. Enter the unit's{" "}
           <strong>Altronic Part Number</strong> at the top of the form and it
-          automatically shows only the sections that apply to that variant —
-          the matching startup/final voltage set and the correct
-          16, 18, or 20-cylinder firing-angle grid. Only{" "}
+          shows only what applies: the right number of firing-angle rows (8,
+          16, 18 or 20 cylinders) and the unit's own checks — the CPU-95C
+          (791955-16), the EVS (791963-16A and 791963-16E), the four
+          "On 791956-16" checks, and the 140/160/180 V peak volts of the
+          791952-18 and 791962-18. Only{" "}
           <strong>Serial / Unit Number</strong> is required to save; the rest
           fills in as the test proceeds.
         </Tip>
+        <UL>
+          <LI>
+            <strong>Checks</strong> are answered <strong>Yes</strong>,{" "}
+            <strong>No</strong> or <strong>N/A</strong> (doesn't apply to this
+            unit). A check left blank has not been answered yet.
+          </LI>
+          <LI>
+            <strong>Firing angles.</strong> On a new sheet, entering the
+            Altronic Part Number fills in its standard TEST spec for every
+            cylinder; change any cylinder that is a special case, and a typed
+            spec is kept even if the part number is corrected. A part number
+            with no standard (a customer sheet, say) leaves the specs for you
+            to type. An existing sheet with blank specs has a{" "}
+            <strong>Fill standard specs</strong> link that fills just the
+            blanks. If every cylinder fired at spec, answer <strong>All firing actuals at
+            spec</strong> Yes and the actual boxes go away. Otherwise type an
+            actual only for a cylinder that was off — a blank actual is at
+            spec.
+          </LI>
+          <LI>
+            <strong>Oven Burn-in</strong> takes the date and time the unit went
+            in and came out. A re-run in the oven is written on the printed
+            sheet by hand.
+          </LI>
+          <LI>
+            The <strong>Post Test Inspection</strong> points are on every
+            unit.
+          </LI>
+        </UL>
         <P>
           Any signed-in user can create or edit a test sheet. There is no
           delete — each row is a signed, dated test record, the same
@@ -3166,14 +3199,18 @@ const SECTIONS: ManualSection[] = [
         <P>
           <strong>Exporting the paper form.</strong> Both exports download a
           PDF of the paper sheet (FORM QCFRM-012 REV 2, the combined
-          16/18/20-cylinder sheet). The Post Test Inspection page comes with
-          the blank form, and with a filled sheet only when its part number is
-          a 791950:
+          16/18/20-cylinder sheet), followed by the Post Test Inspection page,
+          which is used for every unit:
         </P>
         <UL>
           <LI>
             <strong>Blank form</strong>, on the list, gives an empty sheet to
-            fill in by hand. One sheet covers every CPU-95 part number.
+            fill in by hand. Pick the unit in the box beside it — 8, 16, 18 or
+            20 cylinder, the 791952/62-18, the 791956-16, the CPU-95C or the
+            EVS — for a sheet with only that unit's firing rows and its own
+            checks, its standard firing specs printed in, and the lines it
+            doesn't use printed N/A. Leave the box empty
+            for one sheet with every variant's lines.
           </LI>
           <LI>
             <strong>Export</strong>, at the bottom of an open test sheet, gives
@@ -3184,12 +3221,13 @@ const SECTIONS: ManualSection[] = [
         </UL>
         <Tip>
           ARC keeps one firing-angle spec and one actual per cylinder, the
-          TEST figures, so the SHIP columns stay blank. The first ON/OFF line
-          shows when the sheet was created (ON) and the date it was signed off
-          (OFF). Lines ARC has no field for, such as Memory No. and the whole
-          Post Test Inspection page, stay blank to fill in by hand. Any defects flagged
-          on the sheet are listed above Comments. Comments too long for the
-          sheet carry on to a page at the end.
+          TEST figures, so the SHIP columns stay blank; all actuals at spec
+          prints as a line down the actual column. A check prints a tick for
+          Yes and the words for No or N/A. The oven ON and OFF go on the first
+          ON/OFF line; the second is left for a re-run, by hand. The CPU-95C
+          and EVS checks this sheet has no line for, and any defects flagged,
+          are listed above Comments. Comments too long for the sheet carry on
+          to a page at the end.
         </Tip>
       </>
     ),

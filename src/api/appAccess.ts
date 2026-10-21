@@ -223,7 +223,7 @@ export const APPS: AppSpec[] = [
   // Quality --------------------------------------------------------------
   { path: "/digital-qc", label: "Digital QC Defect Log", site: "engineering", lists: ids(...Object.values(DIGITAL_QC_FAMILY_LIST_IDS)) },
   { path: "/ignition-qc", label: "Ignition QC Defect Log", site: "engineering", lists: ids(...Object.values(IGNITION_QC_FAMILY_LIST_IDS)) },
-  { path: "/qc-forms", label: "QC Forms", site: "engineering", lists: ids(SP_QC_CPU95_LIST_ID) },
+  { path: "/qc-forms", label: "QC Forms", site: "pmo", lists: ids(SP_QC_CPU95_LIST_ID) },
 
   // Supply Chain ---------------------------------------------------------
   { path: "/supply-chain/gray-market-requests", label: "Gray Market Requests", site: "pmo", lists: ids(SP_GRAY_MARKET_LIST_ID) },

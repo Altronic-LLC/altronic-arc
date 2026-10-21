@@ -62,10 +62,10 @@ describe("a filled PDF", () => {
     expect(text).toContain("Exported from ARC on 10/20/2026 — test sheet #42");
   });
 
-  it("is the test sheet alone for a part number that isn't 791950", async () => {
+  it("carries the Post Test Inspection page for a part number that isn't 791950 too", async () => {
     const { text, pages } = await render(record({ altronicPartNumber: "791962-18" }));
-    expect(pages).toBe(1);
-    expect(text).not.toContain("Post Test Inspection");
+    expect(pages).toBe(2);
+    expect(text).toContain("Post Test Inspection");
   });
 
   it("continues long comments on a page of their own, in full", async () => {
@@ -75,13 +75,6 @@ describe("a filled PDF", () => {
     expect(text).toContain("(continued on page 3)");
     expect(text).toContain("Test sheet 25564 — continued");
     expect(text).toContain("Note 30 about the retest.");
-  });
-
-  it("numbers the continuation page after the sheet alone when there's no inspection page", async () => {
-    const comments = Array.from({ length: 30 }, (_, i) => `Note ${i + 1}.`).join(" ");
-    const { text, pages } = await render(record({ altronicPartNumber: "791962-18", comments }));
-    expect(pages).toBe(2);
-    expect(text).toContain("(continued on page 2)");
   });
 
   it("keeps a short comment on the sheet", async () => {

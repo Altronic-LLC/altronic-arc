@@ -27,7 +27,7 @@ vi.mock("@/lib/qcCpu95Pdf", () => ({
 }));
 vi.mock("@/hooks/useQuotePdf", () => ({ downloadBlob: pdf.download }));
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { qcCpu95EmptyValues } from "@/lib/qcCpu95Fields";
@@ -156,6 +156,102 @@ describe("Enter behaves like Tab, not like Save", () => {
   });
 });
 
+describe("checks and firing angles", () => {
+  it("answers a check Yes, No or N/A, and saves the answer", async () => {
+    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    const group = screen.getByRole("radiogroup", { name: "Multi-fire, no warnings" });
+    await userEvent.click(within(group).getByRole("radio", { name: "N/A" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(updateRecord).toHaveBeenCalledWith(
+        expect.objectContaining({ values: expect.objectContaining({ finalMultiFire: "N/A" }) }),
+      ),
+    );
+  });
+
+  it("hides the actual boxes once every actual is at spec, and offers one per cylinder otherwise", async () => {
+    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    // 791950-16: sixteen cylinders, lettered A … V.
+    expect(screen.getAllByLabelText(/^Spec /)).toHaveLength(16);
+    expect(screen.getAllByLabelText(/^Actual /)).toHaveLength(16);
+    expect(screen.getByLabelText("Actual K")).toBeInTheDocument();
+
+    const atSpec = screen.getByRole("radiogroup", { name: "All firing actuals at spec" });
+    await userEvent.click(within(atSpec).getByRole("radio", { name: "Yes" }));
+    expect(screen.queryAllByLabelText(/^Actual /)).toHaveLength(0);
+    expect(screen.getAllByLabelText(/^Spec /)).toHaveLength(16);
+  });
+
+  it("moves Enter past a check's pills and its Clear to the next field", async () => {
+    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    const group = screen.getByRole("radiogroup", { name: "Multi-fire, no warnings" });
+    const yes = within(group).getByRole("radio", { name: "Yes" });
+    await userEvent.click(yes);
+    yes.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(group.contains(document.activeElement)).toBe(false);
+    // Clear is next in DOM order; landing there, a second Enter would wipe the answer.
+    expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "Clear Multi-fire, no warnings" }));
+    expect(yes).toBeChecked();
+  });
+
+  it("starts a check unanswered, with no pill picked, and Clear puts an answer back to blank", async () => {
+    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    const group = screen.getByRole("radiogroup", { name: "Multi-fire, no warnings" });
+    expect(within(group).getAllByRole("radio").some((r) => (r as HTMLInputElement).checked)).toBe(false);
+    await userEvent.click(within(group).getByRole("radio", { name: "No" }));
+    await userEvent.click(screen.getByRole("button", { name: "Clear Multi-fire, no warnings" }));
+    expect(within(group).getAllByRole("radio").some((r) => (r as HTMLInputElement).checked)).toBe(false);
+  });
+});
+
+describe("standard firing specs", () => {
+  it("fills a NEW sheet's specs from the part number, and keeps the ones the operator typed", async () => {
+    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText("Altronic Part Number"), "791950-16");
+    expect(screen.getByLabelText("Spec A")).toHaveValue(0);
+    expect(screen.getByLabelText("Spec D")).toHaveValue(135);
+    expect(screen.getByLabelText("Spec M")).toHaveValue(0);
+
+    // A special case: one cylinder typed by hand.
+    await userEvent.clear(screen.getByLabelText("Spec B"));
+    await userEvent.type(screen.getByLabelText("Spec B"), "47");
+
+    // A corrected part number refills the untouched specs, never the typed one.
+    await userEvent.clear(screen.getByLabelText("Altronic Part Number"));
+    await userEvent.type(screen.getByLabelText("Altronic Part Number"), "791955-16");
+    expect(screen.getByLabelText("Spec C")).toHaveValue(90);
+    expect(screen.getByLabelText("Spec D")).toHaveValue(150);
+    expect(screen.getByLabelText("Spec B")).toHaveValue(47);
+
+    await userEvent.type(screen.getByLabelText("Serial / Unit Number"), "26001");
+    await userEvent.click(screen.getByRole("button", { name: "Save test sheet" }));
+    expect(createRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ firingSpec02: "47", firingSpec04: "150", firingSpec16: "330" }),
+    );
+  });
+
+  it("blanks the specs again for a part number with no standard", async () => {
+    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText("Altronic Part Number"), "791950-16");
+    expect(screen.getByLabelText("Spec C")).toHaveValue(90);
+    await userEvent.clear(screen.getByLabelText("Altronic Part Number"));
+    await userEvent.type(screen.getByLabelText("Altronic Part Number"), "708939");
+    expect(screen.getByLabelText("Spec C")).toHaveValue(null);
+  });
+
+  it("never changes a SAVED sheet by itself, but Fill standard specs fills its blanks", async () => {
+    const record = { ...RECORD, values: { ...RECORD.values, firingSpec01: "5" } };
+    renderWithProviders(<QcCpu95FormModal record={record} onClose={onClose} />);
+    expect(screen.getByLabelText("Spec B")).toHaveValue(null);
+
+    await userEvent.click(screen.getByRole("button", { name: "Fill standard specs" }));
+    expect(screen.getByLabelText("Spec A")).toHaveValue(5);
+    expect(screen.getByLabelText("Spec B")).toHaveValue(45);
+    expect(screen.queryByRole("button", { name: "Fill standard specs" })).not.toBeInTheDocument();
+  });
+});
+
 describe("Altronic Part Number — a real input, not a closed dropdown", () => {
   // Production enters this field with a barcode scanner: characters, then a
   // trailing CR (Enter), immediately followed by scanning the next field.
@@ -199,6 +295,36 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
     const partNumber = screen.getByLabelText("Altronic Part Number");
     await userEvent.type(partNumber, "791950-8");
     expect(partNumber).toHaveValue("791950-8");
+    expect(screen.queryByText(/new value/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a 791955-16 the CPU-95C checks and hides the base ones its sheet hasn't got", async () => {
+    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    const partNumber = screen.getByLabelText("Altronic Part Number");
+    await userEvent.type(partNumber, "791955-16");
+    expect(screen.getByText("Display reads Ready")).toBeInTheDocument();
+    expect(screen.getByLabelText("Application")).toBeInTheDocument();
+    expect(screen.queryByText("Internal 4 LEDs normal operation")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Memory No.")).not.toBeInTheDocument();
+  });
+
+  it("shows an EVS its E1 supply currents and no peak volts", async () => {
+    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText("Altronic Part Number"), "791963-16E");
+    expect(screen.getAllByLabelText("E1 Single Supply Current (Amps)")).toHaveLength(2);
+    expect(screen.queryByLabelText("20V Input Peak Volt E1 (130V)")).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("CAVG")).toHaveLength(2);
+  });
+
+  it("shows the 'On 791956-16' checks only once the part number is 791956-16", async () => {
+    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    const partNumber = screen.getByLabelText("Altronic Part Number");
+    await userEvent.type(partNumber, "791962-18");
+    expect(screen.queryByText("On 791956-16, verify CAN communication")).not.toBeInTheDocument();
+
+    await userEvent.clear(partNumber);
+    await userEvent.type(partNumber, "791956-16");
+    expect(screen.getByText("On 791956-16, verify CAN communication")).toBeInTheDocument();
     expect(screen.queryByText(/new value/i)).not.toBeInTheDocument();
   });
 });
