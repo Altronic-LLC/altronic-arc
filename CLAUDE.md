@@ -490,7 +490,7 @@ src/
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
-│   ├── qcCpu95.ts                QCFRM-012 (CPU-95) test sheet CRUD (Quality Control, Engineering site) — no delete
+│   ├── qcCpu95.ts                QCFRM-012 (CPU-95) test sheet CRUD (Quality Control, PMO site) — no delete
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
@@ -552,6 +552,7 @@ src/
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── qcCpu95MockData.ts        Sample CPU-95 (QCFRM-012) test sheets, one per Altmode shape
+│   ├── qcCpu95FiringSpecs.json   Standard TEST firing specs by part number — the form, the blank sheet and the backfill script read it
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
@@ -744,8 +745,10 @@ src/
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
 │   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
 │   ├── qcForms.ts                QC Forms registry — one entry per controlled form, drives the search/button dashboard
-│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~200 fields) + per-field Altmode visibility
+│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~150 fields) + the unit variants, firing grid and per-field visibility
 │   ├── qcCpu95Mapper.ts          Graph item → QcCpu95Record, and back; qcCpu95Altmode() (part number → 0-6)
+│   ├── qcCpu95Sheet.ts           The QCFRM-012 REV 2 paper sheet as a layout model (pure) — blank, or filled with the Altmode's visible fields
+│   ├── qcCpu95Pdf.ts             qcCpu95Sheet → PDF (jsPDF, dynamically imported); long values continue on a last page
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -883,7 +886,8 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
-│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven
+│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven; Export (filled form) in edit mode
+│   ├── QcFormExportButton.tsx    Shared QC Forms export button — build a PDF, download it, toast a failure
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
@@ -1408,9 +1412,9 @@ A dangling lookup would render as a project nobody can identify. Two rules:
 
 - **A list that can't be read refuses the delete.** "Couldn't look" must
   never read as "nothing uses it".
-- **SCNs and CPU-95 are not checked**: SCNs store the project TITLE as text
-  (another site collection), and CPU-95's `ProjectTag` lookup isn't read by
-  ARC yet. Add it to `projectUsage` the day it is.
+- **SCNs and CPU-95 are not checked**: both store the project TITLE as text
+  on another site collection (SCN's Project Reference; CPU-95's Project
+  Reference on the PMO list, since 2026-10-21), so nothing dangles.
 
 The lists are re-read at most 30s old; the remaining race (somebody linking a
 record in the seconds before the DELETE) is stated, not closed.
@@ -5186,23 +5190,25 @@ renders a day off from what SharePoint's own list view shows, check the
 actual stored time-of-day on a live row before assuming the bug is
 elsewhere, the same lesson Visit Reports and Gray Market already paid for.
 
-### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, Engineering site)
+### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, PMO site)
 
-`4843afdc-5697-4f44-8113-003cc220b57a` (env: `VITE_SP_QC_CPU95_LIST_ID`), list
-name **"CPU-95"**, on `SITES.engineering`. The first of what will be several digitized paper
+`01d4cb25-a642-4652-b3db-0370f9a04b98` (env: `VITE_SP_QC_CPU95_LIST_ID`), list
+name **"QCFRM-012 CPU-95 Test Sheets"**, on `SITES.pmo` — moved from the
+Engineering site's **"CPU-95"** list (`4843afdc-…`) on 2026-10-21, which is kept
+as an archive and no longer read (see "Moving the list to Altronic_PMO" below).
+The first of what will be several digitized paper
 QC/test forms, reached from a **"QC Forms"** card on the Quality Control
 dashboard. `lib/qcForms.ts` is the registry a search-plus-button landing page
 (`QcFormsView`, `/qc-forms`) is built from — a second controlled form is a
 second `QcFormDef` entry plus its own list/mapper/fields/view; nothing else
 is shared beyond the registry and the landing page.
 
-QCFRM-012 (CPU-95 Ignition Module Electrical Test and Inspection) has
-SEVERAL PAPER VARIANTS depending on the unit's Altronic Part Number —
-CPU-95, CPU-95C, CPU-95C-3516, CPU-95 Varispark, CPU-95 EVS, and a combined
-16/18/20-cylinder sheet — and which fields print depends on an "Altmode"
-(0–6) the old Power Apps form computed with a `Switch()` on the part
-number. `qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts` is the exact same
-lookup:
+QCFRM-012 (CPU-95 Ignition Module Electrical Test and Inspection) is ONE
+paper sheet — the "95" sheet — that every unit is tested on (Tim, 2026-10-21,
+with operations). Which fields apply depends on the unit's Altronic Part
+Number in two ways. Its **Altmode** (0–6, the old Power Apps form's `Switch()`,
+`qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts`) picks the firing grid and the
+high-voltage spec:
 
 | Altronic Part Number | Altmode |
 |---|---|
@@ -5214,74 +5220,70 @@ lookup:
 | 791962-18 | 6 |
 | anything else (incl. blank) | 0 |
 
+And its **variant** (`qcCpu95Variant` in `lib/qcCpu95Fields.ts`) picks the
+checks:
+
+| Variant | Part numbers | Differs from the base sheet |
+|---|---|---|
+| `highVolt` | 791952-18, 791962-18 (Altmode 5/6) | peak volts at 140/160/180 V, nothing else |
+| `791956` | 791956-16 | four "On 791956-16" checks of its own |
+| `95c` | 791955-16 (CPU-95C, incl. the 3516) | seven checks of its own, Application in place of Memory No., eleven base checks hidden |
+| `evs` | 791963-16A, 791963-16E | E1 single supply current in place of the peak volts, E1S/CAVG, a six-energy-level check; short one primary, 4-20 mA and triac/diode leakage hidden |
+| `base` | everything else | — |
+
+Varispark is obsolete and has nothing in ARC.
+
 **The columns are DATA** (`lib/qcCpu95Fields.ts`), the same reasoning as
-Drawing File Logs and FAIT — ~200 fields across 13 sections (Header,
-Startup/Final 20V/24V input, checklists, three firing-angle Spec/Actual
-grids for 16/18/20 cylinders, Current Loop, Defects/NCM, Comments &
-Sign-off), each carrying an optional `altModes?: readonly number[]` —
-`undefined` means always visible, otherwise the field only shows for those
-Altmodes. `qcCpu95VisibleFields(altMode)` filters the whole descriptor
-list; `QcCpu95FormModal` recomputes `altMode` LIVE off the Altronic Part
-Number field as it's typed, so picking a part number immediately shows or
-hides the matching voltage set and cylinder grid — there is no separate
-"visibility rule" to maintain per variant.
+Drawing File Logs and FAIT — ~150 fields in ten sections. Each descriptor
+carries `only` / `hiddenIn` (variants), `labelIn` (the variant's own paper
+wording), `slot` (a firing row, 1-20) and `sheetLabel` (a short name for the
+export's notes line). `qcCpu95VisibleFields(altMode, partNumber)` filters the
+list; `QcCpu95FormModal` recomputes it LIVE off the Altronic Part Number as
+it's typed. `null` for the Altmode (the blank form) shows everything.
+
+Five kinds that are load-bearing:
+
+- **`check` — a choice of Yes / No / N/A**, the 54 tests and inspection
+  points. Blank is "not answered", NEVER "No": the mapper writes null for it,
+  and reads anything outside the three choices as blank. The form renders
+  `ChoicePills` with a Not set pill; Enter skips the whole pill group
+  (`[role=radiogroup]`), not pill by pill.
+- **`flag` — yes/no**, the Defects / NCM boxes. Stays a checkbox.
+- **`datetime`** — the oven ON/OFF: `DateField` plus a time box, held as local
+  `yyyy-mm-ddThh:mm` (`toLocalDateTimeValue` / `fromLocalDateTimeValue`).
+- **Firing angles are 20 row SLOTS** (`firingSpec01..20`, `firingActual01..20`),
+  labelled by the unit's grid (`qcCpu95FiringGrid`): 8 rows on 791950-08
+  (Altmode 1, A-L of the 16-cyl letters), 16 on Altmode 0/2, 18 on 4-6, 20 on 3.
+- **"All firing actuals at spec"** (`firingActualsAtSpec`, Tim, 2026-10-21).
+  Operators draw a line for "at spec"; Yes hides the actual boxes, and
+  otherwise only a cylinder that was off gets an actual — a blank actual is
+  at spec. The export draws the line down the TEST actual column.
 
 The record is a flat `values: Record<string, string>` bag (mirrors FAIT's
-`Fait.values`), not a ~200-property interface — booleans are carried as
-`"Yes"`/`""`, the same convention as everywhere else in ARC. Confirmed live
-against `scripts/cpu-95-schema.json` (`discover-list.ps1`, 2026-09-17), not
-guessed from the original CSV export alone — that pass caught the 18-cylinder
-firing grid actually having 18 columns (it adds G and H; the 16-cylinder grid
-doesn't), which an earlier version of this file had silently missed by
-sharing one 16-letter alphabet between both grids.
+`Fait.values`). **`qcCpu95Fields.test.ts` reads
+`scripts/data/qc-cpu95-columns.json`** — the layout the PMO list was built
+from — and fails if a descriptor names a column that file hasn't got, or the
+types disagree. The only columns ARC leaves out are the migration's own four
+(`LegacySource`, `LegacyCreated`, `LegacyCreatedBy`, `DataQualityNotes`).
 
-**There is deliberately NO `$select` on the CPU-95 read at all** — both
-`listQcCpu95Records` and `getQcCpu95Record` in `api/qcCpu95.ts` use a bare
-`$expand=fields`. With ~200 columns, a fully-named `$select` pushed the
-request URL to nearly 5,000 characters, and Graph/SharePoint's edge came back
-with a bare `404 "UnknownError"` and no rows rather than a clean error —
-found live, 2026-09-17, the first time this shipped against the real list.
-Every other wide list in ARC stays well clear of this (FAIT: 51 columns; the
-ECN checklist collapsed 84 items into one JSON column specifically to avoid
-this exact problem) — CPU-95 is the one list actually wide enough to hit it.
-Fetching every field costs a bigger response, never a wrong one, since
-`toQcCpu95Record` only reads the columns it knows about. **If a future list
-needs a `$select` this large, split it across two reads or drop the `$select`
-the same way — don't assume a $select is always cheaper than fetching
-everything.**
+**There is still no `$select` on the read** — both `listQcCpu95Records` and
+`getQcCpu95Record` use a bare `$expand=fields`. On the old list's ~230
+columns a fully-named `$select` pushed the URL to nearly 5,000 characters and
+came back a bare `404 "UnknownError"` with no rows (found live, 2026-09-17).
+The PMO list is ~150 columns; `toQcCpu95Record` only reads the columns it
+knows about, so fetching every field costs a bigger response, never a wrong
+one. **If a future list needs a `$select` this large, split it across two
+reads or drop it — don't assume a $select is always cheaper.**
 
-**"Project Tag" (`ProjectTag`) IS a real column** — confirmed via the same
-schema pull as a multi-value lookup into the Projects list (the same list
-Tasks/EIRs/ECNs point at). It's deliberately NOT mapped yet: wiring it in is
-the same join-and-render treatment those other lists give a Project
-Reference, a small feature of its own rather than a field-name fix.
+**Project Reference is TEXT on the PMO list** (an Engineering project's title,
+the SCN pattern): the old list's `ProjectTag` lookup couldn't come across,
+since a lookup can't reach the Projects list from another site. It is mapped
+as a plain text field and nothing joins it to a project.
 
-**Which fields are visible per Altmode came from a SECOND export**, not the
-original schema — a 146-line CSV mapping each field to one of five Altmode
-conditions (`ALTMODE_LT_5` / `ALTMODE_GT_4` / `ALTMODE_LT_3` / `ALTMODE_GT_3`
-/ `ALTMODE_EQ_3` in `qcCpu95Fields.ts`, named after the CSV's own condition
-language rather than a guessed meaning). The 32 Startup/Final
-voltage-and-current fields split 16 standard / 16 "Alt" (the
-791962/791952-18 variant); four "On 791956-16 …" checklist booleans share
-the Alt condition; the three firing-angle grids are each pinned to exactly
-one cylinder count's condition.
-
-**791950-08 (Altmode 1) is an 8-cylinder unit hiding inside the 16-cylinder
-firing-angle grid** (Tim, 2026-09-17) — it's the only part number mapping to
-Altmode 1, and SharePoint gives it no columns of its own: it reuses the SAME
-`FiringAngleSpec16*`/`FiringAngleActual16*` columns Altmode 0 and 2 (genuinely
-16-cylinder) use, and only the first 8 of the 16 letters (A-L) ever hold real
-values on it — M through V are unused. `EIGHT_CYL_HIDDEN_KEYS` in
-`qcCpu95Fields.ts` is a DISPLAY-ONLY filter layered on top of the ordinary
-Altmode rule inside `qcCpu95VisibleFields()`, hiding those 16 keys (8 letters
-× Spec/Actual) specifically when `altMode === 1` — Altmode 0 and 2 still show
-all 16 letters. `qcCpu95SectionTitle(section, altMode)` relabels the two
-"16 Cyl" section headers to "8 Cyl", and `qcCpu95FieldLabel(field, altMode)`
-relabels each visible grid cell from "16A".."16L" to "8A".."8L", both for the
-same Altmode only — purely cosmetic, the section's fields, columns and write
-payload are untouched, so this is pinned entirely by tests on those three
-functions rather than needing new descriptor fields.
-
+**The header's scan order is load-bearing**: Serial, Altronic Part Number,
+then the three date codes are scanned back to back, Enter moving to the next
+field, so SAP Number and Memory No. come AFTER them. Putting them earlier
+broke the scan test, which is what it's there for.
 **Altronic Part Number is a `SuggestInput`, not a closed dropdown** (Tim,
 2026-09-17) — it drives the Altmode switch, so a typo used to silently fall
 through to Altmode 0's field set with nothing saying so. First tried as a
@@ -5363,6 +5365,137 @@ pairs its input with its own auxiliary button the same way.
 **No delete** — a test sheet is a signed, dated record (Final Test By /
 Final Inspection By), the same "correct with an edit" treatment as FAIT and
 Visit Reports. `api/qcCpu95.ts` has no delete function at all.
+
+**Export reproduces the paper sheet** (Tim, 2026-10-20) — **Blank form** on
+the list and **Export** in the edit form, both through the shared
+`QcFormExportButton`. `lib/qcCpu95Sheet.ts` is a pure layout model in PIXELS
+of the 950 × 1230 scan of the paper form; `lib/qcCpu95Pdf.ts` scales it to
+Letter and draws it with jsPDF (Times for the form, blue Helvetica for
+entries). The things that are load-bearing:
+
+- **It is the "95" sheet, FORM QCFRM-012 REV 2**, plus its Post Test
+  Inspection page — every unit is tested on it, so the blank export needs no
+  variant pick. **Every export carries the inspection page** (Tim,
+  2026-10-21: it is used for all units, though its title says "per QWI-342
+  and 791950 Print"); Yes and No tick their columns, N/A is written across Yes.
+- **Height is stretched, width is not.** The paper leaves a fifth of the page
+  empty at the bottom; `qcCpu95Pdf.ts` maps the scan's content band
+  (`CONTENT_TOP_PX`–`CONTENT_BOTTOM_PX`) onto the page between the margins,
+  so the extra room goes between the lines. Text keeps its size. Times is
+  wider than the scan's font: leave room after a label (the header blanks
+  start at 250px for that reason).
+- **A filled sheet prints only `qcCpu95VisibleFields(altMode, partNumber)`**,
+  the edit form's rule, so a stale value on a hidden field never reaches
+  paper. A check prints a tick for Yes and the words NO / N/A.
+- **A blank can be printed for ONE unit** (Tim, 2026-10-21) — the picker
+  beside Blank form, `QC_CPU95_BLANK_VARIANTS` in `qcCpu95Sheet.ts` (each
+  stands for its part numbers by one of them), passed as `blankVariantId`.
+  A filled sheet is "for one unit" too (`ctx.known`), and both follow the
+  same rules: only that unit's grid letter column (headed by its cylinder
+  count) and rows; its own peak-volt spec on the left, with the "791962-18
+  and 791952-18 Units only" column dropped; the 791956-16 lines only on a
+  791956-16; the lines it doesn't use pre-printed **N/A in black** — the
+  form's own print, telling it apart from an operator's blue N/A. A blank
+  for a 95C / EVS gets a tick line per check of its own above Comments, a
+  single-part-number blank prints that number in the header, and the footer
+  names the unit. Every-variant (nothing picked) is the old sheet, unchanged.
+- **The paper's own variant lines are reused**: the 20V/24V blanks take the
+  791952/62-18 readings too, and their final-test labels switch to
+  140/160/180 V; an EVS prints E1S and CAVG; a 95C prints APPLICATION where
+  the 95 sheet has MEMORY NO.
+- **The 95C and EVS checks the sheet has no line for go above Comments**
+  (`qcCpu95VariantLines`), by their short `sheetLabel`, on two lines (one if
+  Defects / NCM also print, below them). The full wording would always run
+  to a third page.
+- **ARC holds ONE firing-angle spec and ONE actual per cylinder, and both
+  are the TEST figure** (Tim, 2026-10-20) — the paper's SHIP columns stay
+  blank. Operators confirmed (2026-10-21) that they record only the TEST spec
+  and actual, so SHIP needs no SharePoint columns. **All at spec prints as a
+  line down the TEST actual column**, the way operators draw it.
+- **A NEW sheet's firing specs are pre-filled from the part number** (Tim,
+  2026-10-21, reversing an earlier "always typed" call), and still stored and
+  editable per cylinder. The table is `src/data/qcCpu95FiringSpecs.json`
+  (`offset`, `pair`, `cylinders` per part number), read by `qcCpu95Fields.ts`
+  (`qcCpu95StandardFiringSpecs` expands it) AND by
+  `scripts/backfill-qc-cpu95-firing-specs.ps1`, which filled the 30 migrated
+  rows; a test checks each entry's `cylinders` against the unit's grid.
+  **Each sheet stores its own specs, so a later spec change never rewrites a
+  unit already tested** — that is the record of which spec it was tested to,
+  and why the backfill fills only BLANK specs and lists (never changes) typed
+  ones that differ from today's standard. Four rules:
+  - **The TEST spec comes from the TEST PROGRAM**, not the unit: the 95C and
+    the 3516 both load CAT16TST, so 791955-16 has one spec.
+  - **The pattern wraps at 360.** Operators write "0, 45, 90 ↓"; the REV 2
+    workbook pre-prints the full column on CPU-95C / 3516 (0, 60, 90, 150,
+    180, 240, 270, 330, then again for M-V) and Varispark (0, 45 … 315 twice),
+    and `(floor(i/2)·pair + (i%2)·offset) mod 360` reproduces both. The 18-cyl
+    entries ([50, 80], from "0, 50, 80 ↓") use the same wrap, and 791962-18
+    takes 791952-18's spec — both inferences confirmed by Tim, 2026-10-21.
+  - **Create mode only, and a typed spec is never overwritten**: the form
+    tracks typed slots (`typedSpecs`), and a corrected part number refills the
+    rest. An edit never changes by itself; "Fill standard specs" fills blanks.
+  - **Only part numbers the sheets agree on are listed.** 708939 is "Per
+    sheet" (a customer document), and 705162 / 702585 are 18-cyl patterns on
+    customer numbers that read as Altmode 0 (16 rows), so they start blank.
+  **A blank printed for one unit prints its standard TEST spec in black** (the
+  form's own print, as the old 95C sheet had it); the every-variant blank and
+  a unit with no standard print the column empty. The "16" blank stands for
+  "791950-16 and others", so it carries 791950-16's spec.
+- **Exports the SAVED record, not the draft** on screen; the footer says
+  so while there are unsaved edits.
+- **The ON/OFF log prints the oven ON and OFF** the operator recorded (date
+  and local time). The second pair is for a re-run in the oven (Tim,
+  2026-10-21): always printed, filled in by hand. The time is formatted by
+  hand — `toLocaleTimeString` emits a narrow no-break space WinAnsi can't
+  print. It used to be derived (ON = Created, OFF = the sign-off date); the
+  2025 paper showed ON/OFF is the oven burn-in, often overnight, so it is a
+  real column now.
+- **Memory No. HAS a column after all** (Tim, 2026-10-21). Operators first
+  said it was rare and went in Comments, but it is filled on about a quarter
+  of the 2025 sheets (custom-program units), on the Memory No. line.
+- **Nothing is cut off**: a `wrap` op that overflows prints "(continued on
+  page N)" and the full text goes on a continuation page.
+
+#### Moving the list to Altronic_PMO (done, 2026-10-21)
+
+The list was rebuilt on `SITES.pmo` as **"QCFRM-012 CPU-95 Test Sheets"**
+(`01d4cb25-a642-4652-b3db-0370f9a04b98`, every column verified by write and
+read-back), with readable column names. `scripts/data/qc-cpu95-columns.json`
+is the ONE copy of the layout, and of where each column's value came from on
+the old list. `scripts/create-qc-cpu95-pmo-list.ps1` built the list from it
+(re-run it after adding a column there — it adds only what's missing);
+`scripts/migrate-qc-cpu95-to-pmo.ps1` copied rows into it. Add a column in
+the JSON, never in a script, and add its descriptor in `qcCpu95Fields.ts` —
+the test fails until both agree.
+
+- **Only the ARC-era rows moved** (Tim): the earlier ones came from the Power
+  Apps form and have paper copies, with a 64-day gap between the two. The
+  cut-over is **2026-09-18**, the day the first sheet went in through ARC; 30
+  rows (all written by the ARC app) were copied, 0 failed. Add-only,
+  matched on `LegacySource` (`CPU-95#<id>`); the old list was never changed.
+  A sheet entered on the old list after the copy is picked up by re-running
+  the migration with the same `-Since`. None had attachments.
+- **The old list holds 601 rows Ray bulk-loaded on 2026-07-16** — the same
+  count as the 601 Power Apps rows, very likely a re-import of them. Not
+  copied; worth knowing before reporting off the old list.
+- **Migrated values**: a ticked check became "Yes", an unticked one BLANK
+  (never "No" — the old list can't tell "not done" from "failed"); the
+  791952/62-18 voltage set or the standard one by part number; firing angles
+  from the unit's grid in row order, with "at spec" Yes when every typed
+  actual matched its spec, No (and only the differing actuals copied) when
+  one didn't; date-only columns through ARC's own midday pivot, so a row
+  shows the date it showed before. Oven ON/OFF, SAP Number and Memory No.
+  came across blank, for operations to fill in from the paper.
+- **Graph sign-in for these scripts can't run from Claude's shell**: the
+  module signs in through the Windows account window (WAM), which needs a
+  window a background process hasn't got, and device-code sign-in timed out
+  twice. Run them in your own terminal; from VS Code the WAM window can open
+  behind it (`-DeviceCode` is the fallback).
+
+The built-in fonts encode WinAnsi only, so typed values go through
+`toWinAnsi` (Greek μ → micro sign µ, anything unencodable → `?`). Check a
+layout change BY EYE, not only by test: generate a PDF and render it to PNG
+(PyMuPDF into the scratchpad worked; no tool here views a PDF directly).
 
 **Any signed-in user can create or edit** — no admin gate, matching Visit
 Reports and QC Time Tracking. Reading and searching are open to everyone;

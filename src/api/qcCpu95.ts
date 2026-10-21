@@ -6,19 +6,19 @@ import { MOCK_QC_CPU95_RECORDS } from "@/data/qcCpu95MockData";
 import { mockDelay } from "./mockLatency";
 
 // =============================================================================
-// QCFRM-012 (CPU-95) — Engineering site.
+// QCFRM-012 (CPU-95) — "QCFRM-012 CPU-95 Test Sheets" on Altronic_PMO.
 //
 // Any signed-in user can create or edit a test sheet; there is no admin gate,
 // same openness as Test Sheets and QC Time Tracking. No delete — each row is
 // a signed, dated test record (Final Test By / Final Inspection By), the same
 // "correct with an edit" call as FAIT and Visit Reports.
 //
-// NO `$select` — see the header comment in lib/qcCpu95Fields.ts. This list's
-// ~200 columns make a fully-named $select run the request URL up near 5,000
-// characters, which came back 404 "UnknownError" with no rows rather than a
-// clean error (found live, 2026-09-17). `toQcCpu95Record` only reads the
-// columns it knows about, so fetching every field costs a bigger response,
-// never a wrong one.
+// NO `$select` — see the header comment in lib/qcCpu95Fields.ts. The old
+// Engineering-site list's ~230 columns made a fully-named $select run the URL
+// up near 5,000 characters, which came back 404 "UnknownError" with no rows
+// (found live, 2026-09-17). The PMO list is ~150 columns; `toQcCpu95Record`
+// only reads the columns it knows about, so fetching every field costs a
+// bigger response, never a wrong one.
 // =============================================================================
 
 let mockStore: QcCpu95Record[] = MOCK_QC_CPU95_RECORDS.map((r) => ({ ...r, values: { ...r.values } }));
@@ -38,7 +38,7 @@ export async function listQcCpu95Records(): Promise<QcCpu95Record[]> {
 
   const listId = requireListId("load CPU-95 test sheets");
   const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.engineering}/lists/${listId}/items?$expand=fields&$top=999`,
+    `/sites/${SITES.pmo}/lists/${listId}/items?$expand=fields&$top=999`,
   );
   return items.map(toQcCpu95Record).sort(compareQcCpu95Records);
 }
@@ -53,7 +53,7 @@ export async function getQcCpu95Record(id: number): Promise<QcCpu95Record | null
   const listId = requireListId("load the CPU-95 test sheet");
   try {
     const item = await graphFetch<GraphListItem>(
-      `/sites/${SITES.engineering}/lists/${listId}/items/${id}?$expand=fields`,
+      `/sites/${SITES.pmo}/lists/${listId}/items/${id}?$expand=fields`,
     );
     return toQcCpu95Record(item);
   } catch {
@@ -75,7 +75,7 @@ export async function createQcCpu95Record(values: Record<string, string>): Promi
   }
 
   const listId = requireListId("add the CPU-95 test sheet");
-  const created = await graphFetch<GraphListItem>(`/sites/${SITES.engineering}/lists/${listId}/items`, {
+  const created = await graphFetch<GraphListItem>(`/sites/${SITES.pmo}/lists/${listId}/items`, {
     method: "POST",
     body: JSON.stringify({ fields: buildQcCpu95Fields(values) }),
   });
@@ -84,7 +84,11 @@ export async function createQcCpu95Record(values: Record<string, string>): Promi
   return (await getQcCpu95Record(parseInt(created.id, 10))) ?? toQcCpu95Record(created);
 }
 
-/** Save the edit form — every field it holds. No column here has a fixed choice list to be rejected by, so a full resend is always safe. */
+/**
+ * Save the edit form — every field it holds. The check columns are strict
+ * choices, but the mapper only ever sends one of their three choices or null,
+ * so a full resend is always safe.
+ */
 export async function updateQcCpu95Record(
   id: number,
   values: Record<string, string>,
@@ -98,7 +102,7 @@ export async function updateQcCpu95Record(
   }
 
   const listId = requireListId("save the CPU-95 test sheet");
-  await graphFetch(`/sites/${SITES.engineering}/lists/${listId}/items/${id}/fields`, {
+  await graphFetch(`/sites/${SITES.pmo}/lists/${listId}/items/${id}/fields`, {
     method: "PATCH",
     body: JSON.stringify(buildQcCpu95Fields(values)),
   });

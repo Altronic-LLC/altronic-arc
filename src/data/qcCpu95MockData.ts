@@ -2,9 +2,9 @@ import type { QcCpu95Record } from "@/types/task";
 import { qcCpu95EmptyValues } from "@/lib/qcCpu95Fields";
 
 // =============================================================================
-// Mock data for QCFRM-012 (CPU-95). A handful of fixtures spanning several
-// Altmodes (see qcCpu95Mapper.ts) so the demo shows the standard 16-cyl form,
-// the 791962/52-18 variant, and the 20-cyl multi-application sheet.
+// Mock data for QCFRM-012 (CPU-95). A handful of fixtures spanning the unit
+// variants (see qcCpu95Fields.ts) so the demo shows the standard 16-cyl form,
+// the 791962/52-18 high-voltage unit, the 20-cyl sheet, a CPU-95C and an EVS.
 // =============================================================================
 
 function record(id: number, overrides: Record<string, string>, daysAgo: number): QcCpu95Record {
@@ -17,13 +17,21 @@ function record(id: number, overrides: Record<string, string>, daysAgo: number):
   };
 }
 
+/** Spec angles in slot order, e.g. 0/45/90 … for a 16-cyl unit. */
+function specs(angles: number[]): Record<string, string> {
+  return Object.fromEntries(angles.map((a, i) => [`firingSpec${String(i + 1).padStart(2, "0")}`, String(a)]));
+}
+
+const SIXTEEN = [0, 45, 90, 135, 180, 225, 270, 315, 0, 45, 90, 135, 180, 225, 270, 315];
+
 export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
-  // Altmode 2 — standard 791950-16, 16-cylinder firing angles.
+  // 791950-16 — the standard unit, 16-cylinder firing, every actual at spec.
   record(
     1,
     {
       serialNumber: "25564",
       altronicPartNumber: "791950-16",
+      sapNumber: "1000-7760-00",
       logicBoardDateCode: "2414-03",
       powerBoardDateCode: "2417-06",
       invoiceNumber: "1001214118",
@@ -32,6 +40,8 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
       testRpm: "1200",
       testStandNumber: "1",
       dateTested: "2026-05-13",
+      ovenOn: "2026-05-13T15:30",
+      ovenOff: "2026-05-14T07:15",
       startup20vE1: "137",
       startup24vE1: "139",
       startup20vE2: "159",
@@ -52,6 +62,7 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
       finalE3_24v: "177",
       finalE3Current_20v: "1.8",
       finalE3Current_24v: "1.6",
+      finalGndGLead: "Yes",
       finalEachOutputFiring: "Yes",
       finalMultiFire: "Yes",
       finalInternal4Leds: "Yes",
@@ -60,26 +71,31 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
       finalVerifyOneStep: "Yes",
       finalVerifyOverspeed: "Yes",
       finalVerifyTestMode: "Yes",
-      finalProgramOrBlankMemory: "Yes",
+      finalProgramOrBlankMemory: "N/A",
       finalVerifyNoChecksum: "Yes",
       finalTriacLeakage: "Yes",
       finalDiodeLeakage: "Yes",
-      firingSpec16A: "0", firingSpec16B: "45", firingSpec16C: "90", firingSpec16D: "135",
-      firingActual16A: "0", firingActual16B: "45", firingActual16C: "90", firingActual16D: "135",
+      firingActualsAtSpec: "Yes",
+      ...specs(SIXTEEN),
+      inspLabelMatches: "Yes",
+      inspGasket: "Yes",
+      inspCoverBoard: "Yes",
+      inspClean: "Yes",
       finalTestBy: "JN",
       finalTestDate: "2026-05-13",
       finalInspectionBy: "JN",
-      finalInspectionDate: "2026-05-13",
+      finalInspectionDate: "2026-05-14",
     },
     3,
   ),
 
-  // Altmode 6 — 791962-18, the 791962/52-18 voltage variant, 18-cylinder firing.
+  // 791962-18 — the high-voltage unit, 18-cylinder firing, one cylinder off.
   record(
     2,
     {
       serialNumber: "25567",
       altronicPartNumber: "791962-18",
+      memoryNumber: "L4P180.FS539#001",
       logicBoardDateCode: "2413-02",
       powerBoardDateCode: "2417-01",
       invoiceNumber: "10012114116",
@@ -88,29 +104,27 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
       testRpm: "1200",
       testStandNumber: "1",
       dateTested: "2026-05-16",
-      startup20vE1Alt: "137",
-      startup24vE1Alt: "135",
-      startup20vE2Alt: "157",
-      startup24vE2Alt: "157",
-      startup20vE3Alt: "174",
-      startup24vE3Alt: "176",
-      startup20vE3CurrentAlt: "2.3",
-      startup24vE3CurrentAlt: "1.8",
-      final791956Timing: "Yes",
-      final791956LossOfLoop: "Yes",
-      final791956Below250Rpm: "Yes",
-      final791956CanComm: "Yes",
-      finalE1Alt_20v: "132",
-      finalE1Alt_24v: "133",
-      finalE2Alt_20v: "150",
-      finalE2Alt_24v: "151",
-      finalE3Alt_20v: "170",
-      finalE3Alt_24v: "172",
-      finalE3CurrentAlt_20v: "2.1",
-      finalE3CurrentAlt_24v: "1.8",
-      firingSpec18A: "0", firingSpec18B: "45", firingSpec18C: "90",
-      firingActual18A: "0", firingActual18B: "55", firingActual18C: "72",
-      finalTestBy: "JN",
+      startup20vE1: "144",
+      startup24vE1: "145",
+      startup20vE2: "164",
+      startup24vE2: "165",
+      startup20vE3: "185",
+      startup24vE3: "182",
+      startup20vE3Current: "2.1",
+      startup24vE3Current: "1.9",
+      finalE1_20v: "142",
+      finalE1_24v: "141",
+      finalE2_20v: "160",
+      finalE2_24v: "160",
+      finalE3_20v: "182",
+      finalE3_24v: "180",
+      finalE3Current_20v: "2",
+      finalE3Current_24v: "1.8",
+      finalGndGLead: "N/A",
+      firingActualsAtSpec: "No",
+      ...specs([0, 50, 80, 130, 160, 210, 240, 290, 320, 10, 40, 90, 120, 170, 200, 250, 280, 330]),
+      firingActual03: "81.5",
+      finalTestBy: "AB",
       finalTestDate: "2026-05-16",
       finalInspectionBy: "JN",
       finalInspectionDate: "2026-05-16",
@@ -118,7 +132,7 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
     6,
   ),
 
-  // Altmode 3 — 791950-20 / 791962-20, the multi-application 20-cylinder sheet.
+  // 791962-20 — the multi-application 20-cylinder sheet.
   record(
     3,
     {
@@ -132,10 +146,10 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
       testRpm: "1200",
       testStandNumber: "1",
       dateTested: "2026-10-09",
-      startup20vE1Alt: "135",
-      startup24vE1Alt: "135",
-      firingSpec20AL: "0", firingSpec20AR: "55", firingSpec20BL: "72",
-      firingActual20AL: "0", firingActual20AR: "55", firingActual20BL: "72",
+      startup20vE1: "135",
+      startup24vE1: "135",
+      ...specs([0, 55, 72, 127, 144, 199, 216, 271, 288, 343, 360, 55, 72, 127, 144, 199, 216, 271, 288, 343]),
+      firingActualsAtSpec: "Yes",
       finalTestBy: "jn",
       finalTestDate: "2026-10-10",
       finalInspectionBy: "jn",
@@ -171,6 +185,7 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
       altronicPartNumber: "791950-16",
       testStandNumber: "2",
       dateTested: "2026-09-16",
+      ovenOn: "2026-09-16T14:05",
       startup20vE1: "137",
       startupAlarmLedOff: "Yes",
     },
@@ -186,5 +201,53 @@ export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
       altronicPartNumber: "791950-18",
     },
     0,
+  ),
+
+  // CPU-95C (791955-16) — its own checks, Application in place of Memory No.
+  record(
+    7,
+    {
+      serialNumber: "90120",
+      altronicPartNumber: "791955-16",
+      application: "3516",
+      testStandNumber: "3",
+      dateTested: "2026-09-20",
+      startup20vE1: "134",
+      startup24vE1: "135",
+      startupGndGProgram: "Yes",
+      startupDisplayReady: "Yes",
+      startupUnitProgram: "Yes",
+      finalCatFirePulses: "Yes",
+      finalHDisconnect: "Yes",
+      finalModeMessage: "Yes",
+      finalMagCal: "Yes",
+      finalTiming110Rpm: "Yes",
+      ...specs([0, 60, 90, 150, 180, 240, 270, 330, 0, 60, 90, 150, 180, 240, 270, 330]),
+      firingActualsAtSpec: "Yes",
+      finalTestBy: "JN",
+      finalTestDate: "2026-09-21",
+    },
+    2,
+  ),
+
+  // CPU-95 EVS (791963-16A) — E1 single supply current, CAVG, six energy levels.
+  record(
+    8,
+    {
+      serialNumber: "90133",
+      altronicPartNumber: "791963-16A",
+      testStandNumber: "4",
+      dateTested: "2026-09-24",
+      startupE1SupplyCurrent: "1.4",
+      startupCountAOutput: "109",
+      startupEavg: "110",
+      finalE1SupplyCurrent: "1.5",
+      finalSixEnergyLevels: "Yes",
+      ...specs(SIXTEEN),
+      firingActualsAtSpec: "Yes",
+      finalTestBy: "AB",
+      finalTestDate: "2026-09-25",
+    },
+    2,
   ),
 ];
