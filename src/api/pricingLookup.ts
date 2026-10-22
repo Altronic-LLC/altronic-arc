@@ -1,6 +1,12 @@
 import { FABRIC_ENABLED, FABRIC_IN_DEMO, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
-import { fabricQuery, FabricAuthError, FabricNotConfiguredError, FabricRequestError } from "./fabric";
+import {
+  fabricQuery,
+  FabricAuthError,
+  FabricNotConfiguredError,
+  FabricRequestError,
+  isRetryableFabricFailure,
+} from "./fabric";
 import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
 import {
   pricingMockDb,
@@ -195,12 +201,7 @@ export function describeSapCostFailure(err: unknown): string {
  * fails the same way every time.
  */
 export function isRetryableSapCostFailure(err: unknown): boolean {
-  if (isPricingDataNotConnected(err) || err instanceof FabricNotConfiguredError || err instanceof FabricAuthError) return false;
-  if (err instanceof FabricRequestError) {
-    if (err.cause === "transport") return true;
-    return err.cause === "http" && (err.detail.status ?? 0) >= 500;
-  }
-  return true;
+  return !isPricingDataNotConnected(err) && isRetryableFabricFailure(err);
 }
 
 /**

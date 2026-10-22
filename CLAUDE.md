@@ -499,6 +499,7 @@ src/
 │   ├── suppliers.ts              SRM Tool — Suppliers List CRUD + comments + watchers (Supply Chain, PMO site)
 │   ├── supplierContacts.ts       SRM Tool — Supplier Contacts CRUD + comments + watchers, scoped to a Supplier
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
+│   ├── supplierPerformance.ts    SRM Tool — SAP supplier performance from Fabric (`tbl_arc_supplier_performance`), the whole table in one paged read
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
 │   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
 │   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download/rename/delete (recycle bin)
@@ -606,6 +607,7 @@ src/
 │   ├── useSuppliers.ts           SRM Tool — Suppliers List queries, mutations + comments + watchers
 │   ├── useSupplierContacts.ts    SRM Tool — Supplier Contacts queries, mutations + comments + watchers
 │   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
+│   ├── useSupplierPerformance.ts SRM Tool — SAP's performance table keyed by BP number, one cached read for the list and every supplier page
 │   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
 │   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
 │   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
@@ -758,6 +760,7 @@ src/
 │   ├── supplierMapper.ts         Graph item → Supplier (SRM Tool anchor list)
 │   ├── supplierContactMapper.ts  Graph item → SupplierContact
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
+│   ├── supplierPerformance.ts    SAP performance rows → by BP number; supplierPerformanceFor = SAP first, ARC's typed scores as the fallback (pure)
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
 │   ├── scnFields.ts              SCN column descriptors (columns are DATA) — the four internal names that LIE are decoded here
@@ -898,6 +901,7 @@ src/
 │   ├── SupplierContactCard.tsx       SRM Tool — one contact, inline expandable card (comments/watchers/attachments)
 │   ├── SupplierIssueFormModal.tsx    SRM Tool — log an issue, scoped to a supplier (create-only)
 │   ├── SupplierIssueCard.tsx         SRM Tool — one issue, inline expandable card (comments/watchers/attachments)
+│   ├── SupplierClassChip.tsx         SRM Tool — SAP's A / B / C supplier class (letter + dot, colour never on the text)
 │   ├── SupplierLogo.tsx              SRM Tool — resolves and renders a supplier's Logo image column
 │   ├── SupplierLogoEditor.tsx        SRM Tool — Change/Remove links over SupplierLogo (detail page only)
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
@@ -3666,10 +3670,13 @@ Six things about this list's columns:
   ALWAYS sends it, false included, or SharePoint's own views read the column
   as blank rather than No. Settable on the New Supplier form (it is known
   when a supplier is set up) and editable from the Details card after.
-- **The four performance NUMBER columns are editable** (Ray, 2026-09-09) —
-  `SupplierPerformanceRate`, `QualityPerformance`, `QualityPeformance` and
-  `AllDeliveries`, through an "Edit scores" button on the sidebar's
-  Performance field. Two things about that panel: it renders **even when every
+- **The four performance NUMBER columns are now the FALLBACK** — SAP's
+  figures win wherever SAP scores the supplier (see "Supplier performance
+  comes from SAP" below). They are still editable, through an "Edit scores"
+  button that shows ONLY when the figures on screen are ARC's (Ray,
+  2026-09-09, for the editing) — `SupplierPerformanceRate`,
+  `QualityPerformance`, `QualityPeformance` and `AllDeliveries`. Two things
+  about that panel: it renders **even when every
   score is null**, because gating it on `supplierPerformanceRate !== null`
   (as it did) left a supplier with no scores yet no way to enter the first
   one; and a null reads **"Not recorded"** rather than being hidden or shown
@@ -3890,6 +3897,63 @@ their own inner `<div>` (full-width on mobile, `flex flex-col` container)
 and the two buttons into a second inner `<div>` means each row only ever
 sizes against its own content — a new button next to New Supplier should go
 in that second `<div>`, not back onto one shared row with the title block.
+
+#### Supplier performance comes from SAP — Fabric first, ARC's scores as the fallback
+
+Tim, 2026-10-22. The four scores and SAP's A / B / C class come from the
+Fabric warehouse table **`tbl_arc_supplier_performance`**, on the GraphQL
+API as **`tbl_arc_supplier_performances`**. It was created misspelt
+(`…_perfomance`) and Tim renamed it on 2026-10-22; the old name no longer
+answers (both checked with a live query). `SAP_SUPPLIER_PERFORMANCE_TABLE` in
+`api/supplierPerformance.ts` is the one place it is spelled. Columns:
+`BP_NUMBER` (text), `VENDOR_NAME`, `SUPPLIER_GROUP` (Production /
+Packaging), `PERIOD_YEAR`, `SUPPLIER_PCT`, `QUALITY_PCT`, `LOGISTICAL_PCT`,
+`ALL_DELIVERIES`, `CLASSIFICATION` (A / B / C). Pieces:
+`lib/supplierPerformance.ts` (pure), `api/supplierPerformance.ts`,
+`hooks/useSupplierPerformance.ts`, `components/SupplierClassChip.tsx`.
+
+What the live data looked like (2026-10-22): **321 rows, one per BP number,
+all PERIOD_YEAR 2026**; 306 of the 531 suppliers matched on BP number (304 of
+the 526 Active), 17 SAP vendors have no supplier in ARC, 3 rows have no
+LOGISTICAL_PCT. Where both existed, the typed SharePoint scores were older
+than SAP's and disagreed with them.
+
+Seven things that are load-bearing:
+
+- **The whole table is read ONCE** (paged by `endCursor`, 1,000 a page), cached
+  30 minutes, and matched in the browser. One request serves the list and
+  every supplier page. A cursor that never ends throws rather than handing
+  back a partial table, which would quietly put ARC's figures on suppliers
+  SAP does score.
+- **`supplierPerformanceFor` is the ONE rule**: SAP's row when the BP number
+  matches, else the four SharePoint columns. The list and the detail page
+  both call it, so they can't disagree.
+- **Matched on BP number, SAP's zero padding ignored** (`supplierBpKey`, both
+  sides). A blank BP number matches nothing.
+- **Several years per supplier → the latest PERIOD_YEAR wins.** The table
+  holds one year today; it is per year by design.
+- **A missing figure is `null` ("Not recorded"), never 0** — 0 would read as
+  the worst score.
+- **Nothing is shown as THE answer while SAP is being asked** — the sidebar
+  says "Checking SAP…" and the list cell "…". Showing ARC's older figures
+  first and then swapping them is the flicker this avoids.
+- **Edit scores shows only when the figures on screen are ARC's** (SAP has
+  no row, or SAP couldn't be read). SAP's figures are read-only in ARC. A
+  failure says why once (`describeSupplierPerformanceFailure`); on the list
+  that line replaces the per-row `*` that otherwise marks ARC's scores.
+
+**Who can read it is Fabric's call**, not ARC's: Tim set up a purchasing role
+on the GraphQL API item (2026-10-22). Somebody without it gets a 403 and
+ARC's own scores, with a sentence saying so. There is no ARC roles list for
+this, deliberately — the figures aren't sensitive, and two places deciding
+access is how they drift.
+
+**Real mode only.** `SUPPLIER_PERFORMANCE_LIVE = !USE_MOCK`; the demo reads
+`MOCK_SAP_SUPPLIER_PERFORMANCE` (invented figures; suppliers 25 and 29 have
+a row, 30 deliberately hasn't, to show the fallback). `VITE_FABRIC_IN_DEMO`
+is the Pricing Calculator's switch and does not reach this. Pinned in
+`api/supplierPerformance.real.test.ts` (the table name, paging) and the two
+`*.performance.test.tsx` view tests, verified by disabling the SAP-first rule.
 
 ### Cost Impact Notices (Supply Chain, ALTRONICSALESTEAM site)
 
@@ -7877,6 +7941,14 @@ Six things that are load-bearing:
 - **SAP material numbers are zero-padded** (`000000000001234`). Run them
   through `stripSapPadding` before matching or showing them; it is null-safe,
   since one null row in a GraphQL batch would otherwise throw for all of them.
+- **Retry only a blip** — `isRetryableFabricFailure` in `api/fabric.ts`: a
+  network failure or a 5xx. A missing endpoint, a refused token or a rejected
+  query fails the same way every time. Every Fabric hook uses it.
+- **Introspection is OFF, so prove a table's GraphQL name with a live query**
+  before writing code against it. The quick way, read-only, as yourself:
+  `az account get-access-token --resource https://analysis.windows.net/powerbi/api`
+  and POST the query to `FABRIC_GRAPHQL_ENDPOINT`. That is how the supplier
+  performance table's name was checked, before and after its rename.
 
 **The dev harness's pasted-token box** bypasses MSAL so the whole route can be
 proven before ARC's app registration has the scope (that is how the query was
