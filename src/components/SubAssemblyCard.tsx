@@ -12,6 +12,7 @@ import { formatMoney, formatUnitCost } from "@/lib/quoteMoney";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { RowSellingPrice } from "./RowSellingPrice";
 import { cn } from "@/lib/cn";
+import { SMALL_LABEL } from "./pricingFields";
 
 // =============================================================================
 // The rows of a New Product Pricing worksheet (Ray, 2026-10-13):
@@ -80,9 +81,19 @@ const SOURCE_CHIP: Record<NonNullable<SubAssemblyLine["source"]>, { label: strin
   sap: { label: "SAP", tone: "bg-cooper-green/10 text-cooper-green" },
 };
 
-function SourceChip({ source }: { source: SubAssemblyLine["source"] }) {
+function SourceChip({ source, inline = false }: { source: SubAssemblyLine["source"]; inline?: boolean }) {
   const chip = SOURCE_CHIP[source ?? "csv"];
-  return <span className={cn("mt-0.5 block w-fit rounded-sm px-1 text-[10px] font-semibold uppercase", chip.tone)}>{chip.label}</span>;
+  return (
+    <span
+      className={cn(
+        "rounded-sm px-1 text-[10px] font-semibold uppercase leading-tight",
+        inline ? "inline-block" : "mt-0.5 block w-fit",
+        chip.tone,
+      )}
+    >
+      {chip.label}
+    </span>
+  );
 }
 
 /** A row's files — once it is saved. An unsaved row has nowhere to hang them yet. */
@@ -168,8 +179,8 @@ function NumberInputs({
 }) {
   return (
     <>
-      <label className="flex w-36 flex-col gap-1 text-xs">
-        <span className="font-semibold uppercase tracking-wider text-fg-muted">Altronic #</span>
+      <label className="flex w-36 flex-col gap-1.5 text-xs">
+        <span className={SMALL_LABEL}>Altronic #</span>
         <input
           value={draft.altronicPartNumber}
           onChange={(e) => onChange({ ...draft, altronicPartNumber: e.target.value })}
@@ -178,8 +189,8 @@ function NumberInputs({
           aria-label={`Altronic part number of ${draft.name || "this row"}`}
         />
       </label>
-      <label className="flex w-36 flex-col gap-1 text-xs">
-        <span className="font-semibold uppercase tracking-wider text-fg-muted">SAP #</span>
+      <label className="flex w-36 flex-col gap-1.5 text-xs">
+        <span className={SMALL_LABEL}>SAP #</span>
         <input
           value={draft.sapPartNumber}
           onChange={(e) => onChange({ ...draft, sapPartNumber: e.target.value })}
@@ -199,6 +210,8 @@ export function SubAssemblyCard({
   readOnly,
   uploader,
   worksheetDiscountPct,
+  open: openProp,
+  onOpenChange,
 }: {
   draft: SubAssemblyDraft;
   onChange: (next: SubAssemblyDraft) => void;
@@ -207,6 +220,9 @@ export function SubAssemblyCard({
   uploader: { displayName: string; email: string };
   /** The worksheet's distributor discount — a row's own price uses it unless it overrides. */
   worksheetDiscountPct: number;
+  /** Folded or not, when the worksheet controls it (Collapse all); otherwise the card's own. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<{ errors: string[]; skipped: string[]; changes: UploadChanges | null } | null>(null);
@@ -214,7 +230,9 @@ export function SubAssemblyCard({
   const [pasting, setPasting] = useState(false);
   const cost = subAssemblyCost(draftAsSubAssembly(draft));
   const name = draft.name || "sub-assembly";
-  const [open, setOpen] = useState(true);
+  const [openLocal, setOpenLocal] = useState(true);
+  const open = openProp ?? openLocal;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setOpenLocal(v));
 
   async function onFile(file: File) {
     const text = await file.text();
@@ -256,8 +274,8 @@ export function SubAssemblyCard({
       <>
       <div className="flex flex-wrap items-end gap-3">
         <CollapseToggle open onToggle={() => setOpen(false)} label={name} />
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Sub-assembly</span>
+        <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Sub-assembly</span>
           <input
             value={draft.name}
             onChange={(e) => onChange({ ...draft, name: e.target.value })}
@@ -267,8 +285,8 @@ export function SubAssemblyCard({
           />
         </label>
         <NumberInputs draft={draft} onChange={onChange} readOnly={readOnly} />
-        <label className="flex w-24 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Qty / product</span>
+        <label className="flex w-24 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Qty / product</span>
           <input
             type="number"
             min={0}
@@ -416,7 +434,7 @@ export function SubAssemblyCard({
               <col className="w-26" />
               <col className="w-8" />
             </colgroup>
-            <thead className="text-[11px] uppercase tracking-wider text-fg-muted">
+            <thead className="text-[10px] uppercase tracking-wider text-fg-muted">
               <tr>
                 <th className="px-2 py-1.5 font-semibold">Altronic #</th>
                 <th className="px-2 py-1.5 font-semibold">SAP #</th>
@@ -493,7 +511,14 @@ export function SubAssemblyCard({
                         />
                       )}
                     </td>
-                    <td className={cn("px-2 py-1.5 text-right tabular-nums", adjusted && "text-fg-muted line-through")}>
+                    {/* A figure (not a box) is pushed down to sit level with the boxes in its row. */}
+                    <td
+                      className={cn(
+                        "px-2 py-1.5 text-right tabular-nums",
+                        !(manual && !readOnly) && !readOnly && "pt-3.5",
+                        adjusted && "text-fg-muted line-through",
+                      )}
+                    >
                       {manual && !readOnly ? (
                         <input
                           type="number"
@@ -514,7 +539,7 @@ export function SubAssemblyCard({
                     <td className="px-2 py-1.5 text-right">
                       <AdjustedCost line={line} label={label} readOnly={readOnly} onChange={(v) => setLine(i, { adjustedCost: v })} />
                     </td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
+                    <td className={cn("whitespace-nowrap px-2 py-1.5 text-right tabular-nums", !readOnly && "pt-3.5")}>
                       {used === null ? "—" : formatMoney(used * line.quantity)}
                     </td>
                     <td className="px-2 py-1.5 text-right">
@@ -782,12 +807,16 @@ export function PartCard({
   onRemove,
   readOnly,
   worksheetDiscountPct,
+  open: openProp,
+  onOpenChange,
 }: {
   draft: SubAssemblyDraft;
   onChange: (next: SubAssemblyDraft) => void;
   onRemove: () => void;
   readOnly: boolean;
   worksheetDiscountPct: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const line: SubAssemblyLine = draft.lines[0] ?? {
     partNumber: "",
@@ -811,7 +840,9 @@ export function PartCard({
   const askedKey = `${sap.asked.altronicPartNumber}|${sap.asked.sapPartNumber}`;
   const label = draft.altronicPartNumber || draft.sapPartNumber || draft.name || "this part";
   const used = lineUnitCost(line);
-  const [open, setOpen] = useState(true);
+  const [openLocal, setOpenLocal] = useState(true);
+  const open = openProp ?? openLocal;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setOpenLocal(v));
 
   function set(patch: Partial<SubAssemblyDraft>, linePatch: Partial<SubAssemblyLine> = {}) {
     const next = { ...draft, ...patch };
@@ -867,12 +898,12 @@ export function PartCard({
           }}
           readOnly={readOnly}
         />
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Description</span>
+        <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Description</span>
           <input value={draft.name} onChange={(e) => set({ name: e.target.value })} disabled={readOnly} className="input" aria-label={`Description of ${label}`} />
         </label>
-        <label className="flex w-24 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Qty / product</span>
+        <label className="flex w-24 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Qty / product</span>
           <input
             type="number"
             min={0}
@@ -902,9 +933,16 @@ export function PartCard({
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-end gap-4 text-sm">
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Base cost</span>
+      {/* Label row, then a fixed-height control row, so the three line up
+          whatever sits in them (Ray, 2026-10-22). The source chip sits beside
+          its label rather than under the box. */}
+      <div className="mt-3 flex flex-wrap items-start gap-4 text-sm">
+        <div className="flex flex-col gap-1.5 text-xs">
+          <span className="flex h-3.5 items-center gap-1.5">
+            <span className={SMALL_LABEL}>Base cost</span>
+            <SourceChip source={line.source} inline />
+          </span>
+          <div className="flex h-9 items-center">
           {fromSap || readOnly ? (
             <span className="text-sm tabular-nums text-fg">{line.uploadedCost === null ? "—" : formatUnitCost(line.uploadedCost)}</span>
           ) : (
@@ -915,18 +953,26 @@ export function PartCard({
               aria-label={`Base cost for ${label}`}
               value={line.uploadedCost ?? ""}
               onChange={(e) => set({}, { uploadedCost: num(e.target.value), source: "manual" })}
-              className="input w-28! text-right tabular-nums"
+              className="input h-9! w-28! text-right tabular-nums"
             />
           )}
-          <SourceChip source={line.source} />
+          </div>
         </div>
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Adjusted cost</span>
-          <AdjustedCost line={line} label={label} readOnly={readOnly} onChange={(v) => set({}, { adjustedCost: v })} />
+        <div className="flex flex-col gap-1.5 text-xs">
+          <span className="flex h-3.5 items-center">
+            <span className={SMALL_LABEL}>Adjusted cost</span>
+          </span>
+          <div className="flex h-9 items-center">
+            <AdjustedCost line={line} label={label} readOnly={readOnly} onChange={(v) => set({}, { adjustedCost: v })} />
+          </div>
         </div>
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Extended</span>
-          <span className="text-sm tabular-nums text-fg">{used === null ? "—" : formatMoney(used * draft.quantityPerProduct * overheadFactor(draft.overheadPct))}</span>
+        <div className="flex flex-col gap-1.5 text-xs">
+          <span className="flex h-3.5 items-center">
+            <span className={SMALL_LABEL}>Extended</span>
+          </span>
+          <div className="flex h-9 items-center">
+            <span className="text-sm tabular-nums text-fg">{used === null ? "—" : formatMoney(used * draft.quantityPerProduct * overheadFactor(draft.overheadPct))}</span>
+          </div>
         </div>
       </div>
 
@@ -951,8 +997,8 @@ function OverheadInput({
   onChange: (v: number | null) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="font-semibold uppercase tracking-wider text-fg-muted">Overhead %</span>
+    <label className="flex flex-col gap-1.5 text-xs">
+      <span className={SMALL_LABEL}>Overhead %</span>
       <input
         type="number"
         min={0}

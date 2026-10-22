@@ -15,6 +15,12 @@ import { PRICING_ROLES, type PricingRequestStatus, type PricingRole } from "@/ty
 //
 // Each tag implies the ones before it (admin ⊃ manager ⊃ requester).
 //
+// `new products` stands ALONE (Ray, 2026-10-22): it opens New Product Pricing
+// — see and work worksheets — and NOTHING else in Pricing: no requests, no
+// customer quotes, no calculator, no roles. Managers and admins have New
+// Products already. `canOpen` is "may open the Pricing tool at all" (the
+// Dashboard card and the menu); `canAccess` stays the REQUEST side.
+//
 //   * **NO ROLE = NO ACCESS** (Ray, 2026-10-13: both roles live on the list,
 //     and anyone not on it gets nothing) — the Quote Roles rule.
 //   * **An ARC admin gets ONLY `canManageRoles`**, so a list nobody holds
@@ -42,7 +48,12 @@ export function serializePricingRoles(roles: readonly PricingRole[]): string {
 }
 
 export interface PricingRights {
+  /** May open the Pricing tool at all — any role, `new products` included. */
+  canOpen: boolean;
+  /** The request side: raise and see requests, comment, the calculator. */
   canAccess: boolean;
+  /** See and work New Product Pricing worksheets. */
+  canNewProducts: boolean;
   canSeeCost: boolean;
   canPrice: boolean;
   canAddToSap: boolean;
@@ -50,7 +61,9 @@ export interface PricingRights {
 }
 
 export const NO_PRICING_RIGHTS: PricingRights = {
+  canOpen: false,
   canAccess: false,
+  canNewProducts: false,
   canSeeCost: false,
   canPrice: false,
   canAddToSap: false,
@@ -62,8 +75,11 @@ export function pricingRightsFrom(roles: readonly PricingRole[], opts: { isArcAd
   const admin = roles.includes("admin");
   const manager = admin || roles.includes("manager");
   const requester = manager || roles.includes("requester");
+  const newProducts = manager || roles.includes("new products");
   return {
+    canOpen: requester || newProducts,
     canAccess: requester,
+    canNewProducts: newProducts,
     canSeeCost: manager,
     canPrice: manager,
     canAddToSap: admin,
@@ -129,6 +145,16 @@ export function seePricingCostGate(access: PricingAccess): PricingGate {
 /** May they set or change a price, and work New Product Pricing worksheets? */
 export function priceGate(access: PricingAccess): PricingGate {
   return decide(access, (r) => r.canPrice, "You can set prices.", "Only pricing managers and admins can set prices.");
+}
+
+/** May they see and work New Product Pricing worksheets? (`new products`, manager or admin.) */
+export function newProductsGate(access: PricingAccess): PricingGate {
+  return decide(
+    access,
+    (r) => r.canNewProducts,
+    "You can work New Product Pricing worksheets.",
+    "New Product Pricing is for pricing managers, admins and the New Products role.",
+  );
 }
 
 /** May they press Added to SAP? */

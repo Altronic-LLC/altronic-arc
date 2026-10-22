@@ -133,6 +133,7 @@ export const MOCK_PRICING_ROLES: PricingRoleEntry[] = [
   },
   { id: 2, email: "katie.fleming@altronic-llc.com", displayName: "Katie Fleming", roles: ["requester"], note: "Sales" },
   { id: 3, email: "brandon.mirto@altronic-llc.com", displayName: "Brandon Mirto", roles: ["manager"], note: "Pricing" },
+  { id: 4, email: "np.costing@example.com", displayName: "Demo Costing Engineer", roles: ["new products"], note: "New Product Pricing only" },
 ];
 
 // -----------------------------------------------------------------------------

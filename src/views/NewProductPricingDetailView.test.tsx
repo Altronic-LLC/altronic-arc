@@ -68,7 +68,7 @@ describe("NewProductPricingDetailView", () => {
   it("refuses a requester", async () => {
     who.email = REQUESTER;
     renderWorksheet();
-    expect(await screen.findByText("This is for pricing managers and admins.")).toBeInTheDocument();
+    expect(await screen.findByText("This is for pricing managers, admins and the New Products role.")).toBeInTheDocument();
     expect(screen.queryByText("NP-2026-0001")).toBeNull();
   });
 
@@ -278,7 +278,7 @@ describe("NewProductPricingDetailView — standalone parts", () => {
     const part = await screen.findByRole("region", { name: "Part 593027-25" }, { timeout: 10_000 });
     await waitFor(() => expect(within(part).getByLabelText(/^SAP part number of/)).toHaveValue("2001-0310-25"));
     expect(within(part).getByLabelText("Description of 593027-25")).toHaveValue("HARNESS, CPU-95, 25 FT");
-    expect(within(part).getByText("Base cost").parentElement).toHaveTextContent("$142.00");
+    expect(within(part).getByText("Base cost").closest(".flex-col")).toHaveTextContent("$142.00");
     expect(within(part).getByText("SAP")).toBeInTheDocument();
     expect(within(part).queryByLabelText("Base cost for 593027-25")).toBeNull();
     // $142, no overhead on a new row: 817.24 + 142.
@@ -474,15 +474,10 @@ describe("NewProductPricingDetailView — customer price and Compare to SAP", ()
     expect(figures.getByText("Customer price").nextElementSibling?.textContent).toBe("$1,280.00");
   });
 
-  it("compares by the SAP part number typed, remembered on the worksheet", async () => {
+  it("has no Compare to SAP card any more (Ray, 2026-10-22)", async () => {
     renderWorksheet();
     await waitForWorksheet();
-    const box = screen.getByLabelText("SAP part number", { selector: "input[placeholder='SAP part #']" });
-    await userEvent.clear(box);
-    await userEvent.type(box, "1003-0114-16");
-    await userEvent.click(screen.getByRole("button", { name: /Remember|Change/ }));
-    await waitFor(() => expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.sapPartNumber).toBe("1003-0114-16"));
-    expect(await screen.findByRole("table", { name: "Intended versus SAP" })).toBeInTheDocument();
+    expect(screen.queryByText("Compare to SAP")).toBeNull();
   });
 });
 
@@ -515,7 +510,7 @@ describe("NewProductPricingDetailView — choosing what goes in, and adding seve
 
     const found = await screen.findByRole("region", { name: "Part 593027-25" }, { timeout: 10_000 });
     expect(within(found).getByLabelText("Description of 593027-25")).toHaveValue("HARNESS, CPU-95, 25 FT");
-    expect(within(found).getByText("Base cost").parentElement).toHaveTextContent("$142.00");
+    expect(within(found).getByText("Base cost").closest(".flex-col")).toHaveTextContent("$142.00");
     expect(screen.getByRole("region", { name: "Part 593027-15" })).toBeInTheDocument();
     const missing = screen.getByRole("region", { name: "Part NOPE-1" });
     expect(within(missing).getByLabelText("Base cost for NOPE-1")).toHaveValue(null);
@@ -566,5 +561,29 @@ describe("NewProductPricingDetailView — choosing what goes in, and adding seve
     expect(within(board).getByText("4 components · ×1")).toBeInTheDocument();
     await userEvent.click(within(board).getByRole("button", { name: "Expand Main board" }));
     expect(within(board).getByLabelText("Adjusted cost for PCB-24-BARE")).toHaveValue(185);
+  });
+
+  it("Collapse all folds every sub-assembly and part; Expand all opens them again", async () => {
+    renderWorksheet(2);
+    await waitForNumber("NP-2026-0002");
+    await userEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryByLabelText("Description of BRKT-KIT-SEAL")).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand BRKT-KIT-SEAL" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Sub-assemblies" })).queryAllByRole("table")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Collapse all" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getByLabelText("Description of BRKT-KIT-SEAL")).toHaveValue("Mounting bracket kit");
+  });
+
+  it("a row's own selling price folds to one line and opens again", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const priced = screen.getAllByRole("region", { name: / — own selling price$/ })[0];
+    await userEvent.click(within(priced).getByRole("button", { name: /^Collapse the own selling price/ }));
+    expect(within(priced).queryByText("Quantity breaks")).toBeNull();
+    expect(within(priced).getByText(/^List \$/)).toBeInTheDocument();
+    await userEvent.click(within(priced).getByRole("button", { name: /^Expand the own selling price/ }));
+    expect(within(priced).getByText("Quantity breaks")).toBeInTheDocument();
   });
 });

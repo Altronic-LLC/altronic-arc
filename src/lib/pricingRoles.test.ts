@@ -55,12 +55,14 @@ describe("pricingRightsFrom", () => {
   });
 
   it("gives a requester access only", () => {
-    expect(pricingRightsFrom(["requester"], { isArcAdmin: false })).toEqual({ ...NO_PRICING_RIGHTS, canAccess: true });
+    expect(pricingRightsFrom(["requester"], { isArcAdmin: false })).toEqual({ ...NO_PRICING_RIGHTS, canOpen: true, canAccess: true });
   });
 
   it("a manager implies requester, and can see cost and price", () => {
     expect(pricingRightsFrom(["manager"], { isArcAdmin: false })).toEqual({
+      canOpen: true,
       canAccess: true,
+      canNewProducts: true,
       canSeeCost: true,
       canPrice: true,
       canAddToSap: false,
@@ -70,12 +72,22 @@ describe("pricingRightsFrom", () => {
 
   it("an admin implies manager, and can add to SAP and manage roles", () => {
     expect(pricingRightsFrom(["admin"], { isArcAdmin: false })).toEqual({
+      canOpen: true,
       canAccess: true,
+      canNewProducts: true,
       canSeeCost: true,
       canPrice: true,
       canAddToSap: true,
       canManageRoles: true,
     });
+  });
+
+  it("the New Products role opens Pricing for New Products and NOTHING else — not even requests", () => {
+    expect(pricingRightsFrom(["new products"], { isArcAdmin: false })).toEqual({ ...NO_PRICING_RIGHTS, canOpen: true, canNewProducts: true });
+  });
+
+  it("a requester does not get New Products", () => {
+    expect(pricingRightsFrom(["requester"], { isArcAdmin: false }).canNewProducts).toBe(false);
   });
 
   it("an ARC admin with no pricing role gets ONLY canManageRoles — never cost", () => {

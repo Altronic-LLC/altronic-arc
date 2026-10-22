@@ -751,7 +751,7 @@ function DepartmentsMenu({
   const { rights: quoteRights } = useMyQuoteAccess();
   const canSeeQuotes = quoteRights.canAccess || quoteRights.canManageRoles;
   const { rights: pricingRights } = useMyPricingAccess();
-  const canSeePricing = pricingRights.canAccess;
+  const canSeePricing = pricingRights.canOpen;
 
   useEffect(() => {
     if (!open) return;

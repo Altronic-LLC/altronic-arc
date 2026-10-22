@@ -15,7 +15,7 @@ import {
   useSubAssemblies,
   useUpdateNewProductWorksheet,
 } from "@/hooks/useNewProductPricing";
-import { useMpgDistributorDiscount, useSapPart, type PastedPartResult } from "@/hooks/usePricingLookup";
+import { useMpgDistributorDiscount, type PastedPartResult } from "@/hooks/usePricingLookup";
 import { lineFromLookup, samePart } from "@/lib/sapPartFill";
 import { MultiPartAdd, describePastedAdd } from "@/components/MultiPartAdd";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -27,7 +27,6 @@ import { downloadBlob } from "@/hooks/useQuotePdf";
 import {
   MAX_PRICE_BREAKS,
   STANDARD_DISTRIBUTOR_DISCOUNT_PCT,
-  baseGrossMarginPct,
   priceBreaks,
   priceBreaksProblem,
   priceFromInput,
@@ -38,7 +37,6 @@ import {
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
 import { buildWorksheetWorkbook, worksheetFileName } from "@/lib/worksheetExcel";
-import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -88,6 +86,7 @@ function toNumber(raw: string): number | null {
 export function NewProductPricingDetailView() {
   return (
     <PricingManagerGate
+      newProducts
       configured={NEW_PRODUCT_PRICING_CONFIGURED}
       listName="NP Sub-Assemblies"
       envVar="VITE_SP_NP_SUBASSEMBLIES_LIST_ID"
@@ -178,6 +177,19 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
   // Two sections, shown once they have a row or are chosen (Ray, 2026-10-22).
   // The draft array keeps one order for both, which is what Save writes.
   const [openParts, setOpenParts] = useState(false);
+  // Which cards are folded (Ray, 2026-10-22: Collapse all). View only — keyed
+  // by the draft's key, never saved.
+  const [folded, setFolded] = useState<Set<string>>(() => new Set());
+  const foldProps = (key: string) => ({
+    open: !folded.has(key),
+    onOpenChange: (open: boolean) =>
+      setFolded((f) => {
+        const next = new Set(f);
+        if (open) next.delete(key);
+        else next.add(key);
+        return next;
+      }),
+  });
   const [pastingParts, setPastingParts] = useState(false);
   const subDrafts = drafts.filter((d) => d.kind !== "part");
   const partDrafts = drafts.filter((d) => d.kind === "part");
@@ -429,12 +441,34 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                 </section>
               )}
 
+              {drafts.length > 1 && (
+                <div className="-mb-2 flex justify-end gap-3 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setFolded(new Set(drafts.map((d) => d.key)))}
+                    disabled={drafts.every((d) => folded.has(d.key))}
+                    className="font-medium text-accent hover:underline disabled:text-fg-muted disabled:no-underline"
+                  >
+                    Collapse all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFolded(new Set())}
+                    disabled={folded.size === 0}
+                    className="font-medium text-accent hover:underline disabled:text-fg-muted disabled:no-underline"
+                  >
+                    Expand all
+                  </button>
+                </div>
+              )}
+
               {subDrafts.length > 0 && (
                 <section className="flex flex-col gap-3" aria-label="Sub-assemblies">
                   <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Sub-assemblies</h2>
                   {subDrafts.map((d) => (
                     <SubAssemblyCard
                       key={d.key}
+                      {...foldProps(d.key)}
                       draft={d}
                       readOnly={readOnly}
                       uploader={{ displayName: me.displayName, email: me.email ?? "" }}
@@ -455,6 +489,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                   {partDrafts.map((d) => (
                     <PartCard
                       key={d.key}
+                      {...foldProps(d.key)}
                       draft={d}
                       readOnly={readOnly}
                       onChange={(next) => changeDraft(d.key, next)}
@@ -783,7 +818,6 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
 
           <WorksheetWatchers ws={ws} />
           <RevisionHistory ws={ws} viewRev={viewRev} onView={setViewRev} />
-          <CompareToSap ws={ws} />
           </div>
         </aside>
       </div>
@@ -896,100 +930,6 @@ function RevisionHistory({ ws, viewRev, onView }: { ws: NewProductWorksheet; vie
             </li>
           ))}
         </ol>
-      )}
-    </PricingCard>
-  );
-}
-
-/**
- * Compare a revision's intended figures with SAP's now — read-only. The
- * comparison is by the SAP PART NUMBER typed here (Ray, 2026-10-13), which is
- * remembered on the worksheet's SapPartNumber column.
- */
-function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
-  const update = useUpdateNewProductWorksheet();
-  const [part, setPart] = useState(ws.sapPartNumber);
-  const [compareRev, setCompareRev] = useState(ws.history[ws.history.length - 1]?.rev ?? ws.rev);
-  const remembered = ws.sapPartNumber;
-  const sap = useSapPart({ altronicPartNumber: "", sapPartNumber: remembered }, !!remembered);
-  const intended = ws.history.find((h) => h.rev === compareRev) ?? null;
-
-  if (!SAP_DATA_CONNECTED) {
-    return (
-      <PricingCard title="Compare to SAP" tone="reference">
-        <p className="text-sm text-fg-muted">Available once SAP data is connected.</p>
-      </PricingCard>
-    );
-  }
-  const actual = sap.data ?? null;
-  const actualGM = actual ? baseGrossMarginPct(actual.listPrice, actual.cost, intended?.distributorDiscountPct ?? STANDARD_DISTRIBUTOR_DISCOUNT_PCT) : null;
-  const rows: Array<[string, string, string]> = intended
-    ? [
-        ["Unit cost", formatMoney(intended.unitCost), formatMoney(actual?.cost ?? null)],
-        ["List price", formatMoney(intended.listPrice), formatMoney(actual?.listPrice ?? null)],
-        ["Base GM", formatPct(intended.baseGM), formatPct(actualGM)],
-      ]
-    : [];
-
-  return (
-    <PricingCard title="Compare to SAP" tone="reference">
-      <div className="flex gap-2">
-        <input
-          aria-label="SAP part number"
-          placeholder="SAP part #"
-          value={part}
-          onChange={(e) => setPart(e.target.value)}
-          className="input min-w-0! flex-1 font-mono"
-        />
-        <button
-          type="button"
-          disabled={!part.trim() || part.trim() === remembered || update.isPending}
-          onClick={() => update.mutate({ id: ws.id, patch: { sapPartNumber: part.trim() } })}
-          className="rounded-md border border-border px-2.5 text-xs font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
-        >
-          {remembered ? "Change" : "Remember"}
-        </button>
-      </div>
-      {ws.history.length > 1 && (
-        <label className="mt-2 flex items-center gap-2 whitespace-nowrap text-xs text-fg-muted">
-          Compare
-          <select value={compareRev} onChange={(e) => setCompareRev(Number(e.target.value))} className="input h-8! w-16! px-2! py-0!" aria-label="Revision to compare">
-            {ws.history.map((h) => (
-              <option key={h.rev} value={h.rev}>
-                R{h.rev}
-              </option>
-            ))}
-          </select>
-          with SAP now
-        </label>
-      )}
-      {!remembered ? (
-        <p className="mt-2 text-xs text-fg-muted">Once the product is in SAP, enter its SAP part number to compare.</p>
-      ) : sap.isLoading ? (
-        <p className="mt-2 text-xs text-fg-muted">Looking it up…</p>
-      ) : !actual ? (
-        <p className="mt-2 text-xs text-fg-muted">SAP doesn't have {remembered} yet.</p>
-      ) : !intended ? (
-        <p className="mt-2 text-xs text-fg-muted">Save the worksheet first.</p>
-      ) : (
-        <table className="mt-2 w-full text-sm" aria-label="Intended versus SAP">
-          <thead className="text-[11px] uppercase tracking-wider text-fg-muted">
-            <tr>
-              <th className="py-1 text-left font-semibold" />
-              <th className="py-1 text-right font-semibold">R{compareRev}</th>
-              <th className="py-1 text-right font-semibold">SAP now</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([label, a, b]) => (
-              <tr key={label} className="border-t border-border">
-                <td className="py-1 text-fg-muted">{label}</td>
-                <td className="py-1 text-right tabular-nums">{a}</td>
-                <td className="py-1 text-right tabular-nums">{b}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
     </PricingCard>
   );

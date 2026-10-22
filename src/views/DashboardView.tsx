@@ -1584,7 +1584,7 @@ function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
  */
 function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
   const { rights } = useMyPricingAccess();
-  if (!rights.canAccess) return null;
+  if (!rights.canOpen) return null;
   // "Pricing", with NO count (Ray, 2026-10-15) — a description card, like
   // Customers and Visit Reports, so the Dashboard reads no pricing list.
   // ajax-yellow: the one tone this section hadn't used.
@@ -1594,7 +1594,7 @@ function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
       icon={<Calculator className="h-5 w-5" />}
       tone="ajax-yellow"
       description="Price parts and new products from cost and margin, and build customer quotes."
-      to={"/sales/pricing"}
+      to={rights.canAccess ? "/sales/pricing" : "/sales/pricing/new-products"}
       onClick={onOpen}
     />
   );
@@ -1603,7 +1603,7 @@ function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
 /** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */
 function SalesPricingPlaceholder() {
   const { rights } = useMyPricingAccess();
-  if (rights.canAccess) return null;
+  if (rights.canOpen) return null;
   return <PlaceholderCard name="Pricing" icon={<Calculator className="h-5 w-5" />} />;
 }
 

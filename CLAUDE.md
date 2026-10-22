@@ -4680,21 +4680,32 @@ admins get "Run Queries and Mutations" on the GraphQL API item.
 
 #### Roles — `lib/pricingRoles.ts`, the ONE place the rules live
 
-| Right | `requester` | `manager` | `admin` |
-|---|---|---|---|
-| See requests and final prices, raise, comment, watch, customer PDF | yes | yes | yes |
-| See cost, margin, comparables and price history | — | yes | yes |
-| Price / re-price; New Product Pricing; Customer Quotes | — | yes | yes |
-| Added to SAP | — | — | yes |
-| Manage the Pricing Roles list | — | — | yes |
+| Right | `requester` | `manager` | `admin` | `new products` |
+|---|---|---|---|---|
+| See requests and final prices, raise, comment, watch, customer PDF, calculator | yes | yes | yes | — |
+| See cost, margin, comparables and price history | — | yes | yes | — |
+| Price / re-price; Customer Quotes | — | yes | yes | — |
+| New Product Pricing — see and work worksheets | — | yes | yes | yes |
+| Added to SAP | — | — | yes | — |
+| Manage the Pricing Roles list | — | — | yes | — |
 
 - **admin ⊃ manager ⊃ requester.** **No role = no access** — the Quote Roles
   rule, and the opposite of EIR Roles' fall-open.
+- **`new products` stands ALONE** (Ray, 2026-10-22: "a permission level that
+  is only able to see and interact with new product pricing"). Rights:
+  `canOpen` (the Dashboard card and the menu) and `canNewProducts`, nothing
+  else — `canAccess` stays the REQUEST side. Every New Products write asks
+  `newProductsGate`, and `PricingManagerGate newProducts` lets the role in.
+  Landing on a request screen (the card, the menu, an old link) REDIRECTS to
+  New Products rather than saying "no access" (`PricingAccessGate`); the
+  Pricing bar is hidden, since the role has one tab and no calculator. In
+  SharePoint the role needs New Product Pricing and NP Sub-Assemblies (and
+  Pricing Roles, read by everyone) — never Pricing Requests or History.
 - **An ARC admin gets ONLY `canManageRoles`**, so a roles list nobody holds
   `admin` on is never locked from the inside. Being an ARC admin is not a
   reason to see cost.
 - Every control AND every `mutationFn` asks the same gate
-  (`accessPricingGate`, `seePricingCostGate`, `priceGate`, `addedToSapGate`,
+  (`accessPricingGate`, `seePricingCostGate`, `priceGate`, `newProductsGate`, `addedToSapGate`,
   `managePricingRolesGate`, `cancelRequestGate`); the mutationFn goes through
   `useResolvePricingAccess`, which AWAITS the roles and Admins lists rather
   than trusting a render-time flag.
@@ -5137,11 +5148,18 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   disagree with the lines. The `Rev` column moves in the same PATCH.
 - The worksheet's `History` is JSON keyed by revision (one totals snapshot
   each). Its `Bom` column predates sub-assemblies and is unused.
-- **Compare to SAP** reads a chosen revision's figures against SAP's now, by
-  the **SAP part number** typed there (remembered in the worksheet's
-  `SapPartNumber` column); **Excel export**
-  (`lib/worksheetExcel.ts`, ExcelJS dynamically imported). Cancelled, never
-  deleted.
+- **Compare to SAP was REMOVED** from the right column (Ray, 2026-10-22);
+  the SAP comparison card below the rows covers it. The worksheet's
+  `SapPartNumber` column it remembered is left as it is, unread. **Excel
+  export** (`lib/worksheetExcel.ts`, ExcelJS dynamically imported).
+  Cancelled, never deleted.
+- **Layout** (Ray, 2026-10-22): field labels are `SMALL_LABEL`
+  (`components/pricingFields.tsx` — 10px, never wraps, so a row's boxes line
+  up); a card's cost row and a component row's figures sit on the same
+  label-row / 36px-control-row grid. **Collapse all / Expand all** above the
+  sections drive every card's fold (`open` / `onOpenChange` on both cards,
+  keyed by the draft key, view-only); a row's own selling price folds on its
+  own to a one-line summary.
 - **A sub-assembly or part can have its OWN selling price** (Ray,
   2026-10-14) — so one worksheet can price a few parts individually, each with
   its own quantity breaks. `components/RowSellingPrice.tsx` ("Sell

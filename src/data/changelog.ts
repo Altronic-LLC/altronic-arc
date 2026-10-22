@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.200.0",
+    date: "2026-10-22",
+    changes: [
+      "Pricing: a New Products only role — sees and works New Product Pricing and nothing else in Pricing",
+      "New Product Pricing: Collapse all and Expand all for sub-assemblies and parts",
+      "A row's own selling price folds to one line",
+      "Smaller field labels, and the fields on each sub-assembly and part line up",
+      "Compare to SAP is no longer in the right-hand column",
+    ],
+  },
+  {
     version: "0.199.0",
     date: "2026-10-22",
     changes: [

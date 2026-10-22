@@ -15,8 +15,12 @@ import type { Comment, Person } from "./task";
 // Roles
 // -----------------------------------------------------------------------------
 
-/** Each tag implies the ones before it: admin ⊃ manager ⊃ requester. */
-export const PRICING_ROLES = ["requester", "manager", "admin"] as const;
+/**
+ * admin ⊃ manager ⊃ requester — each implies the ones before it. "new
+ * products" stands ALONE (Ray, 2026-10-22): New Product Pricing and nothing
+ * else in Pricing; managers and admins have New Products already.
+ */
+export const PRICING_ROLES = ["requester", "manager", "admin", "new products"] as const;
 export type PricingRole = (typeof PRICING_ROLES)[number];
 
 export interface PricingRoleEntry {

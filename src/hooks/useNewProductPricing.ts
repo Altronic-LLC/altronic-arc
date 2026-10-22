@@ -26,7 +26,7 @@ import { afterMentionAutoWatch, beginMentionAutoWatch, type MentionAutoWatch } f
 import { newlyMentionedRecipients } from "./useQuotes";
 import type { NewProductRevision, NewProductWorksheet, PriceInput, PriceBreakTier, SubAssembly } from "@/types/pricing";
 import type { NewProductPatch } from "@/lib/pricingMapper";
-import { priceGate } from "@/lib/pricingRoles";
+import { newProductsGate } from "@/lib/pricingRoles";
 import {
   priceBreaks,
   priceBreaksProblem,
@@ -42,7 +42,8 @@ import { PRICING_SITE_LABEL } from "./usePricingRequests";
 
 // =============================================================================
 // New Product Pricing — worksheet hooks. Managers and admins only: every
-// write asks `priceGate` inside its mutationFn.
+// write asks `newProductsGate` inside its mutationFn (manager, admin or the
+// `new products` role).
 //
 // A save writes THREE things, in this order:
 //   1. the revision's sub-assembly rows (api/newProductSubAssemblies.ts);
@@ -105,7 +106,7 @@ export function useCreateNewProductWorksheet() {
   const actorRef = useActorRef();
   return useMutation({
     mutationFn: async (input: NewWorksheetInput) => {
-      requirePricingGate(priceGate(await resolve()));
+      requirePricingGate(newProductsGate(await resolve()));
       return createNewProductWorksheet({ ...input, createdBy: actorRef.current });
     },
     onSuccess: (created) => {
@@ -204,7 +205,7 @@ export function useSaveNewProductWorksheet() {
   const actorRef = useActorRef();
   return useMutation({
     mutationFn: async ({ worksheet, drafts, pricing, asNewRevision, note }: SaveWorksheetVars) => {
-      requirePricingGate(priceGate(await resolve()));
+      requirePricingGate(newProductsGate(await resolve()));
       if (worksheet.status === "Cancelled") throw new Error(`${worksheet.worksheetNumber} is cancelled.`);
       if (asNewRevision && !note.trim()) throw new Error("Say what changed in this revision.");
       const breakProblem = priceBreaksProblem(pricing.priceBreaks);
@@ -274,7 +275,7 @@ export function useUpdateNewProductWorksheet() {
   const resolve = useResolvePricingAccess();
   return useMutation({
     mutationFn: async ({ id, patch }: { id: number; patch: NewProductPatch }) => {
-      requirePricingGate(priceGate(await resolve()));
+      requirePricingGate(newProductsGate(await resolve()));
       return updateNewProductWorksheet(id, patch);
     },
     onSuccess: (saved) => upsert(qc, saved),
@@ -303,7 +304,7 @@ export function useSetWorksheetWatchers() {
   const resolve = useResolvePricingAccess();
   return useMutation({
     mutationFn: async ({ id, people }: { id: number; people: Person[] }) => {
-      requirePricingGate(priceGate(await resolve()));
+      requirePricingGate(newProductsGate(await resolve()));
       return setWorksheetWatchers(id, people);
     },
     onMutate: async ({ id, people }) => {
@@ -342,7 +343,7 @@ export function useAddWorksheetComment() {
   const resolve = useResolvePricingAccess();
   return useMutation({
     mutationFn: async ({ id, comment }: { id: number; comment: WorksheetCommentInput }) => {
-      requirePricingGate(priceGate(await resolve()));
+      requirePricingGate(newProductsGate(await resolve()));
       return addWorksheetComment(id, comment);
     },
     onMutate: async ({ id, comment }) => {
@@ -388,7 +389,7 @@ export function useEditWorksheetComment() {
   const resolve = useResolvePricingAccess();
   return useMutation({
     mutationFn: async (vars: { id: number; target: { timestamp: Date; authorEmail: string }; bodyHtml: string; previousBodyHtml: string }) => {
-      requirePricingGate(priceGate(await resolve()));
+      requirePricingGate(newProductsGate(await resolve()));
       return editWorksheetComment(vars.id, vars.target, vars.bodyHtml);
     },
     onMutate: async ({ id, bodyHtml, previousBodyHtml }) => {

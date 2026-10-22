@@ -39,6 +39,7 @@ export const PRICING_ROLE_LABELS: Record<PricingRole, string> = {
   requester: "Requester",
   manager: "Pricing manager",
   admin: "Admin",
+  "new products": "New Products only",
 };
 
 export const PRICING_ROLE_DESCRIPTIONS: Record<PricingRole, string> = {
@@ -48,6 +49,8 @@ export const PRICING_ROLE_DESCRIPTIONS: Record<PricingRole, string> = {
     "Everything a requester can, plus sees cost, margin and comparables, sets and re-prices requests, and is emailed every request that is ready to price.",
   admin:
     "Everything a pricing manager can, plus sets new parts up in SAP (Added to SAP), is emailed requests for parts SAP hasn't got, and manages this roles list.",
+  "new products":
+    "New Product Pricing only: sees and works worksheets — costs, prices, revisions, comments. Sees no requests, customer quotes or calculator. Managers and admins have this already.",
 };
 
 export const PRICING_ROLE_COLUMNS: SortColumn<PricingRoleEntry>[] = [
@@ -153,9 +156,10 @@ function RolesManager() {
           ))}
         </ul>
         <p className="mt-2 text-[11px] text-fg-muted">
-          Each role includes the ones above it. ARC admins can manage this list but get no pricing access
-          from that. Requesters are kept from cost by SharePoint itself: Pricing History and New Product
-          Pricing must only be shared with managers and admins.
+          Requester, Pricing manager and Admin each include the ones above. New Products only stands
+          alone. ARC admins can manage this list but get no pricing access from that. Requesters are kept
+          from cost by SharePoint itself: Pricing History and New Product Pricing must only be shared with
+          managers, admins and — for New Product Pricing and NP Sub-Assemblies — the New Products role.
         </p>
       </div>
 
