@@ -75,15 +75,17 @@ describe("scheduledMaintenance attachments (real mode)", () => {
   });
 
   it("uploads to the schedule's own item", async () => {
-    spFetch.mockResolvedValue({
-      FileName: "procedure.pdf",
-      ServerRelativeUrl: "/sites/Altronic_PMO/procedure.pdf",
-    });
+    // The upload lists the item's attachments first, then POSTs.
+    spFetch.mockImplementation(async (_path: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? { FileName: "procedure.pdf", ServerRelativeUrl: "/sites/Altronic_PMO/procedure.pdf" }
+        : { value: [] },
+    );
 
     const file = new File([new Uint8Array([1, 2, 3])], "procedure.pdf");
     const result = await uploadAttachment("scheduledMaintenance", 7, file);
 
-    const [path, init] = spFetch.mock.calls[0];
+    const [path, init] = spFetch.mock.calls.find(([, i]) => i?.method === "POST")!;
     expect(path).toBe(
       "https://example.sharepoint.com/sites/Altronic_PMO" +
         "/_api/web/lists(guid'schedule-list')/items(7)" +

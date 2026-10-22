@@ -355,6 +355,8 @@ const MAX_RENUMBER_ATTEMPTS = 3;
  * create as having succeeded, and say the number may be shared.
  */
 export class EirNumberUnconfirmedError extends Error {
+  /** The EIR was created — never a "Save Failed" email (see editFailureReport.ts). */
+  readonly writeLanded = true;
   readonly eir: Eir;
   constructor(eir: Eir, cause?: unknown) {
     super(

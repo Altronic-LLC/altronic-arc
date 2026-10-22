@@ -35,6 +35,7 @@ import {
   USE_MOCK,
 } from "./config";
 import { spFetch, SharePointUnavailableError } from "./sharepoint";
+import { GraphError } from "./graph";
 import { formatBytes } from "./projectFiles";
 
 // =============================================================================
@@ -393,6 +394,60 @@ export async function uploadAttachment(
     mockStore.set(key, next);
     return attachment;
   }
+  return inItemUploadQueue(`${parent}:${itemId}`, () => postAttachment(parent, itemId, file));
+}
+
+// ONE upload at a time per list item. Every AttachmentFiles/add also updates
+// the parent item, and two of them landing on one item together collide: the
+// file is stored, then SharePoint answers the item update with a bare 500
+// ("-2147467259 … Cannot complete this action"). Picking several files at once
+// fired one POST per file in parallel, so the upload "failed", the file was
+// there, and the person got a Save Failed email for a save that had worked
+// (reported 2026-10-22). Queued here, so every caller — the Attachments card,
+// a comment's files, a staged New-form batch, a promotion copy — is covered.
+const itemUploadQueues = new Map<string, Promise<unknown>>();
+
+function inItemUploadQueue<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = itemUploadQueues.get(key) ?? Promise.resolve();
+  const run = previous.then(task, task);
+  const tail = run.catch(() => undefined);
+  itemUploadQueues.set(key, tail);
+  void tail.then(() => {
+    if (itemUploadQueues.get(key) === tail) itemUploadQueues.delete(key);
+  });
+  return run;
+}
+
+/**
+ * A failure that doesn't say whether the file was stored: a 5xx or a 409 (the
+ * item update after the file write), or the connection dropping mid-request.
+ * A 400/403/404 is a refusal — nothing was written.
+ */
+function isAmbiguousUploadFailure(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  if (err instanceof GraphError) return err.status >= 500 || err.status === 409;
+  return false;
+}
+
+/** The item's attachment names, lower-cased — or null when they can't be read. */
+async function attachmentNames(parent: AttachmentParent, itemId: number): Promise<Set<string> | null> {
+  try {
+    const files = await listAttachments(parent, itemId);
+    return new Set(files.map((f) => f.fileName.toLowerCase()));
+  } catch {
+    return null;
+  }
+}
+
+async function postAttachment(
+  parent: AttachmentParent,
+  itemId: number,
+  file: File,
+): Promise<ListAttachment> {
+  // Who was already there, so an ambiguous failure can be settled by looking:
+  // a name that is there NOW and wasn't BEFORE is this upload. Without the
+  // "before", a same-named file somebody added earlier would read as success.
+  const before = await attachmentNames(parent, itemId);
   const bytes = await file.arrayBuffer();
   // SP REST attachment upload requires a binary POST. The filename has to
   // travel as a URL parameter — encode it carefully.
@@ -413,6 +468,19 @@ export async function uploadAttachment(
       body: bytes,
     });
   } catch (err) {
+    const name = file.name.toLowerCase();
+    if (before && !before.has(name) && isAmbiguousUploadFailure(err)) {
+      const landed = (await listAttachments(parent, itemId).catch(() => [])).find(
+        (a) => a.fileName.toLowerCase() === name,
+      );
+      if (landed) {
+        console.warn(
+          `[attachments] upload of a file to ${parent} ${itemId} reported a failure but the file is there — treating it as saved`,
+          err,
+        );
+        return landed;
+      }
+    }
     if (err instanceof TypeError) {
       throw new Error(
         `The upload of "${file.name}" (${formatBytes(file.size)}) was cut off before ` +
@@ -447,6 +515,35 @@ export async function deleteAttachment(
     method: "POST",
     headers: { "X-HTTP-Method": "DELETE", "If-Match": "*" },
   });
+}
+
+/**
+ * Upload files staged on a New form onto the item that form just created.
+ *
+ * Best-effort per file, never throws — the item already exists, so a failed
+ * file is a warning naming what to re-add from the item's page, not a failed
+ * create. One at a time (uploadAttachment queues per item anyway).
+ */
+export async function uploadAttachments(
+  parent: AttachmentParent,
+  itemId: number,
+  files: File[],
+  /** Called as each file STARTS — `index` is 0-based. */
+  onProgress?: (index: number, file: File) => void,
+): Promise<{ uploaded: string[]; failed: string[] }> {
+  const uploaded: string[] = [];
+  const failed: string[] = [];
+  for (const [index, file] of files.entries()) {
+    onProgress?.(index, file);
+    try {
+      await uploadAttachment(parent, itemId, file);
+      uploaded.push(file.name);
+    } catch (err) {
+      console.error(`uploadAttachments: failed to upload "${file.name}"`, err);
+      failed.push(file.name);
+    }
+  }
+  return { uploaded, failed };
 }
 
 /**

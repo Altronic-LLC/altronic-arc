@@ -965,6 +965,7 @@ src/
 │   ├── CommentThread.tsx         Sorted comment list + inline edit (own mention picker)
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
+│   ├── PendingAttachmentsCard.tsx  Files staged on a NEW form (EIR, Panel QC issue), uploaded once the item exists; renames same-name files
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
@@ -2278,12 +2279,10 @@ Four details:
   `flagged` is `undefined` for a part, and only `false` (not "absent")
   triggers the "flag says No" note. Same folder, same `<part #>.pdf` name.
 
-**Uploading** (Tim, 2026-09-28) — a PDF on the New Part form (**REQUIRED**
-since 2026-10-09, Tim: the form refuses to submit without one, naming
-"Datasheet" with the other missing fields; it was optional before — EXCEPT
-on a drawing number, EWI-005 device type 9 "Wire Diagram, Sales Drawing,
-etc." (`isDrawingNumber` in `lib/partNumberScheme.ts`), which has no
-datasheet and stays optional), and
+**Uploading** (Tim, 2026-09-28) — a PDF on the New Part form (**OPTIONAL on
+every part** — Tim removed the requirement entirely on 2026-10-22. It was
+required from 2026-10-09 except on a drawing number; `isDrawingNumber` in
+`lib/partNumberScheme.ts` was that exception and now has no caller), and
 an **Upload datasheet** button on a part's page when it has none (the way
 back from a failed upload, and the only way the ~14,000 Part List parts get
 one — none had a PDF when this shipped). `uploadDatasheet` writes
@@ -5812,11 +5811,11 @@ right after creation** (Ray, 2026-09-03: "attachments should be visible in
 the new entry view") — a real SharePoint list-item attachment needs an
 item id to attach to, which doesn't exist until the create POST succeeds,
 so there's no way to genuinely upload before that. `PendingAttachmentsCard`
-(a small stand-in for `AttachmentsSection`, local to
-`PanelQcIssueFormModal.tsx`) lets the user pick/drag files into memory
-while filling out the rest of the form; `submit()` uploads every staged
-file via `uploadAttachment("panelQcIssue", created.id, file)` immediately
-after `create.mutateAsync` resolves, best-effort per file (one failed
+(a small stand-in for `AttachmentsSection`, shared since 2026-10-22 with the
+New EIR form) lets the user pick/drag files into memory while filling out
+the rest of the form; `submit()` uploads every staged file with
+`uploadAttachments("panelQcIssue", created.id, files)`, ONE AT A TIME,
+immediately after `create.mutateAsync` resolves, best-effort per file (one failed
 upload doesn't fail the issue, which already exists by that point — the
 same "a write that already landed must not look like it failed" reasoning
 as the EIR→Task promotion's `EIRReference`/attachment follow-ups). Edit
@@ -11085,6 +11084,47 @@ separately, because access wouldn't fix a bad address or a throttle. An unset
 `VITE_SHARED_MAILBOX` is deliberately NOT toasted — it breaks every notification
 for everyone, so a per-comment toast would be noise rather than something one
 person can act on.
+
+### The Save Failed email is for a save that really failed
+
+`reportEditFailure` (`api/editFailureReport.ts`) runs on EVERY mutation error,
+from the global `MutationCache.onError` in `main.tsx`. Reported 2026-10-22:
+people got "Save Failed" for changes that had saved. Two causes, three rules:
+
+- **An error meaning the write LANDED carries `writeLanded: true`** and is
+  never emailed — `FaitReadBackError` (the PATCH landed, the re-read failed;
+  the hook keeps the change on screen), plus `FaitInitiatorNotSetError`,
+  `TaskFollowUpWriteError` and `EirNumberUnconfirmedError`. A new "it saved,
+  but…" error class gets the flag too.
+- **A mutation opts out with `meta: NO_EDIT_FAILURE_EMAIL`** where the email
+  can't help. Attachment upload and delete do: nothing typed is lost, and
+  the card already says the upload failed. `main.tsx` passes `mutation.meta`
+  through.
+- **A `File` variable is described by name and size.** The old describer
+  walked `Object.entries`, which is empty for a File, so the email said "the
+  specific values couldn't be captured".
+
+The other cause was in the upload itself, below.
+
+### List-item attachments upload ONE AT A TIME per item
+
+`uploadAttachment` (`api/attachments.ts`) queues per `parent:itemId`. Every
+`AttachmentFiles/add` also updates the parent item, and two landing on one
+item together collide: SharePoint stores the file, then answers the item
+update with a bare `500 -2147467259 "Cannot complete this action"`. Picking
+several files fired one POST each in parallel (and Panel QC's staged files
+used `Promise.allSettled`), so the upload "failed" with the file already there.
+
+- **The queue is in the API, not the callers**, so the Attachments card,
+  comment files, a New form's staged batch and `copyAttachments` are all
+  covered. Don't parallelise uploads to one item anywhere.
+- **An ambiguous failure is settled by looking.** A 5xx, a 409 or a dropped
+  connection re-lists the item's attachments. The upload counts as saved only
+  if the name is there now AND was absent in the listing taken just before
+  the POST. Without the "before", a same-named older file would read as
+  success. A 400/403/404 is a refusal and is never re-checked. That costs one
+  GET per upload, which is cheap for something people do by hand.
+- Pinned in `attachments.upload.test.ts`, each guard verified by removing it.
 
 ### "Attachments unavailable" has two causes, not one
 

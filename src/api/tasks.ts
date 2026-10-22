@@ -799,6 +799,8 @@ export async function createTask(input: {
  * a warning instead of pretending nothing went wrong.
  */
 export class TaskFollowUpWriteError extends Error {
+  /** The task was created — never a "Save Failed" email (see editFailureReport.ts). */
+  readonly writeLanded = true;
   readonly task: Task;
   readonly failedFields: string[];
   constructor(task: Task, failedFields: string[], cause: unknown) {
