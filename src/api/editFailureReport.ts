@@ -55,6 +55,28 @@ function isSessionExpired(error: unknown): boolean {
   return error instanceof Error && error.name === "SessionExpiredError";
 }
 
+/**
+ * True for an error that means the WRITE LANDED and only something after it
+ * failed (a re-read, a follow-up column). The hook keeps the change on screen,
+ * so a "Save Failed — we've undone it" email would be a lie. Such errors carry
+ * `writeLanded: true` (FaitReadBackError and its siblings).
+ */
+export function isWriteLandedError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { writeLanded?: unknown }).writeLanded === true
+  );
+}
+
+/**
+ * A mutation opts out with `meta: { reportEditFailure: false }` when a
+ * recovery email can't help — an attachment upload or delete, where nothing
+ * typed is lost (the person still has the file) and the card already says the
+ * upload failed.
+ */
+export const NO_EDIT_FAILURE_EMAIL = { reportEditFailure: false } as const;
+
 /** Resolve the signed-in user from MSAL — no React context needed here. */
 export function resolveEditFailureActor(): EditFailureActor | null {
   if (USE_MOCK) {
@@ -144,6 +166,16 @@ export function describeAttemptedChange(variables: unknown): AttemptedChange {
   const rows: AttemptedChangeRow[] = [];
   let itemId: number | null = null;
   let summary = "change";
+
+  // A file upload's variable IS the File. Object.entries(file) is empty, so it
+  // used to reach the email as "the specific values couldn't be captured".
+  if (typeof File !== "undefined" && variables instanceof File) {
+    return {
+      summary: "file upload",
+      itemId: null,
+      rows: [{ label: "File", value: `${variables.name} (${formatSize(variables.size)})` }],
+    };
+  }
 
   if (variables && typeof variables === "object") {
     const v = variables as Record<string, unknown>;
@@ -247,11 +279,15 @@ export function describeFailureReason(error: unknown): EditFailureReason {
 export async function reportEditFailure(input: {
   error: unknown;
   variables: unknown;
+  /** The mutation's `meta` — `reportEditFailure: false` opts out. */
+  meta?: Record<string, unknown>;
   /** Best-effort page URL for context; defaults to the current location. */
   pageUrl?: string;
 }): Promise<void> {
   try {
     if (isSessionExpired(input.error)) return;
+    if (input.meta?.reportEditFailure === false) return;
+    if (isWriteLandedError(input.error)) return;
 
     const actor = resolveEditFailureActor();
     if (!actor?.email) return;
@@ -372,6 +408,12 @@ function renderEditFailureEmail(ctx: {
     </table>
   </td></tr>
 </table>`.trim();
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function escapeHtml(s: string): string {

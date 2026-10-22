@@ -8,6 +8,7 @@ import {
   type AttachmentParent,
   type ListAttachment,
 } from "@/api/attachments";
+import { NO_EDIT_FAILURE_EMAIL } from "@/api/editFailureReport";
 
 // Exported so a mutation that writes an attachment OUTSIDE this hook file
 // (e.g. `useUpdateSupplierLogo`, which uploads via `updateSupplierLogo`
@@ -62,6 +63,9 @@ export function useAttachmentBlobUrl(
 export function useUploadAttachment(parent: AttachmentParent, itemId: number | null) {
   const qc = useQueryClient();
   return useMutation({
+    // No "Save Failed" email: nothing typed is lost (the person still has the
+    // file) and the card already says the upload failed.
+    meta: NO_EDIT_FAILURE_EMAIL,
     mutationFn: (file: File) => {
       if (itemId == null) throw new Error("No item id");
       return uploadAttachment(parent, itemId, file);
@@ -105,6 +109,7 @@ export function useCommentFileUpload(parent: AttachmentParent, itemId: number | 
 export function useDeleteAttachment(parent: AttachmentParent, itemId: number | null) {
   const qc = useQueryClient();
   return useMutation({
+    meta: NO_EDIT_FAILURE_EMAIL,
     mutationFn: (fileName: string) => {
       if (itemId == null) throw new Error("No item id");
       return deleteAttachment(parent, itemId, fileName);

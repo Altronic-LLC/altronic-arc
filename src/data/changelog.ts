@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.202.0",
+    date: "2026-10-22",
+    changes: [
+      "EIRs: add attachments on the New EIR form — they upload as soon as the EIR is saved",
+      "A new EIR opens only once SharePoint has confirmed it and every file, with each upload's progress shown, and the browser warns before a refresh or close would lose the files",
+      "Adding several attachments at once no longer reports a failure for files that actually saved",
+      "No more \"Save Failed\" emails for attachments, or for changes that did save",
+      "Parts List: a datasheet is no longer required to add a part — attach one on the New Part form or later from the part's page",
+    ],
+  },
+  {
     version: "0.201.1",
     date: "2026-10-22",
     changes: [

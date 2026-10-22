@@ -74,13 +74,19 @@ function handlePossibleSessionExpiry(error: unknown) {
 // write that truly can't be saved — after fetchWithRetry has exhausted its
 // throttle/network retries — emails the signed-in user a recovery copy of
 // what they entered plus the reason. Session-expiry is skipped inside
-// reportEditFailure (that's a re-auth, not a lost edit). Fire-and-forget and
-// self-guarding: it never throws back into the cache. Covers every current
-// and future department for free — no per-mutation wiring.
-function handleMutationError(error: unknown, variables: unknown) {
+// reportEditFailure (that's a re-auth, not a lost edit), as is an error whose
+// write LANDED (`writeLanded`), and a mutation can opt out through its `meta`
+// (attachment uploads do). Fire-and-forget and self-guarding: it never throws
+// back into the cache. Covers every current and future department for free.
+function handleMutationError(
+  error: unknown,
+  variables: unknown,
+  _context: unknown,
+  mutation: { meta?: Record<string, unknown> },
+) {
   handlePossibleSessionExpiry(error);
   handlePossibleAccessDenial(error);
-  void reportEditFailure({ error, variables });
+  void reportEditFailure({ error, variables, meta: mutation.meta });
 }
 
 const queryClient = new QueryClient({

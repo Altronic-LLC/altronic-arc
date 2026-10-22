@@ -1101,9 +1101,10 @@ const SECTIONS: ManualSection[] = [
           folder before the comment posts, and a clickable hyperlink to
           each file is inlined into the comment body — same routing
           described in the Attachments section below. On an{" "}
-          <strong>EIR</strong> comment, attachments are still in-session
-          previews only (legacy behaviour; the EIR attachment migration is
-          on the backlog).
+          <strong>EIR</strong> (and the other record types), a comment's files
+          are saved as attachments on that record, so they're in its
+          Attachments card too. Several files go up one after another, never
+          all at once — SharePoint can mix up two arriving together.
         </P>
         <H3>Formatting a comment — the Rich text button</H3>
         <P>
@@ -5573,8 +5574,16 @@ const SECTIONS: ManualSection[] = [
           (defaults to "EIR"). The Purchasing section also takes EAU, Current
           Stock, Current Price, MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
           Risk Part Level, Technical Priority, Altronic Part Number, and Where
-          Used. Project Reference, Assigned Engineers, and attachments are set
-          from the detail page after creation — <strong>Assigned</strong> is a
+          Used. You can also add <strong>attachments</strong> — click Add file
+          or drag files onto the Attachments card. They upload as soon as the
+          EIR is saved, one at a time, and the form shows which file is going
+          up. The EIR opens only once SharePoint has confirmed the EIR and every
+          file, so you never land on a half-saved one. Keep the tab open until
+          then; the browser asks first if you try to refresh or close it. If a
+          file doesn't make it, the EIR is still saved and a message names the
+          file to add again from its Attachments card. Project
+          Reference and Assigned Engineers are set from the detail page after
+          creation — <strong>Assigned</strong> is a
           dropdown with a search box, so type a few letters of a name rather
           than scanning the whole staff list; the people already assigned show
           as chips you can remove one at a time.
@@ -6492,7 +6501,7 @@ const SECTIONS: ManualSection[] = [
           the setting right.
         </P>
         <P>
-          A new part needs a datasheet (a drawing number doesn't): choose the PDF under{" "}
+          A datasheet is optional. To add one with a new part, choose the PDF under{" "}
           <strong>Datasheet</strong> on the New Part form. It's saved as the part number (for example{" "}
           <code>604613.pdf</code>) once the part is added, whatever the file was
           called, and a component's Has Data Sheet is set to Yes for you. A part
@@ -6571,10 +6580,8 @@ const SECTIONS: ManualSection[] = [
           List part that's everything except Mfg Part #, Manufacturer, Date
           Drawing, Drawing Size and Notes; SAP # is left for the SAP admin. On a
           component it's everything except Notes, plus any rating that doesn't
-          apply to that kind of part. <strong>Every new part also needs its
-          datasheet PDF</strong>, except a drawing number — one whose third digit
-          is 9 (wire diagrams, sales drawings and the like), where the datasheet is
-          optional. ARC won't accept a number that's already taken
+          apply to that kind of part. The datasheet PDF is optional — add it now
+          or later from the part's page. ARC won't accept a number that's already taken
           or that doesn't start with the list you're adding to (or, on a
           component list, one of the linked lists after it).
         </P>
@@ -7616,7 +7623,7 @@ const SECTIONS: ManualSection[] = [
               "FAIT closed: …",
             ],
             [
-              "A save of yours fails to reach SharePoint (after automatic retries)",
+              "A save of yours fails to reach SharePoint (after automatic retries) — not for attachments, which say so on their card",
               "Just you — a recovery copy so your work isn't lost",
               "ARC couldn't save your change — here's what you entered",
             ],

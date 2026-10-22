@@ -198,6 +198,8 @@ export async function createFait(
  * Same shape as `TaskFollowUpWriteError` on the EIR→task promotion path.
  */
 export class FaitInitiatorNotSetError extends Error {
+  /** The FAIT was created — never a "Save Failed" email (see editFailureReport.ts). */
+  readonly writeLanded = true;
   constructor(
     readonly fait: Fait,
     readonly initiator: Person,
@@ -259,6 +261,8 @@ export async function updateFaitFields(
  * broken (2026-08-27).
  */
 export class FaitReadBackError extends Error {
+  /** The PATCH landed — never a "Save Failed" email (see editFailureReport.ts). */
+  readonly writeLanded = true;
   constructor(
     readonly faitId: number,
     readonly cause: unknown,
