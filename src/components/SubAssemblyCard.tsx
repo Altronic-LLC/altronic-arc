@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Paperclip, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
+import { ListPlus, Paperclip, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import type { SubAssembly, SubAssemblyLine } from "@/types/pricing";
 import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
-import { SAP_PART_LOOKUP_CONNECTED } from "@/api/pricingLookup";
-import { useSapPart } from "@/hooks/usePricingLookup";
+import { describeSapCostFailure } from "@/api/pricingLookup";
+import { useSapPartAsYouType } from "@/hooks/usePricingLookup";
+import { applySapPart, clearSapFill, lineFromLookup, samePart, sapLookupArgs, type PartFields, type SapFill } from "@/lib/sapPartFill";
+import { MultiPartAdd, describePastedAdd } from "./MultiPartAdd";
 import { importSubAssemblyCsv, lineLabel, mergeUpload, type UploadChanges } from "@/lib/subAssemblyCsv";
 import { lineUnitCost, overheadFactor, subAssemblyCost } from "@/lib/pricingMath";
 import { formatMoney, formatUnitCost } from "@/lib/quoteMoney";
@@ -19,13 +21,18 @@ import { cn } from "@/lib/cn";
 //   * Upload CSV — Part Number and/or SAP Part Number, Description, Current
 //     Cost, Qty. A re-upload REPLACES the CSV lines, keeps each part's
 //     adjustment, and keeps every line added by hand; it says what changed.
-//   * Add component — Altronic #, SAP #, description, quantity and cost.
+//   * Add component — Altronic #, SAP #, description, quantity and cost. Either
+//     number is looked up in SAP AS IT IS TYPED (Ray, 2026-10-22): the other
+//     number, the description and the base cost come in.
+//   * Add several — paste a column of SAP / Altronic numbers; each is looked
+//     up and added as a component of quantity 1.
 // Every component's numbers, description and quantity can be edited, and any
 // line removed.
 //
 // A standalone PART (`PartCard`) is one part on the product, not a
-// sub-assembly: looked up in SAP (its cost comes in as the base cost) or typed
-// by hand. It is held as a row with exactly one line, so the cost roll-up and
+// sub-assembly: looked up in SAP as its number is typed (its cost comes in as
+// the base cost) or typed by hand. Several parts can be pasted at once on the
+// worksheet (NewProductPricingDetailView). It is held as a row with exactly one line, so the cost roll-up and
 // revisions treat it like any sub-assembly.
 //
 // COST: each line has a BASE cost — the sheet's for a CSV line and SAP's for a
@@ -154,6 +161,7 @@ export function SubAssemblyCard({
   const fileInput = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<{ errors: string[]; skipped: string[]; changes: UploadChanges | null } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const cost = subAssemblyCost(draftAsSubAssembly(draft));
   const name = draft.name || "sub-assembly";
 
@@ -239,6 +247,14 @@ export function SubAssemblyCard({
             </button>
             <button
               type="button"
+              onClick={() => setPasting((v) => !v)}
+              aria-expanded={pasting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+            >
+              <ListPlus className="h-4 w-4" /> Add several
+            </button>
+            <button
+              type="button"
               onClick={onRemove}
               aria-label={`Remove ${name}`}
               className="inline-flex items-center rounded-md border border-border bg-surface px-2 py-1.5 text-fg-muted hover:border-cooper-red hover:text-cooper-red"
@@ -294,10 +310,33 @@ export function SubAssemblyCard({
         </div>
       )}
 
+      {pasting && !readOnly && (
+        <MultiPartAdd
+          label={`Component part numbers to add to ${name}`}
+          onDone={() => setPasting(false)}
+          onAdd={(results) => {
+            const lines = [...draft.lines];
+            const added = [];
+            let duplicates = 0;
+            for (const r of results) {
+              const line = lineFromLookup(r.number, r.part);
+              if (lines.some((l) => samePart(l, line))) {
+                duplicates++;
+                continue;
+              }
+              lines.push(line);
+              added.push(r);
+            }
+            if (added.length) onChange({ ...draft, lines });
+            return describePastedAdd(added, duplicates, "component");
+          }}
+        />
+      )}
+
       {draft.lines.length === 0 && !adding ? (
         <p className="mt-3 text-sm text-fg-muted">
           No components yet. Upload a CSV with Part Number (and/or SAP Part Number), Description, Current Cost and Qty
-          columns, or add components by hand.
+          columns, add components one at a time, or paste several part numbers with Add several.
         </p>
       ) : (
         <div className="scroll-elegant mt-3 overflow-x-auto">
@@ -522,110 +561,154 @@ function AdjustedCost({
   );
 }
 
-/** A blank row to type a component in by hand. One part number and a quantity above 0 are required. */
+/**
+ * A blank row to type a component in. Either number is looked up in SAP as it
+ * is typed: SAP fills the other number and the description (only if blank, or
+ * still SAP's from the last lookup) and brings its cost in as the base cost.
+ * One part number and a quantity above 0 are required.
+ */
 function AddComponentRow({ onAdd, onCancel }: { onAdd: (line: SubAssemblyLine) => void; onCancel: () => void }) {
-  const [partNumber, setPartNumber] = useState("");
-  const [sapPartNumber, setSapPartNumber] = useState("");
-  const [description, setDescription] = useState("");
+  const [fields, setFields] = useState<PartFields>({ altronic: "", sap: "", description: "", cost: null });
+  const [costText, setCostText] = useState("");
+  const [fill, setFill] = useState<SapFill>({});
   const [qty, setQty] = useState("1");
-  const [cost, setCost] = useState("");
+  const args = sapLookupArgs(fields, fill);
+  const found = useSapPartAsYouType(args.altronicPartNumber, args.sapPartNumber);
+  const askedKey = `${found.asked.altronicPartNumber}|${found.asked.sapPartNumber}`;
+  useEffect(() => {
+    if (found.data === undefined || !found.askedAnything) return;
+    const r = found.data ? applySapPart(fields, fill, found.data) : clearSapFill(fields, fill);
+    setFields(r.fields);
+    setFill(r.fill);
+    setCostText(r.fields.cost === null ? "" : String(r.fields.cost));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found.data, askedKey]);
+
   const quantity = num(qty);
-  const costNum = num(cost);
+  const costNum = num(costText);
   const ok =
-    !!(partNumber.trim() || sapPartNumber.trim()) &&
+    !!(fields.altronic.trim() || fields.sap.trim()) &&
     quantity !== null &&
     quantity > 0 &&
-    (cost.trim() === "" || (costNum !== null && costNum >= 0));
+    (costText.trim() === "" || (costNum !== null && costNum >= 0));
+  const set = (patch: Partial<PartFields>) => setFields((f) => ({ ...f, ...patch }));
 
   function add() {
     if (!ok) return;
     onAdd({
-      partNumber: partNumber.trim(),
-      sapPartNumber: sapPartNumber.trim(),
-      description: description.trim(),
+      partNumber: fields.altronic.trim(),
+      sapPartNumber: fields.sap.trim(),
+      description: fields.description.trim(),
       quantity: quantity!,
       uploadedCost: costNum,
       adjustedCost: null,
-      source: "manual",
+      // SAP's cost, untouched, is SAP's base; anything typed is manual.
+      source: fill.cost !== undefined && costNum === fill.cost ? "sap" : "manual",
     });
   }
 
+  const status = sapLookupStatus(found);
+
   return (
-    <tr className="border-t border-border bg-surface-2/40 align-top" aria-label="New component">
-      <td className="px-2 py-1.5">
-        <input
-          aria-label="New component Altronic part number"
-          value={partNumber}
-          onChange={(e) => setPartNumber(e.target.value)}
-          className="input w-28! font-mono text-xs"
-          autoFocus
-          placeholder="Altronic #"
-        />
-      </td>
-      <td className="px-2 py-1.5">
-        <input
-          aria-label="New component SAP part number"
-          value={sapPartNumber}
-          onChange={(e) => setSapPartNumber(e.target.value)}
-          className="input w-28! font-mono text-xs"
-          placeholder="SAP #"
-        />
-      </td>
-      <td className="px-2 py-1.5">
-        <input
-          aria-label="New component description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="input w-full!"
-          placeholder="Description"
-        />
-      </td>
-      <td className="px-2 py-1.5 text-right">
-        <input
-          type="number"
-          min={0}
-          step="any"
-          aria-label="New component quantity"
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          className="input w-full! px-1.5! text-right tabular-nums"
-        />
-      </td>
-      <td className="px-2 py-1.5 text-right">
-        <input
-          type="number"
-          min={0}
-          step="any"
-          aria-label="New component cost"
-          value={cost}
-          onChange={(e) => setCost(e.target.value)}
-          className="input w-full! px-1.5! text-right tabular-nums"
-          placeholder="Cost"
-        />
-      </td>
-      <td className="px-2 py-1.5 text-right" colSpan={3}>
-        <span className="inline-flex gap-2">
-          <button type="button" onClick={onCancel} className="rounded-md px-2 py-1 text-xs text-fg-muted hover:text-fg">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={add}
-            disabled={!ok}
-            className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-          >
-            Add
-          </button>
-        </span>
-      </td>
-    </tr>
+    <>
+      <tr className="border-t border-border bg-surface-2/40 align-top" aria-label="New component">
+        <td className="px-2 py-1.5">
+          <input
+            aria-label="New component Altronic part number"
+            value={fields.altronic}
+            onChange={(e) => set({ altronic: e.target.value })}
+            className="input w-28! font-mono text-xs"
+            autoFocus
+            placeholder="Altronic #"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            aria-label="New component SAP part number"
+            value={fields.sap}
+            onChange={(e) => set({ sap: e.target.value })}
+            className="input w-28! font-mono text-xs"
+            placeholder="SAP #"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            aria-label="New component description"
+            value={fields.description}
+            onChange={(e) => set({ description: e.target.value })}
+            className="input w-full!"
+            placeholder="Description"
+          />
+        </td>
+        <td className="px-2 py-1.5 text-right">
+          <input
+            type="number"
+            min={0}
+            step="any"
+            aria-label="New component quantity"
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            className="input w-full! px-1.5! text-right tabular-nums"
+          />
+        </td>
+        <td className="px-2 py-1.5 text-right">
+          <input
+            type="number"
+            min={0}
+            step="any"
+            aria-label="New component cost"
+            value={costText}
+            onChange={(e) => {
+              setCostText(e.target.value);
+              set({ cost: num(e.target.value) });
+            }}
+            className="input w-full! px-1.5! text-right tabular-nums"
+            placeholder="Cost"
+          />
+        </td>
+        <td className="px-2 py-1.5 text-right" colSpan={3}>
+          <span className="inline-flex gap-2">
+            <button type="button" onClick={onCancel} className="rounded-md px-2 py-1 text-xs text-fg-muted hover:text-fg">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={add}
+              disabled={!ok}
+              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </span>
+        </td>
+      </tr>
+      {status && (
+        <tr className="bg-surface-2/40">
+          <td colSpan={8} className="px-2 pb-1.5 text-[11px] text-fg-muted" role="status">
+            {status}
+          </td>
+        </tr>
+      )}
+    </>
   );
+}
+
+/** What an as-you-type lookup is doing, in words — or null when there's nothing to say. */
+function sapLookupStatus(found: ReturnType<typeof useSapPartAsYouType>): string | null {
+  if (found.isFetching) return "Looking it up in SAP…";
+  if (found.isError) return describeSapCostFailure(found.error);
+  if (!found.askedAnything) return null;
+  if (found.data === null) return "Not found in SAP — type the description and cost.";
+  if (found.data && found.data.cost === null) return "Found in SAP, with no cost — type it.";
+  return null;
 }
 
 /**
  * A standalone part on the product (Ray, 2026-10-13) — from SAP, or typed by
- * hand with a typed cost. Look it up by either number: SAP fills in the
- * other number, the description and the cost (as the base cost, marked SAP).
+ * hand with a typed cost. Either number is looked up AS IT IS TYPED (Ray,
+ * 2026-10-22): SAP fills in the other number and the description (if blank, or
+ * still SAP's) and its cost as the base cost, marked SAP. Nothing is looked up
+ * until somebody edits a number, so opening a saved worksheet never re-costs it.
  */
 export function PartCard({
   draft,
@@ -649,8 +732,17 @@ export function PartCard({
     adjustedCost: null,
     source: "manual",
   };
-  const [lookup, setLookup] = useState({ altronicPartNumber: "", sapPartNumber: "" });
-  const sap = useSapPart(lookup, !readOnly);
+  const [touched, setTouched] = useState(false);
+  const [fill, setFill] = useState<SapFill>({});
+  const fields: PartFields = {
+    altronic: draft.altronicPartNumber,
+    sap: draft.sapPartNumber,
+    description: draft.name,
+    cost: line.uploadedCost,
+  };
+  const args = sapLookupArgs(fields, fill);
+  const sap = useSapPartAsYouType(args.altronicPartNumber, args.sapPartNumber, !readOnly && touched);
+  const askedKey = `${sap.asked.altronicPartNumber}|${sap.asked.sapPartNumber}`;
   const label = draft.altronicPartNumber || draft.sapPartNumber || draft.name || "this part";
   const used = lineUnitCost(line);
 
@@ -668,15 +760,18 @@ export function PartCard({
   }
 
   // A part SAP holds: its numbers, description and cost come in, marked SAP.
+  // One it doesn't: whatever SAP filled for the last number is taken back.
   useEffect(() => {
-    const p = sap.data;
-    if (!p) return;
+    if (!touched || sap.data === undefined || !sap.askedAnything) return;
+    const r = sap.data ? applySapPart(fields, fill, sap.data) : clearSapFill(fields, fill);
+    const costFromSap = sap.data ? sap.data.cost !== null : false;
+    setFill(r.fill);
     set(
-      { altronicPartNumber: p.altronicPartNumber, sapPartNumber: p.sapPartNumber, name: p.description },
-      { uploadedCost: p.cost, source: "sap" },
+      { altronicPartNumber: r.fields.altronic, sapPartNumber: r.fields.sap, name: r.fields.description },
+      { uploadedCost: r.fields.cost, source: costFromSap ? "sap" : "manual" },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sap.data]);
+  }, [sap.data, askedKey]);
 
   const fromSap = line.source === "sap";
 
@@ -684,18 +779,14 @@ export function PartCard({
     <section className="rounded-xl border border-border bg-surface p-4" aria-label={`Part ${label}`}>
       <div className="flex flex-wrap items-end gap-3">
         <span className="mb-2 rounded-sm bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-fg-muted">Part</span>
-        <NumberInputs draft={draft} onChange={(d) => set({ altronicPartNumber: d.altronicPartNumber, sapPartNumber: d.sapPartNumber })} readOnly={readOnly} />
-        {/* Live from SAP's cost view (Ray, 2026-10-17) — a part only needs its cost. */}
-        {!readOnly && SAP_PART_LOOKUP_CONNECTED && (
-          <button
-            type="button"
-            onClick={() => setLookup({ altronicPartNumber: draft.altronicPartNumber.trim(), sapPartNumber: draft.sapPartNumber.trim() })}
-            disabled={!draft.altronicPartNumber.trim() && !draft.sapPartNumber.trim()}
-            className="mb-0.5 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
-          >
-            <Search className="h-4 w-4" /> Look up in SAP
-          </button>
-        )}
+        <NumberInputs
+          draft={draft}
+          onChange={(d) => {
+            setTouched(true);
+            set({ altronicPartNumber: d.altronicPartNumber, sapPartNumber: d.sapPartNumber });
+          }}
+          readOnly={readOnly}
+        />
         <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
           <span className="font-semibold uppercase tracking-wider text-fg-muted">Description</span>
           <input value={draft.name} onChange={(e) => set({ name: e.target.value })} disabled={readOnly} className="input" aria-label={`Description of ${label}`} />
@@ -725,13 +816,11 @@ export function PartCard({
           </button>
         )}
       </div>
-      {lookup.altronicPartNumber || lookup.sapPartNumber ? (
-        sap.isFetching ? (
-          <p className="mt-2 text-[11px] text-fg-muted">Looking it up in SAP…</p>
-        ) : sap.data === null ? (
-          <p className="mt-2 text-[11px] text-cooper-red">SAP doesn't have that part — type its cost in by hand.</p>
-        ) : null
-      ) : null}
+      {touched && sapLookupStatus(sap) && (
+        <p role="status" className="mt-2 text-[11px] text-fg-muted">
+          {sapLookupStatus(sap)}
+        </p>
+      )}
 
       <div className="mt-3 flex flex-wrap items-end gap-4 text-sm">
         <div className="flex flex-col gap-1 text-xs">

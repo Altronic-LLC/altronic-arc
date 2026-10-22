@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.197.0",
+    date: "2026-10-22",
+    changes: [
+      "New Product Pricing: a new worksheet asks whether to add a sub-assembly or parts, instead of starting with an empty section",
+      "Sub-assemblies and parts each have their own section",
+      "Type an SAP or Altronic number on a new component or part and ARC looks it up as you type, bringing in the other number, the description and the base cost",
+      "Add several components to a sub-assembly, or several parts, by pasting a list of part numbers — each is looked up in SAP",
+    ],
+  },
+  {
     version: "0.196.0",
     date: "2026-10-22",
     changes: [

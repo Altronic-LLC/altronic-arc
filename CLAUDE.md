@@ -827,6 +827,7 @@ src/
 │   ├── cameraPhoto.ts            Photos from the phone/iPad camera — renamed "Photo YYYY-MM-DD HH-MM-SS.jpg" (an iPhone calls every shot image.jpg)
 │   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
 │   ├── sapMaterialCost.ts        SAP rows from Fabric (pure) — cost per plant, the part lookup (SapPart), the customer search terms + rows, the 10-digit SAP # key
+│   ├── sapPartFill.ts            Filling a new component / part from SAP as it is typed (typed boxes kept, SAP cost as base) + pasted numbers → lines
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -919,6 +920,7 @@ src/
 │   ├── RowSellingPrice.tsx           A worksheet row's OWN selling price — "Sell separately", target GM / list / customer, discount override, its own breaks (edits the DRAFT)
 │   ├── SapComparisonCard.tsx         A worksheet's SAP comparison — reference SAP parts, list / cost / base GM re-read from SAP, saved straight away
 │   ├── SubAssemblyCard.tsx           A worksheet sub-assembly (CSV and/or hand-added components) or standalone part (SAP or manual) — Altronic + SAP #, base vs adjusted cost, files (edits the DRAFT)
+│   ├── MultiPartAdd.tsx              Paste several SAP / Altronic numbers — each looked up in SAP, added as a component or a part
 │   ├── QuoteLineModal.tsx            Add a customer-quote line — worksheet (pinned rev), SAP part, priced request, or free line
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
@@ -5000,6 +5002,28 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   numbers, description and quantity are editable, and any line removable.
 - **A standalone part** is looked up in SAP by either number (its cost comes
   in as the base cost, chipped SAP) or typed by hand.
+- **A new worksheet starts with NO row** and asks what goes in — Add a
+  sub-assembly / Add parts (Ray, 2026-10-22). Sub-assemblies and Parts are
+  two SECTIONS, each shown once it has a row or is chosen; the draft array
+  still holds both in one order, which is what Save writes.
+- **New components and parts are looked up AS THEY ARE TYPED**
+  (`useSapPartAsYouType`, shared with the request form: at once on the 10th
+  SAP digit, else 400 ms). The fill rule is `lib/sapPartFill.ts`: SAP fills a
+  box only if it is blank or still holds what SAP put there last
+  (`SapFill`), so a typed description survives; SAP's COST always comes in
+  as the base. Only TYPED numbers are looked up (`sapLookupArgs`) — a number
+  SAP filled for the last part would otherwise steer the next lookup back to
+  it. A number SAP lacks takes back what SAP filled (`clearSapFill`). A SAVED
+  part is never looked up on open (`touched`), or opening a worksheet would
+  quietly re-cost it.
+- **Add several** (`components/MultiPartAdd.tsx`) — the SAP comparison's
+  paste box, on a sub-assembly (components) and on the Parts section (one
+  part per number). Each number is looked up through `useLookUpSapParts`
+  (the same cache entry as `useSapPart`, in parallel, at most 100 a paste);
+  10 digits = SAP #, else Altronic # (`lookupArgsFor`). A number SAP lacks is
+  still added as a MANUAL line to fill in; one that couldn't be checked is
+  said apart from "not found"; one already there (`samePart`, either number)
+  is skipped and counted.
 - **Each line has a BASE cost** (the JSON field `uploadedCost`, named for the
   CSV case) and a `source`: `csv` and `sap` base costs are never edited — the
   manager types an ADJUSTED cost; a `manual` line's base cost is typed and
