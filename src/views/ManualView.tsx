@@ -8164,8 +8164,9 @@ const SECTIONS: ManualSection[] = [
           the top right of every page. It opens a small form where you can
           describe what went wrong. The app attaches every console error it
           has seen during your session — you don't need to open DevTools
-          yourself. The report is emailed to the app maintainer with you
-          CC'd, so you have a paper trail of exactly what was sent.
+          yourself. The report is emailed to the app maintainers with you
+          CC'd, so you have a paper trail of exactly what was sent. The form
+          shows who it will go to before you send it.
         </P>
         <P>
           When a new app version is deployed, a banner appears at the top of

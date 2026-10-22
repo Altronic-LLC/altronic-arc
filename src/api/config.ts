@@ -111,12 +111,18 @@ export const SP_SITE_URL = import.meta.env.VITE_SP_SITE_URL as string | undefine
 export const SHARED_MAILBOX = import.meta.env.VITE_SHARED_MAILBOX as string | undefined;
 
 /**
- * Email address of the app maintainer — recipient of "Notify app manager"
- * error reports. Falls back to a sensible default if unset so the button
+ * Who receives "Report issue" reports — a recipient list in the same format
+ * as the alert lists below: `"Ray White <ray.white@x.com>, tim@x.com"`,
+ * comma-separated, names optional. Falls back to Ray if unset so the button
  * still works on day one even before the env var is wired up.
+ *
+ * `||`, never `??`, on every env default in this file: deploy.yml passes a
+ * repo variable nobody has set as an EMPTY STRING, not undefined, and `??`
+ * keeps it. That shipped a Report issue button that mailed nobody (Graph:
+ * "Recipient 'App Manager' is not resolved"), 2026-10-22.
  */
 export const APP_MANAGER_EMAIL =
-  (import.meta.env.VITE_APP_MANAGER_EMAIL as string | undefined) ??
+  (import.meta.env.VITE_APP_MANAGER_EMAIL as string | undefined) ||
   "ray.white@altronic-llc.com";
 
 // =============================================================================
@@ -277,11 +283,11 @@ export const MAINTENANCE_ROLES_ENFORCED = USE_MOCK || !!SP_MAINTENANCE_ROLES_LIS
  * SP_SITE_URL, so the same acquired token covers both — only the path differs.
  */
 export const SP_SALESTEAM_SITE_URL =
-  (import.meta.env.VITE_SP_SALESTEAM_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SALESTEAM_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM";
 
 export const SP_PMO_SITE_URL =
-  (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
 
 // =============================================================================
@@ -916,7 +922,7 @@ export const SP_PANEL_TASKS_LIST_ID =
  * bare LookupId via Graph). Same tenant/token as SP_SITE_URL.
  */
 export const SP_PANELTEAM_SITE_URL =
-  (import.meta.env.VITE_SP_PANELTEAM_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_PANELTEAM_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICPANELTEAM";
 
 /**
@@ -1040,7 +1046,7 @@ export const SP_CAPACITY_LIST_ID =
  * in api/siteUsers.ts). Same tenant/token as SP_SITE_URL; only the path differs.
  */
 export const SP_SALES_ORDERENTRY_SITE_URL =
-  (import.meta.env.VITE_SP_SALES_ORDERENTRY_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SALES_ORDERENTRY_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/OrderEntry";
 
 // =============================================================================
@@ -1074,7 +1080,7 @@ export const SP_SCNS_LIST_ID =
  * Mirrors SP_SALES_ORDERENTRY_SITE_URL for the OrderEntry subsite.
  */
 export const SP_SCN_SITE_URL =
-  (import.meta.env.VITE_SP_SCN_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SCN_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/SCN";
 
 /**
@@ -1082,7 +1088,7 @@ export const SP_SCN_SITE_URL =
  * Documentation folder's "Open in SharePoint" link (api/salesDocumentation.ts).
  */
 export const SP_SALES_DOCUMENTATION_SITE_URL =
-  (import.meta.env.VITE_SP_SALES_DOCUMENTATION_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SALES_DOCUMENTATION_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/AltronicDocumentation";
 
 // =============================================================================

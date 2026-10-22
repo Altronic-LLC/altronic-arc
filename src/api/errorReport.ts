@@ -1,6 +1,7 @@
 import { graphFetch } from "./graph";
 import { APP_MANAGER_EMAIL, SHARED_MAILBOX, USE_MOCK } from "./config";
 import type { CapturedError } from "@/lib/errorBuffer";
+import { parseRecipientList } from "@/lib/recipientList";
 import type { Person } from "@/types/task";
 
 // =============================================================================
@@ -50,9 +51,17 @@ export async function sendErrorReport(input: SendErrorReportInput): Promise<void
     return;
   }
 
-  const toRecipients = [
-    { emailAddress: { address: APP_MANAGER_EMAIL, name: "App Manager" } },
-  ];
+  // A list, in the alert lists' format — "Name <a@x.com>, b@x.com" — so a
+  // report can reach more than one maintainer.
+  const managers = parseRecipientList(APP_MANAGER_EMAIL);
+  if (managers.length === 0) {
+    throw new Error(
+      "No app manager address is configured (VITE_APP_MANAGER_EMAIL), so the report has nowhere to go.",
+    );
+  }
+  const toRecipients = managers.map((p) => ({
+    emailAddress: { address: p.email, name: p.displayName },
+  }));
   const ccRecipients = input.reporter?.email
     ? [
         {
