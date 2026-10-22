@@ -3870,7 +3870,7 @@ const SECTIONS: ManualSection[] = [
       "pricing admin",
     ],
     searchText:
-      "Pricing at /sales/pricing, under Departments > Customer Service / Sales, backed by six lists on the ALTRONICSALESTEAM SharePoint site. It is being reviewed before it opens to everyone; until then only the reviewer can open it and everyone else sees Pricing as Coming soon. Access comes from the Pricing Roles list: requester, manager or admin, each including the one before; with no role you have no access. A requester raises a pricing request with New request: the Altronic part number, the SAP part number if known, a description, notes and the customer picked from SAP. ARC looks the part up in SAP: if it is there the request is Submitted and the pricing managers are emailed; if not it is Awaiting SAP and the pricing admins are emailed to set it up, and an admin presses Added to SAP to move it on. The first time a manager opens a Submitted request it moves to In Review. The manager sees cost, the distributor discount (SAP's for the material price group, else 34%), and comparables for the same MPG and the same six-digit family (a manager can type the MPG when SAP has none), and types a target GM or a list price; a list worked out from a GM is rounded to the whole dollar, and answers Leave as Contact Factory? Yes or No, which is saved with the price for the requester to see. The customer's discount comes from their customer group — on the part, else on its material price group, else 34% — and comes off the list, beside the distributor discount that sets the list. A requester can enter either part number and ARC looks the part up as they type and fills in the other. The customer is found by sold-to number or by name as you type, and the customer group fills in with it. Pricing it sets Priced and emails the requester and watchers; the requester sees the final price only, never cost or margin. A manager can reopen a priced request; earlier prices are kept in the price history. Requests are cancelled, never deleted. Any role can download a customer PDF of a priced request. New Product Pricing prices a product not yet in SAP from its sub-assemblies and standalone parts, each with an Altronic and an SAP part number: add components from a CSV (Part Number and/or SAP Part Number, Description, Current Cost, Qty) or by hand and edit them, add a part from SAP or with a typed cost, attach files to each, comment and watch the worksheet, adjust any cost, set overhead, a target GM or list price and up to three quantity breaks. The page is a draft until you Save (the current revision) or Save as new revision (with a note); earlier revisions are read-only. Compare to SAP, and export the worksheet to Excel. Sell a sub-assembly or part separately to give it its own price and quantity breaks, and keep an SAP comparison of existing parts with their list, cost and base GM as a reference. A Calculator on the Pricing bar gives a quick customer price from COGS (typed, or SAP's current cost and description for an SAP part number, by plant) and a GM or a manual price, with prices at round GMs in 5s from 10 below to 20 above, and copies the results; nothing is saved. Customer Quotes are numbered SQ-YYYY-####-R#, built from worksheets, SAP parts, priced requests and free lines, an SAP part line starting from the customer's group discount, each line showing its SAP part number and an optional customer part number, with the header and lines editable while Draft, with a PDF that never shows cost or margin and New revision for changes after it is sent. Managers and admins only for New Product Pricing and Customer Quotes. While SAP data isn't connected you type the cost and customer yourself.",
+      "Pricing at /sales/pricing, under Departments > Customer Service / Sales, backed by six lists on the ALTRONICSALESTEAM SharePoint site. It is being reviewed before it opens to everyone; until then only the reviewer can open it and everyone else sees Pricing as Coming soon. Access comes from the Pricing Roles list: requester, manager or admin, each including the one before; with no role you have no access. A requester raises a pricing request with New request: the Altronic part number, the SAP part number if known, a description, notes and the customer picked from SAP. ARC looks the part up in SAP: if it is there the request is Submitted and the pricing managers are emailed; if not it is Awaiting SAP and the pricing admins are emailed to set it up, and an admin presses Added to SAP to move it on. The first time a manager opens a Submitted request it moves to In Review. The manager sees cost, the distributor discount (SAP's for the material price group, else 34%), and comparables for the same MPG and the same six-digit family (a manager can type the MPG when SAP has none), and types a target GM or a list price; a list worked out from a GM is rounded to the whole dollar, and answers Leave as Contact Factory? Yes or No, which is saved with the price for the requester to see. The customer's discount comes from their customer group — on the part, else on its material price group, else 34% — and comes off the list, beside the distributor discount that sets the list. A requester can enter either part number and ARC looks the part up as they type and fills in the other. The customer is found by sold-to number or by name as you type, and the customer group fills in with it. Pricing it sets Priced and emails the requester and watchers; the requester sees the final price only, never cost or margin. A manager can reopen a priced request; earlier prices are kept in the price history. Requests are cancelled, never deleted. Any role can download a customer PDF of a priced request. New Product Pricing prices a product not yet in SAP from its sub-assemblies and standalone parts, each with an Altronic and an SAP part number: choose sub-assemblies or parts to start with, add components from a CSV (Part Number and/or SAP Part Number, Description, Current Cost, Qty), one at a time or several pasted at once, each looked up in SAP as you type to bring in its description and cost, add parts the same way, one or several at once, attach files to each, comment and watch the worksheet, adjust any cost, set overhead, a target GM or list price and up to three quantity breaks. The page is a draft until you Save (the current revision) or Save as new revision (with a note); earlier revisions are read-only. Compare to SAP, and export the worksheet to Excel. Sell a sub-assembly or part separately to give it its own price and quantity breaks, and keep an SAP comparison of existing parts with their list, cost and base GM as a reference. A Calculator on the Pricing bar gives a quick customer price from COGS (typed, or SAP's current cost and description for an SAP part number, by plant) and a GM or a manual price, with prices at round GMs in 5s from 10 below to 20 above, and copies the results; nothing is saved. Customer Quotes are numbered SQ-YYYY-####-R#, built from worksheets, SAP parts, priced requests and free lines, an SAP part line starting from the customer's group discount, each line showing its SAP part number and an optional customer part number, with the header and lines editable while Draft, with a PDF that never shows cost or margin and New revision for changes after it is sent. Managers and admins only for New Product Pricing and Customer Quotes. While SAP data isn't connected you type the cost and customer yourself.",
     render: () => (
       <>
         <P>
@@ -4008,9 +4008,11 @@ const SECTIONS: ManualSection[] = [
         <H3>New Product Pricing (managers)</H3>
         <P>
           <strong>New Products</strong> prices a product that isn't in SAP yet.
-          Start a worksheet with <strong>New worksheet</strong>, then add its{" "}
-          <strong>sub-assemblies</strong> and any standalone{" "}
-          <strong>parts</strong>. Each one has an{" "}
+          Start a worksheet with <strong>New worksheet</strong>. A new
+          worksheet asks what goes into the product: choose{" "}
+          <strong>Add a sub-assembly</strong> or <strong>Add parts</strong>{" "}
+          (it can have both). Sub-assemblies and parts each get their own
+          section once they have something in them. Each one has an{" "}
           <strong>Altronic part number</strong> and an{" "}
           <strong>SAP part number</strong>, and so does each component.
         </P>
@@ -4020,14 +4022,26 @@ const SECTIONS: ManualSection[] = [
             (columns <strong>Part Number</strong> and/or{" "}
             <strong>SAP Part Number</strong>, <strong>Description</strong>,{" "}
             <strong>Current Cost</strong> and <strong>Qty</strong>), with{" "}
-            <strong>Add component</strong> by hand, or both. A file missing a
+            <strong>Add component</strong>, or with <strong>Add several</strong>{" "}
+            (paste a column of SAP or Altronic part numbers), or any mix. A file missing a
             column is refused and says which; a bad row is reported and the
             rest import. ARC records when and by whom. Every component can be
             edited or removed.
           </LI>
           <LI>
             <strong>Add part</strong> adds a single part that isn't a
-            sub-assembly — looked up in SAP, or typed with its own cost.
+            sub-assembly — looked up in SAP, or typed with its own cost.{" "}
+            <strong>Add several parts</strong> takes a pasted list and adds
+            each number as a part of its own.
+          </LI>
+          <LI>
+            Type either part number on a new component or part and ARC looks
+            it up in SAP as you type — an SAP number as soon as all ten digits
+            are in — and fills in the other number, the description and SAP's
+            cost as the base cost. A description you typed yourself is kept.
+            Pasted numbers are looked up the same way; one SAP doesn't have is
+            still added, for you to fill in its description and cost, and one
+            already there is skipped.
           </LI>
           <LI>
             Each line shows its <strong>base cost</strong> (from the CSV, from

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Ban, Download, Loader2, Plus, Save, X } from "lucide-react";
+import { Ban, Download, ListPlus, Loader2, Plus, Save, X } from "lucide-react";
 import { NEW_PRODUCT_PRICING_CONFIGURED } from "@/api/config";
 import { draftFrom, type SubAssemblyDraft } from "@/api/newProductSubAssemblies";
 import type { DiscountSource, NewProductWorksheet, PriceBreakTier, PriceInput, SubAssembly } from "@/types/pricing";
@@ -15,7 +15,9 @@ import {
   useSubAssemblies,
   useUpdateNewProductWorksheet,
 } from "@/hooks/useNewProductPricing";
-import { useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
+import { useMpgDistributorDiscount, useSapPart, type PastedPartResult } from "@/hooks/usePricingLookup";
+import { lineFromLookup, samePart } from "@/lib/sapPartFill";
+import { MultiPartAdd, describePastedAdd } from "@/components/MultiPartAdd";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
@@ -172,6 +174,76 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
   const [newRevOpen, setNewRevOpen] = useState(false);
   const touch = () => setDirty(true);
 
+  // ---- sub-assemblies and parts ----------------------------------------------
+  // Two sections, shown once they have a row or are chosen (Ray, 2026-10-22).
+  // The draft array keeps one order for both, which is what Save writes.
+  const [openParts, setOpenParts] = useState(false);
+  const [pastingParts, setPastingParts] = useState(false);
+  const subDrafts = drafts.filter((d) => d.kind !== "part");
+  const partDrafts = drafts.filter((d) => d.kind === "part");
+  const blankDraft = (kind: SubAssemblyDraft["kind"]): SubAssemblyDraft => ({
+    key: newKey(),
+    id: null,
+    name: "",
+    kind,
+    altronicPartNumber: "",
+    sapPartNumber: "",
+    quantityPerProduct: 1,
+    overheadPct: null,
+    pricing: null,
+    pricingCorrupt: false,
+    lines: [],
+    fileName: "",
+    uploadedAt: null,
+    uploadedBy: null,
+  });
+  function changeDraft(key: string, next: SubAssemblyDraft) {
+    setDrafts((all) => all.map((x) => (x.key === key ? next : x)));
+    touch();
+  }
+  function removeDraft(d: SubAssemblyDraft) {
+    const what = d.name || (d.kind === "part" ? "this part" : "this sub-assembly");
+    if (d.lines.length && !window.confirm(`Remove "${what}" from R${ws.rev}?`)) return;
+    setDrafts((all) => all.filter((x) => x.key !== d.key));
+    touch();
+  }
+  function addSubAssembly() {
+    setDrafts((d) => [...d, blankDraft("subAssembly")]);
+    touch();
+  }
+  function addPart() {
+    setOpenParts(true);
+    setDrafts((d) => [...d, blankDraft("part")]);
+    touch();
+  }
+  /** Each pasted number becomes a part of its own, quantity 1 — a number already a part here is skipped. */
+  function addPastedParts(results: PastedPartResult[]): string {
+    const added: PastedPartResult[] = [];
+    const fresh: SubAssemblyDraft[] = [];
+    let duplicates = 0;
+    const have = drafts.filter((d) => d.kind === "part").map((d) => ({ partNumber: d.altronicPartNumber, sapPartNumber: d.sapPartNumber }));
+    for (const r of results) {
+      const line = lineFromLookup(r.number, r.part);
+      if ([...have, ...fresh.map((f) => ({ partNumber: f.altronicPartNumber, sapPartNumber: f.sapPartNumber }))].some((h) => samePart(h, line))) {
+        duplicates++;
+        continue;
+      }
+      fresh.push({
+        ...blankDraft("part"),
+        name: line.description,
+        altronicPartNumber: line.partNumber,
+        sapPartNumber: line.sapPartNumber ?? "",
+        lines: [line],
+      });
+      added.push(r);
+    }
+    if (fresh.length) {
+      setDrafts((d) => [...d, ...fresh]);
+      touch();
+    }
+    return describePastedAdd(added, duplicates, "part");
+  }
+
   // SAP's distributor discount for the MPG typed — suggested, never forced.
   const mpgDiscount = useMpgDistributorDiscount(mpg.trim());
   const sapMpgDiscount = mpgDiscount.data ?? null;
@@ -316,85 +388,143 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
             </dl>
           </PricingCard>
 
-          <section className="flex flex-col gap-3">
-            <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-              Sub-assemblies and parts {viewingCurrent ? "" : `— R${viewRev}`}
-            </h2>
-            {shownSubs.length === 0 && (
-              <p className="rounded-xl border border-dashed border-border bg-surface p-6 text-center text-sm text-fg-muted">
-                Nothing here yet — add a sub-assembly (upload its CSV or add its components by hand), or add a single
-                part from SAP or typed by hand.
-              </p>
-            )}
-            {viewingCurrent
-              ? drafts.map((d, i) => {
-                  const onChange = (next: SubAssemblyDraft) => {
-                    setDrafts((all) => all.map((x, j) => (j === i ? next : x)));
-                    touch();
-                  };
-                  const onRemove = () => {
-                    const what = d.name || (d.kind === "part" ? "this part" : "this sub-assembly");
-                    if (d.lines.length && !window.confirm(`Remove "${what}" from R${ws.rev}?`)) return;
-                    setDrafts((all) => all.filter((_, j) => j !== i));
-                    touch();
-                  };
-                  return d.kind === "part" ? (
-                    <PartCard key={d.key} draft={d} readOnly={readOnly} onChange={onChange} onRemove={onRemove} worksheetDiscountPct={discountNum} />
-                  ) : (
+          {/* Sub-assemblies and parts are two sections, and a new worksheet
+              has neither (Ray, 2026-10-22): the first thing asked is what goes
+              into the product, so nobody starts inside an empty sub-assembly
+              they didn't want. A section appears once it has a row, or once
+              it's chosen. */}
+          {viewingCurrent ? (
+            <>
+              {drafts.length === 0 && !openParts && (
+                <section
+                  aria-label="What goes into this product"
+                  className="rounded-xl border border-dashed border-border bg-surface p-6 text-center"
+                >
+                  <p className="text-sm font-medium text-fg">What goes into this product?</p>
+                  <p className="mt-1 text-xs text-fg-muted">
+                    Sub-assemblies are built from components (upload a CSV, or add them one at a time or several at
+                    once). Parts are single SAP parts, each with its own cost. A worksheet can have both.
+                  </p>
+                  {!readOnly && (
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={addSubAssembly}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+                      >
+                        <Plus className="h-4 w-4" /> Add a sub-assembly
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenParts(true);
+                          setPastingParts(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+                      >
+                        <Plus className="h-4 w-4" /> Add parts
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {subDrafts.length > 0 && (
+                <section className="flex flex-col gap-3" aria-label="Sub-assemblies">
+                  <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Sub-assemblies</h2>
+                  {subDrafts.map((d) => (
                     <SubAssemblyCard
                       key={d.key}
                       draft={d}
                       readOnly={readOnly}
                       uploader={{ displayName: me.displayName, email: me.email ?? "" }}
-                      onChange={onChange}
-                      onRemove={onRemove}
+                      onChange={(next) => changeDraft(d.key, next)}
+                      onRemove={() => removeDraft(d)}
                       worksheetDiscountPct={discountNum}
                     />
-                  );
-                })
-              : shownSubs.map((s) =>
-                  s.kind === "part" ? (
-                    <PartCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} worksheetDiscountPct={viewedDiscount} />
-                  ) : (
-                    <SubAssemblyCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} uploader={{ displayName: "", email: "" }} worksheetDiscountPct={viewedDiscount} />
-                  ),
-                )}
-              {!readOnly && (
-                <div className="flex flex-wrap gap-2">
-                  {(["subAssembly", "part"] as const).map((kind) => (
-                    <button
-                      key={kind}
-                      type="button"
-                      onClick={() => {
-                        setDrafts((d) => [
-                          ...d,
-                          {
-                            key: newKey(),
-                            id: null,
-                            name: "",
-                            kind,
-                            altronicPartNumber: "",
-                            sapPartNumber: "",
-                            quantityPerProduct: 1,
-                            overheadPct: null,
-                            pricing: null,
-                            pricingCorrupt: false,
-                            lines: [],
-                            fileName: "",
-                            uploadedAt: null,
-                            uploadedBy: null,
-                          },
-                        ]);
-                        touch();
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-2"
-                    >
-                      <Plus className="h-3 w-3" /> {kind === "part" ? "Add part" : "Add sub-assembly"}
-                    </button>
                   ))}
+                </section>
+              )}
+
+              {(partDrafts.length > 0 || openParts) && (
+                <section className="flex flex-col gap-3" aria-label="Parts">
+                  <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Parts</h2>
+                  {partDrafts.length === 0 && (
+                    <p className="text-sm text-fg-muted">No parts yet — add one, or paste several part numbers.</p>
+                  )}
+                  {partDrafts.map((d) => (
+                    <PartCard
+                      key={d.key}
+                      draft={d}
+                      readOnly={readOnly}
+                      onChange={(next) => changeDraft(d.key, next)}
+                      onRemove={() => removeDraft(d)}
+                      worksheetDiscountPct={discountNum}
+                    />
+                  ))}
+                  {pastingParts && !readOnly && (
+                    <MultiPartAdd label="Part numbers to add as parts" onDone={() => setPastingParts(false)} onAdd={addPastedParts} />
+                  )}
+                </section>
+              )}
+
+              {!readOnly && drafts.length + (openParts ? 1 : 0) > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={addSubAssembly}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-2"
+                  >
+                    <Plus className="h-3 w-3" /> Add sub-assembly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addPart}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-2"
+                  >
+                    <Plus className="h-3 w-3" /> Add part
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenParts(true);
+                      setPastingParts((v) => !v);
+                    }}
+                    aria-expanded={pastingParts}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-2"
+                  >
+                    <ListPlus className="h-3 w-3" /> Add several parts
+                  </button>
                 </div>
               )}
-          </section>
+            </>
+          ) : (
+            <>
+              {shownSubs.length === 0 && (
+                <p className="rounded-xl border border-dashed border-border bg-surface p-6 text-center text-sm text-fg-muted">
+                  R{viewRev} had no sub-assemblies or parts.
+                </p>
+              )}
+              {(["subAssembly", "part"] as const).map((kind) => {
+                const these = shownSubs.filter((s) => s.kind === kind);
+                if (these.length === 0) return null;
+                return (
+                  <section key={kind} className="flex flex-col gap-3" aria-label={kind === "part" ? "Parts" : "Sub-assemblies"}>
+                    <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+                      {kind === "part" ? "Parts" : "Sub-assemblies"} — R{viewRev}
+                    </h2>
+                    {these.map((s) =>
+                      kind === "part" ? (
+                        <PartCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} worksheetDiscountPct={viewedDiscount} />
+                      ) : (
+                        <SubAssemblyCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} uploader={{ displayName: "", email: "" }} worksheetDiscountPct={viewedDiscount} />
+                      ),
+                    )}
+                  </section>
+                );
+              })}
+            </>
+          )}
 
           <SapComparisonCard ws={ws} readOnly={cancelled} />
 

@@ -20,12 +20,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.197.0",
+    version: "0.198.0",
     date: "2026-10-22",
     changes: [
       "Supplier performance comes from SAP — the supplier, quality and logistical scores and delivery count, with SAP's A / B / C class",
       "The Suppliers list has a sortable Class column, and its Performance column uses SAP's score",
       "Where SAP has no figures for a supplier, the scores entered in ARC still show (marked * on the list) and can still be edited",
+    ],
+  },
+  {
+    version: "0.197.0",
+    date: "2026-10-22",
+    changes: [
+      "New Product Pricing: a new worksheet asks whether to add a sub-assembly or parts, instead of starting with an empty section",
+      "Sub-assemblies and parts each have their own section",
+      "Type an SAP or Altronic number on a new component or part and ARC looks it up as you type, bringing in the other number, the description and the base cost",
+      "Add several components to a sub-assembly, or several parts, by pasting a list of part numbers — each is looked up in SAP",
     ],
   },
   {

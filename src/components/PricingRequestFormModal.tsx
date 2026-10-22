@@ -3,9 +3,8 @@ import { Loader2, X } from "lucide-react";
 import type { Person } from "@/types/task";
 import type { SapCustomer } from "@/types/pricing";
 import { useCreatePricingRequest } from "@/hooks/usePricingRequests";
-import { useSapPart } from "@/hooks/usePricingLookup";
-import { needsSapSignIn, warmSapCostLookup } from "@/api/pricingLookup";
-import { sapMaterialLookupKey } from "@/lib/sapMaterialCost";
+import { useSapPartAsYouType } from "@/hooks/usePricingLookup";
+import { needsSapSignIn } from "@/api/pricingLookup";
 import { signInToFabric } from "@/api/fabric";
 import { pushToast } from "./Toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -48,8 +47,9 @@ export function PricingRequestFormModal({
   // Ray, 2026-10-13: somebody who only knows the SAP number gets the Altronic
   // (old) number pulled in from SAP — and the other way round. Looked up when
   // they leave either box; only BLANK boxes are filled, never one they typed.
-  const [lookup, setLookup] = useState({ altronicPartNumber: "", sapPartNumber: "" });
-  const found = useSapPart(lookup);
+  // Looked up AS THEY TYPE (Ray, 2026-10-17): an SAP number the moment its
+  // 10th digit lands, an Altronic number after a short pause.
+  const found = useSapPartAsYouType(altronic, sap);
   const sapPart = found.data ?? null;
   useEffect(() => {
     if (!sapPart) return;
@@ -57,21 +57,6 @@ export function PricingRequestFormModal({
     setSap((v) => (v.trim() ? v : sapPart.sapPartNumber));
     setDescription((v) => (v.trim() ? v : sapPart.description));
   }, [sapPart]);
-  function lookUp() {
-    setLookup({ altronicPartNumber: altronic.trim(), sapPartNumber: sap.trim() });
-  }
-  // Look up AS THEY TYPE (Ray, 2026-10-17): an SAP number the moment its 10th
-  // digit lands, an Altronic number after a short pause. Leaving a box still
-  // looks up too. Fabric is woken as the form opens.
-  useEffect(() => {
-    void warmSapCostLookup();
-  }, []);
-  useEffect(() => {
-    const whole = sapMaterialLookupKey(sap) !== null;
-    const t = setTimeout(lookUp, whole ? 0 : 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [altronic, sap]);
   // Dev demo with live SAP only: nothing has signed in to Microsoft yet.
   const signInNeeded = found.isError && needsSapSignIn(found.error);
   const [signingIn, setSigningIn] = useState(false);
@@ -159,10 +144,10 @@ export function PricingRequestFormModal({
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 overflow-y-auto px-5 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Altronic part #">
-              <input value={altronic} onChange={(e) => setAltronic(e.target.value)} onBlur={lookUp} className="input" autoFocus />
+              <input value={altronic} onChange={(e) => setAltronic(e.target.value)} className="input" autoFocus />
             </Field>
             <Field label="SAP part #">
-              <input value={sap} onChange={(e) => setSap(e.target.value)} onBlur={lookUp} className="input" />
+              <input value={sap} onChange={(e) => setSap(e.target.value)} className="input" />
             </Field>
           </div>
           <p className="-mt-1 text-[11px] text-fg-muted" role="status">
@@ -184,7 +169,7 @@ export function PricingRequestFormModal({
                 ? "Looking it up in SAP…"
                 : found.isError && !found.notConnected
                   ? "SAP couldn't be checked from here — type both numbers if you know them. The pricing team checks it."
-                  : found.isSuccess && (lookup.altronicPartNumber || lookup.sapPartNumber)
+                  : found.isSuccess && found.askedAnything
                     ? "Not found in SAP — the request goes to be set up in SAP first."
                     : "Either number will do — ARC looks the other one up in SAP."}
           </p>

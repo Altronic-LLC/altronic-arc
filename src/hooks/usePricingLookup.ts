@@ -1,4 +1,5 @@
-import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   isPricingDataNotConnected,
   isRetryableSapCostFailure,
@@ -9,7 +10,10 @@ import {
   sapCustomerGroupDiscounts,
   sapMpgDistributorDiscounts,
   searchSapCustomers,
+  warmSapCostLookup,
 } from "@/api/pricingLookup";
+import { sapMaterialLookupKey } from "@/lib/sapMaterialCost";
+import { lookupArgsFor } from "@/lib/sapPartFill";
 import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
 import {
   buildComparablesPanel,
@@ -50,6 +54,69 @@ export function useSapPart(args: { altronicPartNumber: string; sapPartNumber: st
     retry,
   });
   return { ...q, ...connectionOf(q) };
+}
+
+/**
+ * A part looked up AS SOMEBODY TYPES (Ray, 2026-10-17; shared 2026-10-22) — an
+ * SAP number the moment its 10th digit lands, anything else after a 400 ms
+ * pause. Fabric is woken as the caller mounts, so the first lookup doesn't
+ * also pay for the token and a cold endpoint. Used by the pricing request form
+ * and by adding a component or a part to a worksheet.
+ *
+ * `enabled: false` asks nothing — a read-only row, or a saved part nobody has
+ * retyped (looking that up on open would quietly re-cost a saved worksheet).
+ * `asked` is the key the current answer belongs to.
+ */
+export function useSapPartAsYouType(altronicPartNumber: string, sapPartNumber: string, enabled = true) {
+  const [asked, setAsked] = useState({ altronicPartNumber: "", sapPartNumber: "" });
+  const found = useSapPart(asked, enabled);
+  useEffect(() => {
+    if (enabled) void warmSapCostLookup();
+  }, [enabled]);
+  useEffect(() => {
+    if (!enabled) return;
+    const whole = sapMaterialLookupKey(sapPartNumber) !== null;
+    const t = setTimeout(
+      () => setAsked({ altronicPartNumber: altronicPartNumber.trim(), sapPartNumber: sapPartNumber.trim() }),
+      whole ? 0 : 400,
+    );
+    return () => clearTimeout(t);
+  }, [altronicPartNumber, sapPartNumber, enabled]);
+  const askedAnything = !!(asked.altronicPartNumber || asked.sapPartNumber);
+  return { ...found, asked, askedAnything };
+}
+
+export interface PastedPartResult {
+  number: string;
+  part: SapPart | null;
+  /** SAP couldn't be asked about this one (not connected, refused, unreachable) — NOT the same as "not in SAP". */
+  failed: boolean;
+}
+
+/**
+ * Look up several pasted numbers at once (Ray, 2026-10-22), in parallel, each
+ * through the SAME cache entry `useSapPart` uses — a number already looked up
+ * answers at once. One failure never stops the rest.
+ */
+export function useLookUpSapParts() {
+  const qc = useQueryClient();
+  return async (numbers: string[]): Promise<PastedPartResult[]> =>
+    Promise.all(
+      numbers.map(async (number) => {
+        const args = lookupArgsFor(number);
+        try {
+          const part = await qc.fetchQuery<SapPart | null>({
+            queryKey: ["pricing-sap", "part", args.altronicPartNumber.toLowerCase(), args.sapPartNumber.toLowerCase()],
+            queryFn: () => lookupSapPart(args),
+            staleTime: STALE_MS,
+            retry,
+          });
+          return { number, part, failed: false };
+        } catch {
+          return { number, part: null, failed: true };
+        }
+      }),
+    );
 }
 
 /**
