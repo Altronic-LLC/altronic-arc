@@ -707,6 +707,7 @@ src/
 │   ├── partSearch.ts             Parts List search rules (substring, & terms, ranges), Parts Book grouping, Global rows
 │   ├── partNumberScheme.ts       What a part number's digits mean (EWI-005 Rev 5) — Parts Book + list labels (pure)
 │   ├── engineeringValue.ts       Reads 4K7 / .1uF / 250mW / 1/4W / -55°C as numbers + units, for range search (pure)
+│   ├── componentCsv.ts           The Component List as a CSV (Export components, Parts Book) — live rows, COMPONENT_FIELDS columns, UTF-8 BOM (pure)
 │   ├── componentRatings.ts       What Rating A/B/C mean per component type (the guide's table, as DATA)
 │   ├── partFields.ts             Parts List columns as DATA — form ⇄ SharePoint, required rules, next number
 │   ├── partsRoles.ts             Parts Roles tags → rights, the add/edit/approve gates, the approval chain (pure)
@@ -1903,6 +1904,13 @@ Seven things that are load-bearing:
     different names on the two lists.
   - Item ids repeat across the lists, so rows key on `key` (component ids
     offset by 10,000,000), never `id`.
+- **Export components** (BusinessIT#53, Ray, 2026-10-22) — a button on the
+  Parts Book that downloads the Component List as a CSV (`lib/componentCsv.ts`),
+  built from the list already loaded for the tiles, so it costs no request.
+  Live rows only, by part number; the columns ARE `COMPONENT_FIELDS` plus
+  number, category, sign-off and dates, so a new field is exported with no
+  change. UTF-8 BOM first (or Excel garbles ±, µ, Ω), RFC 4180 quoting, CRLF.
+  Open to everyone who can read the list.
 - **A detail page is keyed by ITEM ID, not part number.** The legacy data had
   duplicated part numbers, and a page by number can only ever show one of two.
 - **A whole list returning ZERO rows says so, and names item-level

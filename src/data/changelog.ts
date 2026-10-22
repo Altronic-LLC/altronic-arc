@@ -20,6 +20,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.201.0",
+    date: "2026-10-22",
+    changes: ["Parts List: Export components downloads the whole Component List as a CSV file, from the Parts Book page"],
+  },
+  {
     version: "0.200.0",
     date: "2026-10-22",
     changes: [
