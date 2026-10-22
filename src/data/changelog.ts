@@ -20,13 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.200.1",
+    version: "0.201.1",
     date: "2026-10-22",
     changes: [
       "Report issue sends again — since late August it had no address to send to and every report was refused",
       "Report issue can now go to more than one maintainer, and its recipients are checked on Admin → Notification recipients",
       "Duplicate staff accounts that are meant to be hidden are hidden from the people pickers again",
     ],
+  },
+  {
+    version: "0.201.0",
+    date: "2026-10-22",
+    changes: ["Parts List: Export components downloads the whole Component List as a CSV file, from the Parts Book page"],
   },
   {
     version: "0.200.0",
