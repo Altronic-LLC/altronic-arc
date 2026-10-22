@@ -203,7 +203,10 @@ describe("PricingRequestFormModal — either part number will do", () => {
     await waitFor(() => expect(within(dialog).getByLabelText("Altronic part #")).toHaveValue("791950-08"), { timeout: 10_000 });
     expect(within(dialog).getByLabelText(/^Description/)).toHaveValue("CPU-95 IGNITION MODULE, 8 CYL");
     expect(within(dialog).getByLabelText("SAP part #")).toHaveValue("1003-0114-08");
-    expect(within(dialog).getByText(/Found in SAP: 791950-08/)).toBeInTheDocument();
+    // Waited for, not read straight away: filling the Altronic # changes the
+    // as-you-type lookup's key, so for a moment the note reads "Looking it up
+    // in SAP…" while the part is asked for again.
+    expect(await within(dialog).findByText(/Found in SAP: 791950-08/)).toBeInTheDocument();
   });
 
   it("never replaces an Altronic # that was typed", async () => {

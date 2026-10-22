@@ -1,4 +1,5 @@
 import type { Supplier, SupplierContact, SupplierIssue } from "@/types/task";
+import type { SapSupplierPerformanceRow } from "@/lib/supplierPerformance";
 
 // =============================================================================
 // Sample SRM data for mock mode — Suppliers List is the anchor; Contacts and
@@ -93,6 +94,51 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     hasAttachments: false,
     createdAt: daysAgo(350),
     modifiedAt: daysAgo(60),
+  },
+];
+
+/**
+ * The demo's stand-in for SAP's supplier performance table
+ * (`tbl_arc_supplier_performance` in Fabric), in the warehouse's own column
+ * names. INVENTED figures — never copied from SAP; the repo is public.
+ *
+ * The first two mock suppliers have a row, so their pages show SAP's
+ * figures; the third deliberately has none, so the demo also shows the
+ * fallback to the scores typed into ARC. The last row matches no supplier.
+ */
+export const MOCK_SAP_SUPPLIER_PERFORMANCE: SapSupplierPerformanceRow[] = [
+  {
+    BP_NUMBER: "103832",
+    VENDOR_NAME: "Arrow Electronics",
+    SUPPLIER_GROUP: "Production",
+    PERIOD_YEAR: 2026,
+    SUPPLIER_PCT: 91,
+    QUALITY_PCT: 96,
+    LOGISTICAL_PCT: 88,
+    ALL_DELIVERIES: 702,
+    CLASSIFICATION: "A",
+  },
+  {
+    BP_NUMBER: "104054",
+    VENDOR_NAME: "TTI, Inc.",
+    SUPPLIER_GROUP: "Production",
+    PERIOD_YEAR: 2026,
+    SUPPLIER_PCT: 84,
+    QUALITY_PCT: 90,
+    LOGISTICAL_PCT: 80,
+    ALL_DELIVERIES: 1120,
+    CLASSIFICATION: "B",
+  },
+  {
+    BP_NUMBER: "900001",
+    VENDOR_NAME: "Example Packaging Co",
+    SUPPLIER_GROUP: "Packaging",
+    PERIOD_YEAR: 2026,
+    SUPPLIER_PCT: 62,
+    QUALITY_PCT: 70,
+    LOGISTICAL_PCT: null,
+    ALL_DELIVERIES: 4,
+    CLASSIFICATION: "C",
   },
 ];
 

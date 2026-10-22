@@ -13,6 +13,9 @@ import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SupplierLogo } from "@/components/SupplierLogo";
+import { SupplierClassChip } from "@/components/SupplierClassChip";
+import { useSupplierPerformanceIndex } from "@/hooks/useSupplierPerformance";
+import { supplierPerformanceFor, type SupplierPerformance } from "@/lib/supplierPerformance";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -26,33 +29,45 @@ import { cn } from "@/lib/cn";
 
 const INITIAL_ROWS = 150;
 
+/** A supplier's performance, or null while SAP is still being asked. */
+type PerformanceOf = (s: Supplier) => SupplierPerformance | null;
+
 /**
  * Sortable columns, as DATA. See lib/tableSort.ts for the rules they inherit.
+ * Built per render because Performance and Class read SAP's figures (Tim,
+ * 2026-10-22), falling back to the score typed into ARC.
  *
- * Performance is a real NUMBER column, so it sorts numerically and a supplier
- * with no score recorded sinks to the bottom — a score nobody has measured is
- * not a score of zero (the same rule the sidebar's "Not recorded" follows).
+ * Performance is a NUMBER, so it sorts numerically and a supplier with no
+ * score sinks to the bottom — a score nobody has measured is not a score of
+ * zero (the same rule the sidebar's "Not recorded" follows).
  */
-const SUPPLIER_COLUMNS: SortColumn<Supplier>[] = [
-  // `title` is SharePoint's own display convention,
-  // "{BusinessPartnerNumber}-{CompanyName}" — the same string the cell shows.
-  { key: "name", label: "Supplier", value: (s) => s.title },
-  { key: "status", label: "Status", value: (s) => s.status ?? "" },
-  {
-    key: "coreCompetency",
-    label: "Core Competency",
-    // A MULTI choice — joined so the cell and the filter menu agree.
-    value: (s) => s.coreCompetencies.join(", "),
-  },
-  { key: "assignedBuyer", label: "Assigned Buyer", value: (s) => s.assignedBuyer?.displayName ?? "" },
-  {
-    key: "performance",
-    label: "Performance",
-    kind: "number",
-    value: (s) => (s.supplierPerformanceRate === null ? "" : `${s.supplierPerformanceRate}%`),
-    sortValue: (s) => s.supplierPerformanceRate,
-  },
-];
+function supplierColumns(performanceOf: PerformanceOf): SortColumn<Supplier>[] {
+  return [
+    // `title` is SharePoint's own display convention,
+    // "{BusinessPartnerNumber}-{CompanyName}" — the same string the cell shows.
+    { key: "name", label: "Supplier", value: (s) => s.title },
+    { key: "status", label: "Status", value: (s) => s.status ?? "" },
+    {
+      key: "coreCompetency",
+      label: "Core Competency",
+      // A MULTI choice — joined so the cell and the filter menu agree.
+      value: (s) => s.coreCompetencies.join(", "),
+    },
+    { key: "assignedBuyer", label: "Assigned Buyer", value: (s) => s.assignedBuyer?.displayName ?? "" },
+    {
+      key: "performance",
+      label: "Performance",
+      kind: "number",
+      value: (s) => {
+        const pct = performanceOf(s)?.supplierPct ?? null;
+        return pct === null ? "" : `${pct}%`;
+      },
+      sortValue: (s) => performanceOf(s)?.supplierPct ?? null,
+    },
+    // SAP's A / B / C. Only SAP rates suppliers, so ARC-only rows are blank.
+    { key: "classification", label: "Class", value: (s) => performanceOf(s)?.classification ?? "" },
+  ];
+}
 
 /**
  * Cooper's supplier-onboarding tool — a separate SaaS product (Medius), not
@@ -95,9 +110,26 @@ export function SuppliersView() {
     });
   }, [suppliers, q, status, competency]);
 
+  // One read of SAP's table for the whole list. Nothing is presented as a
+  // supplier's score until it has answered (or failed), so ARC's older
+  // figures never flash up first and then change.
+  const sapPerformance = useSupplierPerformanceIndex();
+  const performanceById = useMemo(() => {
+    if (sapPerformance.loading) return null;
+    return new Map(suppliers.map((s) => [s.id, supplierPerformanceFor(s, sapPerformance.index)]));
+  }, [suppliers, sapPerformance.loading, sapPerformance.index]);
+  const columns = useMemo(
+    () => supplierColumns((s) => performanceById?.get(s.id) ?? null),
+    [performanceById],
+  );
+  const anyFromArc = useMemo(
+    () => !!performanceById && [...performanceById.values()].some((p) => p.source === "arc" && p.supplierPct !== null),
+    [performanceById],
+  );
+
   const table = useSortableTable<Supplier>({
     rows: filtered,
-    columns: SUPPLIER_COLUMNS,
+    columns,
     stableKey: (s) => s.id,
     initialKey: "name",
     onChange: () => setShowAll(false),
@@ -199,6 +231,12 @@ export function SuppliersView() {
             </button>
           )}
         </div>
+        {!isLoading && (sapPerformance.failure || anyFromArc) && (
+          <p className="border-b border-border px-4 py-1.5 text-[11px] text-fg-muted">
+            {sapPerformance.failure ??
+              "* Performance entered in ARC — SAP has no figures for that supplier. Everything else is from SAP."}
+          </p>
+        )}
 
         {isLoading ? (
           <LoadingTasks noun="suppliers" />
@@ -211,14 +249,20 @@ export function SuppliersView() {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
-                  {SUPPLIER_COLUMNS.map((column) => (
+                  {columns.map((column) => (
                     <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {shown.map((s) => (
-                  <Row key={s.id} supplier={s} onOpen={() => navigate(`/supply-chain/supplier/${s.id}`)} />
+                  <Row
+                    key={s.id}
+                    supplier={s}
+                    performance={performanceById ? (performanceById.get(s.id) ?? null) : undefined}
+                    sapFailed={!!sapPerformance.failure}
+                    onOpen={() => navigate(`/supply-chain/supplier/${s.id}`)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -231,7 +275,20 @@ export function SuppliersView() {
   );
 }
 
-function Row({ supplier, onOpen }: { supplier: Supplier; onOpen: () => void }) {
+function Row({
+  supplier,
+  performance,
+  sapFailed,
+  onOpen,
+}: {
+  supplier: Supplier;
+  /** `undefined` while SAP is being asked. */
+  performance: SupplierPerformance | null | undefined;
+  /** SAP couldn't be read — every score is ARC's, said once above the table. */
+  sapFailed: boolean;
+  onOpen: () => void;
+}) {
+  const pct = performance?.supplierPct ?? null;
   return (
     <tr onClick={onOpen} className={cn("cursor-pointer border-t border-border transition-colors hover:bg-surface-2")}>
       <td className="max-w-[18rem] truncate px-4 py-2 font-medium text-fg" title={supplier.title}>
@@ -255,7 +312,25 @@ function Row({ supplier, onOpen }: { supplier: Supplier; onOpen: () => void }) {
       </td>
       <td className="px-4 py-2 text-fg-muted">{supplier.assignedBuyer?.displayName || "—"}</td>
       <td className="px-4 py-2 text-fg-muted">
-        {supplier.supplierPerformanceRate !== null ? `${supplier.supplierPerformanceRate}%` : "—"}
+        {performance === undefined ? (
+          <span title="Checking SAP…">…</span>
+        ) : pct === null ? (
+          "—"
+        ) : (
+          <>
+            {pct}%
+            {performance?.source === "arc" && !sapFailed && (
+              <span title="Entered in ARC — SAP has no figures for this supplier">*</span>
+            )}
+          </>
+        )}
+      </td>
+      <td className="px-4 py-2">
+        {performance?.classification ? (
+          <SupplierClassChip classification={performance.classification} />
+        ) : (
+          <span className="text-fg-muted">—</span>
+        )}
       </td>
     </tr>
   );

@@ -4713,13 +4713,26 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Four <strong>performance</strong> figures — Supplier Performance
             Rate, Quality Performance, Logistical Performance and All
-            Deliveries — with an <strong>Edit scores</strong> button beneath
-            them. A figure nobody has recorded yet reads{" "}
-            <strong>Not recorded</strong> rather than 0, and the panel shows
-            even when all four are empty, so a supplier's first scores can be
-            entered.
+            Deliveries. They come from <strong>SAP</strong>, matched on the
+            supplier's BP number, with SAP's <strong>A / B / C</strong>{" "}
+            class and the year they cover ("From SAP · 2026"). SAP's figures
+            can't be edited in ARC.
+          </LI>
+          <LI>
+            When SAP has no figures for a supplier, the scores entered in
+            ARC show instead, with an <strong>Edit scores</strong> button
+            beneath them. The same happens if SAP can't be read, and the
+            panel says why. A figure nobody has recorded reads{" "}
+            <strong>Not recorded</strong> rather than 0.
           </LI>
         </UL>
+        <P>
+          The supplier list shows the same: a <strong>Performance</strong>{" "}
+          column and a <strong>Class</strong> column, both sortable. A score
+          marked <strong>*</strong> was entered in ARC because SAP has no
+          figures for that supplier. Reading SAP needs access to it in
+          Fabric; without it, ARC's own scores show and the list says why.
+        </P>
         <H3>Contacts and Issues</H3>
         <P>
           Two sections further down the page, each scoped to the supplier

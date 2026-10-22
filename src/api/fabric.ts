@@ -327,6 +327,20 @@ export async function fabricQuery<T = unknown>(
   return payload.data;
 }
 
+/**
+ * Whether a failed Fabric read is worth retrying: only a network blip or a
+ * server error. A missing endpoint, a refused token, a refused query or a
+ * rejected GraphQL query fails the same way every time.
+ */
+export function isRetryableFabricFailure(err: unknown): boolean {
+  if (err instanceof FabricNotConfiguredError || err instanceof FabricAuthError) return false;
+  if (err instanceof FabricRequestError) {
+    if (err.cause === "transport") return true;
+    return err.cause === "http" && (err.detail.status ?? 0) >= 500;
+  }
+  return true;
+}
+
 /** The token's diagnostic claims, for the dev harness. Never the token itself. */
 export async function fabricTokenClaims(scopes?: string[]): Promise<AccessTokenClaims | null> {
   return decodeJwtClaims(await acquireFabricToken(scopes));

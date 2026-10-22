@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.198.0",
+    date: "2026-10-22",
+    changes: [
+      "Supplier performance comes from SAP — the supplier, quality and logistical scores and delivery count, with SAP's A / B / C class",
+      "The Suppliers list has a sortable Class column, and its Performance column uses SAP's score",
+      "Where SAP has no figures for a supplier, the scores entered in ARC still show (marked * on the list) and can still be edited",
+    ],
+  },
+  {
     version: "0.197.0",
     date: "2026-10-22",
     changes: [
