@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SAP_MATERIAL_COST_FIELDS, sapMaterialLookupKey, sapMaterialPlants, toSapMaterialCost, toSapPart, sapCustomerSearchTerms } from "./sapMaterialCost";
+import { SAP_MATERIAL_COST_FIELDS, sapMaterialLookupKey, sapMaterialPlants, toSapMaterialCost, toSapPart, sapCustomerSearchTerms, currentListPrice } from "./sapMaterialCost";
 
 // The Calculator's SAP cost lookup — the pure half. Rows are shaped like the
 // live view's (tbl_cogs_material_api, read 2026-10-15).
@@ -95,5 +95,40 @@ describe("sapCustomerSearchTerms", () => {
 
   it("asks nothing under 2 characters", () => {
     expect(sapCustomerSearchTerms(" e ")).toEqual([]);
+  });
+});
+
+describe("currentListPrice", () => {
+  const today = new Date("2026-10-22T15:00:00Z");
+  const row = (over: Record<string, unknown>) => ({ Amount: 100, Currency: "USD", ValidFrom: "2026-02-16T00:00:00Z", ValidTo: "9999-12-31T00:00:00Z", ...over });
+
+  it("takes the price valid today", () => {
+    expect(currentListPrice([row({ Amount: 412 })], today)).toBe(412);
+    expect(currentListPrice([row({ Amount: "412.50" })], today)).toBe(412.5);
+  });
+
+  it("ignores an expired or future price, and the latest ValidFrom wins among current ones", () => {
+    expect(currentListPrice([row({ ValidTo: "2026-10-21T00:00:00Z" })], today)).toBeNull();
+    expect(currentListPrice([row({ ValidFrom: "2026-10-23T00:00:00Z" })], today)).toBeNull();
+    expect(
+      currentListPrice([row({ Amount: 100, ValidFrom: "2025-01-01T00:00:00Z" }), row({ Amount: 120, ValidFrom: "2026-06-01T00:00:00Z" })], today),
+    ).toBe(120);
+  });
+
+  it("treats a missing bound as open, and a price ending today as still valid", () => {
+    expect(currentListPrice([row({ ValidFrom: null, ValidTo: null })], today)).toBe(100);
+    expect(currentListPrice([row({ ValidTo: "2026-10-22T00:00:00Z" })], today)).toBe(100);
+  });
+
+  it("is null for no rows, a zero or blank amount, or another currency", () => {
+    expect(currentListPrice([], today)).toBeNull();
+    expect(currentListPrice([row({ Amount: 0 }), row({ Amount: null }), row({ Amount: "" })], today)).toBeNull();
+    expect(currentListPrice([row({ Currency: "EUR" })], today)).toBeNull();
+  });
+});
+
+describe("toSapPart with a list price", () => {
+  it("carries the list price it is given", () => {
+    expect(toSapPart([{ Plant: "4222", Material: "9100-0007-15", UnitCost: 10 }], 55)?.listPrice).toBe(55);
   });
 });

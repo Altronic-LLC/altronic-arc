@@ -71,7 +71,9 @@ export function sapMaterialPlants(rows: SapMaterialCost[]): SapMaterialCost[] {
 // -----------------------------------------------------------------------------
 // The part lookup (Ray, 2026-10-17) — the same view answers "which part is
 // this?" for the request form and the pricing panel: SAP # ↔ Altronic (old) #,
-// description, material price group and cost. The view holds NO list price.
+// description, material price group and cost. The cost table holds NO list
+// price — that comes from `tbl_altronic_user_pricing` (below), asked in the
+// SAME GraphQL request.
 // -----------------------------------------------------------------------------
 
 /** The view's row as the part lookup asks for it. */
@@ -94,7 +96,7 @@ export const SAP_PART_FIELDS = [
  * gives the cost — the same plant the Calculator brings in first. null when
  * there are no rows.
  */
-export function toSapPart(rows: SapPartRow[]): SapPart | null {
+export function toSapPart(rows: SapPartRow[], listPrice: number | null = null): SapPart | null {
   const sorted = [...rows].sort((a, b) => text(a.Plant).localeCompare(text(b.Plant), undefined, { numeric: true }));
   const first = sorted[0];
   if (!first) return null;
@@ -103,9 +105,49 @@ export function toSapPart(rows: SapPartRow[]): SapPart | null {
     altronicPartNumber: text(first.OldMaterialNumber),
     description: text(first.MaterialDescription),
     mpg: text(first.MaterialPriceGroup),
-    listPrice: null,
+    listPrice,
     cost: toSapMaterialCost(first).unitCost,
   };
+}
+
+// -----------------------------------------------------------------------------
+// The list price (Ray, 2026-10-22) — `tbl_altronic_user_pricing`, exposed as
+// `tbl_altronic_user_pricings`. Checked live: PartNumber (the DASHED SAP #, the
+// cost table's `Material`), OldMaterialNumber, PartDescription, Amount, Currency
+// (all USD), UoM, ValidFrom, ValidTo (9999-12-31 for the current price). One
+// row per part at the time of writing, but a price with a validity window can
+// be superseded, so the rule below picks one rather than trusting there's one.
+// -----------------------------------------------------------------------------
+
+export interface SapListPriceRow {
+  Amount?: number | string | null;
+  Currency?: string | null;
+  ValidFrom?: string | null;
+  ValidTo?: string | null;
+}
+
+export const SAP_LIST_PRICE_FIELDS = ["Amount", "Currency", "ValidFrom", "ValidTo"] as const;
+
+/**
+ * The list price in force on `today`: the row whose ValidFrom–ValidTo covers
+ * it (a missing bound is open), the latest ValidFrom winning. Only USD — ARC
+ * prices in dollars and applies no exchange rate — and an Amount of 0 or less
+ * is NO price. null when nothing qualifies: never a price from another period.
+ */
+export function currentListPrice(rows: SapListPriceRow[], today: Date): number | null {
+  const day = today.toISOString().slice(0, 10);
+  let best: { from: string; amount: number } | null = null;
+  for (const r of rows) {
+    const currency = text(r.Currency).toUpperCase();
+    if (currency && currency !== "USD") continue;
+    const amount = r.Amount == null || r.Amount === "" ? NaN : Number(r.Amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const from = text(r.ValidFrom).slice(0, 10);
+    const to = text(r.ValidTo).slice(0, 10);
+    if ((from && from > day) || (to && to < day)) continue;
+    if (!best || from > best.from) best = { from, amount };
+  }
+  return best ? best.amount : null;
 }
 
 // -----------------------------------------------------------------------------

@@ -17,9 +17,12 @@ import {
   sapCustomersFromRows,
   type SapCustomerRow,
   SAP_PART_FIELDS,
+  SAP_LIST_PRICE_FIELDS,
+  currentListPrice,
   sapMaterialLookupKey,
   sapMaterialPlants,
   toSapPart,
+  type SapListPriceRow,
   type SapPartRow,
   SAP_MATERIAL_COST_FIELDS,
   toSapMaterialCost,
@@ -209,16 +212,30 @@ export const SAP_PART_LOOKUP_LIVE = !USE_MOCK || FABRIC_IN_DEMO;
 /** Whether a part can be looked up at all — the demo always can; live needs Fabric. */
 export const SAP_PART_LOOKUP_CONNECTED = SAP_PART_LOOKUP_LIVE ? FABRIC_ENABLED : true;
 
-async function liveSapPartRows(column: "Material" | "OldMaterialNumber", value: string): Promise<SapPartRow[]> {
-  // ONE equality and six small columns, like the Calculator's lookup — the
-  // value travels as a variable, never interpolated.
+/** The list-price table keys the SAP # as `PartNumber`; the Altronic # has the same name in both. */
+const LIST_PRICE_COLUMN = { Material: "PartNumber", OldMaterialNumber: "OldMaterialNumber" } as const;
+
+/**
+ * A part's cost rows AND its list price, in ONE GraphQL request — two root
+ * fields, one round trip (checked live 2026-10-22: no slower than cost alone).
+ * Each table is ONE equality on one column; the value travels as a variable,
+ * never interpolated.
+ */
+async function liveSapPart(column: "Material" | "OldMaterialNumber", value: string): Promise<SapPart | null> {
   const query = `query($v: String!) {
   tbl_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
     items { ${SAP_PART_FIELDS.join(" ")} }
   }
+  tbl_altronic_user_pricings(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${LIST_PRICE_COLUMN[column]}: { eq: $v } }) {
+    items { ${SAP_LIST_PRICE_FIELDS.join(" ")} }
+  }
 }`;
-  const data = await fabricQuery<{ tbl_cogs_material_apis?: { items?: SapPartRow[] | null } | null }>(query, { v: value });
-  return data.tbl_cogs_material_apis?.items ?? [];
+  const data = await fabricQuery<{
+    tbl_cogs_material_apis?: { items?: SapPartRow[] | null } | null;
+    tbl_altronic_user_pricings?: { items?: SapListPriceRow[] | null } | null;
+  }>(query, { v: value });
+  const listPrice = currentListPrice(data.tbl_altronic_user_pricings?.items ?? [], new Date());
+  return toSapPart(data.tbl_cogs_material_apis?.items ?? [], listPrice);
 }
 
 /**
@@ -229,8 +246,9 @@ async function liveSapPartRows(column: "Material" | "OldMaterialNumber", value: 
  * LIVE (Ray, 2026-10-17): from the cost view. A 10-digit SAP number is matched
  * against `Material`; otherwise the Altronic number against
  * `OldMaterialNumber`, upper-cased (old numbers carry letters). An SAP number
- * SAP doesn't hold falls back to the Altronic number when one was typed. The
- * view has no list price, so `listPrice` is null.
+ * SAP doesn't hold falls back to the Altronic number when one was typed.
+ * The list price comes from `tbl_altronic_user_pricing` in the same request
+ * (Ray, 2026-10-22) — null when it holds no current USD price for the part.
  */
 export async function lookupSapPart(args: { altronicPartNumber?: string; sapPartNumber?: string }): Promise<SapPart | null> {
   if (SAP_PART_LOOKUP_LIVE) {
@@ -238,10 +256,10 @@ export async function lookupSapPart(args: { altronicPartNumber?: string; sapPart
     const sapKey = sapMaterialLookupKey(args.sapPartNumber ?? "");
     const alt = (args.altronicPartNumber ?? "").trim().toUpperCase();
     if (sapKey) {
-      const part = toSapPart(await liveSapPartRows("Material", sapKey));
+      const part = await liveSapPart("Material", sapKey);
       if (part || !alt) return part;
     }
-    return alt ? toSapPart(await liveSapPartRows("OldMaterialNumber", alt)) : null;
+    return alt ? liveSapPart("OldMaterialNumber", alt) : null;
   }
   const sap = norm(args.sapPartNumber ?? "");
   const alt = norm(args.altronicPartNumber ?? "");

@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.196.0",
+    date: "2026-10-22",
+    changes: [
+      "Pricing brings in SAP list prices — on New Product Pricing's SAP comparison and on SAP parts added to a customer quote",
+      "The SAP comparison shows its figures instead of saying SAP isn't connected",
+    ],
+  },
+  {
     version: "0.195.0",
     date: "2026-10-21",
     changes: [

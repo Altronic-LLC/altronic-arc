@@ -192,7 +192,11 @@ export function useSapComparison(sapPartNumbers: string[]) {
       figures: part && discountKnown ? comparisonFigures(part, part.mpg ? discounts.data?.[part.mpg] ?? null : null) : null,
     };
   });
-  const notConnected = parts.some((q) => isPricingDataNotConnected(q.error)) || isPricingDataNotConnected(discounts.error);
-  const failed = !notConnected && (parts.some((q) => q.isError) || discounts.isError);
+  // The per-MPG discount table isn't in the warehouse yet, while the part, its
+  // cost and its list price are (2026-10-22). A discount that isn't connected
+  // is the standard 34% — the card footnotes it — not a reason to say SAP is.
+  const notConnected = parts.some((q) => isPricingDataNotConnected(q.error));
+  const failed =
+    !notConnected && (parts.some((q) => q.isError) || (discounts.isError && !isPricingDataNotConnected(discounts.error)));
   return { rows, notConnected, failed };
 }

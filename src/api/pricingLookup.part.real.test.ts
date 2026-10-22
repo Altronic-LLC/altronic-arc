@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The part lookup in REAL mode (Ray, 2026-10-17) — read from the Fabric cost
-// view: an SAP number against Material, an Altronic (old) number against
-// OldMaterialNumber, each ONE equality. Invisible from mock mode.
+// table: an SAP number against Material, an Altronic (old) number against
+// OldMaterialNumber, each ONE equality. The list price comes from
+// tbl_altronic_user_pricing in the SAME request (Ray, 2026-10-22). Invisible
+// from mock mode. Every value here is invented — the repo is public.
 
 const fabricQuery = vi.hoisted(() => vi.fn());
 
@@ -24,6 +26,11 @@ beforeEach(() => {
 });
 
 const rows = (...items: Record<string, unknown>[]) => ({ tbl_cogs_material_apis: { items } });
+const priced = (prices: Record<string, unknown>[], ...items: Record<string, unknown>[]) => ({
+  tbl_cogs_material_apis: { items },
+  tbl_altronic_user_pricings: { items: prices },
+});
+const CURRENT = { Currency: "USD", ValidFrom: "2026-02-16T00:00:00Z", ValidTo: "9999-12-31T00:00:00Z" };
 const HARNESS = {
   Material: "9100-0007-15",
   OldMaterialNumber: "910007-15",
@@ -45,7 +52,7 @@ describe("lookupSapPart (real mode)", () => {
     expect(query).toContain("filter: { Material: { eq: $v } }");
     expect(query).toContain("items { Plant Material OldMaterialNumber MaterialDescription MaterialPriceGroup UnitCost }");
     expect(variables).toEqual({ v: "9100-0007-15" });
-    // The first plant by number gives the cost; the view has no list price.
+    // The first plant by number gives the cost; no price rows, no list price.
     expect(part).toEqual({
       sapPartNumber: "9100-0007-15",
       altronicPartNumber: "910007-15",
@@ -78,5 +85,31 @@ describe("lookupSapPart (real mode)", () => {
     fabricQuery.mockClear();
     expect(await lookupSapPart({ sapPartNumber: " ", altronicPartNumber: "" })).toBeNull();
     expect(fabricQuery).not.toHaveBeenCalled();
+  });
+
+  it("asks the list-price table in the SAME request, keyed by PartNumber, and takes its current price", async () => {
+    fabricQuery.mockResolvedValue(priced([{ ...CURRENT, Amount: 412 }], { ...HARNESS, Plant: "4222", UnitCost: 120 }));
+    const part = await lookupSapPart({ sapPartNumber: "9100-0007-15" });
+    expect(fabricQuery).toHaveBeenCalledTimes(1);
+    const [query, variables] = fabricQuery.mock.calls[0];
+    expect(query).toContain("tbl_altronic_user_pricings(first: 50, filter: { PartNumber: { eq: $v } })");
+    expect(query).toContain("items { Amount Currency ValidFrom ValidTo }");
+    expect(variables).toEqual({ v: "9100-0007-15" });
+    expect(part?.listPrice).toBe(412);
+    expect(part?.cost).toBe(120);
+  });
+
+  it("keys the list-price table by OldMaterialNumber when looking up an Altronic number", async () => {
+    fabricQuery.mockResolvedValue(priced([{ ...CURRENT, Amount: 99.5 }], { ...HARNESS, Plant: "4222", UnitCost: 40 }));
+    const part = await lookupSapPart({ altronicPartNumber: "910007-15" });
+    expect(fabricQuery.mock.calls[0][0]).toContain("tbl_altronic_user_pricings(first: 50, filter: { OldMaterialNumber: { eq: $v } })");
+    expect(part?.listPrice).toBe(99.5);
+  });
+
+  it("has no list price when the only price row has expired", async () => {
+    fabricQuery.mockResolvedValue(
+      priced([{ ...CURRENT, Amount: 300, ValidTo: "2020-12-31T00:00:00Z" }], { ...HARNESS, Plant: "4222", UnitCost: 120 }),
+    );
+    expect((await lookupSapPart({ sapPartNumber: "9100-0007-15" }))?.listPrice).toBeNull();
   });
 });

@@ -4814,9 +4814,9 @@ then:
   rather than breaking. `usePricingLookup`'s queries report `notConnected` and
   never retry it.
 
-Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`. **Three
+Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`. **Four
 lookups are live now** — the Calculator's cost (below), and the request
-form's part and customer lookups (the section after it). Each has its own
+form's part (with its list price) and customer lookups (the section after it). Each has its own
 switch; everything else in the seam still throws.
 
 #### The Calculator's cost table — the first real Fabric read
@@ -4871,7 +4871,7 @@ What the live rows taught, each load-bearing:
   unit for V, standard for S) — taken as it comes. **0 or blank is NO cost**,
   never a $0 COGS.
 - **A blank `MaterialPriceGroup` is no group.**
-- **The view holds no list price** — it is cost only.
+- **The cost table holds no list price** — that is `tbl_altronic_user_pricing`, read by the part lookup (below).
 - **The number goes through a variable, never string interpolation**
   (`filter: { Material: { eq: $sap } }`).
   Pinned in `api/pricingLookup.materialCost.real.test.ts` with `USE_MOCK:
@@ -4940,8 +4940,26 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   otherwise the Altronic number, upper-cased, is one `eq` on
   `OldMaterialNumber`; an SAP miss falls back to the Altronic number. Never an
   OR across the two `varchar(max)` columns — that is what made the first cost
-  lookup slow. The first plant by number gives the cost; the view holds no
-  list price. `toSapPart` in `lib/sapMaterialCost.ts`.
+  lookup slow. The first plant by number gives the cost. `toSapPart` in
+  `lib/sapMaterialCost.ts`.
+- **List price — `tbl_altronic_user_pricing`** (GraphQL
+  `tbl_altronic_user_pricings`, Ray, 2026-10-22), asked as a SECOND ROOT FIELD
+  of the same request, so a lookup is still one round trip (measured: no
+  slower than cost alone). Columns, read off the live table since
+  introspection is off: `PartNumber` (the DASHED SAP #, i.e. the cost table's
+  `Material`), `OldMaterialNumber`, `PartDescription`, `Amount`, `Currency`,
+  `UoM`, `ValidFrom`, `ValidTo`. ARC asks for the last four
+  (`SAP_LIST_PRICE_FIELDS`), keyed by `PartNumber` or `OldMaterialNumber` to
+  match the cost query. `currentListPrice` picks the USD row valid TODAY
+  (latest ValidFrom wins; a missing bound is open; 0 or blank is no price) —
+  one row per part when checked, all USD, current rows end 9999-12-31. It
+  feeds `SapPart.listPrice`, so the New Product SAP comparison and a customer
+  quote's SAP-part line get it with no change of their own. Pinned in
+  `pricingLookup.part.real.test.ts` (verified by dropping the price).
+- **The per-MPG distributor discount is still NOT wired.** In live mode
+  `sapMpgDistributorDiscounts` throws not-connected, and `useSapComparison`
+  reads that as the standard 34% (footnoted on the card) — never as "SAP
+  isn't connected", which hid real list and cost figures behind a banner.
 - **The form looks the part up AS YOU TYPE** — at once on the 10th SAP digit,
   else 400 ms after typing stops — and warms the endpoint as it opens. It
   fills only BLANK boxes, so a typed Altronic number is kept.
