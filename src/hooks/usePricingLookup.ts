@@ -73,8 +73,13 @@ export function useSapPartAsYouType(altronicPartNumber: string, sapPartNumber: s
   useEffect(() => {
     if (enabled) void warmSapCostLookup();
   }, [enabled]);
+  const current = found.data;
   useEffect(() => {
     if (!enabled) return;
+    // Filling in the numbers of the part just found isn't a new part: asking
+    // again would blank the answer for a moment ("Looking it up…") for nothing.
+    const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    if (current && same(altronicPartNumber, current.altronicPartNumber) && same(sapPartNumber, current.sapPartNumber)) return;
     const whole = sapMaterialLookupKey(sapPartNumber) !== null;
     const t = setTimeout(
       () => setAsked({ altronicPartNumber: altronicPartNumber.trim(), sapPartNumber: sapPartNumber.trim() }),
