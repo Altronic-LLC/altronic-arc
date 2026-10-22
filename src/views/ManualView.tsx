@@ -4041,7 +4041,14 @@ const SECTIONS: ManualSection[] = [
             cost as the base cost. A description you typed yourself is kept.
             Pasted numbers are looked up the same way; one SAP doesn't have is
             still added, for you to fill in its description and cost, and one
-            already there is skipped.
+            already there is skipped. A number SAP couldn't be checked for just
+            then stays in the box — press <strong>Add</strong> to try it
+            again.
+          </LI>
+          <LI>
+            Press the arrow beside a sub-assembly or part to{" "}
+            <strong>collapse</strong> it to one line showing its numbers and
+            extended cost; press it again to open it.
           </LI>
           <LI>
             Each line shows its <strong>base cost</strong> (from the CSV, from

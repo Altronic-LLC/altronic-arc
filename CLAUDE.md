@@ -5085,9 +5085,17 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   part per number). Each number is looked up through `useLookUpSapParts`
   (the same cache entry as `useSapPart`, in parallel, at most 100 a paste);
   10 digits = SAP #, else Altronic # (`lookupArgsFor`). A number SAP lacks is
-  still added as a MANUAL line to fill in; one that couldn't be checked is
-  said apart from "not found"; one already there (`samePart`, either number)
-  is skipped and counted.
+  still added as a MANUAL line to fill in; one already there (`samePart`,
+  either number) is skipped and counted. A number SAP COULDN'T BE ASKED about
+  is retried once, then LEFT IN THE BOX with the reason (`sapFailureReason`,
+  plus Sign in to SAP when that's it) — never added as a blank row; only "not
+  connected" is added as typed, since asking again changes nothing. Words
+  with no digit (a pasted header) are dropped (`pastedPartNumbers`).
+- **Each card collapses to one line** (`CollapseToggle` / `CollapsedRow`) —
+  view-only state, the draft untouched.
+- **The worksheet's right column is ONE sticky block** on wide screens
+  (`xl:sticky`, scrolling inside itself past the window height). Only the
+  Save panel used to be sticky, and the cards under it slid beneath it.
 - **Each line has a BASE cost** (the JSON field `uploadedCost`, named for the
   CSV case) and a `source`: `csv` and `sap` base costs are never edited — the
   manager types an ADJUSTED cost; a `manual` line's base cost is typed and

@@ -96,32 +96,42 @@ export interface PastedPartResult {
   part: SapPart | null;
   /** SAP couldn't be asked about this one (not connected, refused, unreachable) — NOT the same as "not in SAP". */
   failed: boolean;
+  /** Why, when `failed`. */
+  error?: unknown;
 }
 
 /**
  * Look up several pasted numbers at once (Ray, 2026-10-22), in parallel, each
  * through the SAME cache entry `useSapPart` uses — a number already looked up
- * answers at once. One failure never stops the rest.
+ * answers at once. One failure never stops the rest, and a failed number is
+ * asked ONCE more after the batch (a cold endpoint or a blip under a burst of
+ * lookups), so "couldn't check" means it really couldn't.
  */
 export function useLookUpSapParts() {
   const qc = useQueryClient();
-  return async (numbers: string[]): Promise<PastedPartResult[]> =>
-    Promise.all(
-      numbers.map(async (number) => {
-        const args = lookupArgsFor(number);
-        try {
-          const part = await qc.fetchQuery<SapPart | null>({
-            queryKey: ["pricing-sap", "part", args.altronicPartNumber.toLowerCase(), args.sapPartNumber.toLowerCase()],
-            queryFn: () => lookupSapPart(args),
-            staleTime: STALE_MS,
-            retry,
-          });
-          return { number, part, failed: false };
-        } catch {
-          return { number, part: null, failed: true };
-        }
-      }),
-    );
+  const one = async (number: string): Promise<PastedPartResult> => {
+    const args = lookupArgsFor(number);
+    try {
+      const part = await qc.fetchQuery<SapPart | null>({
+        queryKey: ["pricing-sap", "part", args.altronicPartNumber.toLowerCase(), args.sapPartNumber.toLowerCase()],
+        queryFn: () => lookupSapPart(args),
+        staleTime: STALE_MS,
+        retry,
+      });
+      return { number, part, failed: false };
+    } catch (error) {
+      return { number, part: null, failed: true, error };
+    }
+  };
+  return async (numbers: string[]): Promise<PastedPartResult[]> => {
+    const first = await Promise.all(numbers.map(one));
+    const out: PastedPartResult[] = [];
+    for (const r of first) {
+      // A "not connected" answer won't change on a second ask.
+      out.push(r.failed && !isPricingDataNotConnected(r.error) ? await one(r.number) : r);
+    }
+    return out;
+  };
 }
 
 /**

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.199.0",
+    date: "2026-10-22",
+    changes: [
+      "New Product Pricing: collapse any sub-assembly or part to one line, and open it again",
+      "Add several: part numbers SAP couldn't be checked for stay in the box to try again instead of being added blank, and a pasted column header is ignored",
+      "The panel down the right of a worksheet no longer slides over itself as you scroll",
+    ],
+  },
+  {
     version: "0.198.0",
     date: "2026-10-22",
     changes: [

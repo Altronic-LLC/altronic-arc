@@ -742,9 +742,14 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
           <WorksheetDiscussion ws={ws} />
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4">
+        {/* The WHOLE column stays in view beside the worksheet (wide screens
+            only), scrolling inside itself when it's taller than the window.
+            Only the Save panel was sticky before, so the cards below it slid
+            underneath it (Ray, 2026-10-22). */}
+        <aside className="min-w-0">
+          <div className="scroll-elegant flex flex-col gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
           {!readOnly && (
-            <div className="sticky top-4 flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
+            <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
               <p className="text-xs text-fg-muted">{dirty ? "You have unsaved changes." : "Everything is saved."}</p>
               <button
                 type="button"
@@ -779,6 +784,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
           <WorksheetWatchers ws={ws} />
           <RevisionHistory ws={ws} viewRev={viewRev} onView={setViewRev} />
           <CompareToSap ws={ws} />
+          </div>
         </aside>
       </div>
 

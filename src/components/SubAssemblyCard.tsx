@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ListPlus, Paperclip, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ListPlus, Paperclip, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import type { SubAssembly, SubAssemblyLine } from "@/types/pricing";
 import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
 import { describeSapCostFailure } from "@/api/pricingLookup";
@@ -107,6 +107,56 @@ function RowFiles({ draft, readOnly, name }: { draft: SubAssemblyDraft; readOnly
   );
 }
 
+/**
+ * Fold a card down to one line (Ray, 2026-10-22). Only the VIEW folds: the
+ * draft is untouched, and opening it again shows everything as it was.
+ */
+function CollapseToggle({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
+      className="mb-1.5 rounded-sm p-0.5 text-fg-muted hover:text-fg"
+    >
+      {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+    </button>
+  );
+}
+
+/** A folded card: the toggle, what it is, and what it costs on the product. */
+function CollapsedRow({
+  kind,
+  title,
+  numbers,
+  detail,
+  extended,
+  onToggle,
+  label,
+}: {
+  kind: string;
+  title: string;
+  numbers: string;
+  detail: string;
+  extended: number | null;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <CollapseToggle open={false} onToggle={onToggle} label={label} />
+      <span className="rounded-sm bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-fg-muted">{kind}</span>
+      <span className="min-w-0 truncate font-medium text-fg">{title}</span>
+      {numbers && <span className="font-mono text-xs text-fg-muted">{numbers}</span>}
+      <span className="text-xs text-fg-muted">{detail}</span>
+      <span className="ml-auto text-sm tabular-nums text-fg" title="Extended — on one product, with overhead">
+        {extended === null ? "—" : formatMoney(extended)}
+      </span>
+    </div>
+  );
+}
+
 function NumberInputs({
   draft,
   onChange,
@@ -164,6 +214,7 @@ export function SubAssemblyCard({
   const [pasting, setPasting] = useState(false);
   const cost = subAssemblyCost(draftAsSubAssembly(draft));
   const name = draft.name || "sub-assembly";
+  const [open, setOpen] = useState(true);
 
   async function onFile(file: File) {
     const text = await file.text();
@@ -191,7 +242,20 @@ export function SubAssemblyCard({
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4" aria-label={`Sub-assembly ${draft.name || "(unnamed)"}`}>
+      {!open ? (
+        <CollapsedRow
+          kind="Sub-assembly"
+          title={draft.name || "(unnamed)"}
+          numbers={[draft.altronicPartNumber, draft.sapPartNumber].filter(Boolean).join(" · ")}
+          detail={`${draft.lines.length} component${draft.lines.length === 1 ? "" : "s"} · ×${draft.quantityPerProduct}`}
+          extended={cost.used === null ? null : cost.used * draft.quantityPerProduct * overheadFactor(draft.overheadPct)}
+          onToggle={() => setOpen(true)}
+          label={name}
+        />
+      ) : (
+      <>
       <div className="flex flex-wrap items-end gap-3">
+        <CollapseToggle open onToggle={() => setOpen(false)} label={name} />
         <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
           <span className="font-semibold uppercase tracking-wider text-fg-muted">Sub-assembly</span>
           <input
@@ -517,6 +581,8 @@ export function SubAssemblyCard({
 
       <RowSellingPrice draft={draft} onChange={onChange} readOnly={readOnly} worksheetDiscountPct={worksheetDiscountPct} label={draft.name || "this sub-assembly"} />
       <RowFiles draft={draft} readOnly={readOnly} name={name} />
+      </>
+      )}
     </section>
   );
 }
@@ -745,6 +811,7 @@ export function PartCard({
   const askedKey = `${sap.asked.altronicPartNumber}|${sap.asked.sapPartNumber}`;
   const label = draft.altronicPartNumber || draft.sapPartNumber || draft.name || "this part";
   const used = lineUnitCost(line);
+  const [open, setOpen] = useState(true);
 
   function set(patch: Partial<SubAssemblyDraft>, linePatch: Partial<SubAssemblyLine> = {}) {
     const next = { ...draft, ...patch };
@@ -777,7 +844,20 @@ export function PartCard({
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4" aria-label={`Part ${label}`}>
+      {!open ? (
+        <CollapsedRow
+          kind="Part"
+          title={draft.name || label}
+          numbers={[draft.altronicPartNumber, draft.sapPartNumber].filter(Boolean).join(" · ")}
+          detail={`×${draft.quantityPerProduct}`}
+          extended={used === null ? null : used * draft.quantityPerProduct * overheadFactor(draft.overheadPct)}
+          onToggle={() => setOpen(true)}
+          label={label}
+        />
+      ) : (
+      <>
       <div className="flex flex-wrap items-end gap-3">
+        <CollapseToggle open onToggle={() => setOpen(false)} label={label} />
         <span className="mb-2 rounded-sm bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-fg-muted">Part</span>
         <NumberInputs
           draft={draft}
@@ -852,6 +932,8 @@ export function PartCard({
 
       <RowSellingPrice draft={draft} onChange={onChange} readOnly={readOnly} worksheetDiscountPct={worksheetDiscountPct} label={label} />
       <RowFiles draft={draft} readOnly={readOnly} name={label} />
+      </>
+      )}
     </section>
   );
 }

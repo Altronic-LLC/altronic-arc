@@ -556,4 +556,15 @@ describe("NewProductPricingDetailView — choosing what goes in, and adding seve
     expect(within(board).getByLabelText("New component description")).toHaveValue("HARNESS, DE-3000 I/O, 10 FT");
     expect(within(board).getByLabelText("New component cost")).toHaveValue(98);
   });
+
+  it("a sub-assembly or part folds to one line and opens again as it was", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    await userEvent.click(within(board).getByRole("button", { name: "Collapse Main board" }));
+    expect(within(board).queryByRole("table")).toBeNull();
+    expect(within(board).getByText("4 components · ×1")).toBeInTheDocument();
+    await userEvent.click(within(board).getByRole("button", { name: "Expand Main board" }));
+    expect(within(board).getByLabelText("Adjusted cost for PCB-24-BARE")).toHaveValue(185);
+  });
 });
