@@ -1501,7 +1501,9 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
 
   **The list EXISTS** — confirmed live 2026-08-24. This entry said "not yet created" for months and was wrong; the id above is the one the site returned. There is deliberately **no default in `config.ts`**: adding one turns EIR field gating ON at the next deploy, and every engineer not on the list would lose fields they can edit today. Set the env var only once the list is populated — that decision is Ray's, not a tidy-up.
 - **Shared mailbox** (env: `VITE_SHARED_MAILBOX`) — email address that @-mention notifications send FROM. See setup below.
-- **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipient of "Report issue" reports sent from the life-buoy button in the header. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd. See `src/api/errorReport.ts`.
+- **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipients of "Report issue" reports sent from the life-buoy button in the header. A recipient LIST in the alert lists' format (`"Ray White <ray.white@…>, tim.webster@…"`, parsed by `parseRecipientList`), audited on Admin → Notification recipients. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd; an empty list refuses to send. See `src/api/errorReport.ts`.
+
+  **Every env default in `config.ts` uses `||`, never `??`.** `deploy.yml` passes each `VITE_*` var it names whether or not the repo variable exists, so an unset one arrives as `""` — and `??` keeps it. From v0.112.6 (2026-08-24, which added this var to `deploy.yml`) until v0.200.1, Report issue mailed a blank address (Graph: "Recipient 'App Manager' is not resolved"), and `VITE_HIDDEN_PEOPLE`, `VITE_SP_SCN_SITE_URL` and `VITE_SP_SALES_DOCUMENTATION_SITE_URL` lost their defaults the same way. Pinned by `api/config.envFallback.test.ts`.
 
 ### Drawing File Logs (Engineering)
 

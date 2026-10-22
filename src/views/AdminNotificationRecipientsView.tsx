@@ -6,6 +6,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { auditRecipientList, suggestionsFor, type AuditedList } from "@/lib/recipientAudit";
 import {
+  APP_MANAGER_EMAIL,
   BUILD_REQUEST_COMPLETE_REVIEWERS,
   BUILD_REQUEST_FINAL_ALERTS,
   BUILD_REQUEST_PRODUCTION_ALERTS,
@@ -152,6 +153,12 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     envVar: "VITE_BUILD_REQUEST_FINAL_ALERTS",
     value: BUILD_REQUEST_FINAL_ALERTS,
     what: "Emailed when a Production Complete build request is set Complete, alongside its assigned engineer, requestor and watchers.",
+  },
+  {
+    label: "Report issue",
+    envVar: "VITE_APP_MANAGER_EMAIL",
+    value: APP_MANAGER_EMAIL,
+    what: "Receives every Report issue sent from the header's life-buoy button, with the reporter CC'd.",
   },
 ];
 
