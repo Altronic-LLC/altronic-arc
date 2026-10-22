@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { __resetPartsRolesMockStore } from "@/api/partsRoles";
 import { PartsBookView } from "./PartsBookView";
+
+const download = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/useQuotePdf", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useQuotePdf")>()),
+  downloadBlob: download,
+}));
 
 /** Shows where the router ended up, so a navigation can be asserted. */
 function Where() {
@@ -145,5 +151,18 @@ describe("PartsBookView — on a phone", () => {
     await userEvent.click(screen.getByRole("button", { name: "All Parts Books" }));
     expect(screen.getByRole("region", { name: "Parts books" })).not.toHaveClass("hidden");
     expect(screen.queryByRole("button", { name: "All Parts Books" })).not.toBeInTheDocument();
+  });
+
+  it("exports the Component List as a CSV once it has loaded", async () => {
+    renderBook();
+    const button = screen.getByRole("button", { name: /Export components/ });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+    expect(download).toHaveBeenCalledTimes(1);
+    const [blob, name] = download.mock.calls[0] as [Blob, string];
+    expect(name).toMatch(/^altronic-component-list-\d{4}-\d{2}-\d{2}\.csv$/);
+    const lines = (await blob.text()).split(String.fromCharCode(13, 10));
+    expect(lines[0]).toContain("Altronic Part #,Category,Description");
+    expect(lines.length).toBeGreaterThan(3);
   });
 });
