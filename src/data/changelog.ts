@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.202.1",
+    date: "2026-10-23",
+    changes: [
+      "QC Forms: CPU-95 test sheets now run on a shared form engine, so more paper QC forms can follow — nothing changes in how you fill in, save or export a sheet",
+    ],
+  },
+  {
     version: "0.202.0",
     date: "2026-10-22",
     changes: [

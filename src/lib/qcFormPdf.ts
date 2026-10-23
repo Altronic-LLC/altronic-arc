@@ -1,51 +1,57 @@
 import type { jsPDF } from "jspdf";
-import type { QcCpu95Record } from "@/types/task";
-import { QC_CPU95_BLANK_VARIANTS, qcCpu95SheetLayout, SHEET_WIDTH, type SheetFont, type SheetOp } from "./qcCpu95Sheet";
+import { qcNounTitle, type QcFormRecord, type QcFormSpec } from "./qcFormEngine";
+import type { SheetFont, SheetOp } from "./qcFormSheet";
 
 // =============================================================================
-// QCFRM-012 (CPU-95) → a PDF of the paper sheet. Draws the layout model from
-// `qcCpu95Sheet.ts` with jsPDF, which is DYNAMICALLY imported so it stays out
-// of the main bundle (the quote PDF's arrangement).
+// Any QC form → a PDF of its paper sheet. Draws the form's layout model
+// (`spec.sheet.layout`, e.g. lib/qcCpu95Sheet.ts) with jsPDF, which is
+// DYNAMICALLY imported so it stays out of the main bundle (the quote PDF's
+// arrangement).
 //
 // Real, selectable text in the built-in fonts: Times for the form's own print
 // (close to the paper's serif), Helvetica in dark blue for the values ARC
 // fills in, so a reader can tell the record's entries from the printed form.
 // =============================================================================
 
-const SCALE = 612 / SHEET_WIDTH; // scan pixels → Letter points (8.5in = 612pt)
-const PAGE_W = 612;
+const PAGE_W = 612; // Letter, in points (8.5in)
 const PAGE_H = 792;
 const INK: [number, number, number] = [20, 20, 20];
 const ENTRY: [number, number, number] = [25, 55, 140];
+const MARGIN_TOP_PT = 32;
+const MARGIN_BOTTOM_PT = 28;
 
-export interface QcCpu95PdfOptions {
+export interface QcFormPdfOptions {
   /** `yyyy-mm-dd`; printed on a filled export. */
   exportedOn: string;
-  /** A blank form for one unit (`QC_CPU95_BLANK_VARIANTS` id); omitted = every variant. */
+  /** A blank form for one unit (one of `spec.sheet.blankVariants`); omitted = every variant. */
   blankVariantId?: string | null;
   /** Tests turn this off to read the text back out of the PDF. */
   compress?: boolean;
+}
+
+function serialOf(spec: QcFormSpec, record: QcFormRecord | null): string {
+  return (record?.values[spec.serialKey] ?? "").trim();
 }
 
 /**
  * "QCFRM-012 CPU-95 blank.pdf" (or "… CPU-95C blank.pdf" for one unit), or
  * "QCFRM-012 CPU-95 25564.pdf" for a filled sheet.
  */
-export function qcCpu95PdfFileName(record: QcCpu95Record | null, blankVariantId?: string | null): string {
+export function qcFormPdfFileName(spec: QcFormSpec, record: QcFormRecord | null, blankVariantId?: string | null): string {
   if (!record) {
-    const variant = QC_CPU95_BLANK_VARIANTS.find((v) => v.id === blankVariantId);
-    return variant ? `QCFRM-012 ${variant.fileTag} blank.pdf` : "QCFRM-012 CPU-95 blank.pdf";
+    const variant = spec.sheet.blankVariants?.find((v) => v.id === blankVariantId);
+    return `${spec.formNumber} ${variant?.fileTag ?? spec.shortName} blank.pdf`;
   }
-  const serial = (record.values.serialNumber ?? "")
+  const serial = serialOf(spec, record)
     .replace(/[\\/:*?"<>|]+/g, "-")
     .trim()
     .replace(/^[\s.]+|[\s.]+$/g, "");
-  return `QCFRM-012 CPU-95 ${serial || `sheet ${record.id}`}.pdf`;
+  return `${spec.formNumber} ${spec.shortName} ${serial || `sheet ${record.id}`}.pdf`;
 }
 
 // The built-in fonts only encode WinAnsi. A typed value can hold anything,
 // and an unencodable character prints as garbage — so map the one Greek
-// letter this form uses (μ → the micro sign) and replace the rest.
+// letter these forms use (μ → the micro sign) and replace the rest.
 const WIN_ANSI_EXTRA = new Set("€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ");
 export function toWinAnsi(text: string): string {
   return Array.from(text.replace(/μ/g, "µ"))
@@ -58,21 +64,26 @@ export function toWinAnsi(text: string): string {
     .join("");
 }
 
-// Horizontal positions keep the scan's scale. VERTICAL positions stretch the
-// scan's content band (title to export stamp) over the page between the
-// margins: the paper leaves a fifth of the page empty at the bottom (Tim,
-// 2026-10-20: "way too much padding"), and the room goes to the gaps between
-// lines, which is where people write. Only positions move — text keeps its
-// size, so nothing is distorted.
-const CONTENT_TOP_PX = 66;
-const CONTENT_BOTTOM_PX = 1034;
-const MARGIN_TOP_PT = 32;
-const MARGIN_BOTTOM_PT = 28;
-const Y_SCALE = (PAGE_H - MARGIN_TOP_PT - MARGIN_BOTTOM_PT) / (CONTENT_BOTTOM_PX - CONTENT_TOP_PX);
+/**
+ * Scan pixels → page points. Horizontal positions keep the scan's scale.
+ * VERTICAL positions stretch the scan's content band (title to footer) over
+ * the page between the margins: paper forms leave much of the page empty at
+ * the bottom (Tim, 2026-10-20: "way too much padding"), and the room goes to
+ * the gaps between lines, which is where people write. Only positions move —
+ * text keeps its size, so nothing is distorted.
+ */
+function geometry(spec: QcFormSpec) {
+  const { width, contentTop, contentBottom } = spec.sheet;
+  const scale = PAGE_W / width;
+  const yScale = (PAGE_H - MARGIN_TOP_PT - MARGIN_BOTTOM_PT) / (contentBottom - contentTop);
+  return {
+    P: (px: number) => px * scale,
+    Y: (px: number) => MARGIN_TOP_PT + (px - contentTop) * yScale,
+    yScale,
+  };
+}
 
-const P = (px: number) => px * SCALE;
-/** A y position on the scan → points on the page. */
-const Y = (px: number) => MARGIN_TOP_PT + (px - CONTENT_TOP_PX) * Y_SCALE;
+type Geometry = ReturnType<typeof geometry>;
 
 function setFont(doc: jsPDF, font: SheetFont, size: number, filled: boolean) {
   doc.setFont(filled ? "helvetica" : "times", font);
@@ -85,7 +96,8 @@ interface Overflow {
   text: string;
 }
 
-function drawOp(doc: jsPDF, op: SheetOp, overflow: Overflow[], continuationPage: () => number): void {
+function drawOp(doc: jsPDF, g: Geometry, op: SheetOp, overflow: Overflow[], continuationPage: () => number): void {
+  const { P, Y } = g;
   switch (op.type) {
     case "line":
       doc.setDrawColor(...INK);
@@ -97,9 +109,9 @@ function drawOp(doc: jsPDF, op: SheetOp, overflow: Overflow[], continuationPage:
       doc.setLineWidth(0.8);
       if (op.fill) {
         doc.setFillColor(217, 217, 217);
-        doc.rect(P(op.x), Y(op.y), P(op.w), op.h * Y_SCALE, "F");
+        doc.rect(P(op.x), Y(op.y), P(op.w), op.h * g.yScale, "F");
       } else {
-        doc.rect(P(op.x), Y(op.y), P(op.w), op.h * Y_SCALE);
+        doc.rect(P(op.x), Y(op.y), P(op.w), op.h * g.yScale);
       }
       return;
     case "check":
@@ -162,41 +174,48 @@ function drawContinuation(doc: jsPDF, overflow: Overflow[], heading: string) {
 }
 
 /** Build the jsPDF document. Exported so tests can read the uncompressed output. */
-export async function buildQcCpu95PdfDocument(
-  record: QcCpu95Record | null,
-  opts: QcCpu95PdfOptions,
+export async function buildQcFormPdfDocument(
+  spec: QcFormSpec,
+  record: QcFormRecord | null,
+  opts: QcFormPdfOptions,
 ): Promise<jsPDF> {
   const { jsPDF: JsPdf } = await import("jspdf");
   const doc = new JsPdf({ orientation: "portrait", unit: "pt", format: "letter", compress: opts.compress ?? true });
-  renderQcCpu95Pdf(doc, record, opts);
+  renderQcFormPdf(doc, spec, record, opts);
   return doc;
 }
 
 /** Draw the sheet onto `doc` — the seam that takes the jsPDF instance rather than importing it. */
-export function renderQcCpu95Pdf(doc: jsPDF, record: QcCpu95Record | null, opts: QcCpu95PdfOptions): void {
-  const serial = (record?.values.serialNumber ?? "").trim();
+export function renderQcFormPdf(doc: jsPDF, spec: QcFormSpec, record: QcFormRecord | null, opts: QcFormPdfOptions): void {
+  const serial = serialOf(spec, record);
+  const what = `${spec.formNumber} ${spec.shortName} ${spec.noun}`;
   doc.setProperties({
-    title: record ? `QCFRM-012 CPU-95 test sheet ${serial}`.trim() : "QCFRM-012 CPU-95 test sheet (blank)",
+    title: record ? `${what} ${serial}`.trim() : `${what} (blank)`,
     creator: "Altronic ARC",
   });
 
-  const pages = qcCpu95SheetLayout(record, opts.exportedOn, opts.blankVariantId);
+  const g = geometry(spec);
+  const pages = spec.sheet.layout(record, opts.exportedOn, opts.blankVariantId);
   const overflow: Overflow[] = [];
   // Continuation goes after every sheet page.
   const continuationPage = () => pages.length + 1;
 
   pages.forEach((page, i) => {
     if (i > 0) doc.addPage();
-    for (const op of page.ops) drawOp(doc, op, overflow, continuationPage);
+    for (const op of page.ops) drawOp(doc, g, op, overflow, continuationPage);
   });
 
   if (overflow.length > 0) {
-    drawContinuation(doc, overflow, `Test sheet ${serial || `#${record?.id ?? ""}`} — continued`);
+    drawContinuation(doc, overflow, `${qcNounTitle(spec)} ${serial || `#${record?.id ?? ""}`} — continued`);
   }
 }
 
 /** The PDF as a Blob (application/pdf). */
-export async function generateQcCpu95Pdf(record: QcCpu95Record | null, opts: QcCpu95PdfOptions): Promise<Blob> {
-  const doc = await buildQcCpu95PdfDocument(record, opts);
+export async function generateQcFormPdf(
+  spec: QcFormSpec,
+  record: QcFormRecord | null,
+  opts: QcFormPdfOptions,
+): Promise<Blob> {
+  const doc = await buildQcFormPdfDocument(spec, record, opts);
   return doc.output("blob");
 }

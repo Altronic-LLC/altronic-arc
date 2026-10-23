@@ -271,7 +271,7 @@ if ($TargetListId) {
     }
     Write-Host "  New list: $TargetListId - $($already.Count) migrated rows already there" -ForegroundColor Gray
 } else {
-    Write-Host "  The new list '$($spec.listName)' doesn't exist on Altronic_PMO yet - run create-qc-cpu95-pmo-list.ps1 before -Apply." -ForegroundColor Yellow
+    Write-Host "  The new list '$($spec.listName)' doesn't exist on Altronic_PMO yet - run create-qc-form-list.ps1 -Columns qc-cpu95-columns.json before -Apply." -ForegroundColor Yellow
 }
 
 $rows = @($picked | ForEach-Object { ConvertTo-NewRow $_ })

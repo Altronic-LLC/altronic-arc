@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // =============================================================================
-// The CPU-95 (QCFRM-012) test sheet form modal.
+// The QC form modal, driven by the CPU-95 (QCFRM-012) spec — the form the
+// engine was pulled out of, so every CPU-95 behaviour is pinned here.
 //
 // What's worth pinning: Serial Number is the only required field, Enter in
 // any of the ~200 plain text/number fields must NOT submit the form (native
@@ -12,31 +13,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createRecord = vi.hoisted(() => vi.fn(async () => ({ id: 1 })));
 const updateRecord = vi.hoisted(() => vi.fn(async () => ({ id: 1 })));
-vi.mock("@/hooks/useQcCpu95", () => ({
-  useCreateQcCpu95Record: () => ({ mutateAsync: createRecord, isPending: false }),
-  useUpdateQcCpu95Record: () => ({ mutateAsync: updateRecord, isPending: false }),
+vi.mock("@/hooks/useQcForms", () => ({
+  useCreateQcFormRecord: () => ({ mutateAsync: createRecord, isPending: false }),
+  useUpdateQcFormRecord: () => ({ mutateAsync: updateRecord, isPending: false }),
 }));
 
 const pdf = vi.hoisted(() => ({
   generate: vi.fn(async () => new Blob(["%PDF"], { type: "application/pdf" })),
   download: vi.fn(),
 }));
-vi.mock("@/lib/qcCpu95Pdf", () => ({
-  generateQcCpu95Pdf: pdf.generate,
-  qcCpu95PdfFileName: () => "QCFRM-012 CPU-95 25564.pdf",
+vi.mock("@/lib/qcFormPdf", () => ({
+  generateQcFormPdf: pdf.generate,
+  qcFormPdfFileName: () => "QCFRM-012 CPU-95 25564.pdf",
 }));
 vi.mock("@/hooks/useQuotePdf", () => ({ downloadBlob: pdf.download }));
 
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { qcCpu95EmptyValues } from "@/lib/qcCpu95Fields";
-import type { QcCpu95Record } from "@/types/task";
-import { QcCpu95FormModal } from "./QcCpu95FormModal";
+import { qcFormEmptyValues, type QcFormRecord } from "@/lib/qcFormEngine";
+import { QC_CPU95_FORM as SPEC } from "@/lib/qcCpu95Form";
+import { QcFormModal } from "./QcFormModal";
 
-const RECORD: QcCpu95Record = {
+const RECORD: QcFormRecord = {
   id: 1,
-  values: { ...qcCpu95EmptyValues(), serialNumber: "25564", altronicPartNumber: "791950-16" },
+  values: { ...qcFormEmptyValues(SPEC), serialNumber: "25564", altronicPartNumber: "791950-16" },
   createdAt: new Date(),
   modifiedAt: new Date(),
 };
@@ -48,15 +49,21 @@ beforeEach(() => {
 });
 
 describe("creating a new test sheet", () => {
+  it("is headed and named for the form", () => {
+    renderWithProviders(<QcFormModal spec={SPEC} onClose={onClose} />);
+    expect(screen.getByRole("dialog", { name: "New CPU-95 test sheet" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^New CPU-95 Test Sheet\s*— QCFRM-012$/ })).toBeInTheDocument();
+  });
+
   it("refuses an empty Serial / Unit Number", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.click(screen.getByRole("button", { name: "Save test sheet" }));
     expect(createRecord).not.toHaveBeenCalled();
     expect(screen.getByText("Serial / Unit Number is required.")).toBeInTheDocument();
   });
 
   it("saves through the create mutation on Save", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Serial / Unit Number"), "25999");
     await userEvent.click(screen.getByRole("button", { name: "Save test sheet" }));
     expect(createRecord).toHaveBeenCalledWith(
@@ -68,12 +75,12 @@ describe("creating a new test sheet", () => {
 
 describe("editing an existing test sheet", () => {
   it("seeds the form from the record", () => {
-    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}record={RECORD} onClose={onClose} />);
     expect(screen.getByLabelText("Serial / Unit Number")).toHaveValue("25564");
   });
 
   it("saves through the update mutation, not create", async () => {
-    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}record={RECORD} onClose={onClose} />);
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(updateRecord).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, values: expect.objectContaining({ serialNumber: "25564" }) }),
@@ -84,12 +91,12 @@ describe("editing an existing test sheet", () => {
 
 describe("exporting the filled form", () => {
   it("is offered only on a saved sheet", () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     expect(screen.queryByRole("button", { name: "Export" })).not.toBeInTheDocument();
   });
 
   it("exports the SAVED sheet, not the unsaved edit, and says so", async () => {
-    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}record={RECORD} onClose={onClose} />);
     expect(screen.queryByText(/save to include your changes/i)).not.toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Customer"), "Changed Co");
@@ -97,7 +104,7 @@ describe("exporting the filled form", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Export" }));
     await waitFor(() => expect(pdf.download).toHaveBeenCalledWith(expect.any(Blob), "QCFRM-012 CPU-95 25564.pdf"));
-    expect(pdf.generate).toHaveBeenCalledWith(RECORD, expect.objectContaining({ exportedOn: expect.any(String) }));
+    expect(pdf.generate).toHaveBeenCalledWith(SPEC, RECORD, expect.objectContaining({ exportedOn: expect.any(String) }));
     expect(updateRecord).not.toHaveBeenCalled();
   });
 });
@@ -111,7 +118,7 @@ describe("Enter behaves like Tab, not like Save", () => {
   // redirected to move focus to the next field instead, same as Tab — the
   // ONLY way to reach Save with Enter is tabbing/Entering all the way to it.
   it("does not submit from the Serial / Unit Number text field", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Serial / Unit Number"), "25999{Enter}");
     expect(createRecord).not.toHaveBeenCalled();
     // The required-field error a blocked submit would have raised is absent.
@@ -119,13 +126,13 @@ describe("Enter behaves like Tab, not like Save", () => {
   });
 
   it("does not submit from a plain number field", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Test RPM"), "1200{Enter}");
     expect(createRecord).not.toHaveBeenCalled();
   });
 
   it("moves focus to the next field, exactly like Tab", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const testRpm = screen.getByLabelText("Test RPM");
     const testStandNumber = screen.getByLabelText("Test Stand Number");
     await userEvent.type(testRpm, "1200{Enter}");
@@ -133,7 +140,7 @@ describe("Enter behaves like Tab, not like Save", () => {
   });
 
   it("does not intercept Enter inside Comments — it stays a literal new line", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const comments = screen.getByLabelText("Comments");
     await userEvent.type(comments, "line one{Enter}line two");
     expect(comments).toHaveValue("line one\nline two");
@@ -141,7 +148,7 @@ describe("Enter behaves like Tab, not like Save", () => {
   });
 
   it("still submits once Enter (or Tab) has reached the Save button itself", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Serial / Unit Number"), "25999");
     screen.getByRole("button", { name: "Save test sheet" }).focus();
     await userEvent.keyboard("{Enter}");
@@ -149,7 +156,7 @@ describe("Enter behaves like Tab, not like Save", () => {
   });
 
   it("still submits via a genuine click on Save", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Serial / Unit Number"), "25999");
     await userEvent.click(screen.getByRole("button", { name: "Save test sheet" }));
     expect(createRecord).toHaveBeenCalled();
@@ -158,7 +165,7 @@ describe("Enter behaves like Tab, not like Save", () => {
 
 describe("checks and firing angles", () => {
   it("answers a check Yes, No or N/A, and saves the answer", async () => {
-    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}record={RECORD} onClose={onClose} />);
     const group = screen.getByRole("radiogroup", { name: "Multi-fire, no warnings" });
     await userEvent.click(within(group).getByRole("radio", { name: "N/A" }));
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -170,7 +177,7 @@ describe("checks and firing angles", () => {
   });
 
   it("hides the actual boxes once every actual is at spec, and offers one per cylinder otherwise", async () => {
-    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}record={RECORD} onClose={onClose} />);
     // 791950-16: sixteen cylinders, lettered A … V.
     expect(screen.getAllByLabelText(/^Spec /)).toHaveLength(16);
     expect(screen.getAllByLabelText(/^Actual /)).toHaveLength(16);
@@ -183,7 +190,7 @@ describe("checks and firing angles", () => {
   });
 
   it("moves Enter past a check's pills and its Clear to the next field", async () => {
-    renderWithProviders(<QcCpu95FormModal record={RECORD} onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}record={RECORD} onClose={onClose} />);
     const group = screen.getByRole("radiogroup", { name: "Multi-fire, no warnings" });
     const yes = within(group).getByRole("radio", { name: "Yes" });
     await userEvent.click(yes);
@@ -196,7 +203,7 @@ describe("checks and firing angles", () => {
   });
 
   it("starts a check unanswered, with no pill picked, and Clear puts an answer back to blank", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const group = screen.getByRole("radiogroup", { name: "Multi-fire, no warnings" });
     expect(within(group).getAllByRole("radio").some((r) => (r as HTMLInputElement).checked)).toBe(false);
     await userEvent.click(within(group).getByRole("radio", { name: "No" }));
@@ -207,7 +214,7 @@ describe("checks and firing angles", () => {
 
 describe("standard firing specs", () => {
   it("fills a NEW sheet's specs from the part number, and keeps the ones the operator typed", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Altronic Part Number"), "791950-16");
     expect(screen.getByLabelText("Spec A")).toHaveValue(0);
     expect(screen.getByLabelText("Spec D")).toHaveValue(135);
@@ -232,7 +239,7 @@ describe("standard firing specs", () => {
   });
 
   it("blanks the specs again for a part number with no standard", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Altronic Part Number"), "791950-16");
     expect(screen.getByLabelText("Spec C")).toHaveValue(90);
     await userEvent.clear(screen.getByLabelText("Altronic Part Number"));
@@ -242,7 +249,7 @@ describe("standard firing specs", () => {
 
   it("never changes a SAVED sheet by itself, but Fill standard specs fills its blanks", async () => {
     const record = { ...RECORD, values: { ...RECORD.values, firingSpec01: "5" } };
-    renderWithProviders(<QcCpu95FormModal record={record} onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}record={record} onClose={onClose} />);
     expect(screen.getByLabelText("Spec B")).toHaveValue(null);
 
     await userEvent.click(screen.getByRole("button", { name: "Fill standard specs" }));
@@ -259,14 +266,14 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
   // originally-shipped SingleSelect) eats that first scan; SuggestInput
   // accepts characters the instant it's focused, same as any other field.
   it("accepts typed/scanned characters immediately, with no dropdown to open first", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const partNumber = screen.getByLabelText("Altronic Part Number");
     await userEvent.type(partNumber, "791950-16");
     expect(partNumber).toHaveValue("791950-16");
   });
 
   it("advances Serial Number → Altronic Part Number → Logic Board Date Code on Enter, back to back like a barcode scan", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Serial / Unit Number"), "25999{Enter}");
     const partNumber = screen.getByLabelText("Altronic Part Number");
     expect(partNumber).toHaveFocus();
@@ -277,7 +284,7 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
   });
 
   it("still accepts a value that isn't one of the known variants", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const partNumber = screen.getByLabelText("Altronic Part Number");
     await userEvent.type(partNumber, "791950-16-SS");
     expect(partNumber).toHaveValue("791950-16-SS");
@@ -291,7 +298,7 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
   // recognized, just spelled the old way. Fixed by listing "791950-8" as its
   // own suggestion alongside "791950-08" (QC_CPU95_PART_NUMBER_SUGGESTIONS).
   it("does NOT call '791950-8' a new value — it's a known alias of '791950-08'", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const partNumber = screen.getByLabelText("Altronic Part Number");
     await userEvent.type(partNumber, "791950-8");
     expect(partNumber).toHaveValue("791950-8");
@@ -299,7 +306,7 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
   });
 
   it("shows a 791955-16 the CPU-95C checks and hides the base ones its sheet hasn't got", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const partNumber = screen.getByLabelText("Altronic Part Number");
     await userEvent.type(partNumber, "791955-16");
     expect(screen.getByText("Display reads Ready")).toBeInTheDocument();
@@ -309,7 +316,7 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
   });
 
   it("shows an EVS its E1 supply currents and no peak volts", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Altronic Part Number"), "791963-16E");
     expect(screen.getAllByLabelText("E1 Single Supply Current (Amps)")).toHaveLength(2);
     expect(screen.queryByLabelText("20V Input Peak Volt E1 (130V)")).not.toBeInTheDocument();
@@ -317,7 +324,7 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
   });
 
   it("shows the 'On 791956-16' checks only once the part number is 791956-16", async () => {
-    renderWithProviders(<QcCpu95FormModal onClose={onClose} />);
+    renderWithProviders(<QcFormModal spec={SPEC}onClose={onClose} />);
     const partNumber = screen.getByLabelText("Altronic Part Number");
     await userEvent.type(partNumber, "791962-18");
     expect(screen.queryByText("On 791956-16, verify CAN communication")).not.toBeInTheDocument();

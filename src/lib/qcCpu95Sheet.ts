@@ -1,4 +1,4 @@
-import type { QcCpu95Record } from "@/types/task";
+import type { QcFormRecord } from "./qcFormEngine";
 import {
   FIRING_LETTERS,
   qcCpu95FieldLabel,
@@ -6,14 +6,26 @@ import {
   qcCpu95StandardFiringSpecs,
   qcCpu95Variant,
   qcCpu95VisibleFields,
+  QC_CPU95_FIELD_BY_KEY,
   QC_CPU95_FIELDS,
   type QcCpu95Variant,
 } from "./qcCpu95Fields";
 import { qcCpu95Altmode } from "./qcCpu95Mapper";
+import {
+  sheetBlank as blank,
+  sheetDate,
+  sheetText as text,
+  sheetUnderline as underline,
+  sheetValue as value,
+  type SheetCtx,
+  type SheetPage,
+} from "./qcFormSheet";
 
 // =============================================================================
-// QCFRM-012 (CPU-95) as the PAPER sheet — a pure layout model the PDF renderer
-// (lib/qcCpu95Pdf.ts) draws.
+// QCFRM-012 (CPU-95) as the PAPER sheet — a pure layout model the shared PDF
+// renderer (lib/qcFormPdf.ts) draws. The draw operations and the blank / value
+// helpers are shared by every QC form (lib/qcFormSheet.ts); what's here is
+// where CPU-95's paper puts each line.
 //
 // Reproduces the "95" sheet, FORM QCFRM-012 REV 2, plus its Post Test
 // Inspection page — the sheet every variant is tested on (Tim, 2026-10-21).
@@ -34,58 +46,16 @@ import { qcCpu95Altmode } from "./qcCpu95Mapper";
 
 export const SHEET_WIDTH = 950;
 export const SHEET_HEIGHT = 1230;
-
-export type SheetFont = "normal" | "bold" | "italic" | "bolditalic";
-
-export type SheetOp =
-  | {
-      type: "text";
-      x: number;
-      y: number;
-      text: string;
-      size?: number;
-      font?: SheetFont;
-      underline?: boolean;
-      align?: "left" | "center" | "right";
-      /** A value from the record, rather than the form's own print. */
-      filled?: boolean;
-    }
-  | { type: "line"; x1: number; y1: number; x2: number; y2: number }
-  | { type: "rect"; x: number; y: number; w: number; h: number; fill?: boolean }
-  | { type: "check"; x: number; y: number }
-  /**
-   * A filled value that may need more than one line — wrapped by the
-   * renderer. What doesn't fit in `maxLines` is printed in full on a
-   * continuation page under `title`, never cut off.
-   */
-  | {
-      type: "wrap";
-      x: number;
-      y: number;
-      width: number;
-      lineHeight: number;
-      maxLines: number;
-      text: string;
-      title: string;
-    };
-
-export interface SheetPage {
-  ops: SheetOp[];
-}
+/** The scan's content band, title to export stamp — the PDF stretches it over the page. */
+export const SHEET_CONTENT_TOP = 66;
+export const SHEET_CONTENT_BOTTOM = 1034;
 
 const ROW = 13; // one printed line on the scan
-const BODY = 8; // pt
 
 const LEFT = 87; // left margin of the printed text
 const TICK_X1 = 87; // the left-hand tick blank
 const TICK_X2 = 138;
 const LABEL_X = 140;
-
-/** "2026-10-20" → "10/20/2026"; anything else as stored. */
-export function sheetDate(value: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  return m ? `${m[2]}/${m[3]}/${m[1]}` : value.trim();
-}
 
 /**
  * The units a blank sheet can be printed for (Tim, 2026-10-21: "a select when
@@ -113,18 +83,8 @@ export const QC_CPU95_BLANK_VARIANTS: readonly QcCpu95BlankVariant[] = [
   { id: "evs", label: "CPU-95 EVS (791963-16A / 791963-16E)", partNumber: "791963-16A", fileTag: "EVS" },
 ];
 
-interface Ctx {
-  ops: SheetOp[];
-  /** Values to print; empty for the blank form. */
-  values: Record<string, string>;
-  visible: Set<string>;
-  filled: boolean;
-  /**
-   * The sheet is for one unit — a filled record, or a blank printed for one
-   * variant. Lines that unit doesn't use are then marked N/A in print, and
-   * only its firing grid and voltage spec appear.
-   */
-  known: boolean;
+/** `known` (from SheetCtx) also means only the unit's firing grid and voltage spec appear. */
+interface Ctx extends SheetCtx {
   /** The variant a blank sheet was printed for; null otherwise. */
   sheetFor: QcCpu95BlankVariant | null;
   /** The unit's Altmode; null on the every-variant blank form. */
@@ -157,49 +117,9 @@ function logEntry(value: string | undefined): LogEntry | null {
  * operator recorded. The second pair on the paper is for a re-run in the oven
  * and is filled in by hand.
  */
-export function qcCpu95LogEntries(record: QcCpu95Record | null): { on: LogEntry | null; off: LogEntry | null } {
+export function qcCpu95LogEntries(record: QcFormRecord | null): { on: LogEntry | null; off: LogEntry | null } {
   if (!record) return { on: null, off: null };
   return { on: logEntry(record.values.ovenOn), off: logEntry(record.values.ovenOff) };
-}
-
-function text(ctx: Ctx, x: number, y: number, t: string, opts: Partial<Extract<SheetOp, { type: "text" }>> = {}) {
-  ctx.ops.push({ type: "text", x, y, text: t, size: BODY, ...opts });
-}
-
-function underline(ctx: Ctx, x1: number, x2: number, y: number) {
-  ctx.ops.push({ type: "line", x1, y1: y + 2, x2, y2: y + 2 });
-}
-
-/** The record's value for `key`, or "" when blank, hidden by the Altmode, or a blank export. */
-function value(ctx: Ctx, key: string): string {
-  if (!ctx.filled || !ctx.visible.has(key)) return "";
-  return (ctx.values[key] ?? "").trim();
-}
-
-/** An underlined blank, with the value written on it (left-aligned, or centred). */
-function blank(ctx: Ctx, x1: number, x2: number, y: number, key: string | null, center = false) {
-  underline(ctx, x1, x2, y);
-  if (!key) return;
-  const field = QC_CPU95_FIELDS.find((f) => f.key === key);
-  if (field && ctx.known && !ctx.visible.has(key)) {
-    // A line this unit doesn't use — printed (black), not an answer (blue).
-    text(ctx, (x1 + x2) / 2, y, "N/A", { align: "center", size: 7 });
-    return;
-  }
-  let v = value(ctx, key);
-  if (!v) return;
-  if (field?.kind === "flag" || (field?.kind === "check" && v === "Yes")) {
-    ctx.ops.push({ type: "check", x: (x1 + x2) / 2, y });
-    return;
-  }
-  if (field?.kind === "check") {
-    // No or N/A, in words — a tick can't say either.
-    text(ctx, (x1 + x2) / 2, y, v.toUpperCase(), { filled: true, align: "center", size: 7 });
-    return;
-  }
-  if (field?.kind === "date") v = sheetDate(v);
-  if (center) text(ctx, (x1 + x2) / 2, y, v, { filled: true, align: "center" });
-  else text(ctx, x1 + 3, y, v, { filled: true });
 }
 
 /** A checklist row: tick blank on the left, one or more lines of print beside it. */
@@ -478,7 +398,7 @@ const VARIANT_NAME: Partial<Record<QcCpu95Variant, string>> = { "95c": "CPU-95C"
  * variant shows, by their short sheet names — as "name: value". Empty on every
  * other unit. The header's own (Application) prints in the header.
  */
-export function qcCpu95VariantLines(record: QcCpu95Record): string[] {
+export function qcCpu95VariantLines(record: QcFormRecord): string[] {
   const partNumber = record.values.altronicPartNumber ?? "";
   const altMode = qcCpu95Altmode(partNumber);
   return variantOnlyFields(altMode, partNumber).flatMap((f) => {
@@ -510,13 +430,13 @@ function variantBlanks(ctx: Ctx) {
 }
 
 /** Every Defects / NCM flag set on the record — ARC-only, not on the paper form. */
-export function qcCpu95DefectLabels(record: QcCpu95Record): string[] {
+export function qcCpu95DefectLabels(record: QcFormRecord): string[] {
   return QC_CPU95_FIELDS.filter((f) => f.section === "Defects / NCM" && record.values[f.key] === "Yes").map(
     (f) => f.label,
   );
 }
 
-function signOff(ctx: Ctx, record: QcCpu95Record | null) {
+function signOff(ctx: Ctx, record: QcFormRecord | null) {
   if (!record) variantBlanks(ctx);
   if (record) {
     // Above Comments: the 95C / EVS checks the sheet has no line for (two
@@ -582,7 +502,7 @@ function signOff(ctx: Ctx, record: QcCpu95Record | null) {
   blank(ctx, 492, 810, 957, "finalInspectionDate");
 }
 
-function footer(ctx: Ctx, record: QcCpu95Record | null, exportedOn: string) {
+function footer(ctx: Ctx, record: QcFormRecord | null, exportedOn: string) {
   text(ctx, 475, 1005, "95", { font: "bold", align: "center" });
   text(ctx, 860, 1005, "FORM QCFRM-012  REV 2", { size: 7, font: "bold", align: "right" });
   if (ctx.sheetFor) text(ctx, LEFT, 1005, `For ${ctx.sheetFor.label}`, { size: 7, font: "bold" });
@@ -614,7 +534,7 @@ export const POST_TEST_INSPECTION_POINTS = [
 /** The inspection columns, in POST_TEST_INSPECTION_POINTS order. */
 const INSPECTION_KEYS = QC_CPU95_FIELDS.filter((f) => f.section === "Post Test Inspection").map((f) => f.key);
 
-function inspectionPage(ctx: Ctx, record: QcCpu95Record | null) {
+function inspectionPage(ctx: Ctx, record: QcFormRecord | null) {
   // A loose filled page says whose it is.
   if (record) {
     const serial = (record.values.serialNumber ?? "").trim();
@@ -667,7 +587,7 @@ function inspectionPage(ctx: Ctx, record: QcCpu95Record | null) {
  * `yyyy-mm-dd`, passed in so the output doesn't depend on the clock.
  */
 export function qcCpu95SheetLayout(
-  record: QcCpu95Record | null,
+  record: QcFormRecord | null,
   exportedOn: string,
   blankVariantId?: string | null,
 ): SheetPage[] {
@@ -683,6 +603,7 @@ export function qcCpu95SheetLayout(
     visible,
     filled: !!record,
     known,
+    fieldByKey: QC_CPU95_FIELD_BY_KEY,
     sheetFor,
     altMode,
     variant: qcCpu95Variant(altMode, partNumber),

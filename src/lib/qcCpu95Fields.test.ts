@@ -2,14 +2,13 @@ import { describe, it, expect } from "vitest";
 import layout from "../../scripts/data/qc-cpu95-columns.json";
 import firingSpecTable from "@/data/qcCpu95FiringSpecs.json";
 import { qcCpu95Altmode } from "./qcCpu95Mapper";
+import { QC_CHECK_CHOICES, qcFieldsInSection } from "./qcFormEngine";
+import { QC_CPU95_FORM } from "./qcCpu95Form";
 import {
-  QC_CPU95_CHECK_CHOICES,
   QC_CPU95_FIELDS,
   QC_CPU95_FIELD_BY_KEY,
   QC_CPU95_SECTIONS,
-  qcCpu95EmptyValues,
   qcCpu95FieldLabel,
-  qcCpu95FieldsInSection,
   qcCpu95FiringGrid,
   qcCpu95FiringLetter,
   qcCpu95SectionTitle,
@@ -96,7 +95,7 @@ describe("the layout the PMO list was built from", () => {
   });
 
   it("offers the same three answers on a check", () => {
-    expect([...QC_CPU95_CHECK_CHOICES]).toEqual(layout.checkChoices);
+    expect([...QC_CHECK_CHOICES]).toEqual(layout.checkChoices);
   });
 });
 
@@ -206,10 +205,10 @@ describe("firing grid and labels", () => {
   });
 });
 
-describe("qcCpu95FieldsInSection", () => {
-  it("only returns fields tagged with that section, and every section has some", () => {
+describe("the sections", () => {
+  it("only hold fields tagged with that section, and every section has some", () => {
     for (const section of QC_CPU95_SECTIONS) {
-      const fields = qcCpu95FieldsInSection(section);
+      const fields = qcFieldsInSection(QC_CPU95_FORM, section);
       expect(fields.length, section).toBeGreaterThan(0);
       for (const f of fields) expect(f.section).toBe(section);
     }
@@ -233,13 +232,5 @@ describe("QC_CPU95_FIELDS", () => {
   it("gives every unit's checks the three-answer kind and the defects the yes/no kind", () => {
     expect(QC_CPU95_FIELDS.filter((f) => f.section === "Defects / NCM").every((f) => f.kind === "flag")).toBe(true);
     expect(QC_CPU95_FIELDS.filter((f) => f.section === "Post Test Inspection").every((f) => f.kind === "check")).toBe(true);
-  });
-});
-
-describe("qcCpu95EmptyValues", () => {
-  it("gives every declared field key a blank string", () => {
-    const empty = qcCpu95EmptyValues();
-    expect(Object.keys(empty)).toHaveLength(QC_CPU95_FIELDS.length);
-    for (const field of QC_CPU95_FIELDS) expect(empty[field.key]).toBe("");
   });
 });

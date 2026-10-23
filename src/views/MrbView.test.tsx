@@ -16,7 +16,7 @@ import type { MrbEntry } from "@/types/task";
 // table BOTH render and every entry's text appears twice. Scope queries to
 // the table (`within(await table())`) or use getAllBy* — the singular
 // unscoped form throws "Found multiple elements". Same convention as
-// QcCpu95View.test.tsx.
+// QcFormView.test.tsx.
 // =============================================================================
 
 const listMrbEntries = vi.hoisted(() => vi.fn());

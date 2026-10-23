@@ -380,8 +380,9 @@ const DevFabricTestView = lazy(() =>
 const QcFormsView = lazy(() =>
   import("@/views/QcFormsView").then((m) => ({ default: m.QcFormsView })),
 );
-const QcCpu95View = lazy(() =>
-  import("@/views/QcCpu95View").then((m) => ({ default: m.QcCpu95View })),
+// Every QC form's list — one screen, the form looked up by `:formId`.
+const QcFormPage = lazy(() =>
+  import("@/views/QcFormView").then((m) => ({ default: m.QcFormPage })),
 );
 // My agenda (BusinessIT#13) — shared layer, not a department: it reads
 // Engineering's lists today and is meant to take Operations' later.
@@ -528,10 +529,10 @@ export function App() {
               }
             />
             <Route
-              path="/qc-forms/cpu-95"
+              path="/qc-forms/:formId"
               element={
-                <Suspense fallback={<LoadingTasks noun="CPU-95 test sheets" />}>
-                  <QcCpu95View />
+                <Suspense fallback={<LoadingTasks noun="test sheets" />}>
+                  <QcFormPage />
                 </Suspense>
               }
             />
