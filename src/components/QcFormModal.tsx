@@ -1,61 +1,59 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, Loader2, X } from "lucide-react";
-import type { QcCpu95Record } from "@/types/task";
 import {
-  QC_CPU95_CHECK_CHOICES,
-  QC_CPU95_FIELDS,
-  QC_CPU95_SECTIONS,
-  qcCpu95EmptyValues,
-  qcCpu95FieldLabel,
-  qcCpu95FieldsInSection,
-  qcCpu95FiringLetter,
-  qcCpu95SectionTitle,
-  qcCpu95StandardFiringSpecs,
-  qcCpu95VisibleFields,
-  type QcCpu95Field,
-  type QcCpu95Section,
-} from "@/lib/qcCpu95Fields";
+  QC_CHECK_CHOICES,
+  qcFieldLabel,
+  qcFieldsInSection,
+  qcFormEmptyValues,
+  qcNounHeading,
+  qcSectionTitle,
+  qcVisibleFields,
+  type QcFiringGrid,
+  type QcFormField,
+  type QcFormRecord,
+  type QcFormSpec,
+  type QcValues,
+} from "@/lib/qcFormEngine";
 import { ChoicePills } from "./ChoicePills";
-import { qcCpu95Altmode, QC_CPU95_PART_NUMBER_SUGGESTIONS } from "@/lib/qcCpu95Mapper";
-import { useCreateQcCpu95Record, useUpdateQcCpu95Record } from "@/hooks/useQcCpu95";
+import { useCreateQcFormRecord, useUpdateQcFormRecord } from "@/hooks/useQcForms";
 import { DateField } from "./DateField";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { SuggestInput } from "./SuggestInput";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 import { QcFormExportButton } from "./QcFormExportButton";
-import { generateQcCpu95Pdf, qcCpu95PdfFileName } from "@/lib/qcCpu95Pdf";
+import { generateQcFormPdf, qcFormPdfFileName } from "@/lib/qcFormPdf";
 import { toIsoDate } from "@/lib/dateInput";
 
 // =============================================================================
-// New / Edit QCFRM-012 (CPU-95) test sheet.
+// New / Edit test sheet for ANY QC form — the form engine's one form.
 //
-// Descriptor-driven: every section, field, and its widget come from
-// `lib/qcCpu95Fields.ts` — nothing here names an individual column. Which
-// fields render is `qcCpu95VisibleFields(altMode, partNumber)`, recomputed
-// live off the Altronic Part Number field as the user types it, so picking a
-// part number immediately shows the unit's checks (95C, EVS, 791956-16) and
-// its 8/16/18/20-cylinder firing rows.
+// Descriptor-driven: every section, field and widget comes from the form's
+// spec (lib/qcForms.ts) — nothing here names a form or a column. Which fields
+// render is `qcVisibleFields(spec, values)`, recomputed live as the part
+// number is typed, so scanning one immediately shows the unit's own checks
+// and its grid rows (CPU-95: the 95C / EVS / 791956-16 checks, and 8/16/18/20
+// firing rows).
 //
-// The only client-side requirement is a Serial/Unit Number — everything else
-// on the real paper form is filled in over the course of the test, and a
-// blank field is normal until it's done, not an error.
+// The only client-side requirement is the serial number — everything else on
+// the paper form is filled in over the course of the test, and a blank field
+// is normal until it's done, not an error.
 // =============================================================================
 
-interface QcCpu95FormModalProps {
-  /** Omit to start a new test sheet; pass one to edit it. */
-  record?: QcCpu95Record;
+interface QcFormModalProps {
+  spec: QcFormSpec;
+  /** Omit to start a new sheet; pass one to edit it. */
+  record?: QcFormRecord;
   onClose: () => void;
 }
 
-export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
+export function QcFormModal({ spec, record, onClose }: QcFormModalProps) {
   const mode = record ? "edit" : "create";
-  const create = useCreateQcCpu95Record();
-  const update = useUpdateQcCpu95Record();
+  const create = useCreateQcFormRecord(spec);
+  const update = useUpdateQcFormRecord(spec);
   const busy = create.isPending || update.isPending;
+  const grid = spec.firingGrid;
 
-  const [values, setValues] = useState<Record<string, string>>(
-    () => record?.values ?? qcCpu95EmptyValues(),
-  );
+  const [values, setValues] = useState<QcValues>(() => record?.values ?? qcFormEmptyValues(spec));
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
@@ -65,41 +63,37 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
 
   const overlayDismiss = useOverlayDismiss(onClose, busy);
 
-  const altMode = useMemo(
-    () => qcCpu95Altmode(values.altronicPartNumber ?? ""),
-    [values.altronicPartNumber],
-  );
-  const visibleKeys = useMemo(() => {
-    const visible = qcCpu95VisibleFields(altMode, values.altronicPartNumber ?? "");
-    return new Set(visible.map((f) => f.key));
-  }, [altMode, values.altronicPartNumber]);
+  const visibleKeys = useMemo(() => new Set(qcVisibleFields(spec, values).map((f) => f.key)), [spec, values]);
 
   const dirty = useMemo(
     () => !!record && Object.keys(values).some((k) => (values[k] ?? "") !== (record.values[k] ?? "")),
     [record, values],
   );
 
-  const standardSpecs = useMemo(
-    () => qcCpu95StandardFiringSpecs(values.altronicPartNumber ?? "", altMode),
-    [values.altronicPartNumber, altMode],
+  const standardSpecs = useMemo(() => grid?.standardSpecs?.(values) ?? null, [grid, values]);
+
+  // The grid's spec keys, every slot.
+  const specKeys = useMemo(
+    () => new Set(grid ? spec.fields.filter((f) => f.slot).map((f) => grid.specKey(f.slot!)) : []),
+    [spec, grid],
   );
 
-  // Firing specs the operator has typed on this NEW sheet. A part number
-  // fills every other spec slot with its standard (Tim, 2026-10-21), and a
-  // changed part number refills them; a typed spec is the special case and
-  // is never overwritten. An edit never fills by itself — the saved sheet is
-  // what was tested — though "Fill standard specs" fills its blanks.
+  // Grid specs the operator has typed on this NEW sheet. A part number fills
+  // every other spec slot with its standard (Tim, 2026-10-21), and a changed
+  // part number refills them; a typed spec is the special case and is never
+  // overwritten. An edit never fills by itself — the saved sheet is what was
+  // tested — though "Fill standard specs" fills its blanks.
   const typedSpecs = useRef(new Set<string>());
 
   function set(key: string, value: string) {
-    if (key.startsWith("firingSpec")) typedSpecs.current.add(key);
+    if (specKeys.has(key)) typedSpecs.current.add(key);
     setValues((prev) => {
       const next = { ...prev, [key]: value };
-      if (mode !== "create" || key !== "altronicPartNumber") return next;
-      const standard = qcCpu95StandardFiringSpecs(value, qcCpu95Altmode(value));
-      for (const field of QC_CPU95_FIELDS) {
-        if (!field.key.startsWith("firingSpec") || typedSpecs.current.has(field.key)) continue;
-        next[field.key] = standard?.[field.key] ?? "";
+      if (mode !== "create" || key !== spec.partNumberKey || !grid?.standardSpecs) return next;
+      const standard = grid.standardSpecs(next);
+      for (const specKey of specKeys) {
+        if (typedSpecs.current.has(specKey)) continue;
+        next[specKey] = standard?.[specKey] ?? "";
       }
       return next;
     });
@@ -116,23 +110,21 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
     });
   }
 
-  // With ~200 fields — most of them plain text/number/checkbox inputs,
-  // entered one after another across the firing-angle grid — Enter is
-  // exactly what someone moving between cells reaches for. Left alone, a
-  // browser submits a <form> the instant Enter is pressed in a single-line
-  // text/number input (native "implicit submission", not something this app
-  // opted into), which would save a half-finished sheet or throw the Serial
-  // Number validation error mid-entry (reported live, 2026-09-17).
+  // With ~200 fields — most of them plain text/number inputs, entered one
+  // after another across a grid — Enter is exactly what someone moving
+  // between cells reaches for. Left alone, a browser submits a <form> the
+  // instant Enter is pressed in a single-line text/number input (native
+  // "implicit submission"), which would save a half-finished sheet or throw
+  // the serial number validation error mid-entry (reported live, 2026-09-17).
   //
   // Rather than just blocking it, Enter is redirected to do exactly what Tab
   // already does — move to the next field — so the ONLY way to save is
-  // tabbing (or Entering, now that it's an alias) all the way to the Save
-  // button and activating IT. A <textarea> keeps its literal Enter (a new
-  // line in Comments); a <button> keeps its own native Enter (Cancel
-  // cancels, Close closes, a DateField trigger opens, and Save — the one
-  // button this can ever reach — submits). Altronic Part Number's
-  // SuggestInput is a real <input>, so it's covered by the plain case below,
-  // same as a barcode scanner's trailing CR needs it to be.
+  // tabbing (or Entering) all the way to the Save button and activating IT.
+  // A <textarea> keeps its literal Enter (a new line in Comments); a <button>
+  // keeps its own native Enter (Cancel cancels, a DateField trigger opens,
+  // and Save — the one button this can ever reach — submits). The part
+  // number's SuggestInput is a real <input>, so it's covered by the plain
+  // case below, same as a barcode scanner's trailing CR needs it to be.
   function handleEnterAsTab(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "Enter") return;
     const target = e.target as HTMLElement;
@@ -150,10 +142,9 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
 
     // A field can pair its <input> with an auxiliary button INSIDE THE SAME
     // wrapping <label> — SuggestInput's "show suggestions" chevron, next to
-    // the Altronic Part Number input. Enter has to skip past that pair as a
-    // whole and land on the next ACTUAL field, not on that button, or a
-    // barcode scan's second CR would land on a control that does nothing
-    // with typed characters instead of the field after it.
+    // the part number input. Enter has to skip past that pair as a whole and
+    // land on the next ACTUAL field, or a barcode scan's second CR would land
+    // on a control that does nothing with typed characters.
     // The same goes for a check's Yes / No / N/A pills and its Clear link:
     // Enter skips the whole group, never stepping pill by pill or landing on
     // Clear, where the next Enter would wipe the answer.
@@ -165,9 +156,11 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
     focusable[next]?.focus();
   }
 
+  const serialLabel = spec.fields.find((f) => f.key === spec.serialKey)?.label ?? "Serial number";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!values.serialNumber?.trim()) return setError("Serial / Unit Number is required.");
+    if (!values[spec.serialKey]?.trim()) return setError(`${serialLabel} is required.`);
     setError(null);
 
     try {
@@ -183,9 +176,11 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
     }
   }
 
-  const sectionsToRender = QC_CPU95_SECTIONS.filter((section) =>
-    qcCpu95FieldsInSection(section).some((f) => visibleKeys.has(f.key)),
+  const sectionsToRender = spec.sections.filter((section) =>
+    qcFieldsInSection(spec, section).some((f) => visibleKeys.has(f.key)),
   );
+  const nounTitle = qcNounHeading(spec);
+  const formId = `qc-form-${spec.id}`;
 
   return (
     <div
@@ -195,7 +190,7 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={mode === "create" ? "New CPU-95 test sheet" : "Edit CPU-95 test sheet"}
+        aria-label={`${mode === "create" ? "New" : "Edit"} ${spec.shortName} ${spec.noun}`}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleEnterAsTab}
         className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col rounded-lg border border-border bg-surface shadow-xl"
@@ -203,8 +198,8 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
             <ClipboardCheck className="h-4 w-4 text-accent" />
-            {mode === "create" ? "New CPU-95 Test Sheet" : "Edit CPU-95 Test Sheet"}
-            <span className="font-normal text-fg-muted">— QCFRM-012</span>
+            {mode === "create" ? "New" : "Edit"} {spec.shortName} {nounTitle}
+            <span className="font-normal text-fg-muted">— {spec.formNumber}</span>
           </h2>
           <button
             type="button"
@@ -217,23 +212,18 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
           </button>
         </div>
 
-        <form
-          id="qc-cpu95-form"
-          onSubmit={handleSubmit}
-          className="min-h-0 flex-1 overflow-y-auto px-5 py-4"
-        >
+        <form id={formId} onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <div className="flex flex-col gap-4">
-            {sectionsToRender.map((section) => (
-              <SectionCard key={section} title={qcCpu95SectionTitle(section, altMode)}>
+            {sectionsToRender.map((section, i) => (
+              <SectionCard key={section} title={qcSectionTitle(spec, section, values)}>
                 <SectionFields
+                  spec={spec}
                   section={section}
-                  fields={qcCpu95FieldsInSection(section).filter((f) => visibleKeys.has(f.key))}
+                  fields={qcFieldsInSection(spec, section).filter((f) => visibleKeys.has(f.key))}
                   values={values}
                   onChange={set}
                   disabled={busy}
-                  firstFieldRef={section === "Header" ? firstFieldRef : undefined}
-                  altMode={altMode}
-                  partNumber={values.altronicPartNumber ?? ""}
+                  firstFieldRef={i === 0 ? firstFieldRef : undefined}
                   standardSpecs={standardSpecs}
                   onFillStandardSpecs={fillStandardSpecs}
                 />
@@ -251,11 +241,11 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
             <div className="mr-auto flex flex-wrap items-center gap-2">
               <QcFormExportButton
                 label="Export"
-                title="Download this test sheet as the filled-in QCFRM-012 paper form (PDF)"
+                title={`Download this ${spec.noun} as the filled-in ${spec.formNumber} paper form (PDF)`}
                 disabled={busy}
                 build={async () => ({
-                  blob: await generateQcCpu95Pdf(record, { exportedOn: toIsoDate(new Date()) }),
-                  fileName: qcCpu95PdfFileName(record),
+                  blob: await generateQcFormPdf(spec, record, { exportedOn: toIsoDate(new Date()) }),
+                  fileName: qcFormPdfFileName(spec, record),
                 })}
               />
               {dirty && (
@@ -273,12 +263,12 @@ export function QcCpu95FormModal({ record, onClose }: QcCpu95FormModalProps) {
           </button>
           <button
             type="submit"
-            form="qc-cpu95-form"
+            form={formId}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {mode === "create" ? "Save test sheet" : "Save changes"}
+            {mode === "create" ? `Save ${spec.noun}` : "Save changes"}
           </button>
         </div>
       </div>
@@ -299,44 +289,41 @@ function SectionCard({ title, children }: { title: string; children: React.React
 
 /**
  * Renders one section's fields. Checks are Yes / No / N/A pills, one per row
- * with the paper's wording; defect flags are checkboxes; the firing angles are
- * a table of the unit's cylinder rows; everything else is a labelled input
- * grid.
+ * with the paper's wording; flags are checkboxes; the firing-angle grid is a
+ * table of the unit's rows; everything else is a labelled input grid.
  */
 function SectionFields({
+  spec,
   section,
   fields,
   values,
   onChange,
   disabled,
   firstFieldRef,
-  altMode,
-  partNumber,
   standardSpecs,
   onFillStandardSpecs,
 }: {
-  section: QcCpu95Section;
-  fields: QcCpu95Field[];
-  values: Record<string, string>;
+  spec: QcFormSpec;
+  section: string;
+  fields: QcFormField[];
+  values: QcValues;
   onChange: (key: string, value: string) => void;
   disabled: boolean;
   firstFieldRef?: React.RefObject<HTMLInputElement>;
-  altMode: number;
-  partNumber: string;
   standardSpecs: Record<string, string> | null;
   onFillStandardSpecs: () => void;
 }) {
-  const label = (f: QcCpu95Field) => qcCpu95FieldLabel(f, altMode, partNumber);
+  const label = (f: QcFormField) => qcFieldLabel(spec, f, values);
 
-  if (section === "Firing Angles") {
+  if (spec.firingGrid && section === spec.firingGrid.section) {
     return (
-      <FiringAngles
+      <FiringGrid
+        grid={spec.firingGrid}
         fields={fields}
         values={values}
         onChange={onChange}
         disabled={disabled}
-        altMode={altMode}
-        partNumber={partNumber}
+        partNumber={values[spec.partNumberKey] ?? ""}
         standardSpecs={standardSpecs}
         onFillStandardSpecs={onFillStandardSpecs}
       />
@@ -360,6 +347,7 @@ function SectionFields({
                 onChange={(v) => onChange(field.key, v)}
                 disabled={disabled}
                 inputRef={i === 0 ? firstFieldRef : undefined}
+                suggestions={field.key === spec.partNumberKey ? spec.partNumberSuggestions : undefined}
               />
             </Field>
           ))}
@@ -412,7 +400,7 @@ function CheckRow({
   onChange,
   disabled,
 }: {
-  field: QcCpu95Field;
+  field: QcFormField;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -426,7 +414,7 @@ function CheckRow({
         <ChoicePills
           label={label}
           name={`qc-${field.key}`}
-          options={QC_CPU95_CHECK_CHOICES}
+          options={QC_CHECK_CHOICES}
           value={value}
           onChange={onChange}
           disabled={disabled}
@@ -446,35 +434,35 @@ function CheckRow({
 }
 
 /**
- * The firing angles: "All firing actuals at spec" on top, then one row per
- * cylinder on the unit's grid. Operators draw a line for "at spec" (Tim,
- * 2026-10-21), so Yes hides the actual boxes; otherwise the actual is typed
- * only for a cylinder that was off, and a blank actual is at spec.
+ * A spec/actual grid: "all actuals at spec" on top, then one row per slot on
+ * the unit's grid. Operators draw a line for "at spec" (Tim, 2026-10-21), so
+ * Yes hides the actual boxes; otherwise the actual is typed only for a row
+ * that was off, and a blank actual is at spec.
  */
-function FiringAngles({
+function FiringGrid({
+  grid,
   fields,
   values,
   onChange,
   disabled,
-  altMode,
   partNumber,
   standardSpecs,
   onFillStandardSpecs,
 }: {
-  fields: QcCpu95Field[];
-  values: Record<string, string>;
+  grid: QcFiringGrid;
+  fields: QcFormField[];
+  values: QcValues;
   onChange: (key: string, value: string) => void;
   disabled: boolean;
-  altMode: number;
   partNumber: string;
   standardSpecs: Record<string, string> | null;
   onFillStandardSpecs: () => void;
 }) {
-  const atSpecField = fields.find((f) => f.key === "firingActualsAtSpec");
-  const atSpec = values.firingActualsAtSpec === "Yes";
+  const atSpecField = fields.find((f) => f.key === grid.atSpecKey);
+  const atSpec = values[grid.atSpecKey] === "Yes";
   const slots = fields
-    .filter((f) => f.key.startsWith("firingSpec"))
-    .map((spec) => ({ spec, actual: fields.find((f) => f.key === `firingActual${spec.key.slice("firingSpec".length)}`) }));
+    .filter((f) => f.slot && f.key === grid.specKey(f.slot))
+    .map((spec) => ({ spec, actual: fields.find((f) => f.key === grid.actualKey(spec.slot!)) }));
   const blankSpecs = slots.some(({ spec }) => !(values[spec.key] ?? "").trim() && standardSpecs?.[spec.key]);
 
   return (
@@ -482,8 +470,8 @@ function FiringAngles({
       {standardSpecs && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-muted">
           <span>
-            The standard spec for {partNumber.trim()} is {standardSpecs.firingSpec01}, {standardSpecs.firingSpec02},{" "}
-            {standardSpecs.firingSpec03} … — change any cylinder that differs.
+            The standard spec for {partNumber.trim()} is {standardSpecs[grid.specKey(1)]},{" "}
+            {standardSpecs[grid.specKey(2)]}, {standardSpecs[grid.specKey(3)]} … — change any cylinder that differs.
           </span>
           {blankSpecs && (
             <button
@@ -502,8 +490,8 @@ function FiringAngles({
         <CheckRow
           field={atSpecField}
           label={atSpecField.label}
-          value={values.firingActualsAtSpec ?? ""}
-          onChange={(v) => onChange("firingActualsAtSpec", v)}
+          value={values[grid.atSpecKey] ?? ""}
+          onChange={(v) => onChange(grid.atSpecKey, v)}
           disabled={disabled}
         />
       )}
@@ -514,7 +502,7 @@ function FiringAngles({
       </p>
       <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
         {slots.map(({ spec, actual }) => {
-          const letter = qcCpu95FiringLetter(spec.slot ?? 0, altMode);
+          const letter = grid.letter(spec.slot!, values);
           return (
             <div key={spec.key} className="flex items-center gap-2">
               <span className="w-8 shrink-0 text-right text-xs font-semibold text-fg-muted">{letter}</span>
@@ -548,7 +536,7 @@ function FiringAngles({
   );
 }
 
-/** A date and a time of day, held as local `yyyy-mm-ddThh:mm` (the oven ON/OFF log). */
+/** A date and a time of day, held as local `yyyy-mm-ddThh:mm` (an oven ON/OFF log). */
 function DateTimeField({
   label,
   value,
@@ -585,35 +573,32 @@ function FieldInput({
   onChange,
   disabled,
   inputRef,
+  suggestions,
 }: {
-  field: QcCpu95Field;
+  field: QcFormField;
   label: string;
   value: string;
   onChange: (v: string) => void;
   disabled: boolean;
   inputRef?: React.RefObject<HTMLInputElement>;
+  suggestions?: readonly string[];
 }) {
-  // Altronic Part Number drives the Altmode switch, so typing/scanning it
-  // right matters — but this is a real <input>, not a closed dropdown that
-  // has to be opened first: production uses a barcode scanner that sends
-  // characters then a trailing CR (Enter), back to back across fields, and
-  // a control requiring an explicit "open" gesture would eat the first scan
-  // (Tim, 2026-09-17). SuggestInput is the CAD `By`/`Software` pattern — the
-  // input IS the value, the known variants are offered as suggestions, and a
-  // value that isn't one of them is still accepted (a real variant this list
-  // hasn't caught up to). `QC_CPU95_PART_NUMBER_SUGGESTIONS`, not the bare
-  // canonical list, also includes "791950-8" alongside "791950-08" — without
-  // that, scanning the older spelling resolved the right Altmode but
-  // SuggestInput still called it a "new value", which reads as unrecognized
-  // when it's actually fully understood, just spelled the old way. Enter
-  // here isn't handled by SuggestInput itself, so it falls through to
-  // `handleEnterAsTab` exactly like every other field.
-  if (field.key === "altronicPartNumber") {
+  // The part number drives which fields show, so typing/scanning it right
+  // matters — but this is a real <input>, not a closed dropdown that has to
+  // be opened first: production uses a barcode scanner that sends characters
+  // then a trailing CR (Enter), back to back across fields, and a control
+  // requiring an explicit "open" gesture would eat the first scan (Tim,
+  // 2026-09-17). SuggestInput is the CAD `By`/`Software` pattern — the input
+  // IS the value, the known part numbers are offered as suggestions, and a
+  // value that isn't one of them is still accepted (a real variant the list
+  // hasn't caught up to). Enter isn't handled by SuggestInput itself, so it
+  // falls through to `handleEnterAsTab` exactly like every other field.
+  if (suggestions) {
     return (
       <SuggestInput
         value={value}
         onChange={onChange}
-        options={QC_CPU95_PART_NUMBER_SUGGESTIONS}
+        options={[...suggestions]}
         placeholder="Scan or type a part number…"
         disabled={disabled}
       />

@@ -490,7 +490,8 @@ src/
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
-│   ├── qcCpu95.ts                QCFRM-012 (CPU-95) test sheet CRUD (Quality Control, PMO site) — no delete
+│   ├── qcForms.ts                EVERY QC form's test sheet CRUD, by form spec (Quality Control, PMO site) — mock store per form, no delete
+│   ├── qcFormLists.ts            Each QC form's SharePoint list (site, id, env var) — the api half of the registry
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
@@ -598,7 +599,7 @@ src/
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
-│   ├── useQcCpu95.ts             QCFRM-012 (CPU-95) test sheet queries + mutations — no delete hook
+│   ├── useQcForms.ts             Any QC form's test sheet queries + mutations, cached per form — no delete hook
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useCustomerNotes.ts       CRM Tool — Customer Notes queries, mutations + comments
 │   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
@@ -747,11 +748,14 @@ src/
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
 │   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
-│   ├── qcForms.ts                QC Forms registry — one entry per controlled form, drives the search/button dashboard
-│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~150 fields) + the unit variants, firing grid and per-field visibility
-│   ├── qcCpu95Mapper.ts          Graph item → QcCpu95Record, and back; qcCpu95Altmode() (part number → 0-6)
+│   ├── qcForms.ts                QC Forms registry — every form's spec, by route id; drives the landing page and /qc-forms/:formId
+│   ├── qcFormEngine.ts           THE QC form engine (pure) — QcFormSpec / QcFormRecord, visibility, labels, Graph ⇄ record, status + sort
+│   ├── qcFormSheet.ts            Paper-sheet draw ops + the shared blank/value helpers every form's layout uses (pure)
+│   ├── qcFormPdf.ts              Any form's sheet layout → PDF (jsPDF, dynamically imported); long values continue on a last page
+│   ├── qcCpu95Form.ts            QCFRM-012 (CPU-95) as a QcFormSpec — hands its rules to the engine, nothing more
+│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~150 fields) + the unit variants, firing grid and standard specs
+│   ├── qcCpu95Mapper.ts          qcCpu95Altmode() (part number → 0-6) + the part number suggestions
 │   ├── qcCpu95Sheet.ts           The QCFRM-012 REV 2 paper sheet as a layout model (pure) — blank, or filled with the Altmode's visible fields
-│   ├── qcCpu95Pdf.ts             qcCpu95Sheet → PDF (jsPDF, dynamically imported); long values continue on a last page
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -891,7 +895,7 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
-│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven; Export (filled form) in edit mode
+│   ├── QcFormModal.tsx           Create/edit a test sheet for ANY QC form — spec driven; Enter-as-Tab, firing grid, Export (filled form) in edit mode
 │   ├── QcFormExportButton.tsx    Shared QC Forms export button — build a PDF, download it, toast a failure
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
@@ -1043,7 +1047,7 @@ src/
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
 │   ├── QcFormsView.tsx           QC Forms landing dashboard — search + a button per controlled form
-│   ├── QcCpu95View.tsx           QCFRM-012 (CPU-95) test sheet list (Quality Control)
+│   ├── QcFormView.tsx            /qc-forms/:formId — any QC form's sheet list (status lights, sortable, cards on a phone, blank export)
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
 │   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
@@ -3586,7 +3590,7 @@ an autofilter.
 **On a phone the list is CARDS, not the table** — `MrbView` renders two
 siblings over the same `shown` rows, a `sm:hidden` card list and a
 `hidden sm:block` table, split at 640px. Nine columns don't fit a phone even
-truncated. The `QcCpu95View` / `QcTimeTrackingView` shape, including the card
+truncated. The `QcFormView` / `QcTimeTrackingView` shape, including the card
 being a real `<button>` (nothing competes for the tap target here).
 **jsdom has no breakpoints, so both render at once in a test** and every
 entry's text appears twice — scope to the table or use `getAllBy*`.
@@ -5331,18 +5335,76 @@ renders a day off from what SharePoint's own list view shows, check the
 actual stored time-of-day on a live row before assuming the bug is
 elsewhere, the same lesson Visit Reports and Gray Market already paid for.
 
+### QC Forms — the form engine (Quality Control)
+
+About 60 paper QC forms are to be digitized (`docs/QC-FORMS-ROADMAP.md`, a
+trimmed copy of Tim's Claude Doc, which is the source of truth — local file
+paths and customer names are left out, since the repo is public). Copying CPU-95's
+12–15 files per form 60 times was the cost risk, so **Phase 0 (2026-10-23)
+pulled a generic engine out of CPU-95** and rebuilt CPU-95 on it with no
+change to how it works. GET-1 is the Phase 1 pilot.
+
+**A form is a `QcFormSpec`** (`lib/qcFormEngine.ts`): its fields (one
+descriptor per SharePoint column), sections, `unitOf(values)` (what the part
+number says: a `variant` and how many grid `slots`), status keys, list
+columns and search keys, an optional `firingGrid`, and its paper `sheet`
+(layout, scan geometry, blank variants). Everything else is generic and reads
+only the spec:
+
+| Generic piece | File |
+|---|---|
+| Visibility, labels, Graph ⇄ record, status + sort | `lib/qcFormEngine.ts` |
+| Sheet draw ops + blank/value helpers | `lib/qcFormSheet.ts` |
+| PDF renderer (sheet → Letter) | `lib/qcFormPdf.ts` |
+| CRUD, mock store per form | `api/qcForms.ts` (lists in `api/qcFormLists.ts`) |
+| Hooks, cached per form (`["qcFormRecords", id]`) | `hooks/useQcForms.ts` |
+| The form modal | `components/QcFormModal.tsx` |
+| The list, `/qc-forms/:formId` | `views/QcFormView.tsx` |
+| List script, from the form's column JSON | `scripts/create-qc-form-list.ps1 -Columns <json>` |
+
+**Adding a form** is: a column JSON in `scripts/data/`, a descriptor file and
+a sheet layout in `lib/`, a spec, one entry in `QC_FORMS` (`lib/qcForms.ts`)
+and one in `QC_FORM_LISTS` (with its `VITE_SP_*_LIST_ID` in `config.ts`,
+`deploy.yml`, `vite-env.d.ts`, `.env.example`). No route, view or modal.
+
+Seven things that are load-bearing:
+
+- **Route ids are PRODUCT slugs, not form numbers** (`/qc-forms/cpu-95`, later
+  `/qc-forms/get-1`). Form numbers and revs may change once document control
+  comes into ARC (roadmap decision 8), and some forms have no number yet. An
+  unknown id redirects to `/qc-forms`.
+- **The spec lives in `lib/`, its list in `api/`** — `lib/` may not import
+  `config.ts` (layering rule 9), so `QC_FORM_LISTS` is the api half.
+  `api/qcForms.test.ts` fails if a registered form has no list.
+- **`qcFormEngine.test.ts` checks EVERY registered spec** — keys and columns
+  unique, every field in a listed section, the serial first (a scan must land
+  there), and every key named by status, list, search or grid actually
+  declared. A new form that names a key it hasn't got fails there.
+- **Status is generic**: Complete when every `completeKeys` field is filled,
+  In Repair when `repairKey` is "Yes", In Queue when ONLY `serialKey` and
+  `partNumberKey` are filled, else In Process. Same priority as CPU-95 had.
+- **The firing grid is a spec block** (`QcFiringGrid`: section, at-spec key,
+  spec/actual keys per slot, row letter, standard specs). The modal's
+  "standard specs fill a NEW sheet, typed specs are never overwritten" rule
+  is generic; CIS, TEM and CPU-2000 will reuse it (roadmap decision 6).
+- **A sheet layout is still per form** (pixels on its own scan); the shared
+  part is `qcFormSheet.ts`'s `sheetBlank` (tick for Yes, NO / N/A in words,
+  MM/DD/YYYY, N/A in print on a line the unit doesn't use). Parameterised
+  family layouts (the GE sheets, the Yes/No checklists, the logs) are Phase 1
+  work, once GET-1 shows what they share — not guessed now.
+- **Mock fixtures are per form** (`MOCK_FIXTURES` in `api/qcForms.ts`); a form
+  with none starts empty in the demo. `__resetQcFormMockStores()` resets all.
+
 ### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, PMO site)
 
 `01d4cb25-a642-4652-b3db-0370f9a04b98` (env: `VITE_SP_QC_CPU95_LIST_ID`), list
 name **"QCFRM-012 CPU-95 Test Sheets"**, on `SITES.pmo` — moved from the
 Engineering site's **"CPU-95"** list (`4843afdc-…`) on 2026-10-21, which is kept
 as an archive and no longer read (see "Moving the list to Altronic_PMO" below).
-The first of what will be several digitized paper
-QC/test forms, reached from a **"QC Forms"** card on the Quality Control
-dashboard. `lib/qcForms.ts` is the registry a search-plus-button landing page
-(`QcFormsView`, `/qc-forms`) is built from — a second controlled form is a
-second `QcFormDef` entry plus its own list/mapper/fields/view; nothing else
-is shared beyond the registry and the landing page.
+The first digitized paper QC/test form, reached from a **"QC Forms"** card on
+the Quality Control dashboard and `/qc-forms/cpu-95`. It runs on the form
+engine above: `lib/qcCpu95Form.ts` is its spec, and everything below is
+CPU-95's own rules, which the spec hands to the engine.
 
 QCFRM-012 (CPU-95 Ignition Module Electrical Test and Inspection) is ONE
 paper sheet — the "95" sheet — that every unit is tested on (Tim, 2026-10-21,
@@ -5378,9 +5440,12 @@ Varispark is obsolete and has nothing in ARC.
 Drawing File Logs and FAIT — ~150 fields in ten sections. Each descriptor
 carries `only` / `hiddenIn` (variants), `labelIn` (the variant's own paper
 wording), `slot` (a firing row, 1-20) and `sheetLabel` (a short name for the
-export's notes line). `qcCpu95VisibleFields(altMode, partNumber)` filters the
-list; `QcCpu95FormModal` recomputes it LIVE off the Altronic Part Number as
-it's typed. `null` for the Altmode (the blank form) shows everything.
+export's notes line). The engine's `qcVisibleFields(spec, values)` filters
+the list through the spec's `unitOf` (variant + cylinder count), and
+`QcFormModal` recomputes it LIVE off the Altronic Part Number as it's typed;
+`null` (the blank form) shows everything. The sheet layout uses
+`qcCpu95VisibleFields(altMode, partNumber)`, the same rule
+(`qcFieldShownFor`).
 
 Five kinds that are load-bearing:
 
@@ -5407,13 +5472,13 @@ from — and fails if a descriptor names a column that file hasn't got, or the
 types disagree. The only columns ARC leaves out are the migration's own four
 (`LegacySource`, `LegacyCreated`, `LegacyCreatedBy`, `DataQualityNotes`).
 
-**There is still no `$select` on the read** — both `listQcCpu95Records` and
-`getQcCpu95Record` use a bare `$expand=fields`. On the old list's ~230
-columns a fully-named `$select` pushed the URL to nearly 5,000 characters and
-came back a bare `404 "UnknownError"` with no rows (found live, 2026-09-17).
-The PMO list is ~150 columns; `toQcCpu95Record` only reads the columns it
-knows about, so fetching every field costs a bigger response, never a wrong
-one. **If a future list needs a `$select` this large, split it across two
+**There is still no `$select` on the read** — both `listQcFormRecords` and
+`getQcFormRecord` use a bare `$expand=fields`, for every form. On the old
+list's ~230 columns a fully-named `$select` pushed the URL to nearly 5,000
+characters and came back a bare `404 "UnknownError"` with no rows (found live,
+2026-09-17). The PMO list is ~150 columns; `toQcFormRecord` only reads the
+columns the form declares, so fetching every field costs a bigger response,
+never a wrong one. **If a future list needs a `$select` this large, split it across two
 reads or drop it — don't assume a $select is always cheaper.**
 
 **Project Reference is TEXT on the PMO list** (an Engineering project's title,
@@ -5475,7 +5540,7 @@ in a single-line text or number input — native behavior, not something this
 app opted into — which saved a half-finished sheet or threw the Serial
 Number required-field error mid-entry.
 
-`handleEnterAsTab` in `QcCpu95FormModal.tsx` is on the DIALOG container, not
+`handleEnterAsTab` in `QcFormModal.tsx` (every QC form) is on the DIALOG container, not
 the `<form>` — Cancel and Save sit in a footer `<div>` that's a DOM sibling
 of the `<form>`, not a descendant, so the handler has to cover the whole
 modal for Tab-order continuity into those buttons. For an Enter on anything
@@ -5505,12 +5570,12 @@ pairs its input with its own auxiliary button the same way.
 
 **No delete** — a test sheet is a signed, dated record (Final Test By /
 Final Inspection By), the same "correct with an edit" treatment as FAIT and
-Visit Reports. `api/qcCpu95.ts` has no delete function at all.
+Visit Reports. `api/qcForms.ts` has no delete function at all, for any form.
 
 **Export reproduces the paper sheet** (Tim, 2026-10-20) — **Blank form** on
 the list and **Export** in the edit form, both through the shared
 `QcFormExportButton`. `lib/qcCpu95Sheet.ts` is a pure layout model in PIXELS
-of the 950 × 1230 scan of the paper form; `lib/qcCpu95Pdf.ts` scales it to
+of the 950 × 1230 scan of the paper form; the shared `lib/qcFormPdf.ts` scales it to
 Letter and draws it with jsPDF (Times for the form, blue Helvetica for
 entries). The things that are load-bearing:
 
@@ -5520,7 +5585,7 @@ entries). The things that are load-bearing:
   2026-10-21: it is used for all units, though its title says "per QWI-342
   and 791950 Print"); Yes and No tick their columns, N/A is written across Yes.
 - **Height is stretched, width is not.** The paper leaves a fifth of the page
-  empty at the bottom; `qcCpu95Pdf.ts` maps the scan's content band
+  empty at the bottom; `qcFormPdf.ts` maps the scan's content band
   (`CONTENT_TOP_PX`–`CONTENT_BOTTOM_PX`) onto the page between the margins,
   so the extra room goes between the lines. Text keeps its size. Times is
   wider than the scan's font: leave room after a label (the header blanks
@@ -5603,8 +5668,9 @@ The list was rebuilt on `SITES.pmo` as **"QCFRM-012 CPU-95 Test Sheets"**
 (`01d4cb25-a642-4652-b3db-0370f9a04b98`, every column verified by write and
 read-back), with readable column names. `scripts/data/qc-cpu95-columns.json`
 is the ONE copy of the layout, and of where each column's value came from on
-the old list. `scripts/create-qc-cpu95-pmo-list.ps1` built the list from it
-(re-run it after adding a column there — it adds only what's missing);
+the old list. It built the list (then as `create-qc-cpu95-pmo-list.ps1`, now
+`scripts/create-qc-form-list.ps1 -Columns qc-cpu95-columns.json`; re-run it
+after adding a column there — it adds only what's missing);
 `scripts/migrate-qc-cpu95-to-pmo.ps1` copied rows into it. Add a column in
 the JSON, never in a script, and add its descriptor in `qcCpu95Fields.ts` —
 the test fails until both agree.
@@ -5642,13 +5708,13 @@ layout change BY EYE, not only by test: generate a PDF and render it to PNG
 Reports and QC Time Tracking. Reading and searching are open to everyone;
 SharePoint's own list permissions remain the real boundary.
 
-**No detail page** — clicking a row in `QcCpu95View` opens the same giant
-`QcCpu95FormModal` in edit mode, the QC Time Tracking shape, since every
+**No detail page** — clicking a row in `QcFormView` opens the same giant
+`QcFormModal` in edit mode, the QC Time Tracking shape, since every
 field (whichever the current Altmode shows) fits on one scrollable form.
 
 **The list is a card/table split on mobile, the `QcTimeTrackingView` shape**
 (Tim, 2026-09-17) — the table's eight columns don't fit a phone even
-truncated, so `QcCpu95View.tsx` renders two sibling elements over the same
+truncated, so `QcFormView.tsx` renders two sibling elements over the same
 `table.rows`: a `<div className="... sm:hidden">` of `RecordCard`s and a
 `<div className="hidden ... sm:block">` `<table>` of `Row`s, split at the `sm`
 (640px) breakpoint. `RecordCard` is a real `<button>`, not a `<div>` —
@@ -5656,12 +5722,12 @@ unlike `QcTimeTrackingView`'s card, there's no competing delete/edit icon
 here, so the whole card is the one tap target, leading with the status dot
 and serial number and listing every other column as a `<dl>` label/value
 pair underneath. **jsdom renders both at once** (no real CSS breakpoints),
-so `QcCpu95View.test.tsx` says so up top and uses `getAllByText`/
+so `QcFormView.test.tsx` says so up top and uses `getAllByText`/
 `getAllByTitle` with a length assertion instead of the singular form —
 the same convention `QcTimeTrackingView.test.tsx` already established.
 
 **The firing-angle grid is 2 columns on a phone** (Tim, 2026-09-17) —
-`QcCpu95FormModal`'s grid className is `grid-cols-2 gap-2 sm:grid-cols-6
+`QcFormModal`'s grid className is `grid-cols-2 gap-2 sm:grid-cols-6
 md:grid-cols-8`; 4 across made each box too small to tap or read
 comfortably. No re-ordering logic was needed: the letters are already
 declared in the paper form's own left-to-right, top-to-bottom order (A, B,
@@ -5675,8 +5741,9 @@ in the leading column instead: yellow **In Process**, blue **In Queue**
 (Tim, 2026-09-17: ONLY Serial Number and Altronic Part Number are filled
 in — the barcode-scanned identifying pair, nothing from the actual test
 yet), red **In Repair** (`values.inRepair === "Yes"`), green **Complete**
-(`finalInspectionBy` AND `finalInspectionDate` both set). `qcCpu95Status()` /
-`qcCpu95StatusSortKey()` in `lib/qcCpu95Mapper.ts` are the pure functions.
+(`finalInspectionBy` AND `finalInspectionDate` both set). `qcFormStatus()` /
+`qcFormStatusSortKey()` in `lib/qcFormEngine.ts` are the pure functions, generic
+over the spec's `status` keys.
 
 Priority order, each checked before falling through to the next:
 
@@ -5696,7 +5763,7 @@ Priority order, each checked before falling through to the next:
    `dateTested` silently makes its real status "new" instead, and a test
    that doesn't assert the status directly can pass for the wrong reason
    anyway (this happened once here — see the comment in
-   `qcCpu95Mapper.test.ts`'s `qcCpu95StatusSortKey` suite).
+   `qcFormEngine.test.ts`'s `qcFormStatusSortKey` suite).
 
 The list's default sort groups by that status — **In Process, then In
 Queue, then In Repair, then Complete** (Tim, 2026-09-17: In Queue sorts

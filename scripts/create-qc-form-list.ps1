@@ -1,45 +1,52 @@
 <#
 .SYNOPSIS
-    Creates the QCFRM-012 CPU-95 test sheet list on Altronic_PMO, replacing the
-    "CPU-95" list on Altronic_Engineering. Idempotent; -WhatIf reports only.
+    Creates (or tops up) one QC form's SharePoint list from its column JSON -
+    the one list script for every digitized QC form. Idempotent; -WhatIf
+    reports only.
 
 .DESCRIPTION
-    Every column comes from scripts/data/qc-cpu95-columns.json - the one copy
-    of the layout, which the migration script reads too. Add a column there,
-    never here. A re-run adds whatever columns the list is missing and changes
-    nothing that already exists.
+    Every column comes from the form's column JSON in scripts/data/ (e.g.
+    qc-cpu95-columns.json) - the one copy of the list's layout. Add a column
+    there, never here, and add its descriptor in the form's src/lib/*Fields.ts;
+    the form's test fails until the two agree. A re-run adds whatever columns
+    the list is missing and changes nothing that already exists.
 
-    What the layout changes from the old list (Tim, 2026-10-21):
-    - Readable internal names throughout.
-    - The standard and 791952/62-18 peak-volt readings are ONE column each:
-      they fill the same blank on paper, and the part number decides the spec.
-    - The three firing-angle grids (16/18/20 cylinder, 108 columns) are 20 row
-      slots of spec and actual, labelled by the unit's cylinder grid.
-    - Checks are a choice of Yes / No / N/A, not a yes/no tick, so "doesn't
-      apply" is recorded. Defect flags stay yes/no.
-    - Columns the paper uses and the old list lacked: SAP Number, Memory No.,
-      the oven ON/OFF times, the CPU-95C (791955-16) and EVS checks, and the
-      twelve Post Test Inspection points.
-    - Project Reference is TEXT: the Projects list is on another site, and a
-      lookup can't reach across sites.
+    The JSON holds:
+    - listName, and checkChoices (Yes / No / N/A).
+    - columns: name, displayName, type, and optionally description and indexed.
+      Types: title, text, note, number, date (date only), dateTime, check
+      (single choice of checkChoices), flag (yes/no).
+
+    One list per form on Altronic_PMO (QC Forms roadmap, decision 2), so each
+    form keeps real columns for filtering and reporting.
 
     Two things are load-bearing:
-    - Title (shown "Serial Number"), Altronic Part Number, Date Tested and
-      LegacySource are INDEXED, so the list can be filtered past 5,000 rows.
-      The migration script matches on LegacySource.
+    - Columns marked indexed (and Title, shown as the title column's
+      displayName) are INDEXED, so the list can be filtered past 5,000 rows.
     - Every column is then WRITTEN AND READ BACK with a throwaway row (and the
       row deleted). A 2xx from a write is not evidence the value landed - see
       "A field called DisplayName is silently dropped" in CLAUDE.md.
 
+    The CPU-95 list (QCFRM-012) was the first, built 2026-10-21; its layout
+    notes are in qc-cpu95-columns.json and CLAUDE.md.
+
     RUN IN YOUR OWN TERMINAL - the sign-in is interactive.
 
+.PARAMETER Columns
+    The form's column JSON - a path, or a file name in scripts/data/.
+
+.PARAMETER SiteId
+    The Graph site id; Altronic_PMO by default.
+
 .EXAMPLE
-    .\create-qc-cpu95-pmo-list.ps1 -WhatIf
-    .\create-qc-cpu95-pmo-list.ps1
+    .\create-qc-form-list.ps1 -Columns qc-cpu95-columns.json -WhatIf
+    .\create-qc-form-list.ps1 -Columns qc-cpu95-columns.json
 #>
 
 [CmdletBinding()]
 param(
+    [Parameter(Mandatory)][string]$Columns,
+    [string]$SiteId = "coopermachineryservices.sharepoint.com,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb",
     [switch]$WhatIf,
     [switch]$DeviceCode
 )
@@ -47,10 +54,11 @@ param(
 $ErrorActionPreference = "Stop"
 Import-Module Microsoft.Graph.Authentication
 
-$siteId = "coopermachineryservices.sharepoint.com,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb"
-$graph = "https://graph.microsoft.com/v1.0/sites/$siteId"
+$graph = "https://graph.microsoft.com/v1.0/sites/$SiteId"
 
-$spec = Get-Content (Join-Path $PSScriptRoot "data/qc-cpu95-columns.json") -Raw -Encoding utf8 | ConvertFrom-Json
+$columnsPath = if (Test-Path $Columns) { $Columns } else { Join-Path $PSScriptRoot "data/$Columns" }
+if (-not (Test-Path $columnsPath)) { throw "Column JSON not found: $Columns" }
+$spec = Get-Content $columnsPath -Raw -Encoding utf8 | ConvertFrom-Json
 $LIST_NAME = $spec.listName
 $plainNote = @{ allowMultipleLines = $true; appendChangesToExistingText = $false; linesForEditing = 6; textType = "plain" }
 
@@ -98,7 +106,7 @@ while ($uri) {
 if ($listId) {
     Write-Host "  EXISTS  $LIST_NAME ($listId)" -ForegroundColor Yellow
 } elseif ($WhatIf) {
-    Write-Host "  WOULD CREATE  $LIST_NAME on Altronic_PMO with $($columns.Count) columns" -ForegroundColor Cyan
+    Write-Host "  WOULD CREATE  $LIST_NAME with $($columns.Count) columns" -ForegroundColor Cyan
 } else {
     # Created bare, then the columns one at a time below: a create carrying
     # 150 column definitions is one request that fails as a whole.
@@ -173,7 +181,7 @@ if (-not $WhatIf -and $listId) {
     }
     Invoke-MgGraphRequest -Method DELETE -Uri "$graph/lists/$listId/items/$($row.id)" | Out-Null
     if ($bad) {
-        Write-Host "  These did NOT read back as written - fix before migrating:" -ForegroundColor Red
+        Write-Host "  These did NOT read back as written - fix before using the list:" -ForegroundColor Red
         $bad | ForEach-Object { Write-Host "    $_" -ForegroundColor Red }
     } else {
         Write-Host "  All $($fields.Count) columns wrote and read back correctly (test row deleted)." -ForegroundColor Green
@@ -181,7 +189,6 @@ if (-not $WhatIf -and $listId) {
 }
 
 Write-Host "`n=== Next ===" -ForegroundColor Cyan
-if ($listId) { Write-Host "  New list id: $listId" -ForegroundColor Green }
-Write-Host "  Copy the ARC-era rows across with scripts/migrate-qc-cpu95-to-pmo.ps1" -ForegroundColor Gray
-Write-Host "  (report first, then -Since <date> -Apply). ARC keeps reading the old list" -ForegroundColor Gray
-Write-Host "  until VITE_SP_QC_CPU95_LIST_ID is pointed at the new one." -ForegroundColor Gray
+if ($listId) { Write-Host "  List id: $listId" -ForegroundColor Green }
+Write-Host "  Give the form its list in src/api/qcFormLists.ts (a VITE_SP_*_LIST_ID in" -ForegroundColor Gray
+Write-Host "  config.ts, deploy.yml and .env.example), then set the repo variable and redeploy." -ForegroundColor Gray

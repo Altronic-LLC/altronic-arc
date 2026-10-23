@@ -385,7 +385,7 @@ export function MrbView() {
             {/* Two renderings of the SAME `shown` rows, split at `sm`
                 (640px). Nine columns don't fit a phone even truncated, and a
                 horizontally-scrolling table is miserable to use one-handed.
-                The QcCpu95View / QcTimeTrackingView shape.
+                The QcFormView / QcTimeTrackingView shape.
 
                 NOTE FOR TESTS: jsdom has no CSS breakpoints, so BOTH render
                 at once and every entry's text appears twice. Scope queries
@@ -444,7 +444,7 @@ export function MrbView() {
  * One entry on a phone.
  *
  * A real `<button>`, not a `<div>` — there is no competing action inside it,
- * so the whole card is the one tap target (the QcCpu95View call; QC Time
+ * so the whole card is the one tap target (the QcFormView call; QC Time
  * Tracking's card can't do this because it carries its own delete icon).
  *
  * Leads with the two identifiers and the disposition, because that is what

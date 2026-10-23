@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { QcCpu95Record } from "@/types/task";
-import { qcCpu95EmptyValues } from "./qcCpu95Fields";
+import { qcFormEmptyValues, type QcFormRecord } from "./qcFormEngine";
+import { QC_CPU95_FORM } from "./qcCpu95Form";
+import type { SheetOp } from "./qcFormSheet";
 import {
   POST_TEST_INSPECTION_POINTS,
   QC_CPU95_BLANK_VARIANTS,
@@ -8,8 +9,6 @@ import {
   qcCpu95LogEntries,
   qcCpu95SheetLayout,
   qcCpu95VariantLines,
-  sheetDate,
-  type SheetOp,
 } from "./qcCpu95Sheet";
 
 // =============================================================================
@@ -18,8 +17,8 @@ import {
 // paper column means — never a stale value on a field the edit form hides.
 // =============================================================================
 
-function record(values: Record<string, string>, id = 7): QcCpu95Record {
-  return { id, values: { ...qcCpu95EmptyValues(), ...values }, createdAt: new Date(0), modifiedAt: new Date(0) };
+function record(values: Record<string, string>, id = 7): QcFormRecord {
+  return { id, values: { ...qcFormEmptyValues(QC_CPU95_FORM), ...values }, createdAt: new Date(0), modifiedAt: new Date(0) };
 }
 
 type TextOp = Extract<SheetOp, { type: "text" }>;
@@ -352,12 +351,5 @@ describe("the ON/OFF log entry", () => {
       off: null,
     });
     expect(qcCpu95LogEntries(null)).toEqual({ on: null, off: null });
-  });
-});
-
-describe("sheetDate", () => {
-  it("reads yyyy-mm-dd as MM/DD/YYYY and leaves anything else alone", () => {
-    expect(sheetDate("2026-01-05")).toBe("01/05/2026");
-    expect(sheetDate(" 5/1/26 ")).toBe("5/1/26");
   });
 });

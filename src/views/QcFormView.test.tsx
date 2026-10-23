@@ -5,12 +5,12 @@ const state = vi.hoisted(() => ({
   isLoading: false,
 }));
 
-vi.mock("@/hooks/useQcCpu95", () => ({
-  useQcCpu95Records: () => ({ data: state.records, isLoading: state.isLoading }),
+vi.mock("@/hooks/useQcForms", () => ({
+  useQcFormRecords: () => ({ data: state.records, isLoading: state.isLoading }),
 }));
 
-vi.mock("@/components/QcCpu95FormModal", () => ({
-  QcCpu95FormModal: ({ record, onClose }: { record?: { id: number }; onClose: () => void }) => (
+vi.mock("@/components/QcFormModal", () => ({
+  QcFormModal: ({ record, onClose }: { record?: { id: number }; onClose: () => void }) => (
     <div role="dialog" aria-label={record ? "Edit CPU-95 test sheet" : "New CPU-95 test sheet"}>
       <button onClick={onClose}>Close</button>
     </div>
@@ -21,28 +21,33 @@ const pdf = vi.hoisted(() => ({
   generate: vi.fn(async () => new Blob(["%PDF"], { type: "application/pdf" })),
   download: vi.fn(),
 }));
-vi.mock("@/lib/qcCpu95Pdf", () => ({
-  generateQcCpu95Pdf: pdf.generate,
-  qcCpu95PdfFileName: (r: unknown) => (r ? "filled.pdf" : "QCFRM-012 CPU-95 blank.pdf"),
+vi.mock("@/lib/qcFormPdf", () => ({
+  generateQcFormPdf: pdf.generate,
+  qcFormPdfFileName: (_spec: unknown, r: unknown) => (r ? "filled.pdf" : "QCFRM-012 CPU-95 blank.pdf"),
 }));
 vi.mock("@/hooks/useQuotePdf", () => ({ downloadBlob: pdf.download }));
 
+import { Route, Routes } from "react-router-dom";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { qcCpu95EmptyValues } from "@/lib/qcCpu95Fields";
-import type { QcCpu95Record } from "@/types/task";
-import { QcCpu95View } from "./QcCpu95View";
+import { qcFormEmptyValues, type QcFormRecord } from "@/lib/qcFormEngine";
+import { QC_CPU95_FORM as SPEC } from "@/lib/qcCpu95Form";
+import { QcFormPage, QcFormView } from "./QcFormView";
+
+// The CPU-95 form's list, as every form's list renders.
+const QcCpu95View = () => <QcFormView spec={SPEC} />;
 
 beforeEach(() => {
   state.records = [];
   state.isLoading = false;
+  pdf.generate.mockClear();
 });
 
-function makeRecord(id: number, overrides: Record<string, string> = {}, over: Partial<QcCpu95Record> = {}): QcCpu95Record {
+function makeRecord(id: number, overrides: Record<string, string> = {}, over: Partial<QcFormRecord> = {}): QcFormRecord {
   return {
     id,
-    values: { ...qcCpu95EmptyValues(), ...overrides },
+    values: { ...qcFormEmptyValues(SPEC), ...overrides },
     createdAt: new Date(),
     modifiedAt: new Date(),
     ...over,
@@ -54,7 +59,7 @@ function makeRecord(id: number, overrides: Record<string, string> = {}, over: Pa
 // the DOM at once) — every assertion below expects AT LEAST one match
 // rather than exactly one, the same convention QcTimeTrackingView's tests
 // use for the identical reason.
-describe("QcCpu95View", () => {
+describe("QcFormView, for CPU-95", () => {
   it("shows a loading state", () => {
     state.isLoading = true;
     renderWithProviders(<QcCpu95View />);
@@ -65,9 +70,9 @@ describe("QcCpu95View", () => {
     renderWithProviders(<QcCpu95View />);
     await userEvent.click(screen.getByRole("button", { name: "Blank form" }));
     await waitFor(() => expect(pdf.download).toHaveBeenCalled());
-    expect(pdf.generate).toHaveBeenCalledWith(null, expect.objectContaining({ exportedOn: expect.any(String) }));
+    expect(pdf.generate).toHaveBeenCalledWith(SPEC, null, expect.objectContaining({ exportedOn: expect.any(String) }));
     expect(pdf.download).toHaveBeenCalledWith(expect.any(Blob), "QCFRM-012 CPU-95 blank.pdf");
-    expect(pdf.generate).toHaveBeenCalledWith(null, expect.objectContaining({ blankVariantId: null }));
+    expect(pdf.generate).toHaveBeenCalledWith(SPEC, null, expect.objectContaining({ blankVariantId: null }));
   });
 
   it("exports the blank form for the unit picked", async () => {
@@ -75,7 +80,18 @@ describe("QcCpu95View", () => {
     await userEvent.click(screen.getByRole("button", { name: "Blank form for" }));
     await userEvent.click(await screen.findByRole("option", { name: "CPU-95C (791955-16)" }));
     await userEvent.click(screen.getByRole("button", { name: "Blank form" }));
-    await waitFor(() => expect(pdf.generate).toHaveBeenCalledWith(null, expect.objectContaining({ blankVariantId: "95c" })));
+    await waitFor(() => expect(pdf.generate).toHaveBeenCalledWith(SPEC, null, expect.objectContaining({ blankVariantId: "95c" })));
+  });
+
+  it("shows the form's own heading", () => {
+    renderWithProviders(<QcCpu95View />);
+    expect(screen.getByRole("heading", { name: "QCFRM-012 — CPU-95 Ignition Module" })).toBeInTheDocument();
+  });
+
+  it("offers no unit picker on a form with one blank sheet", () => {
+    renderWithProviders(<QcFormView spec={{ ...SPEC, sheet: { ...SPEC.sheet, blankVariants: undefined } }} />);
+    expect(screen.queryByRole("button", { name: "Blank form for" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Blank form" })).toBeInTheDocument();
   });
 
   it("shows an empty state with no test sheets", () => {
@@ -210,6 +226,28 @@ describe("QcCpu95View", () => {
     state.records = [makeRecord(1, { serialNumber: "25564" })];
     renderWithProviders(<QcCpu95View />);
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("the /qc-forms/:formId route", () => {
+  function renderAt(path: string) {
+    renderWithProviders(
+      <Routes>
+        <Route path="/qc-forms" element={<p>Landing page</p>} />
+        <Route path="/qc-forms/:formId" element={<QcFormPage />} />
+      </Routes>,
+      { route: path },
+    );
+  }
+
+  it("opens the form named in the URL — CPU-95 keeps /qc-forms/cpu-95", () => {
+    renderAt("/qc-forms/cpu-95");
+    expect(screen.getByRole("heading", { name: "QCFRM-012 — CPU-95 Ignition Module" })).toBeInTheDocument();
+  });
+
+  it("sends an unknown form back to the landing page", () => {
+    renderAt("/qc-forms/no-such-form");
+    expect(screen.getByText("Landing page")).toBeInTheDocument();
   });
 });
 

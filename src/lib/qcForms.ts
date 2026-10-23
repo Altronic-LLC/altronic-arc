@@ -1,27 +1,15 @@
+import type { QcFormSpec } from "./qcFormEngine";
+import { QC_CPU95_FORM } from "./qcCpu95Form";
+
 // =============================================================================
-// QC Forms registry — the landing page (search + a button per form) is built
-// from this list. Add a new form here as its own scaffold ships; nothing else
-// on the landing page needs to change.
+// QC Forms registry — every digitized form, in the order the landing page
+// shows them. `/qc-forms/<id>` renders whichever spec has that id, so adding a
+// form is its spec here plus its list in api/qcFormLists.ts; no route, view or
+// form component of its own.
 // =============================================================================
 
-export interface QcFormDef {
-  /** Route slug, e.g. "cpu-95" → "/qc-forms/cpu-95". */
-  id: string;
-  /** The controlled-form number, e.g. "QCFRM-012". */
-  formNumber: string;
-  /** What the form covers, e.g. "CPU-95 Ignition Module". */
-  name: string;
-  description: string;
-  to: string;
+export const QC_FORMS: readonly QcFormSpec[] = [QC_CPU95_FORM];
+
+export function qcFormById(id: string | undefined): QcFormSpec | null {
+  return QC_FORMS.find((form) => form.id === id) ?? null;
 }
-
-export const QC_FORMS: QcFormDef[] = [
-  {
-    id: "cpu-95",
-    formNumber: "QCFRM-012",
-    name: "CPU-95 Ignition Module",
-    description:
-      "Electrical test and inspection — covers the CPU-95, CPU-95C, Varispark, and EVS paper variants.",
-    to: "/qc-forms/cpu-95",
-  },
-];

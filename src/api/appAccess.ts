@@ -48,7 +48,6 @@ import {
   SP_PANEL_TASKS_LIST_ID,
   SP_POTTING_SAMPLE_LOG_LIST_ID,
   SP_QC_COILS_LIST_ID,
-  SP_QC_CPU95_LIST_ID,
   SP_QC_TIME_TRACKING_LIST_ID,
   SP_QUOTE_ASSEMBLIES_LIST_ID,
   SP_QUOTE_ITEMS_LIST_ID,
@@ -70,6 +69,7 @@ import { SUPPLY_CHAIN_FILES_PATH } from "./supplyChainFiles";
 import { SALES_DOCUMENTATION_PATH } from "./salesDocumentation";
 import { APPLICATION_PHOTOS_PATH } from "./applicationPhotos";
 import { PROJECT_FOLDERS_PATH } from "./projectFiles";
+import { QC_FORM_LISTS } from "./qcFormLists";
 
 export type SiteKey = keyof typeof SITES;
 
@@ -223,7 +223,13 @@ export const APPS: AppSpec[] = [
   // Quality --------------------------------------------------------------
   { path: "/digital-qc", label: "Digital QC Defect Log", site: "engineering", lists: ids(...Object.values(DIGITAL_QC_FAMILY_LIST_IDS)) },
   { path: "/ignition-qc", label: "Ignition QC Defect Log", site: "engineering", lists: ids(...Object.values(IGNITION_QC_FAMILY_LIST_IDS)) },
-  { path: "/qc-forms", label: "QC Forms", site: "pmo", lists: ids(SP_QC_CPU95_LIST_ID) },
+  // Every form's list: the screen is unavailable only when all are refused.
+  {
+    path: "/qc-forms",
+    label: "QC Forms",
+    site: "pmo",
+    lists: ids(...Object.values(QC_FORM_LISTS).map((l) => l.listId)),
+  },
 
   // Supply Chain ---------------------------------------------------------
   { path: "/supply-chain/gray-market-requests", label: "Gray Market Requests", site: "pmo", lists: ids(SP_GRAY_MARKET_LIST_ID) },

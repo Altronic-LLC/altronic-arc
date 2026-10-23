@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { QcCpu95Record } from "@/types/task";
-import { qcCpu95EmptyValues } from "./qcCpu95Fields";
-import { buildQcCpu95PdfDocument, generateQcCpu95Pdf, qcCpu95PdfFileName, toWinAnsi } from "./qcCpu95Pdf";
+import { qcFormEmptyValues, type QcFormRecord } from "./qcFormEngine";
+import { QC_CPU95_FORM } from "./qcCpu95Form";
+import { buildQcFormPdfDocument, generateQcFormPdf, qcFormPdfFileName, toWinAnsi } from "./qcFormPdf";
 
 // =============================================================================
-// The QCFRM-012 PDF. Reads the REAL text out of an uncompressed jsPDF
-// document (the quotePdf.test.ts approach). Where each value lands is pinned
-// in qcCpu95Sheet.test.ts; this file pins what the renderer adds — pages,
-// encoding, and that a long value is continued, never cut off.
+// The shared QC form PDF renderer, drawing the QCFRM-012 (CPU-95) sheet. Reads
+// the REAL text out of an uncompressed jsPDF document (the quotePdf.test.ts
+// approach). Where each value lands is pinned in qcCpu95Sheet.test.ts; this
+// file pins what the renderer adds — pages, encoding, file names, and that a
+// long value is continued, never cut off.
 // =============================================================================
+
+const SPEC = QC_CPU95_FORM;
 
 function pdfText(raw: string): string {
   const runs: string[] = [];
@@ -24,12 +27,12 @@ function pdfText(raw: string): string {
   return runs.join("\n").replace(/\u0097/g, "—");
 }
 
-function record(values: Record<string, string>): QcCpu95Record {
-  return { id: 42, values: { ...qcCpu95EmptyValues(), ...values }, createdAt: new Date(0), modifiedAt: new Date(0) };
+function record(values: Record<string, string>): QcFormRecord {
+  return { id: 42, values: { ...qcFormEmptyValues(SPEC), ...values }, createdAt: new Date(0), modifiedAt: new Date(0) };
 }
 
-async function render(r: QcCpu95Record | null) {
-  const doc = await buildQcCpu95PdfDocument(r, { exportedOn: "2026-10-20", compress: false });
+async function render(r: QcFormRecord | null) {
+  const doc = await buildQcFormPdfDocument(SPEC, r, { exportedOn: "2026-10-20", compress: false });
   return { text: pdfText(doc.output()), pages: doc.getNumberOfPages() };
 }
 
@@ -45,7 +48,7 @@ describe("the blank PDF", () => {
   });
 
   it("generates a PDF blob", async () => {
-    const blob = await generateQcCpu95Pdf(null, { exportedOn: "2026-10-20" });
+    const blob = await generateQcFormPdf(SPEC, null, { exportedOn: "2026-10-20" });
     expect(blob.type).toBe("application/pdf");
     expect(blob.size).toBeGreaterThan(1000);
   });
@@ -92,10 +95,15 @@ describe("toWinAnsi", () => {
   });
 });
 
-describe("qcCpu95PdfFileName", () => {
+describe("qcFormPdfFileName", () => {
   it("names the blank form, and a filled one after its serial number", () => {
-    expect(qcCpu95PdfFileName(null)).toBe("QCFRM-012 CPU-95 blank.pdf");
-    expect(qcCpu95PdfFileName(record({ serialNumber: "25/564" }))).toBe("QCFRM-012 CPU-95 25-564.pdf");
-    expect(qcCpu95PdfFileName(record({ serialNumber: "" }))).toBe("QCFRM-012 CPU-95 sheet 42.pdf");
+    expect(qcFormPdfFileName(SPEC, null)).toBe("QCFRM-012 CPU-95 blank.pdf");
+    expect(qcFormPdfFileName(SPEC, record({ serialNumber: "25/564" }))).toBe("QCFRM-012 CPU-95 25-564.pdf");
+    expect(qcFormPdfFileName(SPEC, record({ serialNumber: "" }))).toBe("QCFRM-012 CPU-95 sheet 42.pdf");
+  });
+
+  it("names a blank printed for one unit after it", () => {
+    expect(qcFormPdfFileName(SPEC, null, "95c")).toBe("QCFRM-012 CPU-95C blank.pdf");
+    expect(qcFormPdfFileName(SPEC, null, "nope")).toBe("QCFRM-012 CPU-95 blank.pdf");
   });
 });

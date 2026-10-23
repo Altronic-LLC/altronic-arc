@@ -1,5 +1,5 @@
-import type { QcCpu95Record } from "@/types/task";
-import { qcCpu95EmptyValues } from "@/lib/qcCpu95Fields";
+import { qcFormEmptyValues, type QcFormRecord } from "@/lib/qcFormEngine";
+import { QC_CPU95_FORM } from "@/lib/qcCpu95Form";
 
 // =============================================================================
 // Mock data for QCFRM-012 (CPU-95). A handful of fixtures spanning the unit
@@ -7,11 +7,11 @@ import { qcCpu95EmptyValues } from "@/lib/qcCpu95Fields";
 // the 791962/52-18 high-voltage unit, the 20-cyl sheet, a CPU-95C and an EVS.
 // =============================================================================
 
-function record(id: number, overrides: Record<string, string>, daysAgo: number): QcCpu95Record {
+function record(id: number, overrides: Record<string, string>, daysAgo: number): QcFormRecord {
   const modifiedAt = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
   return {
     id,
-    values: { ...qcCpu95EmptyValues(), ...overrides },
+    values: { ...qcFormEmptyValues(QC_CPU95_FORM), ...overrides },
     createdAt: modifiedAt,
     modifiedAt,
   };
@@ -24,7 +24,7 @@ function specs(angles: number[]): Record<string, string> {
 
 const SIXTEEN = [0, 45, 90, 135, 180, 225, 270, 315, 0, 45, 90, 135, 180, 225, 270, 315];
 
-export const MOCK_QC_CPU95_RECORDS: QcCpu95Record[] = [
+export const MOCK_QC_CPU95_RECORDS: QcFormRecord[] = [
   // 791950-16 — the standard unit, 16-cylinder firing, every actual at spec.
   record(
     1,

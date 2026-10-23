@@ -13,9 +13,9 @@
 // Engineering site, whose ~230 columns had machine-generated names, a voltage
 // set per variant and a firing-angle grid per cylinder count.
 //
-// There is still no `$select` on the read (see api/qcCpu95.ts): naming ~150
-// columns makes a long URL for no gain, and `toQcCpu95Record` only reads the
-// columns it knows about.
+// There is still no `$select` on the read (see api/qcForms.ts): naming ~150
+// columns makes a long URL for no gain, and `toQcFormRecord` only reads the
+// columns the form declares.
 //
 // WHICH FIELDS SHOW is decided by the unit's Altronic Part Number, two ways:
 //
@@ -35,15 +35,14 @@
 //   Varispark is obsolete and has nothing here.
 //
 // A field's `only` shows it for those variants alone; `hiddenIn` hides it on
-// those; `labelIn` rewords it where the paper does.
+// those; `labelIn` rewords it where the paper does. The engine
+// (lib/qcFormEngine.ts) applies those rules; this file only says what they
+// are for CPU-95. The form spec that hands all of it to the engine is
+// lib/qcCpu95Form.ts.
 // =============================================================================
 
 import firingSpecTable from "@/data/qcCpu95FiringSpecs.json";
-
-export type QcCpu95FieldKind ="text" | "number" | "check" | "flag" | "date" | "datetime" | "multiline";
-
-/** A check's answers. Blank is "not answered", never "No". */
-export const QC_CPU95_CHECK_CHOICES = ["Yes", "No", "N/A"] as const;
+import { qcFieldShownFor, type QcFormField } from "./qcFormEngine";
 
 export const QC_CPU95_SECTIONS = [
   "Header",
@@ -84,28 +83,13 @@ export function qcCpu95Variant(altMode: number | null, partNumber: string): QcCp
   return altMode === 5 || altMode === 6 ? "highVolt" : "base";
 }
 
-export interface QcCpu95Field {
-  /** Domain key — how this field is stored in `QcCpu95Record.values`. */
-  key: string;
-  /** SharePoint internal column on the PMO list (scripts/data/qc-cpu95-columns.json). */
-  column: string;
-  label: string;
-  kind: QcCpu95FieldKind;
-  section: QcCpu95Section;
-  /** Shown ONLY for these variants. */
-  only?: readonly QcCpu95Variant[];
-  /** Hidden for these variants. */
-  hiddenIn?: readonly QcCpu95Variant[];
-  /** The label on a variant whose paper words it differently. */
-  labelIn?: Partial<Record<QcCpu95Variant, string>>;
-  /** A firing-angle row slot, 1-20 — labelled by the unit's cylinder grid. */
-  slot?: number;
-  /**
-   * A short name for the paper export's one notes line, for the 95C / EVS
-   * checks the 95 sheet has no line for — the full wording doesn't fit.
-   */
-  sheetLabel?: string;
-}
+/**
+ * A CPU-95 field. `column` is the internal name on the PMO list
+ * (scripts/data/qc-cpu95-columns.json); `slot` is a firing-angle row, 1-20,
+ * labelled by the unit's cylinder grid; `sheetLabel` names a 95C / EVS check
+ * on the paper's one notes line, where the full wording doesn't fit.
+ */
+export type QcCpu95Field = QcFormField<QcCpu95Variant, QcCpu95Section>;
 
 // The firing-angle grids' row letters, in the paper form's order. The 18-cyl
 // grid adds G and H; the 20-cyl grid is left/right pairs.
@@ -339,10 +323,6 @@ export const QC_CPU95_FIELD_BY_KEY: Record<string, QcCpu95Field> = Object.fromEn
   QC_CPU95_FIELDS.map((f) => [f.key, f]),
 );
 
-export function qcCpu95FieldsInSection(section: QcCpu95Section): QcCpu95Field[] {
-  return QC_CPU95_FIELDS.filter((f) => f.section === section);
-}
-
 /**
  * Fields to render for a unit: its variant's checks (`only` / `hiddenIn`) and
  * its firing grid's rows. Passing `null` for the Altmode — the blank form,
@@ -350,14 +330,8 @@ export function qcCpu95FieldsInSection(section: QcCpu95Section): QcCpu95Field[] 
  */
 export function qcCpu95VisibleFields(altMode: number | null, partNumber = ""): QcCpu95Field[] {
   if (altMode === null) return QC_CPU95_FIELDS;
-  const variant = qcCpu95Variant(altMode, partNumber);
-  const { cylinders } = qcCpu95FiringGrid(altMode);
-  return QC_CPU95_FIELDS.filter((f) => {
-    if (f.only && !f.only.includes(variant)) return false;
-    if (f.hiddenIn?.includes(variant)) return false;
-    if (f.slot && f.slot > cylinders) return false;
-    return true;
-  });
+  const unit = { variant: qcCpu95Variant(altMode, partNumber), slots: qcCpu95FiringGrid(altMode).cylinders };
+  return QC_CPU95_FIELDS.filter((f) => qcFieldShownFor(f, unit));
 }
 
 /**
@@ -425,9 +399,4 @@ export function qcCpu95FieldLabel(field: QcCpu95Field, altMode: number | null, p
   if (field.slot) return qcCpu95FiringLetter(field.slot, altMode);
   if (altMode === null) return field.label;
   return field.labelIn?.[qcCpu95Variant(altMode, partNumber)] ?? field.label;
-}
-
-/** A blank values bag — every descriptor key set to `""`. Shared by mock data and the create form. */
-export function qcCpu95EmptyValues(): Record<string, string> {
-  return Object.fromEntries(QC_CPU95_FIELDS.map((f) => [f.key, ""]));
 }
