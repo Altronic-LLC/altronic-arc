@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ChevronDown,
   Cable,
+  Factory,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -50,6 +51,7 @@ import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { useMyMcnAccess } from "@/hooks/useMcnRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
@@ -57,7 +59,7 @@ import { useAgendaAttentionCount } from "@/hooks/useAgenda";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { USE_MOCK } from "@/api/config";
+import { MCNS_CONFIGURED, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -95,6 +97,12 @@ interface DepartmentItem {
    * the old "Coming soon" row, so the review stays private.
    */
   pricingAccess?: "with" | "without";
+  /**
+   * MCNs: `"with"` shown only to someone who can open them (everyone once
+   * live; the pilot team, approvers and admins until then); `"without"` —
+   * the "Coming soon" row — to everyone else.
+   */
+  mcnAccess?: "with" | "without";
 }
 
 interface DepartmentGroup {
@@ -226,6 +234,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <Cable className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/operations/harness-log"),
       },
+      {
+        to: "/operations/mcns",
+        label: "MCNs",
+        icon: <Factory className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/mcns"),
+        mcnAccess: "with",
+      },
+      { ...soon("MCNs", <Factory className="h-4 w-4" />), mcnAccess: "without" },
       // CMMS. Four entries rather than one, because these are four different
       // jobs: raise/track a work order, see what's due, manage the recurring
       // rules, and look at the numbers. `matchesPath` is exact-ish per entry —
@@ -752,6 +768,8 @@ function DepartmentsMenu({
   const canSeeQuotes = quoteRights.canAccess || quoteRights.canManageRoles;
   const { rights: pricingRights } = useMyPricingAccess();
   const canSeePricing = pricingRights.canOpen;
+  const mcnAccess = useMyMcnAccess();
+  const canSeeMcns = MCNS_CONFIGURED && mcnAccess.rights.canOpen;
 
   useEffect(() => {
     if (!open) return;
@@ -805,6 +823,12 @@ function DepartmentsMenu({
                   .filter(
                     (item) =>
                       !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.mcnAccess ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!mcnAccess.resolving && (item.mcnAccess === "with" ? canSeeMcns : !canSeeMcns)),
                   )
                   .map((item) => {
                   const itemActive = item.matchesPath(pathname);

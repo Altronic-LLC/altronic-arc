@@ -485,6 +485,8 @@ src/
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── harnessProductionLog.ts   Harness Production Log CRUD, year-scoped (Operations, PMO site) — admin-gated delete
 │   ├── harnessPartNumbers.ts     Harness Part Numbers — the log's part lookup; add/rename/retire, NO delete
+│   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
+│   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
@@ -550,6 +552,7 @@ src/
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── harnessMockData.ts        Sample harness log rows (this year + last) + part numbers, one retired
+│   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
@@ -589,6 +592,8 @@ src/
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts, monthly FPY)
 │   ├── useHarnessProductionLog.ts Harness log + part-number queries/mutations; delete and every part write are ARC-admin only
+│   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
+│   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -821,6 +826,12 @@ src/
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── harnessLogMapper.ts       Graph item ⇄ harness log entry / part number; the derived Title
 │   ├── harnessLegacyClean.ts     Cleaning the Access export for the load (pure; run by scripts/clean-harness-production-log.mjs, not imported by the app)
+│   ├── mcnFields.ts              MCN columns as DATA — the 10 Requires…/Incorporate lines, $select, scope JSON, people-as-lines
+│   ├── mcnMapper.ts              Graph item ⇄ Mcn; diffed update payload; refuses to write over an unreadable scope
+│   ├── mcnNumber.ts              MCNyy### — highest that year + 1, never count + 1 (pure)
+│   ├── mcnRoles.ts               MCN role tags → rights + the raise / approve / manage gates (pure)
+│   ├── mcnWorkflow.ts            The MCN workflow — actions per status, submit rules, which card is editable when (pure)
+│   ├── mcnAlerts.ts              MCN emails — submitted, approved, rejected, implemented; distribution prefill (pure)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
 │   ├── monthTrend.ts             Reports' this-month-vs-last-month rule — rates not counts, good ≠ up, too-early threshold (pure)
@@ -845,7 +856,8 @@ src/
 ├── types/
 │   ├── task.ts                   All domain types + constants (Task, Eir, Panel*, …)
 │   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
-│   └── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
+│   ├── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
+│   └── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
 │
 ├── components/
 │   ├── Header.tsx                Top nav (departments menu, view switcher, theme, Report issue)
@@ -966,6 +978,10 @@ src/
 │   ├── DrawingLogFields.tsx      Descriptor-driven detail grid + form inputs
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
 │   ├── HarnessLogFormModal.tsx   Create/edit a harness log entry — part picked from the list, never typed
+│   ├── mcnAtoms.tsx              MCN status / priority chips, the Register / Settings nav, McnAccessGate (configured? pilot?)
+│   ├── McnFields.tsx             MCN dialog shell, scope-line editor, single-person picker, distribution ticks
+│   ├── McnFormModal.tsx          New MCN — saved as a Draft, number previewed; staged attachments upload after the create
+│   ├── McnDialogs.tsx            MCN card editors (description, scope, items, distribution) + approve / reject-reopen / implement
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
@@ -973,7 +989,7 @@ src/
 │   ├── CommentThread.tsx         Sorted comment list + inline edit (own mention picker)
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
-│   ├── PendingAttachmentsCard.tsx  Files staged on a NEW form (EIR, Panel QC issue), uploaded once the item exists; renames same-name files
+│   ├── PendingAttachmentsCard.tsx  Files staged on a NEW form (EIR, MCN, Panel QC issue), uploaded once the item exists; renames same-name files
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
@@ -1037,6 +1053,9 @@ src/
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
 │   ├── HarnessProductionLogView.tsx  Harness Production Log — any year (or all), sortable, cards on a phone
 │   ├── HarnessPartNumbersView.tsx    Harness Part Numbers — readable by all, ARC admins add/rename/retire
+│   ├── McnsView.tsx              MCN register (/operations/mcns) — opens on open MCNs, sortable, cards on a phone
+│   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
+│   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
 │   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
 │   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
 │   ├── TeradyneDefectBreakdownReportView.tsx  Teradyne Defect Breakdown — latest month's donut, grouped by remark
@@ -7182,6 +7201,105 @@ and "All years" is every leaver and typo since 2018. Nothing is stored — a new
 code typed today is a suggestion on the next load. The Built By FILTER on the
 log still offers the loaded entries' values, since it filters them. **`HARN1` appears in ~2,950 comments** and its meaning is
 unconfirmed; it is left as comment text rather than guessed into a field.
+
+### Manufacturing Change Notices (Operations, PMO site)
+
+BusinessIT#38 / Feature Request #24 (David Bulkley). MCNs record changes to how
+product is made, replacing the MFGFRM-021 Word form and the old log list on a
+site that no longer exists (MWI-762). Design and roadmap: the two Word
+documents attached to BusinessIT#38 — Dave's decisions (2026-10-21) are the
+spec. Pieces: `api/mcns.ts`, `api/mcnRoles.ts`, `hooks/useMcns.ts`,
+`hooks/useMcnRoles.ts`, `lib/mcn*.ts`, `types/mcn.ts`, the `Mcn*` components,
+`McnsView` / `McnDetailView` / `McnSettingsView` (`/operations/mcns`,
+`/operations/mcns/:id`, `/operations/mcns/settings`).
+
+Three lists on `SITES.pmo`, created by `scripts/create-mcn-lists.ps1`
+(idempotent, `-WhatIf`; **its internal names are the contract** with
+`lib/mcnFields.ts`). **No defaults in `config.ts`** — `MCNS_CONFIGURED` needs all
+three, and an unset id shows "not set up yet":
+
+| List | env | Holds |
+|---|---|---|
+| Manufacturing Change Notices | `VITE_SP_MCNS_LIST_ID` | Title = MCNyy### (unique); every box on the form; attachments ON |
+| MCN Roles | `VITE_SP_MCN_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles` (member / approver / admin), `Note` |
+| MCN Distribution Groups | `VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID` | Title = the form's Distribution role, `Members` ("Name <email>" per line), `SortOrder`; seeded with the eight roles |
+
+Who may do what — `lib/mcnRoles.ts`, asked by every control AND inside every
+`mutationFn` (`useResolveMcnAccess` awaits the lists):
+
+| | anyone | member | approver | admin |
+|---|---|---|---|---|
+| Read, search, comment, watch | yes | yes | yes | yes |
+| Raise, edit drafts, submit, implementation | — | yes | — | — |
+| Approve / reject / reopen | — | — | yes | — |
+| MCN Settings (team + groups) | — | — | — | yes |
+
+- **The tags are independent** — an approver can't raise, a member can't
+  approve; Dave holds whichever he needs. **An ARC admin gets only `canManage`.**
+  Unset list = nobody can raise.
+- **The pilot is `MCN_LIVE`** (`VITE_MCN_LIVE`, the Sales Pricing switch). Off:
+  only tag holders and ARC admins open the section (`canOpen`); everyone else
+  sees "MCNs — Coming soon" on the card and the menu. Going live is the repo
+  variable and a redeploy.
+- **Names go in through MCN Settings, never `src/`** — the repo is public, and
+  the mock data is invented. The real team list is in the roadmap document.
+
+The workflow — `lib/mcnWorkflow.ts`, pure:
+Draft → Submitted → Approved → Implemented, or Submitted → Rejected; Approved
+and Rejected reopen to Draft.
+
+- **Every step reads the row FRESH and writes ONE PATCH** (`transitionMcn`):
+  status, its stamps and a line appended to the discussion. A step from a status
+  the row has left is refused (`McnMovedOnError`) and refetches — two approvers a
+  minute apart can't both approve.
+- **The content locks at Submit**, and after approval only the Implementation
+  card is editable (`mcnEditGate`). Reopen clears the approval and the sent list;
+  the discussion line records who had approved it. Reject and reopen need a reason.
+- **Submit needs** process, priority, an assigned engineer and a description
+  (`submitProblems`) — MWI-762: the engineer prepares and submits it.
+- **Approve and send** prefills the ticked groups' people
+  (`distributionRecipients`), says which ticked role has nobody, and lets the
+  approver remove or add anyone. The final list is stored as `DistributedTo`
+  (plain text, one "Name <email>" per line) — **not a person column**, which would
+  silently drop anybody PMO can't resolve; and lines, not commas, because names
+  here are often "Last, First". Implemented emails the same people.
+- Emails (`lib/mcnAlerts.ts`): submitted → approvers, read from MCN Roles at send
+  time, actor dropped only if somebody is left; approved → the final list;
+  rejected → originator + engineer; implemented → the final list; those three
+  drop the actor strictly. Comments follow the house rules.
+
+Columns and shapes:
+
+- **Originated By, Assigned Engineer, Approved By are single-person**: both halves
+  selected, names from the PMO User Information List, written as **bare
+  integers**, and a person PMO can't resolve **refuses** the write. The engineer
+  is folded into Watchers in the same PATCH.
+- **`Distribution` is the one multi-choice column** (`checkBoxes`) — annotated
+  with `Collection(Edm.String)` at the write site.
+- **Scope lines are JSON** in `ScopeLines` (department id + title, process,
+  equipment). Department is picked from **Maintenance Departments** (Dave
+  confirmed); process and equipment stay free text until the CMMS is in use. An
+  unreadable value is `scopeCorrupt` — shown as an error, never written over.
+- **The Requires… / Incorporate into lines are ten Yes/No choice columns**, nine
+  with a reference text column (`MCN_ITEM_FIELDS`). Blank is unanswered, never No;
+  clearing writes `null`.
+- **`OperationsTaskRef` is a single lookup** into the Operations Task List (same
+  site) — any team member can set it in any status; it isn't approved content.
+- **Numbering is MCNyy###, highest that year + 1**, from a fresh read; Title is
+  unique, a unique-value refusal renumbers once, and `settleMcnNumber` (the EIR
+  pattern) covers a list without the constraint. A create whose number can't be
+  confirmed is a create with a warning (`McnNumberUnconfirmedError`, `writeLanded`).
+- **The New MCN form takes attachments** (`PendingAttachmentsCard`, the New
+  EIR arrangement): held in memory, uploaded one at a time once the MCN exists;
+  a failed file is a warning naming it, never a failed create.
+- **No delete** — a withdrawn change is Rejected. `LegacySource` / `LegacyNote`
+  are for the import of the eight old MCNs (roadmap step 8, not built yet; MCN20001
+  is Level 3, per its signed form).
+
+Still to do (the roadmap): run the script and verify each column by write and
+read-back, plus the behavioural Communication check (FAIT 89); import the eight
+MCNs; Dave names the approver delegate and the group members; pilot; go live.
+Phase 2: the MFGFRM-021 print layout and MFGFRM-001 Information Requests.
 
 ### Build Request Items — Assembly / Operations / Testing are MULTI-choice
 

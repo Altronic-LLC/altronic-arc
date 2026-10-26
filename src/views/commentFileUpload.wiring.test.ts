@@ -15,6 +15,7 @@ import MAINTENANCE from "./MaintenanceDetailView.tsx?raw";
 import OPERATIONS from "./OperationsDetailView.tsx?raw";
 import PANEL_ORDER from "./PanelOrderDetailView.tsx?raw";
 import MRB from "./MrbDetailView.tsx?raw";
+import MCN from "./McnDetailView.tsx?raw";
 import PANEL_TASK from "./PanelTaskDetailView.tsx?raw";
 import PRICING_REQUEST from "./PricingRequestDetailView.tsx?raw";
 import QUOTE from "./QuoteDetailView.tsx?raw";
@@ -72,6 +73,7 @@ const VIEWS: { name: string; source: string }[] = [
   { name: "FeatureRequestDetailView.tsx", source: FEATURE_REQUEST },
   { name: "GrayMarketRequestDetailView.tsx", source: GRAY_MARKET },
   { name: "MaintenanceDetailView.tsx", source: MAINTENANCE },
+  { name: "McnDetailView.tsx", source: MCN },
   { name: "MrbDetailView.tsx", source: MRB },
   { name: "OperationsDetailView.tsx", source: OPERATIONS },
   { name: "PanelOrderDetailView.tsx", source: PANEL_ORDER },

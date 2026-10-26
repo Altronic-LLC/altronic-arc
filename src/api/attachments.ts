@@ -25,6 +25,7 @@ import {
   SP_QUOTE_ITEMS_LIST_ID,
   SP_SALESTEAM_SITE_URL,
   SP_SCNS_LIST_ID,
+  SP_MCNS_LIST_ID,
   SP_SCN_SITE_URL,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
   SP_SITE_URL,
@@ -87,7 +88,8 @@ export type AttachmentParent =
   | "pricingRequest"
   | "newProductPricing"
   | "npSubAssembly"
-  | "customerQuote";
+  | "customerQuote"
+  | "mcn";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -256,6 +258,13 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_CUSTOMER_QUOTES_LIST_ID,
     siteUrl: SP_SALESTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_CUSTOMER_QUOTES_LIST_ID",
+  },
+  // MCNs — the supporting data behind a manufacturing change (a test report,
+  // photos, the original Word form on an imported MCN). PMO site.
+  mcn: {
+    listId: SP_MCNS_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_MCNS_LIST_ID",
   },
 };
 

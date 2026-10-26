@@ -76,7 +76,8 @@ export interface ChangeTarget {
     | "featureRequest"
     | "altronicPart"
     | "altronicComponent"
-    | "pricingRequest";
+    | "pricingRequest"
+    | "mcn";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
@@ -100,6 +101,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   altronicPart: "part",
   altronicComponent: "component",
   pricingRequest: "pricing request",
+  mcn: "MCN",
 };
 
 function nounFor(target: ChangeTarget): string {

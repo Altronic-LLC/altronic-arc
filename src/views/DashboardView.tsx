@@ -23,6 +23,7 @@ import {
   FileStack,
   FileText,
   FolderOpen,
+  Factory,
   Hammer,
   HardHat,
   LayoutDashboard,
@@ -58,6 +59,8 @@ import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { MCNS_CONFIGURED } from "@/api/config";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -1019,6 +1022,10 @@ export function DashboardView() {
           to={"/operations/maintenance/calendar"}
           onClick={() => navigate("/operations/maintenance/calendar")}
         />
+        {/* MCNs — a real card once live (or for the pilot team), "Coming soon"
+            for everyone else, so the pilot stays private. */}
+        <McnCard onOpen={() => navigate("/operations/mcns")} />
+        <McnPlaceholder />
       </DeptSection>
 
       <DeptSection
@@ -1598,6 +1605,37 @@ function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
     />
   );
+}
+
+/**
+ * Manufacturing Change Notices — shown to whoever can open the section (the
+ * pilot team, approvers, MCN admins and ARC admins until it goes live). A
+ * description card, no count: the Dashboard reads no MCN list.
+ *
+ * superior-blue is repeated on purpose: the Operations section's four cards
+ * already use all four tones, and blue pairs MCNs with Operational Tasks —
+ * an MCN often starts as a task.
+ */
+function McnCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyMcnAccess();
+  if (!MCNS_CONFIGURED || !rights.canOpen) return null;
+  return (
+    <TypeCard
+      name="MCNs"
+      icon={<Factory className="h-5 w-5" />}
+      tone="superior-blue"
+      description="Manufacturing Change Notices — process and equipment changes, approved and distributed."
+      to={"/operations/mcns"}
+      onClick={onOpen}
+    />
+  );
+}
+
+/** "MCNs — Coming soon" for everyone the pilot doesn't include. Sorted last. */
+function McnPlaceholder() {
+  const { rights, resolving } = useMyMcnAccess();
+  if (resolving || (MCNS_CONFIGURED && rights.canOpen)) return null;
+  return <PlaceholderCard name="MCNs" icon={<Factory className="h-5 w-5" />} />;
 }
 
 /** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */

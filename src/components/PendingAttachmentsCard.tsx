@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
  * store, and there isn't one until the create succeeds. So files picked or
  * dropped here are held in memory and the form uploads them, with
  * `uploadAttachments`, once the new item's id is known. Shared by the New
- * Panel QC Issue and New EIR forms.
+ * Panel QC Issue, New EIR and New MCN forms.
  *
  * A `File` can't be stored, so these never travel in a form draft.
  */
