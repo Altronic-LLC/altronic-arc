@@ -1,7 +1,7 @@
 import { SP_ALTRONIC_PART_LIST_ID, USE_MOCK } from "./config";
 import type { AltronicPart, Person } from "@/types/task";
 import { PART_DELETED_STATUS } from "@/types/task";
-import { comparePartNumbers, toAltronicPart } from "@/lib/altronicPartMapper";
+import { comparePartNumbers, partPrefix, toAltronicPart } from "@/lib/altronicPartMapper";
 import { PART_FIELDS, columnsFromPatch } from "@/lib/partFields";
 import { approvalRecordHtml, initialSignOff, nextSignOff, type SapResponse } from "@/lib/partsRoles";
 import {
@@ -23,7 +23,9 @@ import {
   StaleApprovalError,
   communicationAvailable,
   createItem,
+  listHasRows,
   patchItem,
+  readByPrefixes,
   readItem,
   readWholeList,
   rowsForTitle,
@@ -82,6 +84,43 @@ export async function listAltronicParts(): Promise<AltronicPart[]> {
   if (USE_MOCK) return mockDelay(mockStore.map(clone).sort(byPartNumber));
   const items = await readWholeList(listId(), ALTRONIC_PART_SELECT);
   return items.map(toAltronicPart).sort(byPartNumber);
+}
+
+/**
+ * The parts on these three-digit lists only, in part-number order — what one
+ * list's screen shows, without downloading the other ~14,000 rows. Deleted
+ * numbers included, like `listAltronicParts`.
+ */
+export async function listAltronicPartsInLists(prefixes: string[]): Promise<AltronicPart[]> {
+  if (USE_MOCK) {
+    const wanted = new Set(prefixes);
+    return mockDelay(
+      mockStore.filter((p) => wanted.has(partPrefix(p.partNumber) ?? "")).map(clone).sort(byPartNumber),
+    );
+  }
+  const items = await readByPrefixes(listId(), ALTRONIC_PART_SELECT, prefixes);
+  // startswith matches the raw Title; the screens group by `partPrefix`.
+  const wanted = new Set(prefixes);
+  return items
+    .map(toAltronicPart)
+    .filter((p) => wanted.has(partPrefix(p.partNumber) ?? ""))
+    .sort(byPartNumber);
+}
+
+/** Does SharePoint hand this caller any Part List row at all? (See `listHasRows`.) */
+export async function altronicPartListHasRows(): Promise<boolean> {
+  if (USE_MOCK) return mockDelay(mockStore.length > 0);
+  return listHasRows(listId());
+}
+
+/** One part, read fresh — deleted ones too. Null when it isn't on the list. */
+export async function findAltronicPart(id: number): Promise<AltronicPart | null> {
+  if (USE_MOCK) {
+    const found = mockStore.find((p) => p.id === id);
+    return mockDelay(found ? clone(found) : null);
+  }
+  const item = await readItem(listId(), id, ALTRONIC_PART_SELECT);
+  return item ? toAltronicPart(item) : null;
 }
 
 async function getPart(id: number): Promise<AltronicPart> {

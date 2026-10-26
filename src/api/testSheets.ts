@@ -8,7 +8,8 @@ import type {
   TestSheet,
 } from "@/types/task";
 import { attachTestSheetReferences, toTestSheet } from "@/lib/testSheetMapper";
-import { listProjects, listTasks } from "./tasks";
+import { getTask, listProjects, listTasks } from "./tasks";
+import { isGone } from "@/lib/listWriteErrors";
 import { MOCK_TEST_SHEETS } from "@/data/mockData";
 import { mockDelay } from "./mockLatency";
 
@@ -64,12 +65,25 @@ const TEST_SHEET_FIELD_SELECT = [
   "FirmwareVersion",
 ].join(",");
 
-export async function listTestSheets(): Promise<TestSheet[]> {
+/** What a sheet's Task Reference is resolved against: each task's id and title. */
+export type TaskTitles = Array<{ id: number; numberedTitle: string }>;
+
+/**
+ * Every test sheet, with project and task titles resolved.
+ *
+ * `loadTasks` supplies the task titles. useTestSheets passes the task list
+ * ARC already has cached; the default downloads it, which is the whole
+ * Project Task List with every comment thread — opening Test Sheets used to
+ * do that every time (2026-10-26).
+ */
+export async function listTestSheets(
+  loadTasks: () => Promise<TaskTitles> = listTasks,
+): Promise<TestSheet[]> {
   if (USE_MOCK) {
     // Re-attach references against the current mock state so renamed
     // projects/tasks show updated titles.
     const projects = (await listProjects()) as ProjectReference[];
-    const tasks = await listTasks();
+    const tasks = await loadTasks();
     return mockDelay(
       attachTestSheetReferences(
         mockStore.map((s) => ({ ...s })),
@@ -94,7 +108,7 @@ export async function listTestSheets(): Promise<TestSheet[]> {
   const [items, projects, tasks] = await Promise.all([
     graphFetchAll<GraphListItem>(path),
     listProjects(),
-    listTasks(),
+    loadTasks(),
   ]);
   const sheets = items.map(toTestSheet);
   attachTestSheetReferences(
@@ -105,9 +119,33 @@ export async function listTestSheets(): Promise<TestSheet[]> {
   return sheets;
 }
 
+/**
+ * Read ONE test sheet, or null if it no longer exists. Real mode reads that
+ * item plus the one task it names, not every sheet and every task — this is
+ * the re-read after each test-sheet edit.
+ */
 export async function getTestSheet(id: number): Promise<TestSheet | null> {
-  const all = await listTestSheets();
-  return all.find((s) => s.id === id) ?? null;
+  if (USE_MOCK || !SP_TEST_RESULTS_LIST_ID) {
+    const all = await listTestSheets();
+    return all.find((s) => s.id === id) ?? null;
+  }
+  let item: GraphListItem;
+  try {
+    item = await graphFetch<GraphListItem>(
+      `/sites/${SP_SITE_ID}/lists/${SP_TEST_RESULTS_LIST_ID}/items/${id}?$expand=fields($select=${TEST_SHEET_FIELD_SELECT})`,
+    );
+  } catch (err) {
+    if (isGone(err)) return null;
+    throw err;
+  }
+  const sheet = toTestSheet(item);
+  const taskId = sheet.parentTask?.id;
+  const [projects, task] = await Promise.all([
+    listProjects(),
+    taskId ? getTask(taskId) : Promise.resolve(null),
+  ]);
+  attachTestSheetReferences([sheet], projects, task ? [task] : []);
+  return sheet;
 }
 
 export interface CreateTestSheetInput {

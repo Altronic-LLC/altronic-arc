@@ -68,7 +68,10 @@ export async function loadProjectUsage(
         read(TASK_LIST_KEY, listTasks),
         read(EIRS_KEY, listEirs),
         read(ECN_KEY, listEcns),
-        read(TEST_SHEETS_KEY, listTestSheets),
+        // Task titles from the same task read above (fetchQuery shares it),
+        // not a second download — and never `listTestSheets` bare as a
+        // queryFn, which would hand it React Query's context as the loader.
+        read(TEST_SHEETS_KEY, () => listTestSheets(() => read(TASK_LIST_KEY, listTasks))),
         read(BUILD_REQUESTS_KEY, listBuildRequests),
         read(BUILD_REQUEST_ITEMS_KEY, listBuildRequestItems),
         read(FAITS_KEY, listFaits),

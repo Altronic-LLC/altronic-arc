@@ -191,7 +191,51 @@ export async function listTasks(): Promise<Task[]> {
   return tasks;
 }
 
-/** Fetch a single task by its list-item ID. */
+/** How many tasks the preview shows while the full list loads. */
+export const RECENT_TASKS_PAGE = 200;
+
+/**
+ * The most recently CHANGED tasks — one page — for the task List and Kanban to
+ * show while `listTasks()` downloads all ~3,100 (about 16 s; measured
+ * 2026-10-26). ONE request, not a page of the full load:
+ *
+ * - **`$orderby=fields/Modified desc` is the only sort that works.** Checked
+ *   live 2026-10-26: `$orderby=id desc` and `createdDateTime desc` are
+ *   silently IGNORED (oldest first, no error) and `fields/ID` is a 400.
+ *   Modified also puts the tasks people are working on first.
+ * - **It must never page the full list.** A task edited mid-load jumps to the
+ *   top of a Modified sort, so paging by it can skip or repeat a task. The
+ *   full load stays in SharePoint's stable default order.
+ * - **The Prefer header** lets SharePoint sort on a column that isn't
+ *   indexed. Past 5,000 items it will refuse anyway unless Modified is
+ *   indexed — the preview then fails quietly and the list waits as it did.
+ *
+ * Derived fields are filled against this page only: a parent outside it is
+ * dropped and children outside it are missing. It is a preview; nothing
+ * decides anything from it.
+ */
+export async function listRecentTasks(): Promise<Task[]> {
+  if (USE_MOCK) {
+    const all = await listTasks();
+    return [...all]
+      .sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())
+      .slice(0, RECENT_TASKS_PAGE);
+  }
+  const path =
+    `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items?$expand=fields($select=${TASK_FIELD_SELECT},Modified)` +
+    `&$orderby=fields/Modified desc&$top=${RECENT_TASKS_PAGE}`;
+  const [page, projects] = await Promise.all([
+    graphFetch<{ value: GraphListItem[] }>(path, {
+      headers: { Prefer: "HonorNonIndexedQueriesWarningMayFailRandomly" },
+    }),
+    listProjects(),
+  ]);
+  const tasks = page.value.map(toTask);
+  attachTaskRelationships(tasks);
+  attachProjectTitles(tasks, projects);
+  return tasks;
+}
+
 /**
  * Fetch the raw SharePoint `fields` bag for a single task item, with no
  * `$select` filter so every column on the list is in the response. Used
@@ -210,14 +254,34 @@ export async function getTaskRawFields(id: number): Promise<Record<string, unkno
   return (item.fields ?? {}) as Record<string, unknown>;
 }
 
+/**
+ * Read ONE task by its list-item id, or null if it no longer exists.
+ *
+ * Real mode reads that single item, never the list. This used to call
+ * `listTasks()` — the whole list, ~17 pages with every comment thread — and
+ * pick one row out, and every task write re-reads through here, so each
+ * comment, status change or watcher cost a full download on top of the
+ * refetch that follows it (2026-10-26, investigating SharePoint 504s).
+ *
+ * The row carries NO derived fields: parentTask has an id but no title,
+ * childTasks is empty and project titles are blank. Anything putting it in
+ * the cache goes through `mergeTaskIntoList` (lib/taskGraph.ts), which
+ * re-derives them against the loaded list.
+ */
 export async function getTask(id: number): Promise<Task | null> {
-  // We always fetch via listTasks to ensure parent/child links are populated;
-  // the cost is small in mock mode and a single Graph call won't return the
-  // child list anyway. For real-mode performance optimisation later, fetch
-  // the one item by ID for editable fields and merge with the cached list
-  // for derived ones.
-  const all = await listTasks();
-  return all.find((t) => t.id === id) ?? null;
+  if (USE_MOCK) {
+    const all = await listTasks();
+    return all.find((t) => t.id === id) ?? null;
+  }
+  try {
+    const item = await graphFetch<GraphListItem>(
+      `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items/${id}?$expand=fields($select=${TASK_FIELD_SELECT})`,
+    );
+    return toTask(item);
+  } catch (err) {
+    if (isGone(err)) return null;
+    throw err;
+  }
 }
 
 /**

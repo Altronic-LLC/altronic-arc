@@ -100,6 +100,8 @@ function defaultValues(): Record<string, string> {
   return { dateAssigned: toDateInputValue(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 12))) };
 }
 
+const LISTS_LOADING = "The parts lists are still loading — Next free needs every number. Try again in a moment.";
+
 export function PartFormModal({ prefix, onClose }: { prefix: string | null; onClose: () => void }) {
   const navigate = useNavigate();
   // Every row, deleted ones included: a deleted number is free to type, and
@@ -124,6 +126,10 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     };
   }, [parts.data, components.data]);
   const deletedNumbers = useMemo(() => [...deleted.values()].map((r) => r.partNumber), [deleted]);
+  // Next free needs EVERY number on BOTH lists. The Component List usually
+  // arrives seconds before the Part List, and working from it alone offered a
+  // Part List number as though its list were empty.
+  const listsLoaded = !!parts.data && !!components.data;
   const next = (p: string) => nextPartNumber(p, allNumbers, deletedNumbers);
   /** Next free on `p`, overflowing into the linked HCO lists after it. */
   const nextLinked = (p: string) => nextLinkedPartNumber(p, allNumbers, deletedNumbers);
@@ -143,11 +149,11 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   // Fill in the next free number once the lists have loaded — but never over
   // something typed or restored.
   useEffect(() => {
-    if (!prefix || partNumber || allNumbers.length === 0) return;
+    if (!prefix || partNumber || !listsLoaded) return;
     const n = nextLinked(prefix).partNumber;
     if (n) setPartNumber(n);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefix, allNumbers.length]);
+  }, [prefix, listsLoaded]);
 
   useEffect(() => {
     draft.save({ ...values, partNumber });
@@ -196,7 +202,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   const origin = prefix ?? suggestedFrom;
   const chainFrom = origin && linkedListChain(origin).includes(typedPrefix) ? origin : null;
   const chain = chainFrom ? linkedListChain(chainFrom) : [];
-  const chainNext = chainFrom && allNumbers.length > 0 ? nextLinked(chainFrom) : null;
+  const chainNext = chainFrom && listsLoaded ? nextLinked(chainFrom) : null;
   const chainFull = !!chainNext && chainNext.partNumber === null;
   const overflowedPast =
     chainFrom && typedPrefix !== chainFrom
@@ -236,6 +242,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   function suggest() {
     setError(null);
     if (!typedPrefix) return setError("Type the three-digit list number first.");
+    if (!listsLoaded) return setError(LISTS_LOADING);
     // Stay on the chain already being worked from, so pressing Next free on a
     // 712 number that overflowed from 701 still says why.
     const from = chainFrom ?? typedPrefix;
@@ -342,7 +349,8 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
                 onDiscard={() => {
                   draft.clear();
                   setSuggestedFrom(null);
-                  setPartNumber(prefix ? (nextLinked(prefix).partNumber ?? "") : "");
+                  // Not loaded yet: left blank, and filled in once they are.
+                  setPartNumber(prefix && listsLoaded ? (nextLinked(prefix).partNumber ?? "") : "");
                   setValues(defaultValues());
                 }}
                 onKeep={draft.dismissNotice}
@@ -371,6 +379,11 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
                   Next free
                 </button>
               </div>
+              {!listsLoaded && (
+                <p role="status" className="mt-1 text-xs text-fg-muted">
+                  Loading the parts lists to find the next free number…
+                </p>
+              )}
             </Field>
             <div className="self-end text-xs text-fg-muted">
               {typedPrefix ? (

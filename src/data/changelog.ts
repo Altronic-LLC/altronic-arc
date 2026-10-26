@@ -20,6 +20,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.204.3",
+    date: "2026-10-26",
+    changes: [
+      "Parts List: a part's page opens in about a second — ARC reads just that part instead of downloading all 14,000 first",
+      "Opening one list (309, 701 …) loads only that list's parts, in about a second; a component list still searches its whole category",
+      "Global Search, the Parts Book and New part still load every part, as they need all of them",
+      "New part waits for both lists before filling in the next free number, so it can no longer offer a number that's already taken",
+    ],
+  },
+  {
+    version: "0.204.2",
+    date: "2026-10-26",
+    changes: [
+      "Engineering tasks: the List and Kanban show the 200 most recently updated tasks within about a second, then fill in the rest as soon as they arrive — a note says so while they load",
+      "While the rest load, Kanban cards can't be dragged yet, and New Task waits before creating so the new task gets the right number",
+    ],
+  },
+  {
+    version: "0.204.1",
+    date: "2026-10-26",
+    changes: [
+      "Engineering tasks: commenting, changing a status, assigning someone or watching a task now saves faster — ARC reads back just that task instead of reloading the whole task list",
+      "An open task checks only itself for new comments every 20 seconds, instead of reloading every task each time, which eases the load on SharePoint for everyone",
+      "Test Sheets opens and saves faster — it uses the task list ARC already has instead of downloading it again",
+    ],
+  },
+  {
     version: "0.204.0",
     date: "2026-10-26",
     changes: [

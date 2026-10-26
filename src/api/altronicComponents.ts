@@ -28,7 +28,9 @@ import {
   StaleApprovalError,
   communicationAvailable,
   createItem,
+  listHasRows,
   patchItem,
+  readByPrefixes,
   readItem,
   readWholeList,
   rowsForTitle,
@@ -82,6 +84,41 @@ export async function listAltronicComponents(): Promise<AltronicComponent[]> {
   if (USE_MOCK) return mockDelay(mockStore.map(clone).sort(byPartNumber));
   const items = await readWholeList(listId(), ALTRONIC_COMPONENT_SELECT);
   return items.map(toAltronicComponent).sort(byPartNumber);
+}
+
+/**
+ * The components on these three-digit lists only (a category's lists, so a
+ * search from 711 still finds a 701 part), in part-number order. Deleted
+ * numbers included, like `listAltronicComponents`.
+ */
+export async function listAltronicComponentsInLists(prefixes: string[]): Promise<AltronicComponent[]> {
+  const wanted = new Set(prefixes);
+  if (USE_MOCK) {
+    return mockDelay(
+      mockStore.filter((c) => wanted.has(partPrefix(c.partNumber) ?? "")).map(clone).sort(byPartNumber),
+    );
+  }
+  const items = await readByPrefixes(listId(), ALTRONIC_COMPONENT_SELECT, prefixes);
+  return items
+    .map(toAltronicComponent)
+    .filter((c) => wanted.has(partPrefix(c.partNumber) ?? ""))
+    .sort(byPartNumber);
+}
+
+/** Does SharePoint hand this caller any Component List row at all? (See `listHasRows`.) */
+export async function altronicComponentListHasRows(): Promise<boolean> {
+  if (USE_MOCK) return mockDelay(mockStore.length > 0);
+  return listHasRows(listId());
+}
+
+/** One component, read fresh — deleted ones too. Null when it isn't on the list. */
+export async function findAltronicComponent(id: number): Promise<AltronicComponent | null> {
+  if (USE_MOCK) {
+    const found = mockStore.find((c) => c.id === id);
+    return mockDelay(found ? clone(found) : null);
+  }
+  const item = await readItem(listId(), id, ALTRONIC_COMPONENT_SELECT);
+  return item ? toAltronicComponent(item) : null;
 }
 
 async function getComponent(id: number): Promise<AltronicComponent> {

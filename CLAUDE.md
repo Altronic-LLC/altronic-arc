@@ -467,7 +467,7 @@ src/
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
 │   ├── altronicParts.ts          Altronic Part List read/create/edit/approve/delete (~14,000 part numbers) — delete blanks for reuse
 │   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HCO components) — delete blanks for reuse
-│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup
+│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup, one list's rows by prefix
 │   ├── partsRoles.ts             Parts Roles list CRUD (who may edit/approve parts) — unset = read-only
 │   ├── componentDescriptionOptions.ts  Component Description Options — the new-component Description/Type/SIL dropdowns (delete OK: parts hold text)
 │   ├── datasheets.ts             Part + component datasheets — finds / uploads General/Datasheets/<part #>.pdf (never overwrites), archives on delete
@@ -585,7 +585,7 @@ src/
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
 │   ├── useEirWorkflowAccess.ts   useCanEditEirWorkflow() + the awaited write guard (Status / engineer)
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
-│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), gated writes + their emails
+│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), one part / one list "slices", gated writes + their emails
 │   ├── usePartsRoles.ts          Parts Roles CRUD (admin-guarded) + useMyPartsAccess / resolvePartsPeople
 │   ├── useComponentDescriptionOptions.ts  The description dropdowns + their gated writes (SAP admin / reviewing engineers) and reorder
 │   ├── useDatasheet.ts           A part's datasheet, by part number (file lookup, not the flag) + the gated upload
@@ -873,6 +873,7 @@ src/
 │   ├── OperationsStatusPills.tsx Operations equivalent
 │   ├── TaskStagePills.tsx        Shared-stage pills for the task lists' Engineering + Operations scope
 │   ├── CombinedTaskList.tsx      Both task lists' scope toggle, Department filter, other-list notice, sortable capped rows
+│   ├── TaskListPreviewNotice.tsx "Showing the N most recently updated tasks while the rest load" (task List + Kanban)
 │   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
 │   ├── EirFilterBar.tsx          EIR Project / Engineer / Search / Reporter filters
@@ -1847,15 +1848,64 @@ the Parts List" because their real bullets were folded into v0.168.0.
 
 Seven things that are load-bearing:
 
-- **The Part List is fetched WHOLE: about 15 `$top=999` pages, with no
-  `$filter` or `$orderby`.** Past 5,000 items SharePoint refuses a filter or
-  sort on an unindexed column. A plain paged read works at any size, and a
-  substring search on a description is impossible server-side anyway.
+- **The Part List is fetched WHOLE for the screens that need every row** —
+  the Parts Book, Global Search and the New Part form. That's about 15
+  `$top=999` pages, with no `$filter` or `$orderby`. Past 5,000 items
+  SharePoint refuses a filter or sort on an unindexed column. A plain paged
+  read works at any size, and a substring search on a description is
+  impossible server-side anyway.
   - The queries hold the data for a long time (`staleTime` 10 min, `gcTime`
     30 min), so stepping from the Parts Book into a list and back doesn't
     re-download 14,000 rows.
   - The Dashboard card deliberately carries **no count**, so the Dashboard
     doesn't download the list to print a number.
+- **A part's page and a single list's screen read only what they show**
+  (Tim, 2026-10-26). These are the "slices" in `hooks/useAltronicParts.ts`.
+  Measured live that day: the whole Part List took 11.2 s and 14.3 MB; one
+  part by id took 0.3 s; list 309 took 0.4 s (254 rows, one request).
+  - **A part's page** (`useAltronicPart` / `useAltronicComponent`) reads its
+    one row (`findAltronicPart`, `readItem`; a 404 is null).
+  - **A list screen** (`useAltronicPartsInLists` /
+    `useAltronicComponentsInLists`) reads `startswith(fields/Title,'309')`,
+    filtered on the INDEXED Title. SharePoint allows that past 5,000 rows and
+    needs no Prefer header. A component list reads every list in its
+    CATEGORY (one request each, de-duped), so a search from 711 still finds
+    a 701 part. Rows are re-checked with `partPrefix`, since startswith reads
+    the raw Title.
+  - **Neither starts the whole download.** Each observes the whole-list key
+    with `enabled: false`: if that list is cached it shows at once, but it is
+    never fetched from here.
+  - **A cached copy and a fresh read are reconciled by `modifiedAt`** — the
+    newer one wins (`newer`). A fresh read saying "gone" wins outright.
+  - **The slices live under their OWN key** (`PARTS_SLICE_KEY`), never
+    `ALTRONIC_PARTS_KEY`. Next free, the new-list check and the Parts Book
+    counts read that key, and a partial list there gives them wrong answers
+    (the task-list lesson).
+  - **`upsert` lands a written row in every cache that holds it**: the whole
+    list, the row's single read, and any list slice. A new part joins only
+    the slices whose lists include its prefix. `useDatasheet` uses it too.
+  - **An edit diffs against `cachedRow`** (the list's copy or the single
+    read, whichever is newer). An edit made before the whole list loaded
+    must still email the SAP admins what changed. Diffing against the list
+    alone sent nothing.
+  - **An empty single list asks one more question.** A list with no parts
+    and a list SharePoint security-trimmed both come back empty. So when the
+    slice is empty and no whole list is cached, `listHasRows` asks for one
+    row of the whole list (`$select=id&$top=1`). Only a whole list with
+    nothing in it gets "No parts to show" and the permissions wording.
+  - **The Communication 400 fallback covers every read** —
+    `withCommunicationFallback` in `api/partsListShared.ts` wraps the whole
+    read, the prefix read and `readItem`. A part's page may be the first
+    read of a session.
+  - Pinned in `api/altronicParts.slices.real.test.ts` (request shapes, real
+    mode) and `hooks/useAltronicParts.slices.test.tsx`. Each guard was
+    verified by breaking it.
+- **New part fills in Next free only once BOTH lists have loaded**
+  (`listsLoaded` in `PartFormModal`). The Component List usually arrives
+  seconds before the Part List. Working from it alone made a Part List list
+  look empty, so 604001 was offered on a full list. Until then the number
+  stays blank, a status line says why, and Next free refuses with a reason.
+  Pinned in `PartFormModal.listsLoading.test.tsx`.
 - **The nine book tiles render BEFORE either list loads.** Only the counts
   and a book's lists wait. A blank page for the few seconds the Part List
   takes reads as broken.
@@ -1945,7 +1995,8 @@ Seven things that are load-bearing:
   duplicated part numbers, and a page by number can only ever show one of two.
 - **A whole list returning ZERO rows says so, and names item-level
   permissions.** It never says "no parts in list 309": thousands of rows
-  coming back empty is how SharePoint security-trims.
+  coming back empty is how SharePoint security-trims. A list screen, which
+  reads only its own list, asks `listHasRows` before deciding which it is.
   - The three branches (refused / failed / empty) live in `PartsDataGate`
     (`components/partsAtoms.tsx`), which all three screens share.
 
@@ -10121,6 +10172,63 @@ returns, and only then invalidates. Four things worth not breaking:
 columns) and calls `onClose()` without awaiting them. That's safe because a
 failed write rolls its own field back and toasts, and React Query finishes
 mutations after unmount. Validation still runs first.
+
+### Reading one task never downloads the task list
+
+Investigated 2026-10-26 when the Project Task List started answering Graph
+`504`s. The list is ~17 sequential pages carrying every comment thread, and
+three things were downloading it far more than needed:
+
+- **`getTask(id)` reads ONE item** (`items/{id}?$expand=fields($select=…)`).
+  It used to call `listTasks()` and pick a row — and every task write
+  re-reads through it, while Watch and Assign read through it first, so one
+  comment cost two full downloads.
+- **That row has no derived fields** (parent title, child tasks, project
+  titles). Anything putting it in the cache goes through `mergeTaskIntoList`
+  (`lib/taskGraph.ts`; `mergeIntoCache` in the hook), which re-derives them
+  against the list. Pasting it in raw blanks project names and drops a
+  parent's children.
+- **The detail page polls its own task** (`useTaskPoll`), not the whole list.
+  It skips a tick while a task write is in flight or its previous read is
+  still out, and throws away a read a write overtook. The list now refreshes
+  on writes, the header's Refresh, or when a list screen mounts over two
+  minutes stale — remember `refetchOnWindowFocus` is off and the mention
+  scanner keeps the task query mounted, so nothing else refetches it.
+- **Test Sheets takes task titles from the cache** (`fetchTestSheets`);
+  `getTestSheet` reads one sheet and one task. Never pass `listTestSheets`
+  bare as a `queryFn` — React Query would hand it the context as `loadTasks`.
+
+Still downloaded in full on purpose: the list itself, with `Communication`,
+because the list rows, the Kanban chips and the @-mention marker read it.
+Dropping it (Phase 2) needs a decision about those three first. Measured
+2026-10-26 (3,144 tasks): 16 pages, 16.1 s, 19 MB today; without
+`Communication`/`Description` at `$top=999`, 8.3 s and 6.7 MB, slowest page
+2.6 s. SharePoint spends ~2 ms a task even without the comments.
+
+### The task List and Kanban show a preview while the list loads
+
+`useTaskListWithPreview` (hooks/useTasks.ts): the full list once it's here,
+and until then the 200 most recently CHANGED tasks (`listRecentTasks`), with
+`TaskListPreviewNotice` above them. Five rules:
+
+- **The preview has its own key, `["tasks", "recent"]`, never
+  `TASK_LIST_KEY`.** That key means "every task" to numbering, the
+  project-delete guard, the open-child completion gate, the mention scanner
+  (which drops marks for ids it can't see) and EIR task links — each goes
+  wrong on a partial list. Only screens that SHOW tasks read the preview.
+- **It is ONE request, not a page of the full load.** `$orderby=fields/Modified
+  desc` is the only sort that works on this list (checked live:
+  `$orderby=id desc` and `createdDateTime desc` are silently ignored, oldest
+  first; `fields/ID` is a 400). Modified changes under you, so it must never
+  page the full list — a task edited mid-load could be skipped or doubled.
+- **The Kanban holds drags while previewing.** A status write cancels the
+  full download (`snapshotAndPatch`) and patches a list that isn't there.
+- **New Task waits for the full list** (`numberingPending` in
+  TaskFormModal) — the number counts the project's tasks, and from an empty
+  list it came out T1. That gap predates the preview; the preview made it
+  likely.
+- **Past 5,000 items** the sort is refused unless `Modified` is indexed; the
+  preview then fails quietly and the screen loads as it did before.
 
 ### A task can't be marked Complete with open child tasks — or an open build request
 

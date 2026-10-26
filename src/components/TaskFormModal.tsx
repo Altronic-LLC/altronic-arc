@@ -87,7 +87,12 @@ interface TaskFormModalProps {
  */
 export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormModalProps) {
   const navigate = useNavigate();
-  const { data: allTasks = [] } = useTasks();
+  const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
+  // A new task's number counts the tasks already in its project, so it can't
+  // be worked out until the WHOLE list is here — from an empty list it would
+  // come out T1. The task list now shows a preview while it loads, which makes
+  // reaching this form that early likely, not rare.
+  const numberingPending = mode === "create" && !!tasksLoading;
   const { data: projects = [] } = useProjects();
   const { data: buildRequests = [], isLoading: buildRequestsLoading } = useBuildRequests();
   const createTask = useCreateTask();
@@ -278,6 +283,10 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
     }
     if (mode === "create" && parentProjectId === "") {
       setError("Parent Project is required.");
+      return;
+    }
+    if (numberingPending) {
+      setError("The task list is still loading — wait a moment so the new task gets the right number.");
       return;
     }
     setError(null);
@@ -781,6 +790,12 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface px-4 py-3 sm:px-5 sm:rounded-b-lg">
+          {numberingPending && (
+            <span role="status" className="mr-auto flex items-center gap-1.5 text-xs text-fg-muted">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading the task list to number this task…
+            </span>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -793,6 +808,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
             type="submit"
             disabled={
               busy ||
+              numberingPending ||
               !title.trim() ||
               (mode === "create" && parentProjectId === "")
             }

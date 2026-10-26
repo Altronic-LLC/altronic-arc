@@ -399,13 +399,15 @@ const SECTIONS: ManualSection[] = [
       "quotes",
       "show all",
       "slow",
+      "loading",
+      "recently updated",
       "sort by",
       "engineering and operations",
       "operations tasks",
       "combined task list",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page. While every task is loading, the List and Kanban show the 200 most recently updated tasks with a note, Kanban cards can't be dragged, and New Task waits so the new task is numbered correctly.",
     render: () => (
       <>
         <P>
@@ -448,6 +450,16 @@ const SECTIONS: ManualSection[] = [
           for how the combined status pills and the Department filter work.
           The combined view is a list only — the Kanban board still shows one
           department.
+        </P>
+        <H3>While the list is loading</H3>
+        <P>
+          Loading every task takes several seconds. While it does, the List and
+          the Kanban board show the <strong>200 most recently updated tasks</strong>{" "}
+          with a note saying the rest are loading, and fill in the moment they
+          arrive. Until then the counts and filters cover only those tasks,
+          Kanban cards can't be dragged, and the New Task form waits before
+          creating — a new task's number is worked out from every task in its
+          project.
         </P>
         <H3>How search works (all lists)</H3>
         <P>
@@ -6451,7 +6463,7 @@ const SECTIONS: ManualSection[] = [
       "sil cat",
     ],
     searchText:
-      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. Export components downloads the Component List as a CSV. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. A workflow diagram shows both approval paths, the sign-off status at each step, and who is emailed. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. A part's page and a single list load just what they show, in about a second; Global Search, the Parts Book counts and New part need every part number, so they take longer the first time, and New part leaves the number blank until both lists have loaded. Export components downloads the Component List as a CSV. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. A workflow diagram shows both approval paths, the sign-off status at each step, and who is emailed. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
     render: () => (
       <>
         <P>
@@ -6511,6 +6523,15 @@ const SECTIONS: ManualSection[] = [
           From inside a list, the <strong>Parts Book</strong> link at the top
           (for example <strong>700 Parts Book</strong>) takes you back to that
           book's lists, so you can move to the next list without starting over.
+        </P>
+        <P>
+          <strong>How fast it opens.</strong> A part's page, and a single list,
+          load just what they show, usually in about a second. Global Search,
+          the Parts Book's counts and <strong>New part</strong> need every part
+          number on both lists, so they take longer the first time — about ten
+          seconds, more when SharePoint is busy — and are quick after that.
+          While New part waits, it says so and leaves the number blank rather
+          than guess at the next free one.
         </P>
         <P>
           <strong>On a phone</strong>, opening a Parts Book hides the other books
