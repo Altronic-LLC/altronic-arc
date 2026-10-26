@@ -4,6 +4,7 @@ import {
   buildQcFormFields,
   compareQcFormRecords,
   qcFieldLabel,
+  qcFieldRuns,
   qcFormEmptyValues,
   qcFormRecordLabel,
   qcFormStatus,
@@ -372,4 +373,25 @@ describe("every registered form", () => {
       });
     });
   }
+});
+
+describe("qcFieldRuns", () => {
+  it("groups consecutive inputs, checks and flags, keeping the declared order", () => {
+    const f = (key: string, kind: QcFormSpec["fields"][number]["kind"]) =>
+      ({ key, column: key, label: key, kind, section: "S" }) as QcFormSpec["fields"][number];
+    const runs = qcFieldRuns([f("a", "text"), f("b", "check"), f("c", "check"), f("d", "text"), f("e", "flag")]);
+    expect(runs.map((r) => [r.kind, r.fields.map((x) => x.key).join("")])).toEqual([
+      ["inputs", "a"],
+      ["checks", "bc"],
+      ["inputs", "d"],
+      ["flags", "e"],
+    ]);
+  });
+
+  it("leaves every CPU-95 section as it was — inputs, then checks, then flags", () => {
+    for (const section of SPEC.sections) {
+      const kinds = qcFieldRuns(SPEC.fields.filter((x) => x.section === section && !x.slot)).map((r) => r.kind);
+      expect(kinds, section).toEqual(["inputs", "checks", "flags"].filter((k) => kinds.includes(k as never)));
+    }
+  });
 });

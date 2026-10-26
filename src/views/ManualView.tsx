@@ -3135,9 +3135,14 @@ const SECTIONS: ManualSection[] = [
       "pdf",
       "blank form",
       "print",
+      "get-1",
+      "ge transportation",
+      "ecu",
+      "log sheet",
+      "work order",
     ],
     searchText:
-      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the checks and fields that apply to the unit's Altronic Part Number, entered at the top: its firing-angle cylinder rows (8, 16, 18 or 20), and its own checks — CPU-95C (791955-16), EVS (791963-16A, 791963-16E), 791956-16, and the higher peak volts of the 791952-18 and 791962-18. Each check is answered Yes, No or N/A; blank means not answered yet. Firing angles: answer All firing actuals at spec — Yes leaves the actuals blank; otherwise type an actual only for a cylinder that was off. Record the oven ON and OFF date and time, SAP Number and Memory No. in the form. The Post Test Inspection points are on every unit. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page — pick the unit beside it (8/16/18/20 cylinder, 791952/62-18, 791956-16, CPU-95C, EVS) for only that unit's lines, the rest printed N/A, or leave it empty for every variant; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses). A check prints a tick for Yes and the words for No or N/A; an at-spec firing column prints as a line; the oven ON/OFF prints on the first ON/OFF line; CPU-95C and EVS checks the sheet has no line for, and any flagged defects, are listed above Comments; long comments continue on a last page.",
+      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the checks and fields that apply to the unit's Altronic Part Number, entered at the top: its firing-angle cylinder rows (8, 16, 18 or 20), and its own checks — CPU-95C (791955-16), EVS (791963-16A, 791963-16E), 791956-16, and the higher peak volts of the 791952-18 and 791962-18. Each check is answered Yes, No or N/A; blank means not answered yet. Firing angles: answer All firing actuals at spec — Yes leaves the actuals blank; otherwise type an actual only for a cylinder that was off. Record the oven ON and OFF date and time, SAP Number and Memory No. in the form. The Post Test Inspection points are on every unit. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page — pick the unit beside it (8/16/18/20 cylinder, 791952/62-18, 791956-16, CPU-95C, EVS) for only that unit's lines, the rest printed N/A, or leave it empty for every variant; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses). A check prints a tick for Yes and the words for No or N/A; an at-spec firing column prints as a line; the oven ON/OFF prints on the first ON/OFF line; CPU-95C and EVS checks the sheet has no line for, and any flagged defects, are listed above Comments; long comments continue on a last page. GET-1, the GE Transportation Log Sheet (Quality Control Inspection), at /qc-forms/get-1: one log sheet per GE ECU — serial number, part number (ECU), fifteen Yes/No/N/A checks, ship firmware revision, a work order for each of twelve boards (681 105-3, not the printed 105-2), QC inspector, date and notes. Deviation, Flange, Tested and SFI go in Notes; search covers notes and board work orders. Complete once inspector and date are in.",
     render: () => (
       <>
         <P>
@@ -3230,6 +3235,31 @@ const SECTIONS: ManualSection[] = [
           are listed above Comments. Comments too long for the sheet carry on
           to a page at the end.
         </Tip>
+        <P>
+          <strong>GET-1</strong>, the GE Transportation Log Sheet (Quality
+          Control Inspection), is at <code>/qc-forms/get-1</code> — one{" "}
+          <strong>log sheet</strong> per GE ECU. Scan or type the{" "}
+          <strong>Serial Number</strong> and <strong>Part Number (ECU)</strong>,
+          answer the fifteen inspection checks Yes, No or N/A, type the ship
+          firmware revision if you have it, then a work order for each of the
+          twelve boards, the QC inspector, the date and any notes.
+        </P>
+        <UL>
+          <LI>
+            The 681 105 board is recorded as <strong>681 105-3</strong>, the
+            board actually fitted — the paper still prints 105-2.
+          </LI>
+          <LI>
+            Write Deviation, Flange, Tested or SFI in <strong>Notes</strong>;
+            the search box covers notes and every board work order.
+          </LI>
+          <LI>
+            A sheet is <strong>Complete</strong> once the QC inspector and date
+            are filled in. <strong>Blank form</strong> and{" "}
+            <strong>Export</strong> print the GET-1 Rev 3 page; N/A and No are
+            written beside a check's box.
+          </LI>
+        </UL>
       </>
     ),
   },

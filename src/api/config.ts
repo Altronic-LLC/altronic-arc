@@ -631,6 +631,15 @@ export const SP_QC_CPU95_LIST_ID =
   "01d4cb25-a642-4652-b3db-0370f9a04b98";
 
 /**
+ * GET-1 — GE Transportation Log Sheet (Quality Control Inspection), the QC
+ * Forms Phase 1 pilot. "GET-1 GE Transportation Log Sheets" on Altronic_PMO,
+ * built by `scripts/create-qc-form-list.ps1 -Columns qc-get1-columns.json`.
+ * No default: the list doesn't exist until that script runs, and until this
+ * is set the GET-1 screen says the variable isn't set.
+ */
+export const SP_QC_GET1_LIST_ID = import.meta.env.VITE_SP_QC_GET1_LIST_ID || "";
+
+/**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.
  *
  * The list came out of a migration and its columns are named `field_2` …

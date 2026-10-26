@@ -555,6 +555,7 @@ src/
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── qcCpu95MockData.ts        Sample CPU-95 (QCFRM-012) test sheets, one per Altmode shape
 │   ├── qcCpu95FiringSpecs.json   Standard TEST firing specs by part number — the form, the blank sheet and the backfill script read it
+│   ├── qcGet1MockData.ts         Sample GET-1 (GE ECU) log sheets — signed off, reworked, part-way, just scanned
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
@@ -756,6 +757,9 @@ src/
 │   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~150 fields) + the unit variants, firing grid and standard specs
 │   ├── qcCpu95Mapper.ts          qcCpu95Altmode() (part number → 0-6) + the part number suggestions
 │   ├── qcCpu95Sheet.ts           The QCFRM-012 REV 2 paper sheet as a layout model (pure) — blank, or filled with the Altmode's visible fields
+│   ├── qcGet1Form.ts             GET-1 (GE Transportation Log Sheet) as a QcFormSpec, and its GE log sheet text
+│   ├── qcGet1Fields.ts           GET-1 column descriptors — 15 checks, firmware revision, 12 board work orders, sign-off
+│   ├── qcGeLogSheet.ts           The GE log sheet (GET-1 Rev 3 scan) as a layout model, described by DATA — the GE family's shared paper
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -5342,7 +5346,8 @@ trimmed copy of Tim's Claude Doc, which is the source of truth — local file
 paths and customer names are left out, since the repo is public). Copying CPU-95's
 12–15 files per form 60 times was the cost risk, so **Phase 0 (2026-10-23)
 pulled a generic engine out of CPU-95** and rebuilt CPU-95 on it with no
-change to how it works. GET-1 is the Phase 1 pilot.
+change to how it works. GET-1 is the Phase 1 pilot, built 2026-10-26 (see
+"GET-1" below).
 
 **A form is a `QcFormSpec`** (`lib/qcFormEngine.ts`): its fields (one
 descriptor per SharePoint column), sections, `unitOf(values)` (what the part
@@ -5387,13 +5392,77 @@ Seven things that are load-bearing:
   spec/actual keys per slot, row letter, standard specs). The modal's
   "standard specs fill a NEW sheet, typed specs are never overwritten" rule
   is generic; CIS, TEM and CPU-2000 will reuse it (roadmap decision 6).
-- **A sheet layout is still per form** (pixels on its own scan); the shared
+- **A sheet layout is per form or per FAMILY** (pixels on a scan); the shared
   part is `qcFormSheet.ts`'s `sheetBlank` (tick for Yes, NO / N/A in words,
-  MM/DD/YYYY, N/A in print on a line the unit doesn't use). Parameterised
-  family layouts (the GE sheets, the Yes/No checklists, the logs) are Phase 1
-  work, once GET-1 shows what they share — not guessed now.
+  MM/DD/YYYY, N/A in print on a line the unit doesn't use). The GE family's
+  is `qcGeLogSheet.ts`, a layout driven by a `GeLogSheetDef` (title, checks,
+  board work orders, footer) — GET-1 is its first user. Grow it as each GE
+  sheet arrives; the Yes/No checklists and the logs get theirs the same way.
+- **A section renders its fields in the order the form declares them**
+  (`qcFieldRuns`: consecutive inputs, checks and flags), so a field that
+  follows its checks on the paper follows them on screen. CPU-95's sections
+  were already inputs → checks → flags, which is the order the modal used to
+  force, so nothing on it moved — `qcFormEngine.test.ts` pins that.
 - **Mock fixtures are per form** (`MOCK_FIXTURES` in `api/qcForms.ts`); a form
   with none starts empty in the demo. `__resetQcFormMockStores()` resets all.
+- **Update the roadmap as you go** (Tim, 2026-10-26). Every QC Forms change
+  updates `docs/QC-FORMS-ROADMAP.md` in the same commit — the phase's status,
+  the form's inventory row, any finding the scans turned up — and the Claude
+  Doc it copies ("QC Forms in Arc – Digitization Roadmap", the source of
+  truth) with the same news.
+- **Check a sheet layout BY EYE** — generate the PDF (a throwaway vitest that
+  writes `buildQcFormPdfDocument(...).output("arraybuffer")` to the
+  scratchpad) and render it to PNG with PyMuPDF (`pip install --target
+  <scratchpad>/pylib pymupdf`, then `PYTHONPATH`). Times is wider than most
+  paper fonts, so blanks after a label need room.
+
+### QC Forms — GET-1, the GE Transportation Log Sheet (Quality Control, PMO site)
+
+The Phase 1 pilot (2026-10-26), at `/qc-forms/get-1`: "GE Transportation Log
+Sheet — Quality Control Inspection", GET-1 Rev 3, 10-May-2016. One **log
+sheet** per GE ECU (17FM760D3, a few 17FM760D2). Pieces: `lib/qcGet1Fields.ts`
+(descriptors), `lib/qcGet1Form.ts` (spec + the sheet's text),
+`lib/qcGeLogSheet.ts` (the paper), `data/qcGet1MockData.ts`.
+
+**The list does not exist yet.** It is "GET-1 GE Transportation Log Sheets"
+on `SITES.pmo`, built by `scripts/create-qc-form-list.ps1 -Columns
+qc-get1-columns.json` (run it in your own terminal), then
+`VITE_SP_QC_GET1_LIST_ID` set as a repo variable and a redeploy. **No default
+in `config.ts`**, and the variable is in `deploy.yml`'s named list — unlike
+CPU-95's, which survives without one only because it has a default. Until it
+is set the screen shows "VITE_SP_QC_GET1_LIST_ID is not set"; demo mode works.
+
+What the form holds, read off ~130 scanned 2025 sheets:
+
+- **Unit**: Serial Number (Title, scanned first) and Part Number (ECU),
+  suggestions 17FM760D3 / 17FM760D2. The paper splits the serial
+  ("FM2512 / 0012T"); ARC holds it as one text, and the blank export prints
+  the slash.
+- **Inspection**: fifteen Yes / No / N/A checks in the paper's order, then the
+  Ship Firmware Revision text (blank on most scans). The two USB lines are N/A
+  on every 2025 sheet — not defaulted, answered.
+- **Board Work Orders**: twelve text fields, 672-series left, 681-series
+  right. The paper says "(2 WO#'s per board)" but has one blank per board;
+  ARC follows the blanks.
+- **Sign-off**: QC Inspector, Inspection Date, Notes. Complete = inspector
+  AND date; no In Repair flag (the paper has none). Search covers every board
+  work order ("which units carry WO 508123?").
+
+Three calls Tim made from the scans (2026-10-26), each deliberate:
+
+- **681 105-3, not the printed 105-2.** Operators correct it by hand on
+  nearly every sheet; the column is `WO681105_3` and the export prints 105-3.
+  The form itself still says 105-2 — that's for document control.
+- **No check for the Part Number line's tick box** — nobody ticks it. The
+  export still draws the box, so the sheet looks like the paper.
+- **Sheet marks go in Notes**: the circled D (Deviation, often with "Flange"),
+  the circled F, "Tested", "SFI". Fields for them can come later if
+  reporting needs them; don't add them unasked.
+
+The export: one page, the GET-1 Rev 3 scan's geometry. A Yes ticks the box;
+**No and N/A are written to the LEFT of the box** — where operators write N/A
+on a sheet that has no box for it. Notes wrap over the three note lines and
+continue on a last page.
 
 ### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, PMO site)
 
