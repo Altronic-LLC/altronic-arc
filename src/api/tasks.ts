@@ -191,7 +191,6 @@ export async function listTasks(): Promise<Task[]> {
   return tasks;
 }
 
-/** Fetch a single task by its list-item ID. */
 /**
  * Fetch the raw SharePoint `fields` bag for a single task item, with no
  * `$select` filter so every column on the list is in the response. Used
@@ -210,14 +209,34 @@ export async function getTaskRawFields(id: number): Promise<Record<string, unkno
   return (item.fields ?? {}) as Record<string, unknown>;
 }
 
+/**
+ * Read ONE task by its list-item id, or null if it no longer exists.
+ *
+ * Real mode reads that single item, never the list. This used to call
+ * `listTasks()` — the whole list, ~17 pages with every comment thread — and
+ * pick one row out, and every task write re-reads through here, so each
+ * comment, status change or watcher cost a full download on top of the
+ * refetch that follows it (2026-10-26, investigating SharePoint 504s).
+ *
+ * The row carries NO derived fields: parentTask has an id but no title,
+ * childTasks is empty and project titles are blank. Anything putting it in
+ * the cache goes through `mergeTaskIntoList` (lib/taskGraph.ts), which
+ * re-derives them against the loaded list.
+ */
 export async function getTask(id: number): Promise<Task | null> {
-  // We always fetch via listTasks to ensure parent/child links are populated;
-  // the cost is small in mock mode and a single Graph call won't return the
-  // child list anyway. For real-mode performance optimisation later, fetch
-  // the one item by ID for editable fields and merge with the cached list
-  // for derived ones.
-  const all = await listTasks();
-  return all.find((t) => t.id === id) ?? null;
+  if (USE_MOCK) {
+    const all = await listTasks();
+    return all.find((t) => t.id === id) ?? null;
+  }
+  try {
+    const item = await graphFetch<GraphListItem>(
+      `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items/${id}?$expand=fields($select=${TASK_FIELD_SELECT})`,
+    );
+    return toTask(item);
+  } catch (err) {
+    if (isGone(err)) return null;
+    throw err;
+  }
 }
 
 /**

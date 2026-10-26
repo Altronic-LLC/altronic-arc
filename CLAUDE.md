@@ -10122,6 +10122,35 @@ columns) and calls `onClose()` without awaiting them. That's safe because a
 failed write rolls its own field back and toasts, and React Query finishes
 mutations after unmount. Validation still runs first.
 
+### Reading one task never downloads the task list
+
+Investigated 2026-10-26 when the Project Task List started answering Graph
+`504`s. The list is ~17 sequential pages carrying every comment thread, and
+three things were downloading it far more than needed:
+
+- **`getTask(id)` reads ONE item** (`items/{id}?$expand=fields($select=…)`).
+  It used to call `listTasks()` and pick a row — and every task write
+  re-reads through it, while Watch and Assign read through it first, so one
+  comment cost two full downloads.
+- **That row has no derived fields** (parent title, child tasks, project
+  titles). Anything putting it in the cache goes through `mergeTaskIntoList`
+  (`lib/taskGraph.ts`; `mergeIntoCache` in the hook), which re-derives them
+  against the list. Pasting it in raw blanks project names and drops a
+  parent's children.
+- **The detail page polls its own task** (`useTaskPoll`), not the whole list.
+  It skips a tick while a task write is in flight or its previous read is
+  still out, and throws away a read a write overtook. The list now refreshes
+  on writes, the header's Refresh, or when a list screen mounts over two
+  minutes stale — remember `refetchOnWindowFocus` is off and the mention
+  scanner keeps the task query mounted, so nothing else refetches it.
+- **Test Sheets takes task titles from the cache** (`fetchTestSheets`);
+  `getTestSheet` reads one sheet and one task. Never pass `listTestSheets`
+  bare as a `queryFn` — React Query would hand it the context as `loadTasks`.
+
+Still downloaded in full on purpose: the list itself, with `Communication`,
+because the list rows, the Kanban chips and the @-mention marker read it.
+Dropping it (Phase 2) needs a decision about those three first.
+
 ### A task can't be marked Complete with open child tasks — or an open build request
 
 Ray, 2026-09-04: child tasks were being left open after their parent was

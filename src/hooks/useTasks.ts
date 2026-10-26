@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type QueryClient,
   type QueryKey,
@@ -13,6 +13,7 @@ import {
   deleteTask,
   updateProject,
   editComment,
+  getTask,
   getTaskRawFields,
   listProjects,
   listTasks,
@@ -69,6 +70,7 @@ import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mergeTaskIntoList } from "@/lib/taskGraph";
 
 // Exported so the comment fan-out (hooks/useCommentMirror.ts) can read and
 // invalidate the same cache this file owns, rather than re-declaring the key.
@@ -183,8 +185,8 @@ async function snapshotAndPatch(
   prevTaskId: number | null,
   patch: (tasks: Task[]) => Task[],
 ): Promise<TaskCtx> {
-  // Cancel FIRST. A list refetch already in flight (DetailView polls every
-  // 20s, and every write invalidates when it settles) would otherwise resolve
+  // Cancel FIRST. A list refetch already in flight (every write invalidates
+  // when it settles; useTaskPoll guards itself separately) would otherwise resolve
   // with pre-write data *after* the patch below and silently wipe it off the
   // screen — the classic optimistic-update-eaten-by-a-refetch bug.
   await qc.cancelQueries(TASK_LIST_FILTER);
@@ -230,8 +232,18 @@ function invalidateTasks(qc: QueryClient) {
 function reconcile(qc: QueryClient, server: Task | undefined) {
   if (!server) return;
   qc.setQueriesData<Task[]>(TASK_LIST_FILTER, (old) =>
-    old?.map((t) => (t.id === server.id ? server : t)),
+    old ? mergeIntoCache(qc, old, server) : old,
   );
+}
+
+/**
+ * Land one task (a write's result, or the detail page's poll) in a cached
+ * list. A single-row read has no derived fields — child tasks, the parent's
+ * title, project names — so they are re-derived against the list rather than
+ * the row being pasted in as-is. See `mergeTaskIntoList`.
+ */
+export function mergeIntoCache(qc: QueryClient, list: Task[], server: Task): Task[] {
+  return mergeTaskIntoList(list, server, qc.getQueryData<ProjectReference[]>(PROJECTS_KEY) ?? []);
 }
 
 /**
@@ -249,6 +261,66 @@ function settleTasks(qc: QueryClient, server?: Task) {
   if (qc.isMutating({ mutationKey: TASK_WRITE_KEY }) > 1) return;
   reconcile(qc, server);
   invalidateTasks(qc);
+}
+
+/** How often an open task's detail page re-reads that task. */
+export const TASK_POLL_MS = 20_000;
+
+/**
+ * Keep ONE task current while its detail page is open: every TASK_POLL_MS,
+ * with the tab visible, re-read that row and land it in the list cache, which
+ * is what drives the page's "new comment from …" banner.
+ *
+ * This replaced invalidating the WHOLE task list every 20 seconds — ~17 pages,
+ * every comment thread on the list — per person with a task open
+ * (2026-10-26, investigating SharePoint 504s). The list itself now refreshes
+ * the normal way: after a write, from the header's Refresh, or when a list
+ * screen mounts and its data is over two minutes old.
+ *
+ * A poll must never paint over an edit still landing, so a tick is skipped
+ * while any task write is in flight, and a read is thrown away if a write was
+ * sent after it started — its row predates that write.
+ */
+export function useTaskPoll(id: number | null, intervalMs = TASK_POLL_MS) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (id == null) return;
+    let cancelled = false;
+    // One read at a time: when SharePoint is slow enough that a read outlasts
+    // the interval, stacking another on top is the last thing it needs.
+    let inFlight = false;
+    const tick = async () => {
+      if (inFlight || document.visibilityState !== "visible") return;
+      if (qc.isMutating({ mutationKey: TASK_WRITE_KEY }) > 0) return;
+      const startedAt = Date.now();
+      inFlight = true;
+      try {
+        const server = await getTask(id);
+        if (cancelled || taskWriteSince(qc, startedAt)) return;
+        // Gone — deleted elsewhere. Let the list catch up so the page says so.
+        if (!server) invalidateTasks(qc);
+        else reconcile(qc, server);
+      } catch (err) {
+        // Quiet: the next tick tries again, and the page keeps what it has.
+        console.warn(`[task poll] couldn't re-read task ${id}`, err);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const handle = window.setInterval(() => void tick(), intervalMs);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [id, qc, intervalMs]);
+}
+
+/** Is a task write in flight, or was one sent at or after `since`? */
+function taskWriteSince(qc: QueryClient, since: number): boolean {
+  return qc
+    .getMutationCache()
+    .findAll({ mutationKey: TASK_WRITE_KEY })
+    .some((m) => m.state.status === "pending" || m.state.submittedAt >= since);
 }
 
 function patchTask(id: number, transform: (t: Task) => Task) {
@@ -1105,7 +1177,7 @@ export function useCreateTask() {
       // yet, flashing "Task not found" until invalidateTasks' background
       // refetch catches up (a real, visible gap against SharePoint — the
       // mock list updates near-instantly, which is why this went unnoticed).
-      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? [task, ...old] : [task]));
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? mergeIntoCache(qc, old, task) : [task]));
       invalidateTasks(qc);
     },
     onError: () => errorToast("Couldn't create task — please retry."),

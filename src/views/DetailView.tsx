@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   CheckCircle2,
@@ -30,6 +29,7 @@ import {
   useSetRelatedProjects,
   useSetWatchers,
   useTask,
+  useTaskPoll,
   useTasks,
   useUnwatchTask,
   useUpdateTaskFields,
@@ -90,7 +90,6 @@ export function DetailView() {
   const { data: eirs = [] } = useEirs();
   const currentUser = useCurrentUser();
 
-  const queryClient = useQueryClient();
   const updateFields = useUpdateTaskFields();
   const updateEirFields = useUpdateEirFields();
   const addComment = useAddComment();
@@ -129,18 +128,11 @@ export function DetailView() {
     setSnapshotInitialised(true);
   }, [task, snapshotInitialised]);
 
-  // Background poll: every 20s while the detail view is open, invalidate
-  // the tasks query so the cache (and therefore task.comments) refreshes.
-  // Pauses when the tab is hidden so we don't burn API quota in background
-  // tabs. The actual UI doesn't auto-update — the banner does.
-  useEffect(() => {
-    if (!taskId) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      queryClient.invalidateQueries({ queryKey: ["tasks", "list"] });
-    }, 20_000);
-    return () => window.clearInterval(id);
-  }, [taskId, queryClient]);
+  // Background poll: every 20s while the detail view is open (tab visible),
+  // re-read THIS task and land it in the cache, so task.comments refreshes.
+  // It used to invalidate the whole task list instead. The actual UI doesn't
+  // auto-update — the banner does.
+  useTaskPoll(taskId);
 
   // Comments that have arrived from someone else since the user last
   // refreshed/loaded. Drives the "new comment from X" banner.

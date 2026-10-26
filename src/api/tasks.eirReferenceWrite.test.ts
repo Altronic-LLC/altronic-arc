@@ -17,9 +17,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // =============================================================================
 
 const graphFetch = vi.hoisted(() => vi.fn());
-// updateTaskFields re-reads through getTask() -> listTasks() -> graphFetchAll,
-// so this must return the item or every successful PATCH looks like a failure
-// ("Task 7 disappeared after update").
+// updateTaskFields re-reads ONE item through getTask() -> graphFetch, which
+// the beforeEach answers. Nothing here should download the whole list.
 const graphFetchAll = vi.hoisted(() => vi.fn(async () => [{ id: "7", fields: {} }]));
 
 vi.mock("./graph", () => ({

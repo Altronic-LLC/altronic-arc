@@ -61,6 +61,7 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mergeTaskIntoList } from "@/lib/taskGraph";
 
 export const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -203,7 +204,9 @@ export function useCreateEir() {
   });
 }
 
+// Same keys useTasks.ts owns; copied, since useTasks imports from this file.
 const TASK_LIST_KEY = ["tasks", "list"] as const;
+const PROJECTS_KEY = ["projects"] as const;
 
 export interface PromoteEirInput {
   eir: Eir;
@@ -370,7 +373,13 @@ export function usePromoteEirToTask() {
       // navigation lands on a stale list that doesn't have the new task yet,
       // flashing "Task not found" until invalidateQueries' background
       // refetch catches up. Same fix, same reason, as useCreateTask's.
-      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? [task, ...old] : [task]));
+      // Through mergeTaskIntoList: the row came from a single-item read, so
+      // its project titles and the parent's child list are derived here.
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) =>
+        old
+          ? mergeTaskIntoList(old, task, qc.getQueryData<ProjectReference[]>(PROJECTS_KEY) ?? [])
+          : [task],
+      );
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
       qc.invalidateQueries({ queryKey: EIRS_KEY });
       if (followUpWarning) {

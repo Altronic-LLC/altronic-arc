@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.204.1",
+    date: "2026-10-26",
+    changes: [
+      "Engineering tasks: commenting, changing a status, assigning someone or watching a task now saves faster — ARC reads back just that task instead of reloading the whole task list",
+      "An open task checks only itself for new comments every 20 seconds, instead of reloading every task each time, which eases the load on SharePoint for everyone",
+      "Test Sheets opens and saves faster — it uses the task list ARC already has instead of downloading it again",
+    ],
+  },
+  {
     version: "0.204.0",
     date: "2026-10-26",
     changes: [
