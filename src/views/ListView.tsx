@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { useProjects, useTasks } from "@/hooks/useTasks";
+import { useProjects, useTaskListWithPreview } from "@/hooks/useTasks";
+import { TaskListPreviewNotice } from "@/components/TaskListPreviewNotice";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useFilters } from "@/hooks/useFilters";
 import { StatusPills } from "@/components/StatusPills";
@@ -64,7 +65,8 @@ export function ListView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const allScope = readTaskScope(searchParams.get(TASK_SCOPE_PARAM)) === "all";
 
-  const { data: tasks = [], isLoading } = useTasks();
+  // The most recently changed tasks show while the full list downloads.
+  const { data: tasks = [], isLoading, preview } = useTaskListWithPreview();
   const { data: projects = [] } = useProjects();
   // Only downloaded once somebody turns the scope on — most visits never do.
   const opsQuery = useOperationsTasks({ enabled: allScope });
@@ -144,6 +146,8 @@ export function ListView() {
         people={people}
         replaceProjectWith={allScope ? departmentField(department, setDepartment) : undefined}
       />
+
+      {preview && <TaskListPreviewNotice shown={tasks.length} />}
 
       {allScope && opsQuery.error && (
         <OtherTaskListNotice

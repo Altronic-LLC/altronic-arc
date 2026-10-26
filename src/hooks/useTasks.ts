@@ -16,6 +16,7 @@ import {
   getTask,
   getTaskRawFields,
   listProjects,
+  listRecentTasks,
   listTasks,
   setAssigned,
   setParentTask,
@@ -89,6 +90,43 @@ export function useTasks({ enabled = true }: { enabled?: boolean } = {}) {
     staleTime: 120_000,
     enabled,
   });
+}
+
+/** NOT under TASK_LIST_KEY: nothing that patches or invalidates the list may touch it. */
+export const RECENT_TASKS_KEY = ["tasks", "recent"] as const;
+
+/**
+ * The tasks the List and Kanban screens draw: the full list once it has
+ * arrived, and until then a PREVIEW of the 200 most recently changed tasks
+ * (`listRecentTasks`, about a second, against ~16 s for the whole list).
+ *
+ * The preview lives in its own cache entry so that TASK_LIST_KEY keeps
+ * meaning "every task". Numbering, the project-delete guard, the open-child
+ * completion gate, the mention marker and EIR task links all read that and
+ * would go wrong on a partial list. Only screens that SHOW tasks read this.
+ *
+ * `preview` is true while the preview is what's on screen; the screen says
+ * so, and the Kanban holds drags until the full list lands. The preview is
+ * asked for only while the full list has nothing, and a failed preview just
+ * leaves the screen loading, as it did before.
+ */
+export function useTaskListWithPreview() {
+  const full = useTasks();
+  const waiting = full.data === undefined && !full.isError;
+  const recent = useQuery({
+    queryKey: RECENT_TASKS_KEY,
+    queryFn: listRecentTasks,
+    enabled: waiting,
+    retry: false,
+  });
+  const preview = full.data === undefined && recent.data !== undefined;
+  return {
+    data: full.data ?? recent.data,
+    preview,
+    isLoading: full.isLoading && !preview,
+    isError: full.isError,
+    error: full.error,
+  };
 }
 
 /**

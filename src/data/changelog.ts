@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.204.2",
+    date: "2026-10-26",
+    changes: [
+      "Engineering tasks: the List and Kanban show the 200 most recently updated tasks within about a second, then fill in the rest as soon as they arrive — a note says so while they load",
+      "While the rest load, Kanban cards can't be dragged yet, and New Task waits before creating so the new task gets the right number",
+    ],
+  },
+  {
     version: "0.204.1",
     date: "2026-10-26",
     changes: [

@@ -399,13 +399,15 @@ const SECTIONS: ManualSection[] = [
       "quotes",
       "show all",
       "slow",
+      "loading",
+      "recently updated",
       "sort by",
       "engineering and operations",
       "operations tasks",
       "combined task list",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page. While every task is loading, the List and Kanban show the 200 most recently updated tasks with a note, Kanban cards can't be dragged, and New Task waits so the new task is numbered correctly.",
     render: () => (
       <>
         <P>
@@ -448,6 +450,16 @@ const SECTIONS: ManualSection[] = [
           for how the combined status pills and the Department filter work.
           The combined view is a list only — the Kanban board still shows one
           department.
+        </P>
+        <H3>While the list is loading</H3>
+        <P>
+          Loading every task takes several seconds. While it does, the List and
+          the Kanban board show the <strong>200 most recently updated tasks</strong>{" "}
+          with a note saying the rest are loading, and fill in the moment they
+          arrive. Until then the counts and filters cover only those tasks,
+          Kanban cards can't be dragged, and the New Task form waits before
+          creating — a new task's number is worked out from every task in its
+          project.
         </P>
         <H3>How search works (all lists)</H3>
         <P>

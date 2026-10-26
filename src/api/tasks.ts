@@ -191,6 +191,51 @@ export async function listTasks(): Promise<Task[]> {
   return tasks;
 }
 
+/** How many tasks the preview shows while the full list loads. */
+export const RECENT_TASKS_PAGE = 200;
+
+/**
+ * The most recently CHANGED tasks — one page — for the task List and Kanban to
+ * show while `listTasks()` downloads all ~3,100 (about 16 s; measured
+ * 2026-10-26). ONE request, not a page of the full load:
+ *
+ * - **`$orderby=fields/Modified desc` is the only sort that works.** Checked
+ *   live 2026-10-26: `$orderby=id desc` and `createdDateTime desc` are
+ *   silently IGNORED (oldest first, no error) and `fields/ID` is a 400.
+ *   Modified also puts the tasks people are working on first.
+ * - **It must never page the full list.** A task edited mid-load jumps to the
+ *   top of a Modified sort, so paging by it can skip or repeat a task. The
+ *   full load stays in SharePoint's stable default order.
+ * - **The Prefer header** lets SharePoint sort on a column that isn't
+ *   indexed. Past 5,000 items it will refuse anyway unless Modified is
+ *   indexed — the preview then fails quietly and the list waits as it did.
+ *
+ * Derived fields are filled against this page only: a parent outside it is
+ * dropped and children outside it are missing. It is a preview; nothing
+ * decides anything from it.
+ */
+export async function listRecentTasks(): Promise<Task[]> {
+  if (USE_MOCK) {
+    const all = await listTasks();
+    return [...all]
+      .sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())
+      .slice(0, RECENT_TASKS_PAGE);
+  }
+  const path =
+    `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items?$expand=fields($select=${TASK_FIELD_SELECT},Modified)` +
+    `&$orderby=fields/Modified desc&$top=${RECENT_TASKS_PAGE}`;
+  const [page, projects] = await Promise.all([
+    graphFetch<{ value: GraphListItem[] }>(path, {
+      headers: { Prefer: "HonorNonIndexedQueriesWarningMayFailRandomly" },
+    }),
+    listProjects(),
+  ]);
+  const tasks = page.value.map(toTask);
+  attachTaskRelationships(tasks);
+  attachProjectTitles(tasks, projects);
+  return tasks;
+}
+
 /**
  * Fetch the raw SharePoint `fields` bag for a single task item, with no
  * `$select` filter so every column on the list is in the response. Used

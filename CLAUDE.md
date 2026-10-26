@@ -873,6 +873,7 @@ src/
 │   ├── OperationsStatusPills.tsx Operations equivalent
 │   ├── TaskStagePills.tsx        Shared-stage pills for the task lists' Engineering + Operations scope
 │   ├── CombinedTaskList.tsx      Both task lists' scope toggle, Department filter, other-list notice, sortable capped rows
+│   ├── TaskListPreviewNotice.tsx "Showing the N most recently updated tasks while the rest load" (task List + Kanban)
 │   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
 │   ├── EirFilterBar.tsx          EIR Project / Engineer / Search / Reporter filters
@@ -10149,7 +10150,35 @@ three things were downloading it far more than needed:
 
 Still downloaded in full on purpose: the list itself, with `Communication`,
 because the list rows, the Kanban chips and the @-mention marker read it.
-Dropping it (Phase 2) needs a decision about those three first.
+Dropping it (Phase 2) needs a decision about those three first. Measured
+2026-10-26 (3,144 tasks): 16 pages, 16.1 s, 19 MB today; without
+`Communication`/`Description` at `$top=999`, 8.3 s and 6.7 MB, slowest page
+2.6 s. SharePoint spends ~2 ms a task even without the comments.
+
+### The task List and Kanban show a preview while the list loads
+
+`useTaskListWithPreview` (hooks/useTasks.ts): the full list once it's here,
+and until then the 200 most recently CHANGED tasks (`listRecentTasks`), with
+`TaskListPreviewNotice` above them. Five rules:
+
+- **The preview has its own key, `["tasks", "recent"]`, never
+  `TASK_LIST_KEY`.** That key means "every task" to numbering, the
+  project-delete guard, the open-child completion gate, the mention scanner
+  (which drops marks for ids it can't see) and EIR task links — each goes
+  wrong on a partial list. Only screens that SHOW tasks read the preview.
+- **It is ONE request, not a page of the full load.** `$orderby=fields/Modified
+  desc` is the only sort that works on this list (checked live:
+  `$orderby=id desc` and `createdDateTime desc` are silently ignored, oldest
+  first; `fields/ID` is a 400). Modified changes under you, so it must never
+  page the full list — a task edited mid-load could be skipped or doubled.
+- **The Kanban holds drags while previewing.** A status write cancels the
+  full download (`snapshotAndPatch`) and patches a list that isn't there.
+- **New Task waits for the full list** (`numberingPending` in
+  TaskFormModal) — the number counts the project's tasks, and from an empty
+  list it came out T1. That gap predates the preview; the preview made it
+  likely.
+- **Past 5,000 items** the sort is refused unless `Modified` is indexed; the
+  preview then fails quietly and the screen loads as it did before.
 
 ### A task can't be marked Complete with open child tasks — or an open build request
 
