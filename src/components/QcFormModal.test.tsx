@@ -335,3 +335,25 @@ describe("Altronic Part Number — a real input, not a closed dropdown", () => {
     expect(screen.queryByText(/new value/i)).not.toBeInTheDocument();
   });
 });
+
+describe("GET-1 on the same modal", () => {
+  it("opens on the serial, and keeps the firmware revision after its checks, as on the paper", async () => {
+    const { QC_GET1_FORM } = await import("@/lib/qcGet1Form");
+    renderWithProviders(<QcFormModal spec={QC_GET1_FORM} onClose={onClose} />);
+    expect(screen.getByRole("dialog", { name: "New GE ECU log sheet" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Serial Number" })).toHaveFocus();
+
+    const lastCheck = screen.getByRole("radiogroup", { name: "Verify Ship Firmware Revision on PC" });
+    const revision = screen.getByRole("textbox", { name: "Ship Firmware Revision" });
+    expect(lastCheck.compareDocumentPosition(revision) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("saves a sheet with only the serial, through the create mutation", async () => {
+    const { QC_GET1_FORM } = await import("@/lib/qcGet1Form");
+    renderWithProviders(<QcFormModal spec={QC_GET1_FORM} onClose={onClose} />);
+    await userEvent.type(screen.getByRole("textbox", { name: "Serial Number" }), "FM2601/0003T");
+    await userEvent.click(screen.getByRole("button", { name: "Save log sheet" }));
+    await waitFor(() => expect(createRecord).toHaveBeenCalledTimes(1));
+    expect(createRecord).toHaveBeenCalledWith(expect.objectContaining({ serialNumber: "FM2601/0003T" }));
+  });
+});

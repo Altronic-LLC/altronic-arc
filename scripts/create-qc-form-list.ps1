@@ -81,9 +81,12 @@ function ConvertTo-ColumnDefinition($c) {
     $def
 }
 
-$columns = @($spec.columns | Where-Object { $_.type -ne "title" } | ForEach-Object { ConvertTo-ColumnDefinition $_ })
+# Not $columns: PowerShell names ignore case, so that IS the [string]$Columns
+# parameter, and assigning the list to it turned it into one string (found
+# 2026-10-26, the first run of this generic script: "1 columns plus Title").
+$columnDefs = @($spec.columns | Where-Object { $_.type -ne "title" } | ForEach-Object { ConvertTo-ColumnDefinition $_ })
 $titleSpec = $spec.columns | Where-Object { $_.type -eq "title" }
-Write-Host "$LIST_NAME - $($columns.Count) columns plus Title ('$($titleSpec.displayName)')" -ForegroundColor Cyan
+Write-Host "$LIST_NAME - $($columnDefs.Count) columns plus Title ('$($titleSpec.displayName)')" -ForegroundColor Cyan
 
 # --- auth -------------------------------------------------------------------
 $ctx = Get-MgContext
@@ -106,7 +109,7 @@ while ($uri) {
 if ($listId) {
     Write-Host "  EXISTS  $LIST_NAME ($listId)" -ForegroundColor Yellow
 } elseif ($WhatIf) {
-    Write-Host "  WOULD CREATE  $LIST_NAME with $($columns.Count) columns" -ForegroundColor Cyan
+    Write-Host "  WOULD CREATE  $LIST_NAME with $($columnDefs.Count) columns" -ForegroundColor Cyan
 } else {
     # Created bare, then the columns one at a time below: a create carrying
     # 150 column definitions is one request that fails as a whole.
@@ -119,7 +122,7 @@ if ($listId) {
 if ($listId) {
     $have = (Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$listId/columns").value
     $added = 0
-    foreach ($c in $columns) {
+    foreach ($c in $columnDefs) {
         $existing = $have | Where-Object { $_["name"] -eq $c.name }
         if (-not $existing) {
             if ($WhatIf) { Write-Host "    WOULD ADD  $($c.name)" -ForegroundColor Cyan; continue }

@@ -176,6 +176,24 @@ export function qcFieldsInSection(spec: QcFormSpec, section: string): QcFormFiel
   return spec.fields.filter((f) => f.section === section);
 }
 
+export type QcFieldRun = { kind: "inputs" | "checks" | "flags"; fields: QcFormField[] };
+
+/**
+ * A section's fields as consecutive runs of one widget — inputs, checks or
+ * flags — in the order the form declares them, so a field that follows its
+ * checks on the paper (GET-1's firmware revision) follows them on screen too.
+ */
+export function qcFieldRuns(fields: readonly QcFormField[]): QcFieldRun[] {
+  const runs: QcFieldRun[] = [];
+  for (const field of fields) {
+    const kind = field.kind === "check" ? "checks" : field.kind === "flag" ? "flags" : "inputs";
+    const last = runs[runs.length - 1];
+    if (last?.kind === kind) last.fields.push(field);
+    else runs.push({ kind, fields: [field] });
+  }
+  return runs;
+}
+
 export function qcFieldByKey(spec: QcFormSpec): Record<string, QcFormField> {
   return Object.fromEntries(spec.fields.map((f) => [f.key, f]));
 }

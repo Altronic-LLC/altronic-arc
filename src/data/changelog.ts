@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.203.0",
+    date: "2026-10-26",
+    changes: [
+      "QC Forms: GET-1, the GE Transportation Log Sheet, is now a digital form — one log sheet per GE ECU, with the fifteen inspection checks, ship firmware revision, a work order for each board, inspector, date and notes",
+      "GET-1: the 681 105 board is recorded as 105-3, the board actually fitted, and search finds a unit by any board's work order",
+      "GET-1: Blank form and Export print the GET-1 Rev 3 paper page, with N/A and No written beside a check's box",
+    ],
+  },
+  {
     version: "0.202.1",
     date: "2026-10-23",
     changes: [

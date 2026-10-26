@@ -245,6 +245,12 @@ describe("the /qc-forms/:formId route", () => {
     expect(screen.getByRole("heading", { name: "QCFRM-012 — CPU-95 Ignition Module" })).toBeInTheDocument();
   });
 
+  it("opens GET-1 at /qc-forms/get-1, with its own noun", () => {
+    renderAt("/qc-forms/get-1");
+    expect(screen.getByRole("heading", { name: "GET-1 — GE Transportation ECU" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new log sheet/i })).toBeInTheDocument();
+  });
+
   it("sends an unknown form back to the landing page", () => {
     renderAt("/qc-forms/no-such-form");
     expect(screen.getByText("Landing page")).toBeInTheDocument();

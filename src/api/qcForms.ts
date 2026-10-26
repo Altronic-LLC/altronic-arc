@@ -11,6 +11,7 @@ import {
   type QcValues,
 } from "@/lib/qcFormEngine";
 import { MOCK_QC_CPU95_RECORDS } from "@/data/qcCpu95MockData";
+import { MOCK_QC_GET1_RECORDS } from "@/data/qcGet1MockData";
 import { QC_FORM_LISTS } from "./qcFormLists";
 import { mockDelay } from "./mockLatency";
 
@@ -34,6 +35,7 @@ import { mockDelay } from "./mockLatency";
 /** Each form's demo rows. A form with none starts empty in the demo. */
 const MOCK_FIXTURES: Record<string, readonly QcFormRecord[]> = {
   "cpu-95": MOCK_QC_CPU95_RECORDS,
+  "get-1": MOCK_QC_GET1_RECORDS,
 };
 
 const copy = (r: QcFormRecord): QcFormRecord => ({ ...r, values: { ...r.values } });

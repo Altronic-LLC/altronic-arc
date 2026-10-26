@@ -3,6 +3,7 @@ import { ClipboardCheck, Loader2, X } from "lucide-react";
 import {
   QC_CHECK_CHOICES,
   qcFieldLabel,
+  qcFieldRuns,
   qcFieldsInSection,
   qcFormEmptyValues,
   qcNounHeading,
@@ -330,59 +331,65 @@ function SectionFields({
     );
   }
 
-  const checks = fields.filter((f) => f.kind === "check");
-  const flags = fields.filter((f) => f.kind === "flag");
-  const inputs = fields.filter((f) => f.kind !== "check" && f.kind !== "flag");
+  const runs = qcFieldRuns(fields);
+  // The section's first input takes the opening focus (the serial, on the first section).
+  const firstInputs = runs.find((r) => r.kind === "inputs");
 
   return (
     <div className="flex flex-col gap-3">
-      {inputs.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {inputs.map((field, i) => (
-            <Field key={field.key} label={label(field)} plain={field.kind === "datetime" || field.kind === "date"}>
-              <FieldInput
-                field={field}
-                label={label(field)}
-                value={values[field.key] ?? ""}
-                onChange={(v) => onChange(field.key, v)}
-                disabled={disabled}
-                inputRef={i === 0 ? firstFieldRef : undefined}
-                suggestions={field.key === spec.partNumberKey ? spec.partNumberSuggestions : undefined}
-              />
-            </Field>
-          ))}
-        </div>
-      )}
-      {checks.length > 0 && (
-        <div className="divide-y divide-border/60">
-          {checks.map((field) => (
-            <CheckRow
-              key={field.key}
-              field={field}
-              label={label(field)}
-              value={values[field.key] ?? ""}
-              onChange={(v) => onChange(field.key, v)}
-              disabled={disabled}
-            />
-          ))}
-        </div>
-      )}
-      {flags.length > 0 && (
-        <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
-          {flags.map((field) => (
-            <label key={field.key} className="flex items-start gap-2 text-sm text-fg">
-              <input
-                type="checkbox"
-                checked={values[field.key] === "Yes"}
-                onChange={(e) => onChange(field.key, e.target.checked ? "Yes" : "")}
-                disabled={disabled}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border text-accent focus:ring-accent/40"
-              />
-              {field.label}
-            </label>
-          ))}
-        </div>
-      )}
+      {runs.map((run) => {
+        if (run.kind === "inputs") {
+          return (
+            <div key={run.fields[0].key} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {run.fields.map((field, i) => (
+                <Field key={field.key} label={label(field)} plain={field.kind === "datetime" || field.kind === "date"}>
+                  <FieldInput
+                    field={field}
+                    label={label(field)}
+                    value={values[field.key] ?? ""}
+                    onChange={(v) => onChange(field.key, v)}
+                    disabled={disabled}
+                    inputRef={run === firstInputs && i === 0 ? firstFieldRef : undefined}
+                    suggestions={field.key === spec.partNumberKey ? spec.partNumberSuggestions : undefined}
+                  />
+                </Field>
+              ))}
+            </div>
+          );
+        }
+        if (run.kind === "checks") {
+          return (
+            <div key={run.fields[0].key} className="divide-y divide-border/60">
+              {run.fields.map((field) => (
+                <CheckRow
+                  key={field.key}
+                  field={field}
+                  label={label(field)}
+                  value={values[field.key] ?? ""}
+                  onChange={(v) => onChange(field.key, v)}
+                  disabled={disabled}
+                />
+              ))}
+            </div>
+          );
+        }
+        return (
+          <div key={run.fields[0].key} className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+            {run.fields.map((field) => (
+              <label key={field.key} className="flex items-start gap-2 text-sm text-fg">
+                <input
+                  type="checkbox"
+                  checked={values[field.key] === "Yes"}
+                  onChange={(e) => onChange(field.key, e.target.checked ? "Yes" : "")}
+                  disabled={disabled}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border text-accent focus:ring-accent/40"
+                />
+                {field.label}
+              </label>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

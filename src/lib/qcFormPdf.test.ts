@@ -107,3 +107,27 @@ describe("qcFormPdfFileName", () => {
     expect(qcFormPdfFileName(SPEC, null, "nope")).toBe("QCFRM-012 CPU-95 blank.pdf");
   });
 });
+
+describe("the GET-1 PDF (the GE log sheet)", () => {
+  it("is one page of real text, named for the form and the serial", async () => {
+    const { QC_GET1_FORM } = await import("./qcGet1Form");
+    const blank = await buildQcFormPdfDocument(QC_GET1_FORM, null, { exportedOn: "2026-10-26", compress: false });
+    expect(blank.getNumberOfPages()).toBe(1);
+    const text = pdfText(blank.output());
+    expect(text).toContain("GE Transportation Log Sheet");
+    expect(text).toContain("681 105-3 WO#");
+    expect(qcFormPdfFileName(QC_GET1_FORM, null)).toBe("GET-1 GE ECU blank.pdf");
+
+    const sheet: QcFormRecord = {
+      id: 3,
+      values: { ...qcFormEmptyValues(QC_GET1_FORM), serialNumber: "FM2601/0001T", notes: "x ".repeat(400) },
+      createdAt: new Date(0),
+      modifiedAt: new Date(0),
+    };
+    expect(qcFormPdfFileName(QC_GET1_FORM, sheet)).toBe("GET-1 GE ECU FM2601-0001T.pdf");
+    // Long notes continue on a last page, never cut off.
+    const filled = await buildQcFormPdfDocument(QC_GET1_FORM, sheet, { exportedOn: "2026-10-26", compress: false });
+    expect(filled.getNumberOfPages()).toBe(2);
+    expect(pdfText(filled.output())).toContain("(continued on page 2)");
+  });
+});
