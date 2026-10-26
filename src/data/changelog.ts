@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.204.4",
+    date: "2026-10-26",
+    changes: [
+      "Comment and update emails now go out as one email per reason (mentioned, watching, assigned…) with everyone blind-copied, so they send in a second or two instead of one at a time",
+      "People you @-mention are emailed first",
+      "Your browser now asks before you close or reload ARC while notification emails are still sending, so nobody is missed",
+      "An email to several people starts \"Hello,\" — one sent only to you still greets you by name",
+    ],
+  },
+  {
     version: "0.204.3",
     date: "2026-10-26",
     changes: [
