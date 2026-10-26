@@ -1262,6 +1262,33 @@ export const PRICING_LIVE = USE_MOCK || import.meta.env.VITE_PRICING_LIVE === "t
 export const PRICING_PREVIEW_USERS: string =
   import.meta.env.VITE_PRICING_PREVIEW_USERS || "ray.white@altronic-llc.com";
 
+// =============================================================================
+// Manufacturing Change Notices — Operations (BusinessIT#38). Three lists on
+// the PMO site, created by scripts/create-mcn-lists.ps1.
+//
+// **No defaults.** The lists don't exist until the script runs, and an unset
+// id shows a "not set up yet" notice rather than an error. Nothing is lost by
+// that: nobody could raise an MCN in ARC before this, so there is no one to
+// lock out.
+// =============================================================================
+
+export const SP_MCNS_LIST_ID: string | undefined = import.meta.env.VITE_SP_MCNS_LIST_ID || undefined;
+export const SP_MCN_ROLES_LIST_ID: string | undefined = import.meta.env.VITE_SP_MCN_ROLES_LIST_ID || undefined;
+export const SP_MCN_DISTRIBUTION_GROUPS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID || undefined;
+
+/** Are all three MCN lists there? Mock mode always is. */
+export const MCNS_CONFIGURED =
+  USE_MOCK || (!!SP_MCNS_LIST_ID && !!SP_MCN_ROLES_LIST_ID && !!SP_MCN_DISTRIBUTION_GROUPS_LIST_ID);
+
+/**
+ * MCNs are IN PILOT until this is "true": only the Manufacturing Team, the
+ * approvers, MCN admins and ARC admins can open the section; everyone else
+ * sees "MCNs — Coming soon". Going live is this repo variable and a redeploy
+ * — the Sales Pricing switch. Mock mode is always live.
+ */
+export const MCN_LIVE = USE_MOCK || import.meta.env.VITE_MCN_LIVE === "true";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // =============================================================================

@@ -136,7 +136,8 @@ export interface MentionTarget {
     | "quote"
     | "pricingRequest"
     | "newProductPricing"
-    | "customerQuote";
+    | "customerQuote"
+    | "mcn";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
@@ -257,6 +258,11 @@ const KIND_COPY: Record<
     phrase: "a customer quote",
     calloutLabel: "Customer Quote",
     buttonText: "Open this quote",
+  },
+  mcn: {
+    phrase: "a manufacturing change notice",
+    calloutLabel: "MCN",
+    buttonText: "Open this MCN",
   },
 };
 

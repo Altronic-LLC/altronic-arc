@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.204.0",
+    date: "2026-10-26",
+    changes: [
+      "Operations: Manufacturing Change Notices (MCNs) are in ARC — one record per MCN with every box on MFGFRM-021, numbered MCNyy### for you",
+      "Attach supporting files (a test report, photos) while raising a new MCN — they upload as soon as it's saved",
+      "Raise an MCN as a draft, submit it for approval, and the approver approves and sends it to the departments ticked for distribution — adding or removing anyone first",
+      "Approval locks the content; only the implementation details can change, and anything else means reopening it to Draft, which is recorded",
+      "Approvers are emailed when an MCN is submitted; the originator and engineer when it is rejected; the distribution list when it is approved and when it is implemented",
+      "MCN Settings: MCN admins manage the Manufacturing Team, the approvers and the eight distribution groups",
+      "MCNs are in a limited pilot — the Manufacturing Team, approvers and admins see them; everyone else sees Coming soon",
+    ],
+  },
+  {
     version: "0.203.0",
     date: "2026-10-26",
     changes: [

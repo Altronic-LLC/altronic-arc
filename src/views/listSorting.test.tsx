@@ -165,6 +165,14 @@ describe("every sortable list renders its sort buttons", () => {
     expect(screen.getByRole("button", { name: "Sort by Owner" })).toBeInTheDocument();
   });
 
+  it("MCNs", async () => {
+    const { McnsView } = await import("./McnsView");
+    renderWithProviders(<McnsView />, { route: "/operations/mcns?status=All" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by MCN #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Implemented" })).toBeInTheDocument();
+  });
+
   it("Insourcing Quotes", async () => {
     grantQuoteRole();
     const { QuotesView } = await import("./QuotesView");

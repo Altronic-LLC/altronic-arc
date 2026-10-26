@@ -2569,6 +2569,91 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "mcns",
+    title: "MCNs (Manufacturing Change Notices)",
+    group: "Operations",
+    keywords: [
+      "mcn",
+      "mcns",
+      "manufacturing change notice",
+      "mfgfrm-021",
+      "mwi-762",
+      "process change",
+      "equipment change",
+      "approve",
+      "approver",
+      "reject",
+      "reopen",
+      "implemented",
+      "distribution",
+      "distribution groups",
+      "manufacturing team",
+      "mcn settings",
+    ],
+    searchText:
+      "MCNs record changes to how product is made — a process, a material, a piece of equipment — replacing the MFGFRM-021 Word form and the old log list. Reach them from the MCNs card in the Operations part of the Dashboard or the Departments menu. Each MCN is one record: every box on MFGFRM-021 is a field, and supporting data is attached to it. ARC assigns the number, MCNyy###, the next one for the year. The register opens on open MCNs (Draft, Submitted, Approved); Implemented, Rejected and All are one click away. Search covers the number, process, departments, equipment, references and people. Columns sort and filter. Only the Manufacturing Team can raise an MCN with New MCN; it is saved as a Draft. Process is needed to save. Priority (Level 1 immediate, Level 2 by next build, Level 3 at convenience), the assigned engineer and the description are needed before it can be submitted. Departments are picked from the plant's department list; process and equipment are typed, as many lines as needed. Tick the distribution boxes. Supporting files can be attached on the New MCN form; they upload as soon as it is saved. On the MCN, each card has one Edit button. Submit for approval emails the approvers. The approver opens Approve and send: the people in the ticked distribution groups are listed, and the approver can remove anyone or add anyone from the staff directory, then approves and sends in one step; the record keeps who it was sent to and when. Reject needs a reason, and emails the originator and the assigned engineer. Once submitted the content is locked; once approved only the implementation details (date implemented, date codes or serial numbers affected) can change. To change anything else an approver reopens it to Draft, with a reason, and it goes through approval again; the reopen is recorded in the discussion. Mark implemented records the date and emails the people the approval went to. Everyone signed in can read MCNs, open attachments and comment; comments email watchers and anyone mentioned. MCNs are never deleted: a withdrawn change is rejected. MCN Settings, for MCN admins and ARC admins, lists the Manufacturing Team with who is a team member, an approver or an MCN admin, and the people in each of the eight distribution groups. While MCNs are being piloted only the team, the approvers and admins see them; everyone else sees MCNs — Coming soon.",
+    render: () => (
+      <>
+        <P>
+          <strong>MCNs</strong> record changes to how product is made — a process, a
+          material, a piece of equipment. They replace the MFGFRM-021 Word form and the old
+          log list (MWI-762). Reach them from the <strong>MCNs</strong> card in the
+          Operations part of the Dashboard, or the <strong>Departments</strong> menu.
+        </P>
+        <P>
+          Each MCN is one record: every box on MFGFRM-021 is a field, and supporting data is
+          attached to it. ARC assigns the number — <strong>MCNyy###</strong>, the next one
+          for the year.
+        </P>
+        <H3>The register</H3>
+        <UL>
+          <LI>It opens on open MCNs — Draft, Submitted and Approved. Implemented, Rejected and All are one click away.</LI>
+          <LI>Search covers the number, process, departments, equipment, the Requires… and Incorporate references, and people.</LI>
+          <LI>Every column sorts and filters from its header. On a phone the register is cards.</LI>
+          <LI>An approver sees <strong>Waiting for your approval</strong> with a count.</LI>
+        </UL>
+        <H3>Raising one</H3>
+        <P>
+          Only the Manufacturing Team sees <strong>New MCN</strong>. It is saved as a{" "}
+          <strong>Draft</strong>, and only Process is needed to save it. Before it can be
+          submitted it also needs a priority (Level 1 immediate, Level 2 by next build,
+          Level 3 at convenience), an assigned engineer and a description.
+        </P>
+        <UL>
+          <LI>Departments are picked from the plant's department list; process and equipment are typed, with as many lines as you need.</LI>
+          <LI>Tick the distribution boxes — they decide who the approver sends it to.</LI>
+          <LI>Add supporting files — a test report, photos — in the Attachments box on the form. They upload as soon as the MCN is saved; one that won't upload is named in a message so you can add it again from the MCN's Attachments card.</LI>
+          <LI>A half-written MCN survives navigating away (its files don't — add them again).</LI>
+        </UL>
+        <H3>Approval and after</H3>
+        <UL>
+          <LI><strong>Submit for approval</strong> emails the approvers. From then on the content is locked.</LI>
+          <LI><strong>Approve and send</strong> lists the people in the ticked distribution groups. The approver can remove anyone and add anyone from the staff directory, then approves and sends in one step. The MCN keeps who it went to, and when.</LI>
+          <LI><strong>Reject</strong> needs a reason, and emails the originator and the assigned engineer. A rejected MCN stays on record.</LI>
+          <LI>After approval only the <strong>Implementation</strong> card can change. To change anything else, an approver <strong>reopens it to Draft</strong> with a reason; it then goes through approval again, and the reopen is recorded in the discussion.</LI>
+          <LI><strong>Mark implemented</strong> records the date and the date codes or serial numbers affected, and emails the people the approval went to.</LI>
+        </UL>
+        <Tip>
+          Everyone signed in can read MCNs, open their attachments and comment. Comments
+          email the watchers and anyone you @-mention. MCNs are never deleted — a withdrawn
+          change is rejected.
+        </Tip>
+        <H3>MCN Settings</H3>
+        <P>
+          MCN admins and ARC admins see a <strong>Settings</strong> tab. It lists the
+          Manufacturing Team — who is a team member (raises and edits), an approver
+          (approves, rejects, reopens) and an MCN admin — and the people in each of the eight
+          distribution groups. A change applies to the next approval, not to MCNs already
+          sent.
+        </P>
+        <P>
+          While MCNs are being piloted, only the team, the approvers and admins can see them;
+          everyone else sees <strong>MCNs — Coming soon</strong>.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "reports",
     title: "Reports",
     group: "Reports",
@@ -7661,6 +7746,26 @@ const SECTIONS: ManualSection[] = [
               "A task promoted from an EIR is completed",
               "The EIR's watchers + assignees + reporter",
               "Status changed on … + Resolution changed on … (the EIR is set Closed / Resolved)",
+            ],
+            [
+              "An MCN is submitted for approval",
+              "The MCN approvers (from MCN Settings) — an approver who submitted it is still asked",
+              "MCN submitted for approval …",
+            ],
+            [
+              "An MCN is approved",
+              "The people the approver chose to send it to (minus the approver)",
+              "MCN approved …",
+            ],
+            [
+              "An MCN is rejected",
+              "Its originator and assigned engineer, with the reason (minus you)",
+              "MCN rejected …",
+            ],
+            [
+              "An MCN is marked implemented",
+              "The same people the approval went to (minus you)",
+              "MCN implemented …",
             ],
           ]}
         />

@@ -93,7 +93,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · HarnessProductionLogView · HarnessPartNumbersView — useOperationsTasks · useTeradyne · useHarnessProductionLog — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · harnessProductionLog · harnessPartNumbers. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · HarnessProductionLogView · HarnessPartNumbersView · McnsView · McnDetailView · McnSettingsView — useOperationsTasks · useTeradyne · useHarnessProductionLog · useMcns · useMcnRoles — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · harnessProductionLog · harnessPartNumbers · mcns · mcnRoles — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
         palette: "ui",
       },
       {
@@ -195,6 +195,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Scheduled Maintenance", hint: "Altronic_PMO site — the recurring PM rules the calendar projects from. Fixed, Floating or Hourmeter basis, an interval + unit, grace and lead days. Hourmeter is due at a run-hours READING rather than a date (LastCompletedHours / NextDueHours, against the asset's CurrentMachineHours) and reaches the calendar only on the day the reading passes the target — grace and lead days are in DAYS and do not apply to it. No Communication column by design (a schedule is a rule; the conversation belongs on the work order it made) and no delete — a schedule is retired by clearing Active", palette: "list" },
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
+      { label: "Manufacturing Change Notices", hint: "Altronic_PMO site — one row per MCN (MFGFRM-021 as fields), with MCN Roles (who raises, approves, manages) and MCN Distribution Groups (who an approved MCN goes to) beside it", palette: "list" },
       { label: "Harness Production Log", hint: "Altronic_PMO site — one row per harness built, imported from the old Access database; read a year at a time on the indexed ProductionDate", palette: "list" },
       { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
@@ -1008,6 +1009,55 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
       { name: "idRem (remark no.)", type: "number", kind: "field" },
+    ],
+  },
+
+  // ---- Manufacturing Change Notices (Operations, Altronic_PMO site) ------------
+  {
+    name: "MCN",
+    source: "Manufacturing Change Notices (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "mcnNumber (Title, MCNyy###)", type: "text", kind: "field" },
+      { name: "process / priority / status", type: "text", kind: "field" },
+      { name: "originatedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "assignedEngineer", type: "int", kind: "fk", references: "Person.id" },
+      { name: "approvedBy (+ approvedDate)", type: "int", kind: "fk", references: "Person.id" },
+      { name: "description (rich text)", type: "text", kind: "field" },
+      { name: "scope (JSON: department, process, equipment)", type: "text", kind: "field" },
+      { name: "requires / incorporate (Yes/No + ref)", type: "choice", kind: "field" },
+      { name: "distribution (multi-choice)", type: "choice[]", kind: "field" },
+      { name: "distributedTo / distributedAt", type: "text", kind: "field" },
+      { name: "dateImplemented / affectedCodes", type: "date", kind: "field" },
+      { name: "operationsTask (OperationsTaskRef)", type: "int", kind: "fk", references: "OperationsTask.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "communication", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "McnRole",
+    source: "MCN Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (member / approver / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "McnDistributionGroup",
+    source: "MCN Distribution Groups (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "role (Title)", type: "text", kind: "field" },
+      { name: "members (Name <email> lines)", type: "text", kind: "field" },
+      { name: "sortOrder", type: "number", kind: "field" },
     ],
   },
 
@@ -1888,6 +1938,13 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "TeradyneLogEntry", fromColumn: "employee1", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "employee2", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "remark", toTable: "TeradyneRemark", toColumn: "id", fromCard: "many", toCard: "one" },
+  // MCNs — three single-person columns, watchers, and the Operations task link.
+  { fromTable: "MCN", fromColumn: "originatedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "assignedEngineer", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "approvedBy (+ approvedDate)", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "MCN", fromColumn: "operationsTask (OperationsTaskRef)", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "McnRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Harness Production Log — one single lookup into the admin-managed part list.
   { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.

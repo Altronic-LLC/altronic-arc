@@ -36,7 +36,8 @@ export type AppItemKind =
   | "quote"
   | "pricingRequest"
   | "newProductPricing"
-  | "customerQuote";
+  | "customerQuote"
+  | "mcn";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -80,6 +81,8 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   pricingRequest: "sales/pricing/request",
   newProductPricing: "sales/pricing/new-product",
   customerQuote: "sales/pricing/quote",
+  // Manufacturing Change Notices (BusinessIT#38) — detail pages sit under the register.
+  mcn: "operations/mcns",
 };
 
 /** Absolute URL to an item's detail page in this app. */

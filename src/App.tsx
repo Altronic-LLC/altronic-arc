@@ -222,6 +222,11 @@ const HarnessPartNumbersView = lazy(() =>
   })),
 );
 
+// Manufacturing Change Notices — Operations (BusinessIT#38), one lazy chunk each.
+const McnsView = lazy(() => import("@/views/McnsView").then((m) => ({ default: m.McnsView })));
+const McnDetailView = lazy(() => import("@/views/McnDetailView").then((m) => ({ default: m.McnDetailView })));
+const McnSettingsView = lazy(() => import("@/views/McnSettingsView").then((m) => ({ default: m.McnSettingsView })));
+
 // Reports — fixed KPI dashboards (a step up from Power BI for the numbers
 // people want live inside ARC). Its own small bundle, not part of any one
 // department's.
@@ -1030,6 +1035,30 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the part numbers" />}>
                   <HarnessPartNumbersView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/mcns"
+              element={
+                <Suspense fallback={<LoadingTasks noun="MCNs" />}>
+                  <McnsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/mcns/settings"
+              element={
+                <Suspense fallback={<LoadingTasks noun="MCN settings" />}>
+                  <McnSettingsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/mcns/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the MCN" />}>
+                  <McnDetailView />
                 </Suspense>
               }
             />
