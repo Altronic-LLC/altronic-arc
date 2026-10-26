@@ -467,7 +467,7 @@ src/
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
 │   ├── altronicParts.ts          Altronic Part List read/create/edit/approve/delete (~14,000 part numbers) — delete blanks for reuse
 │   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HCO components) — delete blanks for reuse
-│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup
+│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup, one list's rows by prefix
 │   ├── partsRoles.ts             Parts Roles list CRUD (who may edit/approve parts) — unset = read-only
 │   ├── componentDescriptionOptions.ts  Component Description Options — the new-component Description/Type/SIL dropdowns (delete OK: parts hold text)
 │   ├── datasheets.ts             Part + component datasheets — finds / uploads General/Datasheets/<part #>.pdf (never overwrites), archives on delete
@@ -585,7 +585,7 @@ src/
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
 │   ├── useEirWorkflowAccess.ts   useCanEditEirWorkflow() + the awaited write guard (Status / engineer)
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
-│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), gated writes + their emails
+│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), one part / one list "slices", gated writes + their emails
 │   ├── usePartsRoles.ts          Parts Roles CRUD (admin-guarded) + useMyPartsAccess / resolvePartsPeople
 │   ├── useComponentDescriptionOptions.ts  The description dropdowns + their gated writes (SAP admin / reviewing engineers) and reorder
 │   ├── useDatasheet.ts           A part's datasheet, by part number (file lookup, not the flag) + the gated upload
@@ -1848,15 +1848,64 @@ the Parts List" because their real bullets were folded into v0.168.0.
 
 Seven things that are load-bearing:
 
-- **The Part List is fetched WHOLE: about 15 `$top=999` pages, with no
-  `$filter` or `$orderby`.** Past 5,000 items SharePoint refuses a filter or
-  sort on an unindexed column. A plain paged read works at any size, and a
-  substring search on a description is impossible server-side anyway.
+- **The Part List is fetched WHOLE for the screens that need every row** —
+  the Parts Book, Global Search and the New Part form. That's about 15
+  `$top=999` pages, with no `$filter` or `$orderby`. Past 5,000 items
+  SharePoint refuses a filter or sort on an unindexed column. A plain paged
+  read works at any size, and a substring search on a description is
+  impossible server-side anyway.
   - The queries hold the data for a long time (`staleTime` 10 min, `gcTime`
     30 min), so stepping from the Parts Book into a list and back doesn't
     re-download 14,000 rows.
   - The Dashboard card deliberately carries **no count**, so the Dashboard
     doesn't download the list to print a number.
+- **A part's page and a single list's screen read only what they show**
+  (Tim, 2026-10-26). These are the "slices" in `hooks/useAltronicParts.ts`.
+  Measured live that day: the whole Part List took 11.2 s and 14.3 MB; one
+  part by id took 0.3 s; list 309 took 0.4 s (254 rows, one request).
+  - **A part's page** (`useAltronicPart` / `useAltronicComponent`) reads its
+    one row (`findAltronicPart`, `readItem`; a 404 is null).
+  - **A list screen** (`useAltronicPartsInLists` /
+    `useAltronicComponentsInLists`) reads `startswith(fields/Title,'309')`,
+    filtered on the INDEXED Title. SharePoint allows that past 5,000 rows and
+    needs no Prefer header. A component list reads every list in its
+    CATEGORY (one request each, de-duped), so a search from 711 still finds
+    a 701 part. Rows are re-checked with `partPrefix`, since startswith reads
+    the raw Title.
+  - **Neither starts the whole download.** Each observes the whole-list key
+    with `enabled: false`: if that list is cached it shows at once, but it is
+    never fetched from here.
+  - **A cached copy and a fresh read are reconciled by `modifiedAt`** — the
+    newer one wins (`newer`). A fresh read saying "gone" wins outright.
+  - **The slices live under their OWN key** (`PARTS_SLICE_KEY`), never
+    `ALTRONIC_PARTS_KEY`. Next free, the new-list check and the Parts Book
+    counts read that key, and a partial list there gives them wrong answers
+    (the task-list lesson).
+  - **`upsert` lands a written row in every cache that holds it**: the whole
+    list, the row's single read, and any list slice. A new part joins only
+    the slices whose lists include its prefix. `useDatasheet` uses it too.
+  - **An edit diffs against `cachedRow`** (the list's copy or the single
+    read, whichever is newer). An edit made before the whole list loaded
+    must still email the SAP admins what changed. Diffing against the list
+    alone sent nothing.
+  - **An empty single list asks one more question.** A list with no parts
+    and a list SharePoint security-trimmed both come back empty. So when the
+    slice is empty and no whole list is cached, `listHasRows` asks for one
+    row of the whole list (`$select=id&$top=1`). Only a whole list with
+    nothing in it gets "No parts to show" and the permissions wording.
+  - **The Communication 400 fallback covers every read** —
+    `withCommunicationFallback` in `api/partsListShared.ts` wraps the whole
+    read, the prefix read and `readItem`. A part's page may be the first
+    read of a session.
+  - Pinned in `api/altronicParts.slices.real.test.ts` (request shapes, real
+    mode) and `hooks/useAltronicParts.slices.test.tsx`. Each guard was
+    verified by breaking it.
+- **New part fills in Next free only once BOTH lists have loaded**
+  (`listsLoaded` in `PartFormModal`). The Component List usually arrives
+  seconds before the Part List. Working from it alone made a Part List list
+  look empty, so 604001 was offered on a full list. Until then the number
+  stays blank, a status line says why, and Next free refuses with a reason.
+  Pinned in `PartFormModal.listsLoading.test.tsx`.
 - **The nine book tiles render BEFORE either list loads.** Only the counts
   and a book's lists wait. A blank page for the few seconds the Part List
   takes reads as broken.
@@ -1946,7 +1995,8 @@ Seven things that are load-bearing:
   duplicated part numbers, and a page by number can only ever show one of two.
 - **A whole list returning ZERO rows says so, and names item-level
   permissions.** It never says "no parts in list 309": thousands of rows
-  coming back empty is how SharePoint security-trims.
+  coming back empty is how SharePoint security-trims. A list screen, which
+  reads only its own list, asks `listHasRows` before deciding which it is.
   - The three branches (refused / failed / empty) live in `PartsDataGate`
     (`components/partsAtoms.tsx`), which all three screens share.
 

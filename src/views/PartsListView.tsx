@@ -1,7 +1,12 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowDownAZ, ArrowUpAZ, ChevronDown, Cpu, Globe, SlidersHorizontal, X } from "lucide-react";
-import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicParts";
+import {
+  useAltronicComponents,
+  useAltronicComponentsInLists,
+  useAltronicParts,
+  useAltronicPartsInLists,
+} from "@/hooks/useAltronicParts";
 import { PartKindChip, PartsDataGate, SignOffChip, type PartsQueryState } from "@/components/partsAtoms";
 import { SearchInput } from "@/components/SearchInput";
 import { NewPartButton } from "@/components/PartFormModal";
@@ -116,11 +121,9 @@ const PART_SEARCH_FIELDS: SearchField<AltronicPart>[] = [
 ];
 
 function PartListScreen({ prefix }: { prefix: string }) {
-  const query = useAltronicParts();
-  const rows = useMemo(
-    () => (query.data ?? []).filter((p) => partPrefix(p.partNumber) === prefix),
-    [query.data, prefix],
-  );
+  // This list's rows only — not the whole ~14,000-row Part List.
+  const lists = useMemo(() => [prefix], [prefix]);
+  const { rows = NO_PARTS, state, sourceEmpty } = useAltronicPartsInLists(lists);
   const book = partBook(prefix);
   const meaning = listMeaning(prefix);
   return (
@@ -134,7 +137,7 @@ function PartListScreen({ prefix }: { prefix: string }) {
         .filter(Boolean)
         .join(" · ")}
       subtitleHint={meaning?.description}
-      queries={[query]}
+      queries={[state]}
       listNames="Altronic Part List"
       rows={rows}
       columns={PART_COLUMNS}
@@ -147,7 +150,7 @@ function PartListScreen({ prefix }: { prefix: string }) {
         return undefined;
       }}
       emptyText={`No parts in list ${prefix}.`}
-      sourceEmpty={query.data?.length === 0}
+      sourceEmpty={sourceEmpty}
       action={<NewPartButton prefix={prefix} />}
       book={partBook(prefix)}
       cardFields={PART_CARD_FIELDS}
@@ -159,6 +162,11 @@ function PartListScreen({ prefix }: { prefix: string }) {
 const PART_CARD_FIELDS = ["manufacturer", "mfgPartNumber", "dateAssigned", "purchased"];
 
 const partId = (p: AltronicPart) => p.id;
+
+// Stable empties, so a screen still loading doesn't hand the table a new
+// array every render.
+const NO_PARTS: AltronicPart[] = [];
+const NO_COMPONENTS: AltronicComponent[] = [];
 
 // -----------------------------------------------------------------------------
 // Component List (601/611/701/711/712/722)
@@ -198,27 +206,19 @@ const COMPONENT_SEARCH_FIELDS: SearchField<AltronicComponent>[] = [
 ];
 
 function ComponentListScreen({ prefix }: { prefix: string }) {
-  const query = useAltronicComponents();
-  const rows = useMemo(
-    () => (query.data ?? []).filter((c) => partPrefix(c.partNumber) === prefix),
-    [query.data, prefix],
-  );
   // A SEARCH from 701, 711 or 712 covers all three (601/611 likewise) — the
   // old app kept each category as one list (Tim, 2026-10-02). Browsing with
-  // no search still shows just this list.
-  const family = componentSearchPrefixes(prefix);
-  const familyRows = useMemo(() => {
-    if (family.length < 2) return undefined;
-    const wanted = new Set(family);
-    return (query.data ?? []).filter((c) => wanted.has(partPrefix(c.partNumber) ?? ""));
-    // `family` is derived from `prefix`; a new array each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data, prefix]);
+  // no search still shows just this list. So the category's lists are read,
+  // and nothing else.
+  const family = useMemo(() => componentSearchPrefixes(prefix), [prefix]);
+  const { rows: categoryRows = NO_COMPONENTS, state, sourceEmpty } = useAltronicComponentsInLists(family);
+  const rows = useMemo(() => categoryRows.filter((c) => partPrefix(c.partNumber) === prefix), [categoryRows, prefix]);
+  const familyRows = family.length < 2 ? undefined : categoryRows;
   return (
     <PartsTable<AltronicComponent>
       title={`${prefix} List`}
       subtitle={`Altronic Component List · ${COMPONENT_PREFIX_CATEGORY[prefix]}`}
-      queries={[query]}
+      queries={[state]}
       listNames="Altronic Component List"
       rows={rows}
       searchRows={familyRows}
@@ -229,7 +229,7 @@ function ComponentListScreen({ prefix }: { prefix: string }) {
       rowPath={(c) => partPath("component", c.id)}
       renderCell={(key, c) => (key === "signOffStatus" ? <SignOffChip status={c.signOffStatus} /> : undefined)}
       emptyText={`No components in list ${prefix}.`}
-      sourceEmpty={query.data?.length === 0}
+      sourceEmpty={sourceEmpty}
       action={<NewPartButton prefix={prefix} />}
       book={partBook(prefix)}
       cardFields={COMPONENT_CARD_FIELDS}

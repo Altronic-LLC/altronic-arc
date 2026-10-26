@@ -45,12 +45,12 @@ function selectFor(listId: string, baseSelect: string): string {
   return communicationAvailable(listId) ? `${baseSelect},Communication` : baseSelect;
 }
 
-/** Every row on a list, with the Communication fallback. */
-export async function readWholeList(listId: string, baseSelect: string): Promise<GraphListItem[]> {
-  const read = () =>
-    graphFetchAll<GraphListItem>(
-      `${itemsPath(listId)}?$select=${ITEM_SELECT}&$expand=fields($select=${selectFor(listId, baseSelect)})&$top=999`,
-    );
+/**
+ * Run a read that selects Communication; on a 400, retry ONCE without it and
+ * remember the list hasn't got the column. `read` builds its URL from
+ * `selectFor`, so the retry asks without it.
+ */
+async function withCommunicationFallback<T>(listId: string, read: () => Promise<T>): Promise<T> {
   try {
     return await read();
   } catch (err) {
@@ -69,11 +69,55 @@ export async function readWholeList(listId: string, baseSelect: string): Promise
   }
 }
 
+/** Every row on a list, with the Communication fallback. */
+export async function readWholeList(listId: string, baseSelect: string): Promise<GraphListItem[]> {
+  return withCommunicationFallback(listId, () =>
+    graphFetchAll<GraphListItem>(
+      `${itemsPath(listId)}?$select=${ITEM_SELECT}&$expand=fields($select=${selectFor(listId, baseSelect)})&$top=999`,
+    ),
+  );
+}
+
+/**
+ * Every row whose part number starts with one of these three-digit lists —
+ * what a single list's screen needs, instead of the whole list. Filtered by
+ * SharePoint on the INDEXED Title column, which it allows past 5,000 rows
+ * (list 309 of ~14,000 came back in one ~0.4 s request, 2026-10-26, against
+ * ~11 s for the whole Part List). One request per list, in parallel; each
+ * still pages, in case a list ever passes 999 parts.
+ */
+export async function readByPrefixes(listId: string, baseSelect: string, prefixes: string[]): Promise<GraphListItem[]> {
+  const pages = await Promise.all(
+    prefixes.map((prefix) =>
+      withCommunicationFallback(listId, () =>
+        graphFetchAll<GraphListItem>(
+          `${itemsPath(listId)}?$select=${ITEM_SELECT}&$expand=fields($select=${selectFor(listId, baseSelect)})` +
+            `&$filter=startswith(fields/Title,${odataString(prefix)})&$top=999`,
+        ),
+      ),
+    ),
+  );
+  const seen = new Set<string>();
+  return pages.flat().filter((item) => (seen.has(item.id) ? false : (seen.add(item.id), true)));
+}
+
+/**
+ * Does SharePoint hand this caller ANY row of the list? One row, ids only.
+ * A single list coming back empty may simply be empty; the whole list coming
+ * back empty is how SharePoint answers an item-level permission problem.
+ */
+export async function listHasRows(listId: string): Promise<boolean> {
+  const res = await graphFetch<{ value: GraphListItem[] }>(`${itemsPath(listId)}?$select=id&$top=1`);
+  return (res.value ?? []).length > 0;
+}
+
 /** One row, fresh. Null for a 404 — anything else propagates. */
 export async function readItem(listId: string, id: number, baseSelect: string): Promise<GraphListItem | null> {
   try {
-    return await graphFetch<GraphListItem>(
-      `${itemsPath(listId)}/${id}?$select=${ITEM_SELECT}&$expand=fields($select=${selectFor(listId, baseSelect)})`,
+    return await withCommunicationFallback(listId, () =>
+      graphFetch<GraphListItem>(
+        `${itemsPath(listId)}/${id}?$select=${ITEM_SELECT}&$expand=fields($select=${selectFor(listId, baseSelect)})`,
+      ),
     );
   } catch (err) {
     if (err instanceof GraphError && err.status === 404) return null;

@@ -3,9 +3,8 @@ import { findDatasheet, uploadDatasheet, type Datasheet } from "@/api/datasheets
 import { updateAltronicComponent } from "@/api/altronicComponents";
 import { addDatasheetGate, addPartGate } from "@/lib/partsRoles";
 import { isComponentPrefix, partPrefix } from "@/lib/altronicPartMapper";
-import type { AltronicComponent } from "@/types/task";
 import { useResolvePartsAccess } from "./usePartsRoles";
-import { ALTRONIC_COMPONENTS_KEY } from "./useAltronicParts";
+import { ALTRONIC_COMPONENTS_KEY, upsert } from "./useAltronicParts";
 
 // =============================================================================
 // A part's datasheet, looked up by part number (see api/datasheets.ts).
@@ -75,9 +74,7 @@ export function useUploadDatasheet() {
       if (component && componentId !== undefined) {
         try {
           const updated = await updateAltronicComponent(componentId, { hasDataSheet: true });
-          qc.setQueryData<AltronicComponent[]>(ALTRONIC_COMPONENTS_KEY, (old) =>
-            old?.map((c) => (c.id === updated.id ? updated : c)),
-          );
+          upsert(qc, ALTRONIC_COMPONENTS_KEY, updated);
         } catch (err) {
           flagError = err instanceof Error ? err.message : "Has Data Sheet couldn't be set.";
         }

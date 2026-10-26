@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.204.3",
+    date: "2026-10-26",
+    changes: [
+      "Parts List: a part's page opens in about a second — ARC reads just that part instead of downloading all 14,000 first",
+      "Opening one list (309, 701 …) loads only that list's parts, in about a second; a component list still searches its whole category",
+      "Global Search, the Parts Book and New part still load every part, as they need all of them",
+      "New part waits for both lists before filling in the next free number, so it can no longer offer a number that's already taken",
+    ],
+  },
+  {
     version: "0.204.2",
     date: "2026-10-26",
     changes: [
