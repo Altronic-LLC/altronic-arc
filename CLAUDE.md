@@ -6863,8 +6863,18 @@ all in `lib/taskNumbering.ts`:
   never below count + 1, excluding the moving task. Highest, not count, so a
   deleted task can't hand its number out twice. NEW tasks still use
   `computeNumberedTitle`'s count + 1 — deliberately untouched here.
-- **A title edit keeps the prefix** (`retitledNumberedTitle`). A legacy row
-  with no recognisable `T{n}-{code}-` prefix is left alone, never invented.
+- **A title edit keeps the prefix** (`retitledNumberedTitle`). The list and
+  the board SHOW `NumberedTitle`, so a prefix the rule can't read means a
+  rename appears on the task page and nowhere else (reported 2026-10-27).
+  `numberedTitlePrefix` reads three shapes: ARC's own `T5-276--title` (the
+  code is the project title's first 4 characters, here `276-`), the old
+  Power App's `T1-328-title` (the project NUMBER — 2,255 of 3,148 live tasks,
+  which the rule used to miss), and a bare `T{n}-{3–4 digits}-` for a task
+  whose project is unknown. A row with no prefix gets no number invented, but
+  if its `NumberedTitle` ends with the old title that ending is replaced.
+  Fifteen live tasks had been renamed before this, and their numbered titles
+  were corrected to match on 2026-10-27 (number kept, text after it replaced;
+  no EIR named any of the old ones).
 - **Re-picking the same project is not a move** — the number stays.
 
 Four things in the hooks that are load-bearing:
