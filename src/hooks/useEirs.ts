@@ -62,6 +62,7 @@ import {
 } from "./mentionAutoWatch";
 import { parseWrittenDate } from "@/lib/dateInput";
 import { mergeTaskIntoList } from "@/lib/taskGraph";
+import { fanOutComment } from "@/hooks/useCommentMirror";
 
 export const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -278,22 +279,15 @@ export function usePromoteEirToTask() {
           // failure (the discussion landed, the link didn't) still seeds the
           // cache with the real comment thread — see createTask.
           task = err.task;
-          const lostLink = err.failedFields.includes("EIRReference");
-          const lostComments = err.failedFields.includes("Communication");
-          const missing = lostLink
-            ? lostComments
-              ? "its link back to the EIR and the carried-over discussion"
-              : "its link back to the EIR"
-            : "the carried-over discussion";
-          // Name the recovery for whichever half was lost. The comments are
-          // the half nobody can reconstruct from memory, so say where they
-          // still are rather than just "by hand".
-          const fix = lostComments
-            ? `copy ${lostLink ? "the discussion" : "it"} across from ${
-                eir.eirNo || `EIR #${eir.id}`
-              }`
-            : "add the link by hand";
-          warnings.push(`${missing} couldn't be saved — ${fix}`);
+          // Only the carried-over discussion can fail now: the task's link
+          // back is derived from the EIR's Task Reference (see createTask).
+          // The comments are the half nobody can reconstruct from memory, so
+          // say where they still are rather than just "by hand".
+          warnings.push(
+            `the carried-over discussion couldn't be saved — copy it across from ${
+              eir.eirNo || `EIR #${eir.id}`
+            }`,
+          );
         } else {
           throw err;
         }
@@ -741,6 +735,17 @@ export function useAddEirComment() {
           attachments: [],
         });
       }
+
+      // Copy it onto the task this EIR was promoted into, and notify THAT
+      // side's watchers minus whoever we just emailed (Ray, 2026-10-27).
+      // Best-effort: the comment is already written, so a failed mirror
+      // toasts rather than failing the post.
+      void fanOutComment({
+        qc,
+        source: { kind: "eir", id },
+        comment,
+        alreadyNotified: recipients,
+      });
     },
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
@@ -886,7 +891,7 @@ export function useEditEirComment() {
 // =============================================================================
 
 /** Human-readable EIR label for email subjects/callouts ("EIR_2026-0042 — Title"). */
-function eirTargetTitle(e: Eir): string {
+export function eirTargetTitle(e: Eir): string {
   return [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title;
 }
 

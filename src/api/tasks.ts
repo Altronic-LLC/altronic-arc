@@ -813,19 +813,15 @@ export async function createTask(input: {
     }
   }
 
-  if (input.eirReference && (input.eirReference.url || input.eirReference.label)) {
-    try {
-      latest = await updateTaskFields(task.id, {
-        EIRReference: {
-          Url: input.eirReference.url,
-          Description: input.eirReference.label,
-        },
-      });
-    } catch (err) {
-      failed.push("EIRReference");
-      lastError = err;
-    }
-  }
+  // EIRReference is NOT written in real mode — GRAPH CANNOT WRITE A
+  // HYPERLINK COLUMN AT ALL, at create OR in a later PATCH. Proven live
+  // 2026-10-27: `{ Url, Description }` and the `"url, description"` string
+  // both 400 `invalidRequest` on an existing task, and not one of the 3,147
+  // tasks held an ARC-written link — every promotion's link write had failed
+  // and warned, while the EIR's Task Reference (a text column) always landed.
+  // So the task finds its EIR from that side instead (`linkedEirForTask`),
+  // the derived-link arrangement the build requests use. SharePoint REST's
+  // ValidateUpdateListItem CAN write the column, if that is ever wanted.
 
   if (failed.length > 0) {
     // Don't swallow this — a promotion whose link-back and comment thread
