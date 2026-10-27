@@ -485,6 +485,9 @@ src/
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── harnessProductionLog.ts   Harness Production Log CRUD, year-scoped (Operations, PMO site) — admin-gated delete
 │   ├── harnessPartNumbers.ts     Harness Part Numbers — the log's part lookup; add/rename/retire, NO delete
+│   ├── crimpSpecs.ts             Crimp Specs (Harness, PMO site) — per terminal + applicator + gauge; admin writes, delete only when unused
+│   ├── crimpChecks.ts            Crimp Height Checks CRUD, year-scoped on the indexed CheckedAt — spec figures copied on, admin-gated delete
+│   ├── harnessAlertRecipients.ts Harness Alert Recipients — who each Harness email goes to; admin-managed list, read fresh at send
 │   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
@@ -552,6 +555,7 @@ src/
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── harnessMockData.ts        Sample harness log rows (this year + last) + part numbers, one retired
+│   ├── crimpMockData.ts          Sample crimp specs + checks — INVENTED terminals/applicators, one out of spec, one spec with no height
 │   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
@@ -592,6 +596,9 @@ src/
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts, monthly FPY)
 │   ├── useHarnessProductionLog.ts Harness log + part-number queries/mutations; delete and every part write are ARC-admin only
+│   ├── useCrimpChecks.ts         Crimp checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
+│   ├── useHarnessAlertRecipients.ts Who's notified CRUD (ARC admins) + readHarnessRecipients (fresh) + the part number request
+│   ├── useRequireArcAdmin.ts     "Only ARC admins can…" asked INSIDE a mutationFn, awaiting the Admins list (Harness + Crimp)
 │   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
@@ -814,7 +821,8 @@ src/
 │   ├── grayMarketAlerts.ts      Gray Market intake alert + the testing/engineering/production change alert (pure)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
 │   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
-│   ├── odata.ts                  `odataString()` — the ONE way a string goes into a `$filter`
+│   ├── odata.ts                  `odataString()` — the ONE way a string goes into a `$filter`; `encodeFilter()` for a whole filter expression
+│   ├── graphValues.ts            toNumberOrNull / toLookupId — reading Graph field values (shared; teradyneMapper re-exports)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
 │   ├── agenda.ts                 My agenda (pure) — whose tasks/EIRs, which dates, the window, LOCAL-day grouping, the badge count
@@ -827,6 +835,10 @@ src/
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── harnessLogMapper.ts       Graph item ⇄ harness log entry / part number; the derived Title
 │   ├── harnessLegacyClean.ts     Cleaning the Access export for the load (pure; run by scripts/clean-harness-production-log.mjs, not imported by the app)
+│   ├── crimpCheck.ts             Crimp height rules (pure) — limits inclusive, any reading out = out of spec, mm detection, when to email, labels
+│   ├── crimpMapper.ts            Graph item ⇄ Crimp Spec / Crimp Check; Average, OutOfSpec and Title derived on write
+│   ├── crimpAlerts.ts            The out-of-spec crimp email (pure)
+│   ├── harnessPartRequest.ts     A harness part number request — new / retired / already listed, and its email (pure)
 │   ├── mcnFields.ts              MCN columns as DATA — the 10 Requires…/Incorporate lines, $select, scope JSON, people-as-lines
 │   ├── mcnMapper.ts              Graph item ⇄ Mcn; diffed update payload; refuses to write over an unreadable scope
 │   ├── mcnNumber.ts              MCNyy### — highest that year + 1, never count + 1 (pure)
@@ -858,6 +870,8 @@ src/
 │   ├── task.ts                   All domain types + constants (Task, Eir, Panel*, …)
 │   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
 │   ├── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
+│   ├── crimp.ts                  Crimp Height Checks types + constants (CrimpSpec, CrimpCheck, check points)
+│   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
 │   └── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
 │
 ├── components/
@@ -868,6 +882,7 @@ src/
 │   ├── UpdateAvailableBanner.tsx "A new version of ARC is available"
 │   ├── LoadingTasks.tsx          THE app-wide loading screen — verb/noun headline + a rotating "did you know" fact about ARC (data/loadingFacts.ts)
 │   ├── RequireAdmin.tsx          Route guard for /admin/*
+│   ├── MovedTo.tsx               Redirect for a moved route that KEEPS the query string (old /operations/harness-log links)
 │   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
 │   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
@@ -980,6 +995,9 @@ src/
 │   ├── DrawingLogFields.tsx      Descriptor-driven detail grid + form inputs
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
 │   ├── HarnessLogFormModal.tsx   Create/edit a harness log entry — part picked from the list, never typed
+│   ├── CrimpCheckFormModal.tsx   Record/correct a crimp check — spec picked, readings judged live, Enter-as-Tab for the micrometer, mm refused
+│   ├── CrimpSpecFormModal.tsx    Add/edit a crimp spec (ARC admins)
+│   ├── HarnessPartRequestDialog.tsx  Request a new or retired harness part number — portalled, emails the part-request recipients
 │   ├── mcnAtoms.tsx              MCN status / priority chips, the Register / Settings nav, McnAccessGate (configured? pilot?)
 │   ├── McnFields.tsx             MCN dialog shell, scope-line editor, single-person picker, distribution ticks
 │   ├── McnFormModal.tsx          New MCN — saved as a Draft, number previewed; staged attachments upload after the create
@@ -1053,8 +1071,11 @@ src/
 │   ├── MaintenanceReferenceListsView.tsx  Departments & Locations for the CMMS — inside the module, gated by manageAssetsGate (not /admin)
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
-│   ├── HarnessProductionLogView.tsx  Harness Production Log — any year (or all), sortable, cards on a phone
+│   ├── HarnessProductionLogView.tsx  Harness Production Log (/harness/production-log) — any year (or all), sortable, cards on a phone
 │   ├── HarnessPartNumbersView.tsx    Harness Part Numbers — readable by all, ARC admins add/rename/retire
+│   ├── CrimpChecksView.tsx       Crimp Height Checks (/harness/crimp-checks, /:id opens one) — year picker, out-of-spec filter, cards on a phone
+│   ├── CrimpSpecsView.tsx        Crimp Specs — readable by all, ARC admins add/edit/retire, delete only when unused
+│   ├── HarnessAlertRecipientsView.tsx  Harness → Who's notified (/harness/alert-recipients) — people per alert, picked from the directory, ARC admins edit
 │   ├── McnsView.tsx              MCN register (/operations/mcns) — opens on open MCNs, sortable, cards on a phone
 │   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
 │   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
@@ -7264,7 +7285,29 @@ holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
 
-### Harness Production Log (Operations, PMO site)
+### The Harness department
+
+**Harness is its own department** (Tim, 2026-10-27), moved out of Operations:
+the Harness Production Log and Crimp Height Checks have their own Departments
+menu group, Dashboard section (between Operations and Coils), Manual group and
+About-diagram group. Routes live under `/harness/`; the old
+`/operations/harness-log` paths redirect through `components/MovedTo.tsx`,
+which keeps the query string. The lists stay on `SITES.pmo` — a department
+in ARC is not a SharePoint site.
+
+**"Harness" is in `DASHBOARD_DEPARTMENTS` and `FEATURE_REQUEST_DEPARTMENTS`**,
+so it's offered by Admin → Quick Links and the feature request form. Both
+SharePoint `Department` columns are strict choices (`allowTextEntry: false`),
+so **`scripts/add-harness-department-choice.ps1` must run BEFORE the deploy**
+that ships this, or a Quick Link or feature request tagged Harness is refused.
+A new department anywhere in ARC needs the same choice added to both columns.
+
+**No cross-department imports**: Harness code used to borrow `encodeFilter`
+from `api/teradyneLog.ts` and `toLookupId` / `toNumberOrNull` from
+`lib/teradyneMapper.ts` (Operations). They now live in the shared layer
+(`lib/odata.ts`, `lib/graphValues.ts`); the Teradyne modules re-export them.
+
+### Harness Production Log (Harness, PMO site)
 
 Two lists on `SITES.pmo`, replacing an **Access database on a production PC**
 (Tim, 2026-10-08). Both ids are **unset by default** —
@@ -7348,6 +7391,124 @@ and "All years" is every leaver and typo since 2018. Nothing is stored — a new
 code typed today is a suggestion on the next load. The Built By FILTER on the
 log still offers the loaded entries' values, since it filters them. **`HARN1` appears in ~2,950 comments** and its meaning is
 unconfirmed; it is left as comment text rather than guessed into a field.
+
+### Crimp Height Checks (Harness, PMO site)
+
+BusinessIT#55 (David Bulkley via Feature Request #31; built with Tim,
+2026-10-27). Replaces the paper **Terminal Crimp Verification Chart (MFGFRM
+002 REV 0)**, part of the CAT CES coil corrective action. Pieces:
+`types/crimp.ts`, `lib/crimpCheck.ts` (the rules), `lib/crimpMapper.ts`,
+`lib/crimpAlerts.ts`, `api/crimpSpecs.ts`, `api/crimpChecks.ts`,
+`hooks/useCrimpChecks.ts`, the two `Crimp*FormModal`s, `CrimpChecksView`
+(`/harness/crimp-checks`, `/:id` opens one check) and `CrimpSpecsView`
+(`/harness/crimp-checks/specs`).
+
+Two lists on `SITES.pmo`, created by `scripts/create-crimp-lists.ps1`
+(idempotent, `-WhatIf`, write/read-back check; **its internal names are the
+contract** with `lib/crimpMapper.ts`). **No defaults** — unset shows "not set
+up yet", the Harness arrangement:
+
+| List | env | Holds |
+|---|---|---|
+| Crimp Specs | `VITE_SP_CRIMP_SPECS_LIST_ID` | one row per **terminal + applicator + wire gauge**: crimp height, ± tolerance, settings |
+| Crimp Height Checks | `VITE_SP_CRIMP_CHECKS_LIST_ID` | one row per **check** of three readings; `CheckedAt` indexed |
+
+Tim's decisions, 2026-10-27:
+- **One entry per CHECK** (Start / In process / End), not one per paper
+  column. The paper says "every 100 terminations" but only has start and
+  end; each check is saved in one go, nothing to reopen.
+- **Any single reading out of spec** sends the alert — never the average
+  alone, which hides one bad crimp.
+- **Anyone signed in records and corrects a check**; only **ARC admins**
+  delete one and manage the specs (Tim: "a way for an ARC admin to
+  add/remove and adjust the specs").
+
+Seven things that are load-bearing:
+
+- **The limits are IN spec**, compared with a millionth-of-an-inch slack
+  (`LIMIT_SLACK`). The 610494 paper sheet reads .038 against .040 ± .002 over
+  and over, and 0.04 − 0.002 isn't exactly 0.038 in binary.
+- **A check COPIES its spec's figures** (terminal, gauge, applicator, crimp
+  height, tolerance) as well as pointing at it (`SpecRef`, a SINGLE lookup,
+  bare integer). An admin correcting a spec must never re-judge last month's
+  checks — the CPU-95 firing-spec rule. An edit keeps the stored figures
+  unless a different spec is picked, and says when the spec has changed since.
+- **`Average`, `OutOfSpec` and `Title` are derived on every write**
+  (`buildCrimpCheckFields`), stored only so SharePoint's own views show them.
+- **The email goes when a check BECOMES out of spec** (`shouldAlertOutOfSpec`):
+  a new out-of-spec check, or an edit that turns one out. Re-saving a check
+  that was already out (fixing the harness number) sends nothing. Sent from
+  `onSuccess`, not awaited by the save, and its outcome is TOASTED — "emailed
+  3 people", or, with nobody on the list, "tell your supervisor". Who is told
+  comes from **Harness Alert Recipients** (below), read FRESH at send time.
+  The actor rule is `withoutActorUnlessEmpty` (a work queue).
+- **The micrometer types the reading and presses Enter.** The form's Enter
+  moves to the next field (the CPU-95 `handleEnterAsTab`, with
+  `data-enter-group` on every plain field so a SuggestInput's chevron is
+  skipped). A reading **10× the nominal or more** (half an inch with no
+  nominal) is refused as millimetres — the 342-271-30 is switchable.
+- **A spec with no crimp height (or no tolerance) can't judge a check** —
+  five rows on the sheet have no height, one no tolerance. The check is still saved, as **Not judged**, never "In
+  spec"; the specs screen counts them.
+- **Delete a spec only while NO check uses it**, asked FRESH inside
+  `useDeleteCrimpSpec` (`listCrimpSpecUsage`), not from the screen's cached
+  count. A used spec is retired (`Active = false`); the check form keeps a
+  check's retired spec in its own picker.
+
+**Loading the spec sheet:** `scripts/load-crimp-specs.ps1 -CsvPath <csv>
+[-ParseOnly | -SpecsListId <id> [-Apply]]` — ADD-ONLY, keyed on terminal +
+applicator + gauge (`crimpSpecKey`). A continuation row (blank terminal)
+inherits the terminal, manufacturer part #, applicator and table height from
+the row above. The CSV holds Altronic data: **keep it out of the repo**. The
+mock specs are invented. Dry-run on Tim's CSV (2026-10-27): 19 specs, 6 with
+no crimp height (615611, 504350, 504351, 615626, 704206; 504373 has a height
+but no tolerance), 615345's table height "603243" and 504427's margin note
+("0.120 ± 0.005", probably an insulation crimp height) to check.
+
+Not built: insulation crimp height (only wire crimp height is checked), and
+any chart of readings over time.
+
+#### Who's notified — Harness Alert Recipients, a LIST, not a variable
+
+Tim, 2026-10-27: "an admin can also select who gets notified … so we just set
+that id and don't have to redeploy each time." A third list on `SITES.pmo`,
+**Harness Alert Recipients** (`VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID`, no
+default; created by `create-crimp-lists.ps1`): `Title` = name, `Email`,
+`Alert` (strict choice: `Crimp out of spec` / `Part number request` —
+`HARNESS_ALERTS` in `types/harness.ts`, change both together). One row per
+person per alert. Managed at `/harness/alert-recipients` ("Who's notified",
+linked from the Admin page and a note on Admin → Notification recipients;
+the button on both Harness logs shows to **ARC admins only**, Tim,
+2026-10-27): the route itself is readable by anyone who has the link, and
+**ARC admins** add and remove (`useRequireArcAdmin` in the mutationFn).
+
+- **People are PICKED from the staff directory, never typed** — Graph accepts
+  mail for a mailbox that doesn't exist, so a typo would be silent for ever.
+  That's also why this list isn't on Admin → Notification recipients: that
+  screen audits typed `VITE_*` lists. The `VITE_CRIMP_OUT_OF_SPEC_ALERTS`
+  variable this replaced never shipped.
+- **Read FRESH at send time** (`readHarnessRecipients`, `staleTime: 0`), so
+  an admin's edit reaches the very next email. Whoever triggers an email
+  reads the list, so the list must be readable by the floor.
+- **It HAS a delete** — a membership list, not a record. A duplicate (same
+  email, same alert) is refused. A row with no email or an unknown alert is
+  dropped on read, never guessed at.
+- **A new Harness email gets an alert here**, not a new variable.
+
+#### Requesting a harness part number
+
+Only ARC admins add or restore part numbers, so anyone else gets **Request a
+part number** — under the Part Number box in the entry form, and on the Part
+Numbers screen (Tim, 2026-10-27; "send to me directly for now" = Tim puts
+himself on the `Part number request` alert). `lib/harnessPartRequest.ts`
+says what the typed number is (new / retired → "restore" / already live →
+refused, pick it); `useRequestHarnessPartNumber` sends it AWAITED and throws
+when it reaches nobody, the Parts List new-list request's rule, so "Sent to
+…" is true. Not about one item: `thread: null`, the button links to the part
+numbers screen. `HarnessPartRequestDialog` is **portalled to `<body>`** — it
+opens inside the entry form, and a form in a form is invalid. Escape is
+handled on the document (after a send the focused button is gone), and the
+entry form ignores Escape while it's open — pinned, verified by removing it.
 
 ### Manufacturing Change Notices (Operations, PMO site)
 

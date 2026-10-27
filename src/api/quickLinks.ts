@@ -15,7 +15,7 @@ import { mockDelay } from "./mockLatency";
 //   1. Create a list called "Quick Links" (or any name — only the id matters).
 //   2. Use the default Title column for the button label.
 //   3. Add a single-line text column `Url`.
-//   4. Add a choice column `Department` with the seven DASHBOARD_DEPARTMENTS
+//   4. Add a choice column `Department` with the DASHBOARD_DEPARTMENTS
 //      values as its choices.
 //   5. Add a number column `SortOrder`.
 //   6. Set VITE_SP_QUICK_LINKS_LIST_ID to the list id.
@@ -42,7 +42,7 @@ function isValidDepartment(value: unknown): value is DashboardDepartment {
 function toQuickLink(item: GraphListItem): QuickLink | null {
   const f = item.fields ?? {};
   const department = f.Department;
-  // A row whose Department has drifted outside the seven known values (a
+  // A row whose Department has drifted outside the known DASHBOARD_DEPARTMENTS values (a
   // choice column edited directly in SharePoint, or a stale value from
   // before a department was renamed) is dropped rather than shown under a
   // department that doesn't exist on the Dashboard — the alternative is an

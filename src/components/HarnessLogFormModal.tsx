@@ -13,6 +13,7 @@ import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import { SingleSelect } from "./SearchableSelect";
 import { SuggestInput } from "./SuggestInput";
 import { DateField } from "./DateField";
+import { HarnessPartRequestDialog } from "./HarnessPartRequestDialog";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface HarnessLogFormModalProps {
@@ -80,6 +81,7 @@ export function HarnessLogFormModal({ entry, onClose }: HarnessLogFormModalProps
   const [comments, setComments] = useState(entry?.comments ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   const firstFieldRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -88,11 +90,12 @@ export function HarnessLogFormModal({ entry, onClose }: HarnessLogFormModalProps
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busy) onClose();
+      // The request dialog handles its own Escape — one thing closes at a time.
+      if (e.key === "Escape" && !busy && !requesting) onClose();
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [busy, onClose]);
+  }, [busy, onClose, requesting]);
 
   const partOptions = useMemo(
     () => harnessPartOptions(parts, entry?.part?.lookupId ?? null, entry?.part?.title),
@@ -200,7 +203,7 @@ export function HarnessLogFormModal({ entry, onClose }: HarnessLogFormModalProps
                 <>
                   Not listed?{" "}
                   <Link
-                    to="/operations/harness-log/part-numbers"
+                    to="/harness/production-log/part-numbers"
                     className="font-medium text-accent underline-offset-2 hover:underline"
                   >
                     Add it to the part numbers
@@ -208,7 +211,16 @@ export function HarnessLogFormModal({ entry, onClose }: HarnessLogFormModalProps
                   .
                 </>
               ) : (
-                "Not listed? Ask an ARC admin to add it to the part numbers."
+                <>
+                  Not listed, or retired?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setRequesting(true)}
+                    className="font-medium text-accent underline-offset-2 hover:underline"
+                  >
+                    Request a part number
+                  </button>
+                </>
               )}
             </span>
           </Field>
@@ -301,6 +313,7 @@ export function HarnessLogFormModal({ entry, onClose }: HarnessLogFormModalProps
           </div>
         </form>
       </div>
+      {requesting && <HarnessPartRequestDialog onClose={() => setRequesting(false)} />}
     </div>
   );
 }

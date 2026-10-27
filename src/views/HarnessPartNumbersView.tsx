@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArchiveRestore, Archive, ListOrdered, Lock, Pencil, Plus, X } from "lucide-react";
+import { ArchiveRestore, Archive, ListOrdered, Lock, Pencil, Plus, Send, X } from "lucide-react";
 import {
   HARNESS_CONFIGURED,
   useCreateHarnessPartNumber,
@@ -10,6 +10,7 @@ import {
 } from "@/hooks/useHarnessProductionLog";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { HarnessPartRequestDialog } from "@/components/HarnessPartRequestDialog";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SearchInput } from "@/components/SearchInput";
@@ -55,6 +56,7 @@ export function HarnessPartNumbersView() {
   const [showRetired, setShowRetired] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<HarnessPartNumber | null>(null);
+  const [requesting, setRequesting] = useState(false);
 
   const retiredCount = parts.filter((p) => !p.active).length;
   const filtered = useMemo(() => {
@@ -79,7 +81,7 @@ export function HarnessPartNumbersView() {
 
   return (
     <div className="mx-auto flex max-w-[1100px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Harness Production Log" listTo="/operations/harness-log" />
+      <DetailTopBar category="Harness Production Log" listTo="/harness/production-log" />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cooper-green/10 text-cooper-green">
@@ -106,9 +108,19 @@ export function HarnessPartNumbersView() {
       </header>
 
       {!isAdmin && (
-        <p className="flex items-start gap-1.5 text-[11px] text-fg-muted">
-          <Lock className="mt-px h-3.5 w-3.5 shrink-0" />
-          <span>{lockHint} Ask one if a part number is missing.</span>
+        <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-fg-muted">
+          <Lock className="h-3.5 w-3.5 shrink-0" />
+          <span>{lockHint}</span>
+          {!isResolving && (
+            <button
+              type="button"
+              onClick={() => setRequesting(true)}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-fg hover:border-fg-muted"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Request a part number
+            </button>
+          )}
         </p>
       )}
 
@@ -200,6 +212,7 @@ export function HarnessPartNumbersView() {
         </div>
       )}
 
+      {requesting && <HarnessPartRequestDialog onClose={() => setRequesting(false)} />}
       {(adding || editing) && (
         <PartNumberDialog
           part={editing}

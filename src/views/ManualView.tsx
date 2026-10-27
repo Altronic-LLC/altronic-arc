@@ -2482,7 +2482,7 @@ const SECTIONS: ManualSection[] = [
   {
     id: "harness-production-log",
     title: "Harness Production Log",
-    group: "Operations",
+    group: "Harness",
     keywords: [
       "harness",
       "harness production",
@@ -2495,6 +2495,8 @@ const SECTIONS: ManualSection[] = [
       "part number",
       "harness part numbers",
       "add part number",
+      "request a part number",
+      "part number request",
       "retire part number",
       "rework",
       "rework qty",
@@ -2506,14 +2508,14 @@ const SECTIONS: ManualSection[] = [
       "data quality",
     ],
     searchText:
-      "The Harness Production Log replaces the Access database that ran on the production PC. Each row is one harness build: production date, work order, part number, quantity, rework quantity, who built it (clock number or initials), who did the visual check, and comments. Reach it from the Harness Production Log card on the Dashboard or the Departments menu under Operations. Click New entry; the date defaults to today, and Production Date, Part Number and Qty are required. The part number is picked from a dropdown, never typed, so the same part is always spelled the same way. If a part number is missing, an ARC admin adds it on the Part numbers screen; anyone else asks an admin. Built By and Visual Check suggest the clock numbers and initials used in the last 12 months, most-used first, whichever year you are viewing, but accept anything; a new one typed today is suggested from then on. Rework can't be more than the quantity. The log opens on the current year; the Year picker goes back to 2018 and has All years, for anyone. Filter by part number and by builder, or search work order, part, comments and import notes; filters live in the URL. Columns sort and filter from their headers. The totals line adds up the quantity built and reworked for everything matching. The table shows 200 rows with Show all. On a phone the log is cards. Anyone signed in can add and correct entries; only ARC admins can delete one. Rows imported from Access may show a small yellow i next to the part number: hover it, or open the row, to see what was tidied on import, such as a part number's spelling or a date that couldn't be read. The Harness Part Numbers screen lists every part number with how many entries use it. Anyone can see it; ARC admins can add, rename or retire a part number. There's no delete: retiring takes a part out of the New entry dropdown while every entry already using it keeps it, and it can be restored. Renaming changes what every entry using that part shows, so use it to fix a typo, not to turn it into a different part.",
+      "The Harness Production Log replaces the Access database that ran on the production PC. Each row is one harness build: production date, work order, part number, quantity, rework quantity, who built it (clock number or initials), who did the visual check, and comments. Reach it from the Harness Production Log card on the Dashboard or the Departments menu under Harness. Click New entry; the date defaults to today, and Production Date, Part Number and Qty are required. The part number is picked from a dropdown, never typed, so the same part is always spelled the same way. If a part number is missing, an ARC admin adds it on the Part numbers screen; anyone else presses Request a part number, under the Part Number box or on the Part numbers screen, which says whether the number is new, retired or already listed and emails the people chosen for part number requests on Who's notified. Built By and Visual Check suggest the clock numbers and initials used in the last 12 months, most-used first, whichever year you are viewing, but accept anything; a new one typed today is suggested from then on. Rework can't be more than the quantity. The log opens on the current year; the Year picker goes back to 2018 and has All years, for anyone. Filter by part number and by builder, or search work order, part, comments and import notes; filters live in the URL. Columns sort and filter from their headers. The totals line adds up the quantity built and reworked for everything matching. The table shows 200 rows with Show all. On a phone the log is cards. Anyone signed in can add and correct entries; only ARC admins can delete one. Rows imported from Access may show a small yellow i next to the part number: hover it, or open the row, to see what was tidied on import, such as a part number's spelling or a date that couldn't be read. The Harness Part Numbers screen lists every part number with how many entries use it. Anyone can see it; ARC admins can add, rename or retire a part number. There's no delete: retiring takes a part out of the New entry dropdown while every entry already using it keeps it, and it can be restored. Renaming changes what every entry using that part shows, so use it to fix a typo, not to turn it into a different part.",
     render: () => (
       <>
         <P>
           <strong>Harness Production Log</strong> replaces the Access database
           that ran on the production PC. Each row is one harness build. Reach it
           from the <strong>Harness Production Log</strong> card on the Dashboard,
-          or the <strong>Departments</strong> menu's Operations group.
+          or the <strong>Departments</strong> menu's Harness group.
         </P>
         <H3>Adding an entry</H3>
         <P>
@@ -2525,8 +2527,15 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>The part number is picked, never typed</strong>, so the same
             part is always spelled the same way. If it isn't in the list, an ARC
-            admin adds it on the <strong>Part numbers</strong> screen; anyone
-            else asks an admin.
+            admin adds it on the <strong>Part numbers</strong> screen.
+          </LI>
+          <LI>
+            Anyone else presses <strong>Request a part number</strong> under the
+            Part Number box (or on the Part numbers screen). Type the number: it
+            says whether it's new, retired (the request asks for it to be
+            restored) or already on the list. Sending emails the people chosen
+            for part number requests on <strong>Who's notified</strong>, and
+            says who it went to.
           </LI>
           <LI>
             <strong>Built By</strong> and <strong>Visual Check</strong> take a
@@ -2582,6 +2591,122 @@ const SECTIONS: ManualSection[] = [
             shows. Use it to fix a typo, not to turn one part into another.
           </LI>
           <LI>A part number can only be on the list once.</LI>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: "crimp-height-checks",
+    title: "Crimp Height Checks",
+    group: "Harness",
+    keywords: [
+      "crimp",
+      "crimp height",
+      "crimp check",
+      "crimp verification",
+      "terminal crimp verification chart",
+      "mfgfrm 002",
+      "micrometer",
+      "bluetooth",
+      "terminal",
+      "applicator",
+      "wire gauge",
+      "crimp spec",
+      "crimp specs",
+      "out of spec",
+      "tolerance",
+      "mecal",
+      "who's notified",
+      "alert recipients",
+    ],
+    searchText:
+      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the terminal (each spec is a terminal, wire gauge and applicator), pick Start, In process or End, enter your clock number and the three readings in inches. The micrometer's Bluetooth transmitter types each reading and presses Enter, which moves to the next box. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused: switch the micrometer to inches. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with how many checks used it; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
+    render: () => (
+      <>
+        <P>
+          <strong>Crimp Height Checks</strong> replace the paper{" "}
+          <em>Terminal Crimp Verification Chart</em> (MFGFRM 002) in the harness
+          crimping area. As on the paper, take three measurements at the{" "}
+          <strong>start</strong> of a run, <strong>every 100 terminations</strong>,
+          and at the <strong>end</strong> of the run. Each set of three is one
+          check. Reach it from the <strong>Crimp Height Checks</strong> card on the
+          Dashboard, or the Departments menu under Harness.
+        </P>
+        <H3>Recording a check</H3>
+        <UL>
+          <LI>
+            Click <strong>New check</strong> and pick the <strong>terminal</strong>.
+            Each choice is a terminal, wire gauge and applicator, with its crimp
+            height and tolerance shown beside it.
+          </LI>
+          <LI>
+            Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
+            <strong>End</strong>, and enter your <strong>clock number</strong>.
+          </LI>
+          <LI>
+            Enter the <strong>three readings in inches</strong>. The micrometer's
+            Bluetooth transmitter types each reading and presses Enter, and Enter
+            moves to the next box.
+          </LI>
+          <LI>
+            Each reading shows <strong>In spec</strong>, <strong>Low</strong> or{" "}
+            <strong>High</strong> as it goes in. The limits themselves count as in
+            spec: .038 is in spec against .040 ± .002.
+          </LI>
+          <LI>
+            A reading that <strong>looks like millimetres</strong> is refused.
+            Switch the micrometer to inches and measure again.
+          </LI>
+        </UL>
+        <H3>Out of spec</H3>
+        <P>
+          If <strong>any single reading</strong> is outside the spec, saving the
+          check <strong>emails the people chosen for out-of-spec checks</strong>,
+          and a message tells you how many people were emailed. If nobody has
+          been set up to receive these yet, the message asks you to tell your
+          supervisor. Correcting a check that was already out of spec doesn't
+          email them again.
+        </P>
+        <H3>Who's notified</H3>
+        <P>
+          The <strong>Who's notified</strong> button, shown to{" "}
+          <strong>ARC admins</strong> on both Harness logs (and listed on the
+          Admin page), shows who each Harness email goes to: out-of-spec crimp
+          checks, and part number requests. ARC admins add people from the staff
+          directory and remove them. A change applies to the very next email.
+        </P>
+        <P>
+          A spec with <strong>no crimp height</strong> yet can't judge a check.
+          The check is still recorded and shows as <em>Not judged</em>.
+        </P>
+        <H3>The log</H3>
+        <P>
+          The log opens on the current year. Filter by terminal, show out-of-spec
+          checks only, or search; filters live in the URL. Columns sort and filter
+          from their headers, and on a phone the log is cards.{" "}
+          <strong>Anyone can record and correct a check</strong>; only{" "}
+          <strong>ARC admins can delete</strong> one.
+        </P>
+        <H3>Crimp specs</H3>
+        <P>
+          The <strong>Specs</strong> button lists every spec with how many checks
+          used it. Anyone can see it; <strong>ARC admins</strong> add, edit,
+          retire or delete specs.
+        </P>
+        <UL>
+          <LI>
+            There's one spec per terminal, applicator and wire gauge, because one
+            applicator can crimp several gauges, each to its own height.
+          </LI>
+          <LI>
+            <strong>Every check keeps the figures it was measured against</strong>,
+            so changing a spec never changes an old result.
+          </LI>
+          <LI>
+            A spec that has been used <strong>can't be deleted</strong>.{" "}
+            <strong>Retire</strong> it instead: it leaves the New check list, and
+            the checks already taken keep it.
+          </LI>
         </UL>
       </>
     ),

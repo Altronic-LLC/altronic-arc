@@ -93,7 +93,12 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · HarnessProductionLogView · HarnessPartNumbersView · McnsView · McnDetailView · McnSettingsView — useOperationsTasks · useTeradyne · useHarnessProductionLog · useMcns · useMcnRoles — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · harnessProductionLog · harnessPartNumbers · mcns · mcnRoles — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        palette: "ui",
+      },
+      {
+        label: "Harness department (lazy-loaded)",
+        hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
         palette: "ui",
       },
       {
@@ -198,6 +203,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Manufacturing Change Notices", hint: "Altronic_PMO site — one row per MCN (MFGFRM-021 as fields), with MCN Roles (who raises, approves, manages) and MCN Distribution Groups (who an approved MCN goes to) beside it", palette: "list" },
       { label: "Harness Production Log", hint: "Altronic_PMO site — one row per harness built, imported from the old Access database; read a year at a time on the indexed ProductionDate", palette: "list" },
       { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
+      { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge; ARC admins manage, delete only when unused", palette: "list" },
+      { label: "Crimp Height Checks", hint: "Altronic_PMO site — three micrometer readings per check, the spec's figures copied on; read a year at a time on the indexed CheckedAt", palette: "list" },
+      { label: "Harness Alert Recipients", hint: "Altronic_PMO site — who each Harness email goes to (out-of-spec crimp checks, part number requests); ARC admins pick people in ARC, no redeploy", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
       { label: "Coil-PottingLimit", hint: "Altronic_PMO site — two rows (Lower/Upper Spec Limit), editable by any signed-in user", palette: "list" },
       { label: "Coil PSR Notification List", hint: "Altronic_PMO site — email list for out-of-limit alerts, editable by any signed-in user", palette: "list" },
@@ -266,6 +274,7 @@ export const ER_GROUPS: ErGroup[] = [
   { id: "parts", label: "Parts List" },
   { id: "operations", label: "Operations & maintenance" },
   { id: "teradyne", label: "Teradyne" },
+  { id: "harness", label: "Harness" },
   { id: "panels", label: "Panels" },
   { id: "qc", label: "Quality Control" },
   { id: "sales", label: "Sales" },
@@ -1069,7 +1078,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     name: "HarnessLogEntry",
     source: "Harness Production Log (Altronic_PMO site)",
     palette: "entity",
-    group: "operations", width: 330,
+    group: "harness", width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived)", type: "text", kind: "field" },
@@ -1087,13 +1096,67 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     name: "HarnessPartNumber",
     source: "Harness Part Numbers (Altronic_PMO site)",
     palette: "entity",
-    group: "operations", width: 270,
+    group: "harness", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Part Number)", type: "text", kind: "field" },
       { name: "description", type: "text", kind: "field" },
       { name: "active", type: "bool", kind: "field" },
       { name: "note", type: "text", kind: "field" },
+    ],
+  },
+
+  // ---- Crimp Height Checks (Harness, Altronic_PMO site) -----------------------
+  // BusinessIT#55 — the paper Terminal Crimp Verification Chart (MFGFRM 002).
+  // A check COPIES its spec's figures as well as pointing at it, so editing a
+  // spec never re-judges a check already taken.
+  {
+    name: "CrimpCheck",
+    source: "Crimp Height Checks (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "checkedAt (indexed)", type: "date", kind: "field" },
+      { name: "checkPoint", type: "choice", kind: "field" },
+      { name: "clockNumber / verifierClock", type: "text", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "CrimpSpec.id" },
+      { name: "terminal / wireGauge / applicator (copied)", type: "text", kind: "field" },
+      { name: "crimpHeight / tolerance (copied)", type: "number", kind: "field" },
+      { name: "reading1–3 / average", type: "number", kind: "field" },
+      { name: "outOfSpec", type: "bool", kind: "field" },
+      { name: "applicatorChange / harnessOrAssembly / notes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // Who the Harness emails go to — one row per person per alert. Email is
+    // text picked from the directory, not a Person column, so no FK.
+    name: "HarnessAlertRecipient",
+    source: "Harness Alert Recipients (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (name)", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "alert", type: "choice", kind: "field" },
+    ],
+  },
+  {
+    name: "CrimpSpec",
+    source: "Crimp Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Terminal)", type: "text", kind: "field" },
+      { name: "applicator / wireGauge", type: "text", kind: "field" },
+      { name: "manufacturerPartNumber", type: "text", kind: "field" },
+      { name: "crimpHeight / tolerance", type: "number", kind: "field" },
+      { name: "wire / insulation setting, table height", type: "text", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
     ],
   },
 
@@ -1947,6 +2010,8 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "McnRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Harness Production Log — one single lookup into the admin-managed part list.
   { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Crimp Height Checks — one single lookup into the admin-managed specs.
+  { fromTable: "CrimpCheck", fromColumn: "specId (SpecRef)", toTable: "CrimpSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
   // CRM tool — CustomerNote is the hub; the other three all point INTO it.

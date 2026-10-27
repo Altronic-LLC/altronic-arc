@@ -29,6 +29,8 @@ import {
   SP_CCC_DRAWINGS_LIST_ID,
   SP_CEC_DRAWINGS_LIST_ID,
   SP_COST_IMPACT_NOTICES_LIST_ID,
+  SP_CRIMP_CHECKS_LIST_ID,
+  SP_CRIMP_SPECS_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
   SP_CUSTOMER_NOTES_LIST_ID,
   SP_ECNS_LIST_ID,
@@ -37,6 +39,7 @@ import {
   SP_FAIT_LIST_ID,
   SP_FEATURE_REQUESTS_LIST_ID,
   SP_GRAY_MARKET_LIST_ID,
+  SP_HARNESS_ALERT_RECIPIENTS_LIST_ID,
   SP_HARNESS_PRODUCTION_LOG_LIST_ID,
   SP_LIST_ID,
   SP_MAINTENANCE_TASKS_LIST_ID,
@@ -212,11 +215,16 @@ export const APPS: AppSpec[] = [
   // Operations -----------------------------------------------------------
   { path: "/operations/tasks", label: "Operational Tasks", site: "pmo", lists: ids(SP_OPERATIONS_TASKS_LIST_ID) },
   { path: "/operations/teradyne", label: "Teradyne Log", site: "pmo", lists: ids(SP_TERADYNE_LOG_LIST_ID) },
-  { path: "/operations/harness-log", label: "Harness Production Log", site: "pmo", lists: ids(SP_HARNESS_PRODUCTION_LOG_LIST_ID) },
   { path: "/operations/mcns", label: "MCNs", site: "pmo", lists: ids(SP_MCNS_LIST_ID) },
   { path: "/operations/maintenance/schedules", label: "Maintenance Schedules", site: "pmo", lists: ids(SP_SCHEDULED_MAINTENANCE_LIST_ID) },
   { path: "/operations/maintenance/assets", label: "Equipment Register", site: "pmo", lists: ids(SP_ALTRONIC_EQUIPMENT_LIST_ID) },
   { path: "/operations/maintenance", label: "Work Orders", site: "pmo", lists: ids(SP_MAINTENANCE_TASKS_LIST_ID) },
+
+  // Harness ------------------------------------------------------------
+  { path: "/harness/production-log", label: "Harness Production Log", site: "pmo", lists: ids(SP_HARNESS_PRODUCTION_LOG_LIST_ID) },
+  { path: "/harness/crimp-checks/specs", label: "Crimp Specs", site: "pmo", lists: ids(SP_CRIMP_SPECS_LIST_ID) },
+  { path: "/harness/crimp-checks", label: "Crimp Height Checks", site: "pmo", lists: ids(SP_CRIMP_CHECKS_LIST_ID) },
+  { path: "/harness/alert-recipients", label: "Harness — Who's notified", site: "pmo", lists: ids(SP_HARNESS_ALERT_RECIPIENTS_LIST_ID) },
 
   // Coils ----------------------------------------------------------------
   { path: "/coils/defect-log", label: "Coil Defect Log", site: "engineering", lists: ids(SP_QC_COILS_LIST_ID) },

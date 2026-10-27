@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ChevronDown,
   Cable,
+  Ruler,
   Factory,
   CircuitBoard,
   ClipboardCheck,
@@ -229,12 +230,6 @@ const DEPARTMENTS: DepartmentGroup[] = [
         matchesPath: (p) => p.startsWith("/operations/teradyne"),
       },
       {
-        to: "/operations/harness-log",
-        label: "Harness Production Log",
-        icon: <Cable className="h-4 w-4" />,
-        matchesPath: (p) => p.startsWith("/operations/harness-log"),
-      },
-      {
         to: "/operations/mcns",
         label: "MCNs",
         icon: <Factory className="h-4 w-4" />,
@@ -276,6 +271,25 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Maintenance Dashboard",
         icon: <LayoutDashboard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/operations/maintenance/dashboard"),
+      },
+    ],
+  },
+  {
+    // Its own department since 2026-10-27 (Tim) — the harness floor's logs
+    // moved out of Operations. Same PMO site, own menu group and Dashboard section.
+    name: "Harness",
+    items: [
+      {
+        to: "/harness/production-log",
+        label: "Harness Production Log",
+        icon: <Cable className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/production-log"),
+      },
+      {
+        to: "/harness/crimp-checks",
+        label: "Crimp Height Checks",
+        icon: <Ruler className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/crimp-checks"),
       },
     ],
   },

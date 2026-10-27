@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ChevronDown,
   Cable,
+  Ruler,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -995,16 +996,6 @@ export function DashboardView() {
           onClick={() => navigate("/operations/teradyne")}
         />
         <TypeCard
-          name="Harness Production Log"
-          icon={<Cable className="h-5 w-5" />}
-          // cooper-green: the fourth brand tone, the one this section hadn't used.
-          tone="cooper-green"
-          description="Every harness built — part, work order, quantity, rework, and who built and checked it."
-          // No count, like the Teradyne Log: an append-only log has no open state.
-          to={"/operations/harness-log"}
-          onClick={() => navigate("/operations/harness-log")}
-        />
-        <TypeCard
           name="Maintenance"
           icon={<Hammer className="h-5 w-5" />}
           // ajax-yellow: the other two Operations cards are superior-blue and
@@ -1026,6 +1017,31 @@ export function DashboardView() {
             for everyone else, so the pilot stays private. */}
         <McnCard onOpen={() => navigate("/operations/mcns")} />
         <McnPlaceholder />
+      </DeptSection>
+
+      <DeptSection
+        title="Harness"
+        collapsed={collapsedSections.has("Harness")}
+        onToggle={() => toggleSection("Harness")}
+      >
+        <TypeCard
+          name="Harness Production Log"
+          icon={<Cable className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Every harness built — part, work order, quantity, rework, and who built and checked it."
+          // No count: an append-only log has no open state.
+          to={"/harness/production-log"}
+          onClick={() => navigate("/harness/production-log")}
+        />
+        <TypeCard
+          name="Crimp Height Checks"
+          icon={<Ruler className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Micrometer readings off the crimping area against each terminal's spec — out-of-spec crimps are emailed."
+          // No count, like the production log.
+          to={"/harness/crimp-checks"}
+          onClick={() => navigate("/harness/crimp-checks")}
+        />
       </DeptSection>
 
       <DeptSection

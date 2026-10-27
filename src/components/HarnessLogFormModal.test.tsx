@@ -5,6 +5,7 @@ import { renderWithProviders } from "@/test/render";
 import { listHarnessLog, resetHarnessLogMockStore } from "@/api/harnessProductionLog";
 import { MOCK_HARNESS_LOG, MOCK_HARNESS_PART_NUMBERS } from "@/data/harnessMockData";
 import { HarnessLogFormModal, harnessPartOptions } from "./HarnessLogFormModal";
+import { resetHarnessAlertRecipientMockStore } from "@/api/harnessAlertRecipients";
 
 const adminAccess = vi.hoisted(() => ({ isAdmin: false, isResolving: false }));
 vi.mock("@/hooks/useIsAdmin", () => ({
@@ -76,9 +77,27 @@ describe("HarnessLogFormModal", () => {
     expect(screen.getByText(/Changed when imported/)).toBeInTheDocument();
   });
 
-  it("points an admin at the part numbers, and anyone else at an admin", () => {
-    renderWithProviders(<HarnessLogFormModal onClose={() => {}} />);
-    expect(screen.getByText(/Ask an ARC admin/)).toBeInTheDocument();
+  it("lets anyone else request a part number, without submitting or closing the entry form", async () => {
+    resetHarnessAlertRecipientMockStore();
+    const onClose = vi.fn();
+    renderWithProviders(<HarnessLogFormModal onClose={onClose} />);
+    await userEvent.click(screen.getByRole("button", { name: "Request a part number" }));
+    const request = screen.getByRole("dialog", { name: "Request a part number" });
+
+    await userEvent.type(within(request).getByRole("textbox", { name: /Part number/ }), "593030-18");
+    expect(within(request).getByText(/is retired — this asks for it to be restored/)).toBeInTheDocument();
+    await userEvent.click(within(request).getByRole("button", { name: "Send request" }));
+    expect(await within(request).findByText(/Sent to Demo Supervisor/)).toBeInTheDocument();
+
+    // The entry form behind it neither submitted nor closed.
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Pick the part number/)).toBeNull();
+
+    // Escape closes the request dialog only.
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Request a part number" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "New harness entry" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("gives an admin a link to add a part", () => {

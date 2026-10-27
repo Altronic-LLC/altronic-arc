@@ -47,6 +47,11 @@ interface ImportMetaEnv {
   readonly VITE_SP_MAINTENANCE_ROLES_LIST_ID: string;
   readonly VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID: string;
   readonly VITE_SP_HARNESS_PART_NUMBERS_LIST_ID: string;
+  /** Crimp Height Checks (BusinessIT#55) on the PMO site. No defaults. */
+  readonly VITE_SP_CRIMP_SPECS_LIST_ID: string;
+  readonly VITE_SP_CRIMP_CHECKS_LIST_ID: string;
+  /** Harness Alert Recipients list (who the Harness emails go to). No default. */
+  readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;
   /** GET-1 (GE Transportation Log Sheet) on the PMO site. No default. */
   readonly VITE_SP_QC_GET1_LIST_ID: string;
   /** Exact Windows printer name for QZ Tray to print Panel QC labels
