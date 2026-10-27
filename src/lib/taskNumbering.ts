@@ -64,21 +64,40 @@ export function numberedTitlePrefix(task: Pick<Task, "numberedTitle" | "parentPr
   const rest = numbered.slice(head.length);
   const code = taskProjectCode(task.parentProject);
   if (rest.startsWith(`${code}-`)) return `${head}${code}-`;
+  // The old Power App wrote the project NUMBER, not ARC's 4-character code:
+  // project `328-MT-SAVES` gives ARC's code `328-`, so ARC numbers
+  // `T5-328--title`, while the old app numbered `T1-328-title`. 2,255 of the
+  // 3,148 live tasks (2026-10-27) carry that shape, and a prefix this didn't
+  // recognise meant a title edit left the list and board showing the old name.
+  if (code.endsWith("-") && rest.startsWith(code)) return `${head}${code}`;
   if (rest.length >= 5 && rest[4] === "-") return `${head}${rest.slice(0, 5)}`;
+  // Same legacy shape for a task whose project is unknown or has since been
+  // renamed: a 3–4 digit number and a dash.
+  const legacy = /^\d{3,4}-/.exec(rest);
+  if (legacy) return `${head}${legacy[0]}`;
   return null;
 }
 
 /**
  * `NumberedTitle` after the plain title changes — the same prefix, the new
- * text after it. Null when the stored value has no recognisable prefix, in
- * which case the caller leaves it alone rather than inventing a number.
+ * text after it.
+ *
+ * A stored value with no recognisable `T{n}-{code}-` prefix gets no number
+ * invented for it, but if it ENDS with the old title (a hand-typed or test
+ * row, where the two are often identical) that ending is replaced, so the
+ * list and board — which show `NumberedTitle` — follow the rename. Null only
+ * when neither applies; the caller then leaves the column alone.
  */
 export function retitledNumberedTitle(
-  task: Pick<Task, "numberedTitle" | "parentProject">,
+  task: Pick<Task, "numberedTitle" | "parentProject"> & { title?: string },
   title: string,
 ): string | null {
   const prefix = numberedTitlePrefix(task);
-  return prefix === null ? null : `${prefix}${title}`;
+  if (prefix !== null) return `${prefix}${title}`;
+  const numbered = task.numberedTitle ?? "";
+  const old = task.title ?? "";
+  if (old && numbered.endsWith(old)) return `${numbered.slice(0, numbered.length - old.length)}${title}`;
+  return null;
 }
 
 /**

@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.205.1",
+    date: "2026-10-27",
+    changes: [
+      "Renaming a task now updates its name in the task list and on the Kanban board too, not only on the task's own page — for tasks numbered by the old app (most of them) the list kept showing the old name",
+    ],
+  },
+  {
     version: "0.205.0",
     date: "2026-10-27",
     changes: [
