@@ -276,8 +276,9 @@ export interface NotifyMentionsInput {
 }
 
 /**
- * Send a "you were mentioned" email to each recipient. Best-effort:
- * we log + swallow per-recipient failures instead of aborting the batch.
+ * Email everyone a comment notifies — one message per reason, Bcc'd (see "One
+ * email per reason" below). Best-effort: we log + swallow a failed message
+ * instead of aborting the rest.
  * Comment posting is the user-visible action; we don't want a flaky mail
  * server to make the comment look like it failed.
  */
@@ -328,26 +329,163 @@ export async function notifyMentions(
   const result: MailSendResult = { sent: [], failed: [] };
   const threading = await threadingFor(input.target);
 
-  for (const recipient of recipients) {
-    try {
-      await sendOne({
-        recipient,
-        sender: input.sender,
-        target: input.target,
-        threading,
-        commentExcerpt: input.commentExcerpt,
-        attachments: encoded,
-      });
-      result.sent.push(recipient.email!);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[email] Failed to notify ${recipient.email}:`, err);
-      result.failed.push(describeFailure(recipient.email!, err));
+  // ONE email per reason, not per person — see "One email per reason" below.
+  // Mentions go first: they are the ones somebody is waiting on.
+  const byReason = groupInOrder(recipients, (r) => r.reason).sort(
+    (a, b) => REASON_ORDER.indexOf(a[0].reason) - REASON_ORDER.indexOf(b[0].reason),
+  );
+  await whileSending(async () => {
+    for (const group of byReason) {
+      for (const batch of inBatches(group)) {
+        try {
+          await sendComment({
+            recipients: batch,
+            sender: input.sender,
+            target: input.target,
+            threading,
+            commentExcerpt: input.commentExcerpt,
+            attachments: encoded,
+          });
+          result.sent.push(...batch.map((r) => r.email));
+        } catch (err) {
+          const who = batch.map((r) => r.email).join(", ");
+          // eslint-disable-next-line no-console
+          console.error(`[email] Failed to notify ${who}:`, err);
+          result.failed.push(...batch.map((r) => describeFailure(r.email, err)));
+        }
+      }
     }
-  }
+  });
 
   reportSendFailures(result, "comment");
   return result;
+}
+
+// =============================================================================
+// One email per reason, Bcc'd — not one per person.
+//
+// Every recipient used to get their own sendMail, one after another. A comment
+// on an EIR with a dozen watchers was a dozen requests over several seconds,
+// and closing or reloading the tab part-way cancelled the rest with nothing
+// logged anywhere: Alexandra Russell's mention of Jerrod Waldron and Thomas
+// Westbrook on EIR 1205 (2026-10-26) never went, while Glenn Terry, the first
+// watcher in the loop, got his.
+//
+// Now everyone with the same reason shares ONE message — so a comment is
+// usually two sends, not thirteen. Three rules:
+//   - SEVERAL people go in Bcc, never To or Cc: nobody sees the list, and
+//     nobody can reply-all from a mailbox nobody reads.
+//   - ONE person stays in To, greeted by name, exactly as before.
+//   - A message never carries more than MAX_RECIPIENTS_PER_MESSAGE; Exchange
+//     Online refuses past 500 by default.
+// One message also counts once against the shared mailbox's sending limit,
+// which every ARC user sends through.
+// =============================================================================
+
+/** Most people one message carries. Exchange Online's default limit is 500. */
+export const MAX_RECIPIENTS_PER_MESSAGE = 100;
+
+/** The order a comment's groups go out in — whoever is waiting on it first. */
+const REASON_ORDER: MentionRecipient["reason"][] = [
+  "mentioned",
+  "replied",
+  "assigned",
+  "submitted",
+  "edited",
+  "watching",
+];
+
+interface Addressee {
+  email: string;
+  displayName: string;
+}
+
+/** Group by key, keeping each group in first-seen order. */
+function groupInOrder<T>(items: T[], key: (item: T) => string): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    const group = groups.get(k);
+    if (group) group.push(item);
+    else groups.set(k, [item]);
+  }
+  return [...groups.values()];
+}
+
+function inBatches<T>(items: T[]): T[][] {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += MAX_RECIPIENTS_PER_MESSAGE) {
+    batches.push(items.slice(i, i + MAX_RECIPIENTS_PER_MESSAGE));
+  }
+  return batches;
+}
+
+/** One person in To; several in Bcc. */
+function addressFields(people: Addressee[]): Record<string, unknown> {
+  const list = people.map((p) => ({ emailAddress: { address: p.email, name: p.displayName } }));
+  return people.length === 1 ? { toRecipients: list } : { bccRecipients: list };
+}
+
+/** The name to greet, or null for a message going to several people. */
+function greetingName(people: Addressee[]): string | null {
+  return people.length === 1 ? people[0].displayName : null;
+}
+
+async function postMail(message: Record<string, unknown>): Promise<void> {
+  // saveToSentItems: false is deliberate — but NOT for the reason this comment
+  // used to give.
+  //
+  // The original reasoning was that saving to Sent Items requires FullAccess
+  // while sending needs only Send-As, so leaving it off kept the grant narrow.
+  // That premise was wrong: Send-As alone did NOT make sendMail work here, and
+  // every ARC commenter holds BOTH Send-As and FullAccess (-AutoMapping:$false)
+  // — see BACKLOG.md's onboarding item for the exact PowerShell. Which of the
+  // two is strictly required was never isolated, so don't drop either on the
+  // assumption it's redundant.
+  //
+  // It stays off because ~175 people's notification traffic piling up in one
+  // mailbox nobody reads is noise, not a record. Exchange message tracing is
+  // the audit path. Turning it on is a one-line change if IT wants it.
+  await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX!)}/sendMail`, {
+    method: "POST",
+    body: JSON.stringify({ message, saveToSentItems: false }),
+  });
+}
+
+// =============================================================================
+// Ask before the page unloads with email still going out.
+//
+// Moving around ARC is fine — it's one page, and the sends carry on. Closing
+// the tab, reloading it or leaving ARC cancels whatever hasn't gone, so the
+// browser's own "Leave site?" prompt is shown while a send is in flight.
+// Browsers show their own wording; a page can't change it.
+// =============================================================================
+
+let sendsInFlight = 0;
+
+/** Is any notification email still being sent from this page? */
+export function isSendingMail(): boolean {
+  return sendsInFlight > 0;
+}
+
+export function warnIfSendingOnUnload(event: BeforeUnloadEvent): void {
+  if (sendsInFlight === 0) return;
+  event.preventDefault();
+  // Older Chrome and Edge need returnValue set as well.
+  event.returnValue = "";
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", warnIfSendingOnUnload);
+}
+
+async function whileSending(send: () => Promise<void>): Promise<void> {
+  sendsInFlight++;
+  try {
+    await send();
+  } finally {
+    sendsInFlight--;
+  }
 }
 
 // =============================================================================
@@ -498,8 +636,9 @@ interface GraphFileAttachment {
   contentType: string;
 }
 
-async function sendOne(input: {
-  recipient: MentionRecipient;
+/** One comment email to everyone in `recipients`, who all share one reason. */
+async function sendComment(input: {
+  recipients: MentionRecipient[];
   sender: Person;
   target: MentionTarget;
   threading: Threading;
@@ -507,7 +646,7 @@ async function sendOne(input: {
   attachments: GraphFileAttachment[];
 }): Promise<void> {
   const { target } = input;
-  const reason = input.recipient.reason;
+  const reason = input.recipients[0].reason;
   // A comment that is only files reads as "X added an attachment", not as a
   // "New comment" whose whole body is a paperclip. An EDIT keeps its own
   // wording: "updated a comment" is still what happened.
@@ -527,7 +666,7 @@ async function sendOne(input: {
         : `New comment on ${target.title}`;
   const url = itemUrl(target.kind, target.id);
   const bodyHtml = renderMentionEmail({
-    recipientName: input.recipient.displayName,
+    recipientName: greetingName(input.recipients),
     senderName: input.sender.displayName,
     kind: target.kind,
     reason,
@@ -539,32 +678,12 @@ async function sendOne(input: {
 
   const message: Record<string, unknown> = {
     ...threadedMessage(input.threading, summary, bodyHtml),
-    toRecipients: [
-      { emailAddress: { address: input.recipient.email, name: input.recipient.displayName } },
-    ],
+    ...addressFields(input.recipients),
   };
   if (input.attachments.length > 0) {
     message.attachments = input.attachments;
   }
-
-  // saveToSentItems: false is deliberate — but NOT for the reason this comment
-  // used to give.
-  //
-  // The original reasoning was that saving to Sent Items requires FullAccess
-  // while sending needs only Send-As, so leaving it off kept the grant narrow.
-  // That premise was wrong: Send-As alone did NOT make sendMail work here, and
-  // every ARC commenter holds BOTH Send-As and FullAccess (-AutoMapping:$false)
-  // — see BACKLOG.md's onboarding item for the exact PowerShell. Which of the
-  // two is strictly required was never isolated, so don't drop either on the
-  // assumption it's redundant.
-  //
-  // It stays off because ~175 people's notification traffic piling up in one
-  // mailbox nobody reads is noise, not a record. Exchange message tracing is
-  // the audit path. Turning it on is a one-line change if IT wants it.
-  await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX!)}/sendMail`, {
-    method: "POST",
-    body: JSON.stringify({ message, saveToSentItems: false }),
-  });
+  await postMail(message);
 }
 
 async function encodeAttachment(att: CommentAttachment): Promise<GraphFileAttachment> {
@@ -650,33 +769,41 @@ export async function notifyChangeEmails(input: {
   const result: MailSendResult = { sent: [], failed: [] };
   const threading = await threadingFor(input.target);
 
-  for (const e of emails) {
-    try {
-      const bodyHtml = renderChangeEmail({
-        recipientName: e.displayName,
-        headlineHtml: e.headlineHtml,
-        detailHtml: e.detailHtml,
-        actions: e.actions,
-        kind: input.target.kind,
-        itemTitle: input.target.title,
-        url,
-        buttonText: input.link?.buttonText,
-      });
-      const message = {
-        ...threadedMessage(threading, e.subject, bodyHtml),
-        toRecipients: [{ emailAddress: { address: e.email, name: e.displayName } }],
-      };
-      await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX)}/sendMail`, {
-        method: "POST",
-        body: JSON.stringify({ message, saveToSentItems: false }),
-      });
-      result.sent.push(e.email!);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[email] Failed to send change alert to ${e.email}:`, err);
-      result.failed.push(describeFailure(e.email!, err));
+  // People sent the SAME email share one message (Bcc) — the comment rule
+  // above. "The same" is everything but the greeting, so a builder that words
+  // one person's email differently still sends them their own.
+  const groups = groupInOrder(emails, (e) =>
+    JSON.stringify([e.subject, e.headlineHtml, e.detailHtml ?? "", e.actions ?? []]),
+  );
+  await whileSending(async () => {
+    for (const group of groups) {
+      for (const batch of inBatches(group)) {
+        const e = batch[0];
+        try {
+          const bodyHtml = renderChangeEmail({
+            recipientName: greetingName(batch),
+            headlineHtml: e.headlineHtml,
+            detailHtml: e.detailHtml,
+            actions: e.actions,
+            kind: input.target.kind,
+            itemTitle: input.target.title,
+            url,
+            buttonText: input.link?.buttonText,
+          });
+          await postMail({
+            ...threadedMessage(threading, e.subject, bodyHtml),
+            ...addressFields(batch),
+          });
+          result.sent.push(...batch.map((b) => b.email));
+        } catch (err) {
+          const who = batch.map((b) => b.email).join(", ");
+          // eslint-disable-next-line no-console
+          console.error(`[email] Failed to send change alert to ${who}:`, err);
+          result.failed.push(...batch.map((b) => describeFailure(b.email, err)));
+        }
+      }
     }
-  }
+  });
 
   reportSendFailures(result, "change");
   return result;
@@ -1192,7 +1319,8 @@ export function firePromotionAlert(args: {
 }
 
 interface MentionEmailContext {
-  recipientName: string;
+  /** Null for an email going to several people, who are greeted without a name. */
+  recipientName: string | null;
   senderName: string;
   kind: MentionTarget["kind"];
   reason: MentionRecipient["reason"];
@@ -1219,7 +1347,7 @@ interface MentionEmailContext {
  * `url` are escaped here.
  */
 function renderEmailShell(ctx: {
-  recipientName: string;
+  recipientName: string | null;
   introHtml: string;
   calloutLabel: string;
   calloutTitle: string;
@@ -1229,7 +1357,9 @@ function renderEmailShell(ctx: {
   buttonText: string;
   url: string;
 }): string {
-  const recipient = escapeHtml(ctx.recipientName);
+  const greeting = ctx.recipientName
+    ? `Hello <strong>${escapeHtml(ctx.recipientName)}</strong>,`
+    : "Hello,";
   const calloutTitle = escapeHtml(ctx.calloutTitle);
   const url = escapeHtml(ctx.url);
   const messageBlock = ctx.messageHtml
@@ -1270,7 +1400,7 @@ function renderEmailShell(ctx: {
         </tr>
         <tr>
           <td style="padding:28px 28px 8px 28px;color:#111827;font-size:15px;line-height:1.55;">
-            <p style="margin:0 0 14px 0;font-size:16px;">Hello <strong>${recipient}</strong>,</p>
+            <p style="margin:0 0 14px 0;font-size:16px;">${greeting}</p>
             <p style="margin:0 0 18px 0;">${ctx.introHtml}</p>
             <div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
               <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${escapeHtml(ctx.calloutLabel)}</div>
@@ -1355,7 +1485,7 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
 
 /** Build a change-alert email body (status / resolution / assignee) via the shell. */
 function renderChangeEmail(ctx: {
-  recipientName: string;
+  recipientName: string | null;
   headlineHtml: string;
   detailHtml?: string;
   actions?: EmailAction[];

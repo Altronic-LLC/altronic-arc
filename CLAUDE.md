@@ -9008,6 +9008,45 @@ If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mo
 
 **A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
 
+### One email per reason, Bcc'd — not one per person
+
+Every recipient used to get their own `sendMail`, one after another, so a
+comment on an item with a dozen watchers took several seconds to send, and
+**closing or reloading the tab part-way cancelled the rest with nothing logged
+anywhere**. Alexandra Russell's mention of Jerrod Waldron and Thomas Westbrook
+on EIR 1205 (2026-10-26) never arrived, while Glenn Terry, the first watcher in
+the loop, got his. Watchers sorted first; the mentioned people were last.
+SPA navigation never cancelled anything; only an unload did. Now
+(`api/email.ts`, both `notifyMentions` and `notifyChangeEmails`):
+
+- **A comment sends one message per REASON** (mentioned, replied, assigned,
+  submitted, edited, watching), in that order, so the people somebody is
+  waiting on go first. A change alert merges emails that are identical apart
+  from the greeting (subject, headline, detail, actions), so a builder that
+  words one person's email differently still sends them their own.
+- **Several people go in `bccRecipients`, never To or Cc.** Nobody sees the
+  list, and nobody can reply-all from `automation@`, which nobody reads. A
+  message to ONE person keeps `toRecipients` and the "Hello Name" greeting;
+  several get "Hello,". `recipientName` in the renderers is `string | null`
+  for this.
+- **At most `MAX_RECIPIENTS_PER_MESSAGE` (100) per message.** Exchange
+  Online refuses past 500 by default.
+- **A failed message fails everyone on it.** `MailSendResult` still lists
+  addresses, so the toast still names who missed out.
+- **`beforeunload` asks before leaving** while a send is in flight
+  (`warnIfSendingOnUnload`). Browsers show their own wording.
+
+**`fetch` keepalive was considered and NOT used.** It would let a send survive
+the unload, but a keepalive request that needs a CORS preflight (Graph's
+`Authorization` header does) was refused outright by Chrome for years, and
+whether today's browsers allow it was not verified. Getting it wrong fails
+EVERY notification, and a POST can't safely be retried without keepalive in
+case it was sent. Verify it live before adding it.
+
+A test that reads who an email went to must read `bccRecipients` as well as
+`toRecipients` — see `email.grouped.test.ts` and
+`email.buildRequestProduction.test.ts`.
+
 ### One Outlook conversation per item — the subject is the ITEM, not the event
 
 BusinessIT#7 (Brandon Mirto; built 2026-10-12, Tim). Every email about one

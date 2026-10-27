@@ -1071,7 +1071,13 @@ const SECTIONS: ManualSection[] = [
           loop. The email says why it reached you: mentioned, assigned to you, or
           watching. A comment that is only attached files, with no text, is
           emailed too, and reads as "Name added an attachment" with the file
-          names listed. You're
+          names listed. Everyone notified for the same reason gets the same
+          email, with each person blind-copied — you won't see who else it
+          went to, and it starts "Hello," rather than with your name. If it
+          reaches only you, it still greets you by name. Moving around ARC
+          while it sends is fine, but closing or reloading the tab straight
+          after posting stops it, so your browser asks before it lets you leave
+          with email still going out. You're
           never emailed for your own comment, unless you @-mention yourself. To stop
           watching, the mentioned user removes themselves from the
           Watchers field on the detail sidebar. (Heads-up: a fresh
