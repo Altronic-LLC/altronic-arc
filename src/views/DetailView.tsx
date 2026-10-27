@@ -52,6 +52,7 @@ import {
   type Status,
 } from "@/types/task";
 import { appendEngineeringResponse } from "@/lib/eirPromotion";
+import { eirForTask, linkedEirForTask } from "@/lib/eirTaskReference";
 import { TaskResolutionModal } from "@/components/TaskResolutionModal";
 import { pushToast } from "@/components/Toast";
 import { canCompleteTask, wouldCreateCycle } from "@/lib/taskGraph";
@@ -199,23 +200,17 @@ export function DetailView() {
   }, [allPeople, admins]);
 
   // The EIR this task was promoted from, if any. Resolved from the task's
-  // EIRReference hyperlink: prefer the item id embedded in the URL
-  // (…/eir/{id}), fall back to matching the EIR number shown as link text.
+  // EIRReference hyperlink by `eirForTask` — ARC's `/eir/{id}` links AND the
+  // old Power App's SharePoint form links, which this used to miss. A task
+  // with NO link (Graph can't write that Hyperlink column, so no ARC
+  // promotion ever saved one) finds its EIR from the EIR's Task Reference.
   const linkedEir = useMemo<Eir | null>(() => {
-    const ref = task?.eirReference;
-    if (!ref) return null;
-    const idMatch = /\/eir\/(\d+)/.exec(ref.url ?? "");
-    if (idMatch) {
-      const byId = eirs.find((e) => e.id === parseInt(idMatch[1], 10));
-      if (byId) return byId;
-    }
-    const label = (ref.label ?? "").trim().toLowerCase();
-    if (label) {
-      const byNo = eirs.find((e) => (e.eirNo ?? "").trim().toLowerCase() === label);
-      if (byNo) return byNo;
-    }
-    return null;
-  }, [task?.eirReference, eirs]);
+    if (!task) return null;
+    if (task.eirReference) return eirForTask(task, eirs);
+    return linkedEirForTask(task, eirs, allTasks);
+  }, [task, eirs, allTasks]);
+  /** This task came from an EIR — by its own link, or the EIR's Task Reference. */
+  const fromEir = !!task?.eirReference || !!linkedEir;
 
   if (isLoading) {
     return <LoadingTasks noun="this task" />;
@@ -264,7 +259,7 @@ export function DetailView() {
     }
     // Completing a task tied to an EIR routes through the resolution prompt
     // instead of writing the status directly.
-    if (next === "Complete" && task.eirReference && task.status !== "Complete") {
+    if (next === "Complete" && fromEir && task.status !== "Complete") {
       setShowResolution(true);
       return;
     }
@@ -353,7 +348,7 @@ export function DetailView() {
         return;
       }
     }
-    if (task.eirReference && task.status !== "Complete") {
+    if (fromEir && task.status !== "Complete") {
       setShowResolution(true);
       return;
     }
@@ -498,7 +493,7 @@ export function DetailView() {
             )}
 
             {/* Source-EIR pill when this task was promoted from an EIR. */}
-            {task.eirReference && (
+            {fromEir && (
               <button
                 onClick={() =>
                   linkedEir
@@ -511,7 +506,7 @@ export function DetailView() {
                 <Link2 className="h-3 w-3" />
                 <span className="text-fg-muted">From EIR:</span>
                 <span className="font-medium text-fg">
-                  {task.eirReference.label || "view"}
+                  {linkedEir?.eirNo || task.eirReference?.label || "view"}
                 </span>
               </button>
             )}
@@ -1059,9 +1054,9 @@ export function DetailView() {
           onClose={() => setShowNewBuildRequest(false)}
         />
       )}
-      {showResolution && task.eirReference && (
+      {showResolution && fromEir && (
         <TaskResolutionModal
-          eirLabel={task.eirReference.label || linkedEir?.eirNo || "the source EIR"}
+          eirLabel={linkedEir?.eirNo || task.eirReference?.label || "the source EIR"}
           busy={updateEirFields.isPending}
           onConfirm={handleConfirmResolution}
           onClose={() => setShowResolution(false)}

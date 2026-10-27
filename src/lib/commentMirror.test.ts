@@ -234,3 +234,34 @@ describe("withoutAlreadyNotified", () => {
     expect(withoutAlreadyNotified([{ email: undefined }, matt], [])).toEqual([matt]);
   });
 });
+
+describe("mirrorTargetsFor — a promoted EIR and its task (2026-10-27)", () => {
+  const origin = { kind: "task" as const, id: 1, label: "T1" };
+
+  it("sends a task comment to its EIR as well as its build request", () => {
+    expect(
+      mirrorTargetsFor({ kind: "task", origin, taskId: 1, buildRequestId: 9, eirId: 768 }).map((t) => `${t.kind}:${t.id}`),
+    ).toEqual(["buildRequest:9", "eir:768"]);
+  });
+
+  it("sends an EIR comment to its task", () => {
+    expect(
+      mirrorTargetsFor({ kind: "eir", origin: { kind: "eir", id: 768, label: "EIR_1" }, taskId: 1, buildRequestId: null, eirId: 768 })
+        .map((t) => `${t.kind}:${t.id}`),
+    ).toEqual(["task:1"]);
+  });
+
+  it("never chains a build request's comment on to the EIR behind its task", () => {
+    expect(
+      mirrorTargetsFor({ kind: "buildRequest", origin: { kind: "buildRequest", id: 9, label: "BR" }, taskId: 1, buildRequestId: 9, eirId: 768 })
+        .map((t) => t.kind),
+    ).toEqual(["task"]);
+  });
+
+  it("names an EIR origin in the banner, with an in-app link", () => {
+    const html = buildMirroredBody("<p>x</p>", { kind: "eir", id: 768, label: "EIR_2025-0191" });
+    expect(html).toContain("Posted on EIR EIR_2025-0191.");
+    expect(html).toContain('href="/eir/768"');
+    expect(html).toContain("Open the EIR to reply");
+  });
+});

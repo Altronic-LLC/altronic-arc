@@ -14,15 +14,19 @@ import { notifyMentions } from "@/api/email";
 import { pushToast } from "@/components/Toast";
 import { BUILD_REQUESTS_KEY, BUILD_REQUEST_ITEMS_KEY } from "@/hooks/useBuildRequests";
 import { TASK_LIST_KEY } from "@/hooks/useTasks";
+import { EIRS_KEY, eirTargetTitle } from "@/hooks/useEirs";
+import { linkedEirForTask, linkedTaskForEir } from "@/lib/eirTaskReference";
 import type {
   BuildRequest,
   BuildRequestItem,
+  Eir,
   Person,
   Task,
 } from "@/types/task";
 
 // =============================================================================
-// Fanning a comment across a task ⇄ its build request ⇄ that request's parts.
+// Fanning a comment across a task ⇄ its build request ⇄ that request's parts,
+// and a task ⇄ the EIR it was promoted from.
 //
 // Ray, 2026-09-21. ONE function the three comment hooks call, for the reason
 // `api/autoWatch.ts` is shared: three copies of a fan-out is how one
@@ -43,7 +47,13 @@ import type {
 interface Linkage {
   taskId: number | null;
   buildRequestId: number | null;
+  eirId: number | null;
   origin: CommentOrigin;
+}
+
+/** How an EIR is named in a banner on another record. */
+function eirLabel(eir: Eir): string {
+  return eir.eirNo || `EIR #${eir.id}`;
 }
 
 /** How a build request is named in a banner on another record. */
@@ -70,15 +80,32 @@ function resolveLinkage(
   id: number,
 ): Linkage | null {
   const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY) ?? [];
+  const tasks = qc.getQueryData<Task[]>(TASK_LIST_KEY) ?? [];
+  const eirs = qc.getQueryData<Eir[]>(EIRS_KEY) ?? [];
 
   if (kind === "task") {
-    const task = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((t) => t.id === id);
+    const task = tasks.find((t) => t.id === id);
     if (!task) return null;
     const br = buildRequestForTask(brs, id);
     return {
       taskId: id,
       buildRequestId: br?.id ?? null,
+      // Only when the task and the EIR agree they belong together — see
+      // linkedEirForTask. Both lists are held on every page by the mention
+      // scanner, so this costs no request.
+      eirId: linkedEirForTask(task, eirs, tasks)?.id ?? null,
       origin: { kind: "task", id, label: taskLabel(task) },
+    };
+  }
+
+  if (kind === "eir") {
+    const eir = eirs.find((e) => e.id === id);
+    if (!eir) return null;
+    return {
+      taskId: linkedTaskForEir(eir, tasks, eirs)?.id ?? null,
+      buildRequestId: null,
+      eirId: id,
+      origin: { kind: "eir", id, label: eirLabel(eir) },
     };
   }
 
@@ -88,6 +115,7 @@ function resolveLinkage(
     return {
       taskId: br.taskReferenceLookupId,
       buildRequestId: id,
+      eirId: null,
       origin: { kind: "buildRequest", id, label: brLabel(br) },
     };
   }
@@ -103,6 +131,7 @@ function resolveLinkage(
   return {
     taskId: br?.taskReferenceLookupId ?? null,
     buildRequestId: item.buildRequestLookupId,
+    eirId: null,
     origin: {
       kind: "buildRequestItem",
       id,
@@ -117,9 +146,19 @@ function resolveLinkage(
 /** Watchers + assignees of a mirror target, for its own notification. */
 function audienceFor(
   qc: QueryClient,
-  kind: "task" | "buildRequest" | "buildRequestItem",
+  kind: CommentOriginKind,
   id: number,
 ): { watchers: Person[]; assignees: Person[]; title: string } | null {
+  if (kind === "eir") {
+    const eir = qc.getQueryData<Eir[]>(EIRS_KEY)?.find((e) => e.id === id);
+    if (!eir) return null;
+    return {
+      watchers: eir.watchers,
+      assignees: eir.assignedEngineers,
+      // The EIR's own email title, so the copy joins its conversation.
+      title: eirTargetTitle(eir),
+    };
+  }
   if (kind === "task") {
     const task = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((t) => t.id === id);
     if (!task) return null;
@@ -175,6 +214,7 @@ export async function fanOutComment(args: {
     origin: linkage.origin,
     taskId: linkage.taskId,
     buildRequestId: linkage.buildRequestId,
+    eirId: linkage.eirId,
   });
   if (targets.length === 0) return;
 
@@ -209,6 +249,9 @@ export async function fanOutComment(args: {
   }
   if (written.some((t) => t.kind === "buildRequestItem")) {
     void qc.invalidateQueries({ queryKey: BUILD_REQUEST_ITEMS_KEY });
+  }
+  if (written.some((t) => t.kind === "eir")) {
+    void qc.invalidateQueries({ queryKey: EIRS_KEY });
   }
 
   // Notify each side's own audience, minus anyone the original already told.

@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.205.0",
+    date: "2026-10-27",
+    changes: [
+      "A comment on a promoted EIR is now copied to its task, and a comment on the task is copied to the EIR, each marked with where it was posted and a link back to reply there",
+      "Those copies email the other side's watchers too, without sending anyone the same comment twice",
+      "The From EIR button on a task now opens the EIR in ARC for tasks promoted by the old Power App, and shows the EIR number instead of a SharePoint address",
+      "Every promoted task now shows its From EIR button, including tasks whose link back to the EIR had never saved",
+      "Promoting an EIR no longer warns that the task's link back to the EIR didn't save",
+      "Older promoted EIRs and their tasks are linked both ways, and each pair's two comment threads have been merged so the history shows on both",
+    ],
+  },
+  {
     version: "0.204.4",
     date: "2026-10-26",
     changes: [

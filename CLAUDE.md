@@ -694,7 +694,8 @@ src/
 │   ├── eirStatusAlerts.ts        Response Accepted / Not Accepted work requests
 │   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
 │   ├── eirWorkflowEditors.ts     Who may change an EIR's Status / assigned engineer (hard-coded)
-│   ├── eirTaskReference.ts       EIR Task Reference → the task it names; never guesses between repeated T-numbers
+│   ├── eirTaskReference.ts       EIR Task Reference → the task it names; never guesses between repeated T-numbers; a task's EIR link → its EIR; linked only when both sides agree
+│   ├── eirTaskBackfill.ts        The one-time promoted EIR ⇄ task backfill (pure) — pairs, link writes, comments to copy; run by scripts/eir-task-backfill.ps1
 │   ├── recipientAudit.ts         Checks configured alert addresses against the directory
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
 │   ├── listAccess.ts             A refused Graph READ — which list/site, and the wording
@@ -1292,6 +1293,18 @@ This is not hypothetical. `setRelatedProjects` hand-built `{ ProjectReference: [
 
 ## Hyperlink columns: never in the create POST, only a follow-up PATCH
 
+> **SUPERSEDED for `EIRReference`, 2026-10-27: Graph cannot write a Hyperlink
+> column AT ALL — not at create, not in a later PATCH.** `{ Url, Description }`
+> and the `"url, description"` string both 400 `invalidRequest` on an existing
+> task, and none of the 3,147 tasks held an ARC-written link: every promotion's
+> follow-up write below had failed and warned. `createTask` no longer sends it
+> in real mode, and the task finds its EIR from the EIR's Task Reference
+> (`linkedEirForTask`; see "A promoted EIR and its task share ONE
+> conversation"). SharePoint REST `ValidateUpdateListItem` CAN write it — the
+> Azure CLI's token is refused by SharePoint, so that needs an app registration
+> PnP can use. The history below is kept for the Communication half, which
+> still applies.
+
 `EIRReference` on the Task list (a Hyperlink column, written as
 `{ Url, Description }`) is written correctly but at the WRONG TIME if it
 travels in the same POST that creates the item — Graph does not support
@@ -1425,7 +1438,80 @@ to fix it by hand, and THAT read as no link at all, because only Power Apps
 - Guessing is the bug. Don't reintroduce "first match wins" for tidiness.
 
 No SharePoint data needed changing: every affected EIR already stored the
-right full title. `EirDetailView.linkedTask.test.tsx` restores the sample
+right full title.
+
+### A promoted EIR and its task share ONE conversation (2026-10-27)
+
+Ray: "if somebody comments on an EIR, it should go to the task and if
+somebody comments on the task, it should go to the EIR similar to the build
+request." It rides the build-request mirror (see "One conversation across a
+task, its build request, and its parts") — `eir` is a fourth origin/target
+kind in `lib/commentMirror.ts`, and `useAddEirComment` calls `fanOutComment`
+like the task and BR hooks do.
+
+- **The pair is resolved from BOTH sides and must AGREE**
+  (`linkedEirForTask` / `linkedTaskForEir` in `lib/eirTaskReference.ts`).
+  The task's EIR link names the EIR, and that EIR's Task Reference names this
+  task or is blank — and vice versa. Live, two "Test" tasks (1630, 1663) both
+  link to EIR_2025-0191; only 1663 is its task, so 1630 mirrors nowhere.
+  Copying a comment onto the wrong record is worse than not copying it.
+- **Direct links only.** A BR comment reaches the task, never the EIR behind
+  it (`mirrorTargetsFor` pins it). Chaining copies comments onto records the
+  author never looked at.
+- **A task with NO `EIRReference` finds its EIR from the EIR's Task
+  Reference** — the task page's "From EIR" button, the completion prompt that
+  closes the EIR, and the mirror all use it. Seven promoted tasks had no link
+  (ARC's own promotions, whose link write always failed).
+- **A task's `EIRReference` has TWO live shapes**, and `eirForTask` reads
+  both: ARC's `…/eir/{id}` (label = EIR number) and the old Power App's
+  SharePoint form link, `…/Lists/EIREngineering…/DispForm.aspx?ID=768`, as
+  url AND label. The task page's "From EIR" button only knew the first, so
+  every pre-ARC promotion opened SharePoint in a new tab. Some form links name
+  an EIR id that is GONE — the EIRs were re-created (EIR_2024-0396 is item
+  1492, not 396) — so the EIR number in the task's old title
+  (`T40-0003-EIR_2024-0396 | …`) is the fallback, when exactly one EIR has it.
+  **A title alone never pairs**: "ECN for EIR_2025-0286" is related work.
+
+#### The one-time backfill — `scripts/eir-task-backfill.ps1`
+
+Three steps, so nothing is written unseen: `-Export` (read both lists into a
+folder OUTSIDE the repo) → `node scripts/plan-eir-task-backfill.mjs <dir>`
+(bundles `lib/eirTaskBackfill.ts` with **Rolldown** — Vite 8 dropped esbuild —
+and writes `plan.json`, `report.md`, `pairs.csv`, `unlinked.csv`,
+`conflicts.csv`, `suggestions.csv`) → `-Check` (re-reads every touched record,
+writes nothing) → `-Apply`. Fill `TaskId` on `unlinked.csv` and pass it back
+with `--links` to link the ones it couldn't. Rules worth keeping:
+
+- **Pair evidence order**: your `--links` list, the EIR's Task Reference, the
+  task's EIR link. Contradictions go to `conflicts.csv`, never linked.
+- **Write only what's missing, and only on the EIR.** A working Power Apps
+  `ItemID=` Task Reference is left alone; an EIR with none gets the task's
+  numbered title — or an ARC task URL if that title is shared. **The task's
+  EIR link is never written** (Graph can't write a Hyperlink column; see the
+  superseded note under "Hyperlink columns"). The first `-Apply` tried, and
+  all 34 were refused while the comments landed.
+- **Comments are APPENDED, never rewritten**, each side getting the other
+  side's OWN comments under the live mirror's banner, original author and
+  time kept. Copies are never copied (mirrors, ARC's promotion note, its
+  "carried over from EIR" comments). "Already there" is `commentKey`: same
+  author, same words — NOT time, since a copy is stamped when copied. So a
+  re-run plans nothing.
+- **A comment write is refused if the thread changed since the export**
+  (SHA-256 of the exported value vs a fresh read) — re-export and re-plan.
+  Every write is read back. No email is sent.
+
+Live, 2026-10-27: 35 EIRs looked promoted; 34 paired (31 already pointed at
+each other in old formats). APPLIED that day: 349 comments copied (145 EIR →
+task, 204 task → EIR) and EIR_2026-0103's Task Reference filled in; a re-export
+re-planned to zero writes. Task 1630 (a second "Test" task claiming
+EIR_2025-0191) and the twelve suggestions were left alone on Ray's say-so. EIR_2026-0257's "Task
+Reference" is a sentence typed into the wrong field — unlinked. Twelve tasks
+name an EIR in their title without a link (ECNs, build requests "for" an EIR)
+and are only SUGGESTED.
+
+**`scripts/clean-harness-production-log.mjs` still imports `esbuild`**, which
+left with Vite 8, so it no longer runs; swap it to Rolldown the way the
+backfill planner does before its next use. `EirDetailView.linkedTask.test.tsx` restores the sample
 EIR's reference in an `afterEach` — the mock EIR store is module state with
 no reset helper, so a test that saves a reference otherwise leaks it.
 

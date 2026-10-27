@@ -169,7 +169,7 @@ describe("usePromoteEirToTask", () => {
     const spy = vi.spyOn(tasksApi, "createTask").mockRejectedValueOnce(
       new tasksApi.TaskFollowUpWriteError(
         partialTask,
-        ["EIRReference", "Communication"],
+        ["Communication"],
         new Error("400 invalidRequest"),
       ),
     );
@@ -188,7 +188,8 @@ describe("usePromoteEirToTask", () => {
     });
 
     expect(result!.task.id).toBe(999001);
-    expect(result!.followUpWarning).toMatch(/link back to the eir.*carried-over discussion/i);
+    expect(result!.followUpWarning).toMatch(/carried-over discussion couldn't be saved/i);
+    expect(result!.followUpWarning).not.toMatch(/link back/i);
 
     spy.mockRestore();
   });
