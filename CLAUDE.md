@@ -6872,8 +6872,9 @@ all in `lib/taskNumbering.ts`:
   which the rule used to miss), and a bare `T{n}-{3–4 digits}-` for a task
   whose project is unknown. A row with no prefix gets no number invented, but
   if its `NumberedTitle` ends with the old title that ending is replaced.
-  Fifteen live tasks had been renamed before this and still show their old
-  names in the list; the next rename of each puts it right.
+  Fifteen live tasks had been renamed before this, and their numbered titles
+  were corrected to match on 2026-10-27 (number kept, text after it replaced;
+  no EIR named any of the old ones).
 - **Re-picking the same project is not a move** — the number stays.
 
 Four things in the hooks that are load-bearing:
