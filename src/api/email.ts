@@ -67,6 +67,8 @@ import {
   type FaitSignerRole,
 } from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
+import { buildCrimpOutOfSpecEmails } from "@/lib/crimpAlerts";
+import type { CrimpCheck } from "@/types/crimp";
 import {
   buildBrCompleteEmails,
   buildBrPartProductionCompleteEmails,
@@ -137,7 +139,9 @@ export interface MentionTarget {
     | "pricingRequest"
     | "newProductPricing"
     | "customerQuote"
-    | "mcn";
+    | "mcn"
+    | "crimpCheck"
+    | "harnessPartNumber";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
@@ -263,6 +267,16 @@ const KIND_COPY: Record<
     phrase: "a manufacturing change notice",
     calloutLabel: "MCN",
     buttonText: "Open this MCN",
+  },
+  crimpCheck: {
+    phrase: "a crimp height check",
+    calloutLabel: "Crimp Check",
+    buttonText: "Open this check",
+  },
+  harnessPartNumber: {
+    phrase: "a harness part number",
+    calloutLabel: "Part Number",
+    buttonText: "Open the part numbers",
   },
 };
 
@@ -901,6 +915,24 @@ export function fireNewGrayMarketRequestAlert(args: {
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * A crimp height check with a reading out of spec (BusinessIT#55) — the
+ * "Crimp out of spec" people on Harness Alert Recipients, read fresh by the
+ * caller. Returns what was sent, so the save can say whether anyone heard.
+ */
+export async function sendCrimpOutOfSpecAlert(args: {
+  check: CrimpCheck;
+  actor: Person;
+  recipients: Person[];
+}): Promise<MailSendResult> {
+  const emails = buildCrimpOutOfSpecEmails(args);
+  if (emails.length === 0) return NOTHING_SENT;
+  return notifyChangeEmails({
+    target: { kind: "crimpCheck", id: args.check.id, title: args.check.title },
+    emails,
+  });
 }
 
 /**

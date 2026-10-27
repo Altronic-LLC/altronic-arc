@@ -37,7 +37,9 @@ export type AppItemKind =
   | "pricingRequest"
   | "newProductPricing"
   | "customerQuote"
-  | "mcn";
+  | "mcn"
+  | "crimpCheck"
+  | "harnessPartNumber";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -83,6 +85,12 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   customerQuote: "sales/pricing/quote",
   // Manufacturing Change Notices (BusinessIT#38) — detail pages sit under the register.
   mcn: "operations/mcns",
+  // Crimp Height Checks (BusinessIT#55) — no detail page; the log opens the
+  // check's edit form from /harness/crimp-checks/:id.
+  crimpCheck: "harness/crimp-checks",
+  // A part number request has no item page — its email links to the list
+  // with `link`, so this segment is only the fallback.
+  harnessPartNumber: "harness/production-log/part-numbers",
 };
 
 /** Absolute URL to an item's detail page in this app. */

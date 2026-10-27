@@ -112,6 +112,27 @@ export function AdminAdminsView() {
           >
             Quick Links →
           </Link>
+          {/* Harness admin screens live inside the department (their routes
+              aren't /admin/*), but they're admin work, so they're listed here
+              too (Tim, 2026-10-27). */}
+          <Link
+            to="/harness/alert-recipients"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Harness — Who's notified →
+          </Link>
+          <Link
+            to="/harness/crimp-checks/specs"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Harness — Crimp Specs →
+          </Link>
+          <Link
+            to="/harness/production-log/part-numbers"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Harness — Part Numbers →
+          </Link>
         </nav>
       </header>
 

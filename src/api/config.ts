@@ -844,7 +844,7 @@ export const SP_TERADYNE_REMARKS_LIST_ID =
 
 // =============================================================================
 // Harness Production Log — TWO lists on the PMO site (SITES.pmo), part of the
-// Operations department, replacing an Access database on a production PC.
+// Harness department, replacing an Access database on a production PC.
 // Created by scripts/create-harness-production-lists.ps1 and loaded by
 // scripts/load-harness-production-log.ps1.
 //
@@ -860,6 +860,32 @@ export const SP_HARNESS_PRODUCTION_LOG_LIST_ID =
 /** "Harness Part Numbers" — the log's PartNumber lookup source, admin-managed. */
 export const SP_HARNESS_PART_NUMBERS_LIST_ID =
   (import.meta.env.VITE_SP_HARNESS_PART_NUMBERS_LIST_ID as string | undefined) ?? "";
+
+// =============================================================================
+// Crimp Height Checks (BusinessIT#55) — TWO lists on the PMO site, Harness
+// department, replacing the paper Terminal Crimp Verification Chart (MFGFRM 002).
+// Created by scripts/create-crimp-lists.ps1; the spec sheet is loaded by
+// scripts/load-crimp-specs.ps1.
+//
+// NO DEFAULTS, the Harness Production Log's reasoning: the lists don't exist
+// until the script runs, and an unset id shows "not set up yet". Nothing gates
+// on them. `||`, never `??` — deploy.yml passes an unset repo variable as "".
+// =============================================================================
+
+/** "Crimp Specs" — one row per terminal + applicator + wire gauge. ARC admins manage it. */
+export const SP_CRIMP_SPECS_LIST_ID = import.meta.env.VITE_SP_CRIMP_SPECS_LIST_ID || "";
+
+/** "Crimp Height Checks" — one row per check of three readings. */
+export const SP_CRIMP_CHECKS_LIST_ID = import.meta.env.VITE_SP_CRIMP_CHECKS_LIST_ID || "";
+
+/**
+ * "Harness Alert Recipients" — who the Harness department's emails go to
+ * (an out-of-spec crimp check, a part number request), one row per person per
+ * alert. ARC admins manage it at /harness/alert-recipients, so changing who is
+ * told needs no redeploy (Tim, 2026-10-27). Unset = nobody is told, and the
+ * screens say so.
+ */
+export const SP_HARNESS_ALERT_RECIPIENTS_LIST_ID = import.meta.env.VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID || "";
 
 // =============================================================================
 // Coils — Potting Sample Log, THREE lists on the PMO site (SITES.pmo). The

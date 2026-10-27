@@ -1,4 +1,5 @@
 import { formatSpDate } from "./spDates";
+import { toLookupId, toNumberOrNull } from "./graphValues";
 import { parseSpDate as parseDate } from "./spDates";
 import type {
   GraphListItem,
@@ -19,18 +20,8 @@ import type {
 // import rather than by hand in the SharePoint UI.
 // =============================================================================
 
-/** Coerce a Graph number field (which arrives as number OR numeric string). */
-export function toNumberOrNull(raw: unknown): number | null {
-  if (raw === null || raw === undefined || raw === "") return null;
-  const n = typeof raw === "number" ? raw : Number(raw);
-  return Number.isFinite(n) ? n : null;
-}
-
-/** Coerce a lookup id field (Graph hands these back as strings: "201"). */
-export function toLookupId(raw: unknown): number | null {
-  const n = toNumberOrNull(raw);
-  return n !== null && Number.isInteger(n) && n > 0 ? n : null;
-}
+// Shared now (lib/graphValues.ts); re-exported so existing imports keep working.
+export { toLookupId, toNumberOrNull };
 
 function toText(raw: unknown): string {
   return typeof raw === "string" ? raw : "";

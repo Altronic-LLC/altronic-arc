@@ -19,6 +19,7 @@ import {
 import { listTeradyneRefs } from "./teradyneRefs";
 import { MOCK_TERADYNE_LOG } from "@/data/teradyneMockData";
 import { mockDelay } from "./mockLatency";
+import { encodeFilter } from "@/lib/odata";
 
 // =============================================================================
 // Teradyne Log API — the primary list for the Operations Teradyne app, on the
@@ -126,16 +127,8 @@ export function scopeFilterVariants(scope: TeradyneLogScope): string[] {
   ];
 }
 
-/**
- * Encode a filter for the query string WITHOUT mangling OData literal syntax.
- *
- * `encodeURIComponent` would turn the colons in a bare datetime into `%3A`,
- * which some OData parsers reject. Only spaces and `#` actually need escaping
- * here; `'`, `:` and `-` are all legal in a query value.
- */
-export function encodeFilter(filter: string): string {
-  return filter.replace(/ /g, "%20").replace(/#/g, "%23");
-}
+// Shared now (lib/odata.ts); re-exported so existing imports keep working.
+export { encodeFilter };
 
 /**
  * Log entries for one scope, newest Enter Date first, lookups resolved to titles.

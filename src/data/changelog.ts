@@ -20,6 +20,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.206.0",
+    date: "2026-10-27",
+    changes: [
+      "Harness is now its own department on the Dashboard and in the Departments menu, with the Harness Production Log moved there from Operations; old links to the log still work",
+      "New Crimp Height Checks under Harness replace the paper Terminal Crimp Verification Chart: record three micrometer readings at the start of a run, every 100 terminations and the end of the run",
+      "Each reading shows In spec, Low or High as it's entered, against the terminal's crimp height and tolerance",
+      "The micrometer's Enter moves to the next reading, and a reading that looks like millimetres is refused",
+      "A check with any reading out of spec emails the people chosen for it, and tells you how many were emailed",
+      "ARC admins choose who is emailed about out-of-spec checks and part number requests on a new Who's notified screen, a button for them on both Harness logs and a link on the Admin page; changes apply straight away",
+      "Anyone who isn't an ARC admin can request a new or retired harness part number from the Harness Production Log; it's emailed to the people chosen for part number requests",
+      "ARC admins manage the crimp specs, one per terminal, applicator and wire gauge; every check keeps the spec it was measured against",
+      "Quick Links and feature requests can now be tagged Harness",
+      "The Admin page links to the Harness admin screens: Who's notified, Crimp Specs and Part Numbers",
+    ],
+  },
+  {
     version: "0.205.1",
     date: "2026-10-27",
     changes: [

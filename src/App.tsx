@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { MovedTo } from "@/components/MovedTo";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ToastContainer } from "@/components/Toast";
@@ -209,8 +210,8 @@ const TeradyneRefListView = lazy(() =>
   })),
 );
 
-// Harness Production Log — Operations; replaced an Access database. Its part
-// numbers have their own admin-managed screen.
+// Harness department — the Harness Production Log (replaced an Access database;
+// its part numbers have their own admin-managed screen) and Crimp Height Checks.
 const HarnessProductionLogView = lazy(() =>
   import("@/views/HarnessProductionLogView").then((m) => ({
     default: m.HarnessProductionLogView,
@@ -220,6 +221,19 @@ const HarnessPartNumbersView = lazy(() =>
   import("@/views/HarnessPartNumbersView").then((m) => ({
     default: m.HarnessPartNumbersView,
   })),
+);
+
+// Crimp Height Checks (BusinessIT#55) — replaced the paper Terminal Crimp
+// Verification Chart. Its specs have their own admin-managed screen.
+const CrimpChecksView = lazy(() =>
+  import("@/views/CrimpChecksView").then((m) => ({ default: m.CrimpChecksView })),
+);
+const CrimpSpecsView = lazy(() =>
+  import("@/views/CrimpSpecsView").then((m) => ({ default: m.CrimpSpecsView })),
+);
+// Who the Harness department's emails go to — ARC admins edit, no redeploy.
+const HarnessAlertRecipientsView = lazy(() =>
+  import("@/views/HarnessAlertRecipientsView").then((m) => ({ default: m.HarnessAlertRecipientsView })),
 );
 
 // Manufacturing Change Notices — Operations (BusinessIT#38), one lazy chunk each.
@@ -1022,8 +1036,16 @@ export function App() {
                 </Suspense>
               }
             />
+            {/* Harness department (2026-10-27) — moved out of Operations. The
+                old Harness Production Log paths redirect, query string kept,
+                so bookmarks and shared filtered views still land. */}
+            <Route path="/operations/harness-log" element={<MovedTo to="/harness/production-log" />} />
             <Route
-              path="/operations/harness-log"
+              path="/operations/harness-log/part-numbers"
+              element={<MovedTo to="/harness/production-log/part-numbers" />}
+            />
+            <Route
+              path="/harness/production-log"
               element={
                 <Suspense fallback={<LoadingTasks noun="the harness log" />}>
                   <HarnessProductionLogView />
@@ -1031,10 +1053,43 @@ export function App() {
               }
             />
             <Route
-              path="/operations/harness-log/part-numbers"
+              path="/harness/production-log/part-numbers"
               element={
                 <Suspense fallback={<LoadingTasks noun="the part numbers" />}>
                   <HarnessPartNumbersView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/harness/crimp-checks"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the crimp height checks" />}>
+                  <CrimpChecksView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/harness/crimp-checks/specs"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the crimp specs" />}>
+                  <CrimpSpecsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/harness/alert-recipients"
+              element={
+                <Suspense fallback={<LoadingTasks noun="who's notified" />}>
+                  <HarnessAlertRecipientsView />
+                </Suspense>
+              }
+            />
+            {/* One check — the link in an out-of-spec email (lib/appUrl.ts crimpCheck). */}
+            <Route
+              path="/harness/crimp-checks/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the crimp height checks" />}>
+                  <CrimpChecksView />
                 </Suspense>
               }
             />

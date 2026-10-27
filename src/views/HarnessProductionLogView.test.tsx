@@ -23,7 +23,7 @@ beforeEach(() => {
   adminAccess.isResolving = false;
 });
 
-async function renderView(route = "/operations/harness-log") {
+async function renderView(route = "/harness/production-log") {
   renderWithProviders(<HarnessProductionLogView />, { route });
   await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
   return screen.getByRole("table");
@@ -56,7 +56,7 @@ describe("HarnessProductionLogView", () => {
 
   it("opens any year for anyone, including All years", async () => {
     adminAccess.isAdmin = false;
-    const table = await renderView("/operations/harness-log?year=all");
+    const table = await renderView("/harness/production-log?year=all");
     expect(within(table).getByText("1001932269")).toBeInTheDocument();
     expect(within(table).getByText("1002089401")).toBeInTheDocument();
   });
@@ -67,7 +67,7 @@ describe("HarnessProductionLogView", () => {
   });
 
   it("narrows by search across work order, part and comments", async () => {
-    const table = await renderView("/operations/harness-log?q=strands");
+    const table = await renderView("/harness/production-log?q=strands");
     expect(within(table).getAllByRole("row")).toHaveLength(2);
   });
 
@@ -96,7 +96,7 @@ describe("HarnessProductionLogView", () => {
     await renderView();
     expect(screen.getByRole("link", { name: /part numbers/i })).toHaveAttribute(
       "href",
-      "/operations/harness-log/part-numbers",
+      "/harness/production-log/part-numbers",
     );
   });
 
@@ -107,7 +107,20 @@ describe("HarnessProductionLogView", () => {
   });
 
   it(`says when a year has nothing logged`, async () => {
-    renderWithProviders(<HarnessProductionLogView />, { route: `/operations/harness-log?year=${thisYear - 3}` });
+    renderWithProviders(<HarnessProductionLogView />, { route: `/harness/production-log?year=${thisYear - 3}` });
     expect(await screen.findByText(/Nothing logged in/)).toBeInTheDocument();
+  });
+});
+
+describe("Who's notified", () => {
+  it("is a button on the log for an ARC admin", async () => {
+    await renderView();
+    expect(screen.getByRole("link", { name: /Who's notified/ })).toHaveAttribute("href", "/harness/alert-recipients");
+  });
+
+  it("is hidden from everybody else", async () => {
+    adminAccess.isAdmin = false;
+    await renderView();
+    expect(screen.queryByRole("link", { name: /Who's notified/ })).toBeNull();
   });
 });
