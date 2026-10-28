@@ -371,7 +371,7 @@ script exists; until then, copy the lines.
 Paste into the PR description and tick each line.
 
 - [ ] Changelog entry at the top of `src/data/changelog.ts`, same version in `public/version.json` and `package.json`, same bullets in the commit message (or `chore:` / `docs:` with none, for zero-behaviour changes)
-- [ ] New `VITE_*` variable → added to `deploy.yml`'s named list and documented in `.env.example`
+- [ ] New `VITE_*` variable → added to `deploy.yml`'s named list, documented in `.env.example`, and set in `.env.local` if one exists (see below)
 - [ ] New list → `api/` with mock + real branches, `hooks/`, `views/`; sorting and column filters on any table; the file-by-file overview, About diagrams and User Manual updated
 - [ ] Every `$filter` string uses `odataString()`; every list read pages; every rendered HTML goes through `sanitiseHtml()`
 - [ ] No `accounts[0]`; identity through `useCurrentUser` / `resolveAccount`
@@ -381,6 +381,19 @@ Paste into the PR description and tick each line.
 - [ ] New dependency: licence and maintenance checked; lazy-loaded if heavy
 - [ ] Tests for the change; none mock what they assert; `npm run typecheck`, `npm test`, `npm run build` pass locally (or the PR's `Checks` run is green)
 - [ ] CLAUDE.md updated if a rule was learned, a decision was made, or a file was added or removed
+
+**A new `VITE_*` variable goes into both env files without being asked**
+(Tim, 2026-10-28):
+
+- **`.env.example`** — always, in the same commit as the variable, with a
+  comment saying what it is and where its value comes from. Leave the value
+  blank unless it is a documented default; this file is committed and the repo
+  is public.
+- **`.env.local`** — if the file exists, add the line too, beside its
+  neighbours. Put the real value in when you know it (a list id the user has
+  just given you); otherwise leave it blank and say so. The file is
+  git-ignored, so this changes nothing in the commit. Tell the user to restart
+  `npm run dev`, which reads it only at start-up.
 
 ### Decisions on record
 
