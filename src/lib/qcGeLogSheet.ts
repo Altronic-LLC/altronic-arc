@@ -11,7 +11,7 @@ import {
 
 // =============================================================================
 // The GE log sheet as a pure layout model — the paper the GE family of QC
-// forms is printed on (GET-1 first; Series X, GEM-1/2, GEW G2, ActucomSG and
+// forms is printed on (GET-1 first, then Series X; GEM-1/2, GEW G2, ActucomSG and
 // GET-2 are the rest of Phase 1 in docs/QC-FORMS-ROADMAP.md). A form hands it a
 // `GeLogSheetDef` — its title, checklist, board work orders and footer — and
 // gets the draw operations the shared PDF renderer (lib/qcFormPdf.ts) prints.
@@ -21,7 +21,9 @@ import {
 // Coordinates are PIXELS on the 950 × 1230 scan of the blank GET-1 Rev 3
 // (Tim, 2026-10-26), y = text baseline. The checklist, board grid and
 // sign-off follow each other down the page, so a sheet with more or fewer
-// checks keeps the paper's spacing.
+// checks keeps the paper's spacing. A sheet whose paper is spaced differently
+// (Series X's two-line title, tighter rows) says so in `spacing`, measured off
+// its own scans; GET-1's measurements are the defaults.
 //
 // A check prints a tick in its box for Yes, and the words NO or N/A to the
 // left of the box — where operators write N/A on the paper, which has no box
@@ -41,18 +43,55 @@ const BOX = 11;
 const LABEL_X = 168; // a check's text
 const RIGHT = 838; // the right-hand margin
 
-const HEADER_Y = 160;
-const CHECK_TOP = 195;
-const CHECK_STEP = 34.6;
-const BOARD_STEP = 33.6;
+const TITLE_Y = 92;
+
+/** The gaps down the page, baseline to baseline. */
+export interface GeLogSheetSpacing {
+  /** Between title lines. */
+  titleLineStep: number;
+  /** Last title line to the subtitle. */
+  subtitleGap: number;
+  /** Subtitle to the Part Number / Serial line. */
+  headerGap: number;
+  /** That line to the first check. */
+  checkGap: number;
+  checkStep: number;
+  /** The last check to the board heading. */
+  boardsGap: number;
+  /** The board heading to the first board. */
+  boardRowGap: number;
+  boardStep: number;
+  /** Last board to the inspector line, and the inspector line to the notes. */
+  signOffStep: number;
+}
+
+/** GET-1 Rev 3's spacing — the default. */
+export const GE_SHEET_SPACING: GeLogSheetSpacing = {
+  titleLineStep: 41,
+  subtitleGap: 24,
+  headerGap: 44,
+  checkGap: 35,
+  checkStep: 34.6,
+  boardsGap: 69,
+  boardRowGap: 33,
+  boardStep: 33.6,
+  signOffStep: 34,
+};
 
 export interface GeLogSheetBlank {
   label: string;
   key: string;
 }
 
+/** A board row: a label and its blank, or printed text alone (Series X's "No populated VD board."). */
+export interface GeLogSheetBoardRow {
+  label: string;
+  key?: string;
+}
+
 export interface GeLogSheetDef {
-  title: string;
+  /** One string per printed line. */
+  title: string | readonly string[];
   subtitle: string;
   /** The first line, behind a tick box nobody ticks. */
   partNumber: GeLogSheetBlank;
@@ -60,7 +99,7 @@ export interface GeLogSheetDef {
   /** One tick box per line; `blank` adds an underlined blank after the text (GET-1's firmware revision). */
   checks: ReadonlyArray<{ key: string; text: string; blank?: { key: string; x1: number; x2: number } }>;
   /** A work order per board, two columns, filled down the left first. */
-  boards?: { heading: string; rows: readonly GeLogSheetBlank[] };
+  boards?: { heading: string; rows: readonly GeLogSheetBoardRow[] };
   inspector: GeLogSheetBlank;
   date: GeLogSheetBlank;
   notes: GeLogSheetBlank;
@@ -68,6 +107,12 @@ export interface GeLogSheetDef {
   footer: readonly string[];
   /** "log sheet", for the export stamp. */
   noun: string;
+  /** Where the paper differs from GET-1's spacing. */
+  spacing?: Partial<GeLogSheetSpacing>;
+}
+
+function spacingOf(def: GeLogSheetDef): GeLogSheetSpacing {
+  return { ...GE_SHEET_SPACING, ...def.spacing };
 }
 
 /** A tick box: a tick for Yes, the answer's words to its left for No or N/A. */
@@ -79,24 +124,31 @@ function tickBox(ctx: SheetCtx, y: number, key: string | null) {
   else if (v) text(ctx, BOX_X - 4, y, v.toUpperCase(), { filled: true, align: "right", size: 8 });
 }
 
-function header(ctx: SheetCtx, def: GeLogSheetDef) {
-  text(ctx, 475, 92, def.title, { size: 20, font: "bold", align: "center" });
-  text(ctx, 475, 116, def.subtitle, { size: 11, font: "bold", underline: true, align: "center" });
+/** Draws the title and the Part Number / Serial line, and returns that line's baseline. */
+function header(ctx: SheetCtx, def: GeLogSheetDef, sp: GeLogSheetSpacing): number {
+  const lines = typeof def.title === "string" ? [def.title] : def.title;
+  lines.forEach((line, i) =>
+    text(ctx, 475, TITLE_Y + i * sp.titleLineStep, line, { size: 20, font: "bold", align: "center" }),
+  );
+  const subtitleY = TITLE_Y + (lines.length - 1) * sp.titleLineStep + sp.subtitleGap;
+  text(ctx, 475, subtitleY, def.subtitle, { size: 11, font: "bold", underline: true, align: "center" });
 
-  tickBox(ctx, HEADER_Y, null);
-  text(ctx, LABEL_X, HEADER_Y, def.partNumber.label, { size: BODY });
-  blank(ctx, 305, 487, HEADER_Y, def.partNumber.key);
-  text(ctx, 492, HEADER_Y, def.serial.label, { size: BODY });
-  blank(ctx, 603, 818, HEADER_Y, def.serial.key);
+  const y = subtitleY + sp.headerGap;
+  tickBox(ctx, y, null);
+  text(ctx, LABEL_X, y, def.partNumber.label, { size: BODY });
+  blank(ctx, 305, 487, y, def.partNumber.key);
+  text(ctx, 492, y, def.serial.label, { size: BODY });
+  blank(ctx, 603, 818, y, def.serial.key);
   // The paper splits the serial (FM2512 / 0012T); ARC holds it whole.
-  if (!ctx.filled) text(ctx, 706, HEADER_Y, "/", { size: BODY });
+  if (!ctx.filled) text(ctx, 706, y, "/", { size: BODY });
+  return y;
 }
 
-/** Draws the checklist and returns the last line's baseline. */
-function checklist(ctx: SheetCtx, def: GeLogSheetDef): number {
-  let y = HEADER_Y;
+/** Draws the checklist below the header line `top` and returns the last line's baseline. */
+function checklist(ctx: SheetCtx, def: GeLogSheetDef, sp: GeLogSheetSpacing, top: number): number {
+  let y = top;
   def.checks.forEach((check, i) => {
-    y = CHECK_TOP + i * CHECK_STEP;
+    y = top + sp.checkGap + i * sp.checkStep;
     tickBox(ctx, y, check.key);
     text(ctx, LABEL_X, y, check.text, { size: BODY });
     if (check.blank) blank(ctx, check.blank.x1, check.blank.x2, y, check.blank.key);
@@ -105,31 +157,32 @@ function checklist(ctx: SheetCtx, def: GeLogSheetDef): number {
 }
 
 /** Draws the board work orders below `y` and returns the last row's baseline. */
-function boards(ctx: SheetCtx, def: GeLogSheetDef, y: number): number {
+function boards(ctx: SheetCtx, def: GeLogSheetDef, sp: GeLogSheetSpacing, y: number): number {
   if (!def.boards) return y;
-  const headingY = y + 69;
+  const headingY = y + sp.boardsGap;
   text(ctx, LEFT, headingY, def.boards.heading, { size: BODY });
   const rows = def.boards.rows;
   const half = Math.ceil(rows.length / 2);
   rows.forEach((row, i) => {
     const right = i >= half;
-    const rowY = headingY + 33 + (right ? i - half : i) * BOARD_STEP;
+    const rowY = headingY + sp.boardRowGap + (right ? i - half : i) * sp.boardStep;
     text(ctx, right ? 448 : LEFT, rowY, row.label, { size: BODY });
+    if (!row.key) return;
     // Clear of "WO#" in Times, which is wider than the paper's font.
     if (right) blank(ctx, 554, 720, rowY, row.key);
     else blank(ctx, 220, 416, rowY, row.key);
   });
-  return headingY + 33 + (half - 1) * BOARD_STEP;
+  return headingY + sp.boardRowGap + (half - 1) * sp.boardStep;
 }
 
-function signOff(ctx: SheetCtx, def: GeLogSheetDef, y: number) {
-  const inspectorY = y + 34;
+function signOff(ctx: SheetCtx, def: GeLogSheetDef, sp: GeLogSheetSpacing, y: number) {
+  const inspectorY = y + sp.signOffStep;
   text(ctx, LEFT, inspectorY, def.inspector.label, { size: BODY });
   blank(ctx, 202, 483, inspectorY, def.inspector.key);
   text(ctx, 490, inspectorY, def.date.label, { size: BODY });
   blank(ctx, 527, 690, inspectorY, def.date.key);
 
-  const notesY = inspectorY + 34;
+  const notesY = inspectorY + sp.signOffStep;
   text(ctx, LEFT, notesY, def.notes.label, { size: BODY });
   underline(ctx, 250, RIGHT, notesY);
   underline(ctx, LEFT, RIGHT, notesY + 34);
@@ -170,10 +223,11 @@ export function geLogSheetLayout(
     known: !!record,
     fieldByKey: Object.fromEntries(fields.map((f) => [f.key, f])),
   };
-  header(ctx, def);
-  const afterChecks = checklist(ctx, def);
-  const afterBoards = boards(ctx, def, afterChecks);
-  signOff(ctx, def, afterBoards);
+  const sp = spacingOf(def);
+  const headerY = header(ctx, def, sp);
+  const afterChecks = checklist(ctx, def, sp, headerY);
+  const afterBoards = boards(ctx, def, sp, afterChecks);
+  signOff(ctx, def, sp, afterBoards);
   footer(ctx, def, record, exportedOn);
   return [{ ops: ctx.ops }];
 }

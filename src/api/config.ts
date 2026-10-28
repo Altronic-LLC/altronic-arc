@@ -416,7 +416,7 @@ export const SP_WHERE_AM_I_LIST_ID =
  * lives on the **PMO site** (SITES.pmo) rather than a Supply Chain one — that's
  * where it has always been, and the PMO grant already covers it.
  *
- * `Title` is the Altronic assembly number, `LogNo_x002e_Raw` carries the
+ * `Title` is the SAP P/N, `LogNo_x002e_Raw` carries the
  * GMR_YYYY-### number the app generates, and the list already has the
  * `Communication` and `Watchers` columns the standard comment thread needs.
  * Schema discovered live 2026-08-19 — scripts/gray-market-request-schema.json.
@@ -638,6 +638,16 @@ export const SP_QC_CPU95_LIST_ID =
  * is set the GET-1 screen says the variable isn't set.
  */
 export const SP_QC_GET1_LIST_ID = import.meta.env.VITE_SP_QC_GET1_LIST_ID || "";
+
+/**
+ * QCFRM-035 — Series X Controller GE Transportation Log Sheet, the second GE
+ * log sheet in QC Forms Phase 1. "QCFRM-035 Series X Controller Log Sheets" on
+ * Altronic_PMO, built by
+ * `scripts/create-qc-form-list.ps1 -Columns qc-series-x-columns.json`. No
+ * default, the GET-1 arrangement: until this is set the Series X screen says
+ * the variable isn't set.
+ */
+export const SP_QC_SERIES_X_LIST_ID = import.meta.env.VITE_SP_QC_SERIES_X_LIST_ID || "";
 
 /**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.

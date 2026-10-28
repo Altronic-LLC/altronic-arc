@@ -251,6 +251,12 @@ describe("the /qc-forms/:formId route", () => {
     expect(screen.getByRole("button", { name: /new log sheet/i })).toBeInTheDocument();
   });
 
+  it("opens Series X at /qc-forms/series-x", () => {
+    renderAt("/qc-forms/series-x");
+    expect(screen.getByRole("heading", { name: "QCFRM-035 — Series X Controller" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new log sheet/i })).toBeInTheDocument();
+  });
+
   it("sends an unknown form back to the landing page", () => {
     renderAt("/qc-forms/no-such-form");
     expect(screen.getByText("Landing page")).toBeInTheDocument();

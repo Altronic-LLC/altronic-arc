@@ -1816,7 +1816,7 @@ export const US_STATES = [
 
 export interface GrayMarketRequest {
   id: number;
-  /** `Title` — the Altronic assembly number the part is used on. */
+  /** `Title` — the SAP P/N (Katie Fleming, 2026-10-28; it was labelled the Altronic assembly number). */
   title: string;
   /**
    * `LogNo_x002e_Raw`, e.g. "GMR_2026-004". SharePoint's calculated

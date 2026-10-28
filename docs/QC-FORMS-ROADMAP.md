@@ -1,6 +1,6 @@
 # QC Forms in Arc – Digitization Roadmap
 
-Oct 22, 2026 · Tim Webster. Trimmed copy of the Claude Doc "QC Forms in Arc – Digitization Roadmap" for this repository: local file paths and customer names are left out. The doc is the source of truth; refresh this copy when it changes.
+Oct 28, 2026 · Tim Webster. Trimmed copy of the Claude Doc "QC Forms in Arc – Digitization Roadmap" for this repository: local file paths and customer names are left out. The doc is the source of truth; refresh this copy when it changes.
 
 ## Summary
 
@@ -63,7 +63,7 @@ Three templates, built from shared blocks, cover every form in scope. A new form
 Phase 0 builds the engine; phases 1–3 are where the scans show the volume, so they come first. Phases 4–7 can be reordered once the three templates exist.
 
 0. **Form engine, pulled out of CPU-95.** Generic list, form, API, list script and paper export, driven by column JSON, descriptors and a sheet layout. *Gate: the pilot ships with full CPU-95 behaviour, paper export included, and no form-specific code.* **Done 2026-10-23** (v0.202.1).
-1. **GET checklist family (template B).** GET-1 (pilot), Series X QCFRM-035, GEM-1, GEM-2, GEW G2 REPFRM-042, ActucomSG, GET-2. *Gate: the GET-family sheets run in Arc with no paper copy.* **In progress:** GET-1 built 2026-10-26 (v0.203.0) at /qc-forms/get-1, with the first family layout, the GE log sheet (`qcGeLogSheet.ts`); its PMO list was created and the repo variable set on 26 Oct; it goes live with the next deploy. Next: Series X QCFRM-035.
+1. **GET checklist family (template B).** GET-1 (pilot), Series X QCFRM-035, GEM-1, GEM-2, GEW G2 REPFRM-042, ActucomSG, GET-2. *Gate: the GET-family sheets run in Arc with no paper copy.* **In progress:** GET-1 built 2026-10-26 (v0.203.0) at /qc-forms/get-1, with the first family layout, the GE log sheet (`qcGeLogSheet.ts`); its PMO list was created and the repo variable set on 26 Oct. Operations later said they don't do many GET-1s and haven't in the last couple of weeks; Series X is the larger group. Series X QCFRM-035 built 28 Oct (v0.207.0) at /qc-forms/series-x, on the same GE log sheet; its PMO list was created and the repo variable set on 28 Oct. Next by volume: GEW G2 REPFRM-042.
 2. **High-volume unit test sheets (template A).** IPMD QCFRM-015, TEM QCFRM-016, CEC/DISN QCFRM-010, NGI-5000 QCFRM-037. Adds temperature passes, burn-in log, firing grid. *Gate: the test-sheet template handles two temperature passes and part-number variants.*
 3. **Altronic variant sheets (template A).** Alt III QCFRM-002 with NG, Alt V QCFRM-001 + 032 merged, CPU-2000 QCFRM-013 and 017, CIS QCFRM-011. *Gate: variant tables agreed with operations.*
 4. **Unit logs (template C).** WCD-10/11 log, CD1 / CDI 791 log, CD200 log.
@@ -78,8 +78,8 @@ Phase 0 builds the engine; phases 1–3 are where the scans show the volume, so 
 | Form | Product | Template | 2024–25 scans | Size | Phase |
 | --- | --- | --- | --- | --- | --- |
 | QCFRM-012 | CPU-95 ignition module | A | in Arc | XL | Done |
-| GET-1 | GET controller | B | ~75 pp 2024, ~135 pp 2025 | S | 1 (pilot) — built, list created |
-| QCFRM-035 | Series X controller | B | ~585 pp 2024, ~495 pp 2025 | S | 1 |
+| QCFRM-035 | Series X controller | B | 542 pp 2024, 441 pp 2025 | S | 1 — built, list created |
+| GET-1 | GET controller | B | ~75 pp 2024, ~135 pp 2025; few lately | S | 1 (pilot) — built, list created |
 | GEM-1 | GEM ECU | B | 32 pp 2024, plus 2025 | S | 1 |
 | GEM-2 | GEM SFU | B | 24 pp 2024, plus 2025 | S | 1 |
 | REPFRM-042 | GEW G2 final inspection | B | ~660 pp 2024, ~550 pp 2025 | M | 1 |
@@ -144,5 +144,8 @@ Phase 0 builds the engine; phases 1–3 are where the scans show the volume, so 
 - [ ] QCFRM-040's header says 672340-2 but the column says -1.
 - [ ] The Forms library's QC index workbook is out of date (omits PanelQC and QAForms; QCFRM-013's blank is a differently named workbook).
 - [ ] GET-1 Rev 3 prints "681 105-2 WO#", but operators correct it to 105-3 by hand on nearly every 2025 sheet. Arc records 105-3 (Tim, 2026-10-26); the form needs revising. Its "(2 WO#'s per board)" note also doesn't match its one blank per board.
+- [ ] QCFRM-035 Rev 0 prints "681 105-2 WO#" too. Series X sheets use 105-2 as printed into early 2025, then operators correct it to 105-3 by hand from about mid-2025. Arc records 105-3, as on GET-1; the form needs revising.
+- [ ] QCFRM-035's fifteen checks are word for word GET-1's; Arc shares them between the two forms. A revision to either form's checks should say whether the other changes too.
+- [ ] GET-1 volume is lower than the archive suggested: operations say few have been done lately, and Series X is the larger group.
 - [ ] GET-1 sheets carry hand marks with no field: a circled D (Deviation, often "Flange"), a circled F, and "Tested" / "SFI". Arc puts them in Notes for now.
 - [ ] Comments are almost always blank and one person usually signs both test and inspection. Ask operations whether two sign-offs are still required.

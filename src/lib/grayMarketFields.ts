@@ -18,7 +18,7 @@
 //   InCircuitPCBW_x002e_O_x002e__x00 → TRUNCATED internal name, "In Circuit PCB W.O. #"
 //   FinalAssemblyW_x002e_O_x002e__x0 → TRUNCATED internal name, "Final Assembly W.O.#"
 //   Parts_x0020_Location             → a PERSON column, despite the name
-//   Title                            → the Altronic assembly number
+//   Title                            → the SAP P/N
 //
 // Guessing any of those from the label would write to a column that doesn't
 // exist, which SharePoint accepts silently on some paths and 400s on others.

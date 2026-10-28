@@ -1,4 +1,4 @@
-import { SITES, SP_QC_CPU95_LIST_ID, SP_QC_GET1_LIST_ID } from "./config";
+import { SITES, SP_QC_CPU95_LIST_ID, SP_QC_GET1_LIST_ID, SP_QC_SERIES_X_LIST_ID } from "./config";
 
 // =============================================================================
 // Where each QC form's records live — the SharePoint half of the registry in
@@ -19,4 +19,5 @@ export interface QcFormList {
 export const QC_FORM_LISTS: Record<string, QcFormList> = {
   "cpu-95": { site: "pmo", listId: SP_QC_CPU95_LIST_ID, envVar: "VITE_SP_QC_CPU95_LIST_ID" },
   "get-1": { site: "pmo", listId: SP_QC_GET1_LIST_ID, envVar: "VITE_SP_QC_GET1_LIST_ID" },
+  "series-x": { site: "pmo", listId: SP_QC_SERIES_X_LIST_ID, envVar: "VITE_SP_QC_SERIES_X_LIST_ID" },
 };
