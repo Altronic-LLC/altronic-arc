@@ -416,7 +416,7 @@ export const SP_WHERE_AM_I_LIST_ID =
  * lives on the **PMO site** (SITES.pmo) rather than a Supply Chain one — that's
  * where it has always been, and the PMO grant already covers it.
  *
- * `Title` is the Altronic assembly number, `LogNo_x002e_Raw` carries the
+ * `Title` is the SAP P/N, `LogNo_x002e_Raw` carries the
  * GMR_YYYY-### number the app generates, and the list already has the
  * `Communication` and `Watchers` columns the standard comment thread needs.
  * Schema discovered live 2026-08-19 — scripts/gray-market-request-schema.json.

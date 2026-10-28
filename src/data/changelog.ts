@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.207.1",
+    date: "2026-10-28",
+    changes: [
+      "Gray Market Requests: the Title box on a new request now says SAP P/N, and the new-request email labels it SAP P/N, instead of the misleading Altronic assembly number",
+    ],
+  },
+  {
     version: "0.207.0",
     date: "2026-10-28",
     changes: [

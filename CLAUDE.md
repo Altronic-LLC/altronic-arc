@@ -3468,7 +3468,7 @@ that table exists:
 | `InCircuitPCBW_x002e_O_x002e__x00` | **truncated** internal name, "In Circuit PCB W.O. #" |
 | `FinalAssemblyW_x002e_O_x002e__x0` | **truncated** too |
 | `Parts_x0020_Location` | a **person** column, despite the name |
-| `Title` | the Altronic assembly number |
+| `Title` | the **SAP P/N** — the form called it the Altronic assembly number until Katie Fleming corrected it (2026-10-28) |
 
 Also:
 

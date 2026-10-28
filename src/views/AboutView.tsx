@@ -221,7 +221,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "FAIT", hint: "Engineering site (a Supply Chain feature) — First Article Inspection Tests. 51 workflow columns spanning inspection and three sign-offs; Communication and Watchers were added for ARC in Aug 2026, Project Reference and attachments already existed", palette: "list" },
       { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
       { label: "ECN Checklists", hint: "Engineering site — the Cross-Functional ECN Checklist (Form# MFGFRM-038), one row per ECN, linked by a single EcnRef lookup. All 84 answers are one JSON column; the four item counts are real columns so SharePoint views can report on progress without parsing it", palette: "list" },
-      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the Altronic assembly no, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
+      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the SAP P/N, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
       { label: "MRB Data", hint: "Altronic_PMO site — the Material Review Board register. Every workflow column is called field_N (lib/mrbFields.ts decodes them); Title is the SAP Number; field_12 separates the 97 live entries from 2,863 rows of retained Excel history. No Communication, no Watchers, no person columns.", palette: "list" },
       { label: "Open Orders Report Customers", hint: "ALTRONICSALESTEAM site — who gets an individual open-orders workbook each week. Title is the sold-to account number; CustomerName is the customer-facing name the FILE is named from, because SAP truncates its own at 30 characters. IncludeCustomerMaterialNumber is a per-customer opt-in that adds the consolidated Customer Material Number column to THAT customer's workbook — unset reads as off, and the master always carries it", palette: "list" },
       { label: "Open Orders Roles", hint: "ALTRONICSALESTEAM site — same shape as EIR Roles; Title is an email and Roles is a CSV, today just \"report manager\". Gating is off until the list id is configured, so nobody is locked out before an admin populates it", palette: "list" },
@@ -1205,7 +1205,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     group: "supplyChain", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
-      { name: "title (assembly no)", type: "text", kind: "field" },
+      { name: "title (SAP P/N)", type: "text", kind: "field" },
       { name: "logNo (LogNo.Raw)", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
       { name: "requestDate (TodaysDate)", type: "date", kind: "field" },

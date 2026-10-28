@@ -128,7 +128,7 @@ export function useCreateGrayMarketRequest() {
  */
 function newRequestDetails(r: GrayMarketRequest) {
   return [
-    { label: "Assembly number", value: r.title },
+    { label: "SAP P/N", value: r.title },
     { label: "Part description", value: r.values.partDescription ?? "" },
     { label: "AI part no.", value: r.values.aiPartNo ?? "" },
     { label: "Part manufacturer", value: r.values.partManufacturer ?? "" },
