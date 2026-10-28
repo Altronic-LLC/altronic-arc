@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.207.0",
+    date: "2026-10-28",
+    changes: [
+      "QC Forms: QCFRM-035, the Series X Controller GE Transportation Log Sheet, is now a digital form — one log sheet per Series X controller, with the fifteen inspection checks, ship firmware revision, a work order for each of the eleven boards, inspector, date and notes",
+      "Series X: the 681 105 board is recorded as 105-3, as operators now write it, and search finds a unit by any board's work order",
+      "Series X: Blank form and Export print the QCFRM-035 Rev 0 paper page, including its “No populated VD board.” line",
+    ],
+  },
+  {
     version: "0.206.0",
     date: "2026-10-27",
     changes: [

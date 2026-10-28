@@ -54,6 +54,8 @@ interface ImportMetaEnv {
   readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;
   /** GET-1 (GE Transportation Log Sheet) on the PMO site. No default. */
   readonly VITE_SP_QC_GET1_LIST_ID: string;
+  /** QCFRM-035 (Series X Controller log sheet) on the PMO site. No default. */
+  readonly VITE_SP_QC_SERIES_X_LIST_ID: string;
   /** Exact Windows printer name for QZ Tray to print Panel QC labels
    * directly to. Unset = always fall back to the browser print dialog. */
   readonly VITE_PANEL_QC_LABEL_PRINTER_NAME: string;

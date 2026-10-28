@@ -22,6 +22,7 @@
 // =============================================================================
 
 import type { QcFormField } from "./qcFormEngine";
+import { QC_GE_CONTROLLER_CHECKS } from "./qcGeControllerChecks";
 
 export const QC_GET1_SECTIONS = ["Unit", "Inspection", "Board Work Orders", "Sign-off"] as const;
 export type QcGet1Section = (typeof QC_GET1_SECTIONS)[number];
@@ -31,24 +32,8 @@ export type QcGet1Field = QcFormField<string, QcGet1Section>;
 /** The GE part numbers seen on the 2025 sheets — offered, never enforced. */
 export const QC_GET1_PART_NUMBERS = ["17FM760D3", "17FM760D2"] as const;
 
-/** The inspection checks, in the paper's order: key, column, the paper's wording. */
-export const QC_GET1_CHECKS: ReadonlyArray<readonly [string, string, string]> = [
-  ["pinInspection", "PinInspection", "100% Inspection of Pins (Using Tool)"],
-  ["connectorLabelsScrews", "ConnectorLabelsScrews", "Verify Connector Labels and Connector Screws are present and tightened"],
-  ["connectorKeyway", "ConnectorKeyway", "Verify Connector key-way orientation"],
-  ["heatsinkScrewsSealant", "HeatsinkScrewsSealant", "Verify (5) five screws on heatsink and heatsink sealant is there with no excess material"],
-  ["mountingScrews", "MountingScrews", "Verify ten (10) mounting screws are present, tightened, & torqued"],
-  ["groundStrap", "GroundStrap", "Verify ground strap is installed correctly (orientation) with star washer"],
-  ["plateScrews", "PlateScrews", "Verify top/bottom plate each have six (6) screws installed, tightened, & torqued"],
-  ["mountingPlateOrientation", "MountingPlateOrientation", "Verify correct orientation of the mounting plate"],
-  ["usbSocket", "UsbSocket", "Using USB Stick, test USB Socket to insure it does not rotate/push in"],
-  ["usbDustCover", "UsbDustCover", "Verify dust cover is installed over USB Socket"],
-  ["serialNumberLabels", "SerialNumberLabels", "Verify (2) serial numbers are installed in proper location and orientation"],
-  ["frameOrder", "FrameOrder", "Verify that frames are in correct order (see print or reference photo)"],
-  ["frameEtching", "FrameEtching", "Verify that frames are etched correctly (see print or reference photo)"],
-  ["protectiveCaps", "ProtectiveCaps", "Install protective caps on each connector using the photo with P/N’s as reference"],
-  ["shipFirmwareVerified", "ShipFirmwareVerified", "Verify Ship Firmware Revision on PC"],
-];
+/** The inspection checks, in the paper's order — shared with Series X, whose wording is the same. */
+export const QC_GET1_CHECKS = QC_GE_CONTROLLER_CHECKS;
 
 /**
  * The boards, two columns as on the paper: left 672-series, right 681-series.

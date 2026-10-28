@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { qcFormEmptyValues, type QcFormRecord } from "./qcFormEngine";
 import { QC_GET1_FORM } from "./qcGet1Form";
+import { QC_SERIES_X_FORM } from "./qcSeriesXForm";
 import { GE_SHEET_CONTENT_BOTTOM, GE_SHEET_CONTENT_TOP } from "./qcGeLogSheet";
 import type { SheetOp } from "./qcFormSheet";
 
@@ -118,5 +119,70 @@ describe("a filled GET-1 sheet", () => {
     const wrap = ops(filled).find((o) => o.type === "wrap");
     expect(wrap).toMatchObject({ text: "Tested, SFI", maxLines: 3, title: "Notes/Comments:" });
     expect(texts(filled).some((o) => o.text === "Exported from ARC on 10/26/2026 — log sheet #7")).toBe(true);
+  });
+});
+
+// =============================================================================
+// The same paper for QCFRM-035 (Series X): a two-line title, its own boards,
+// the printed "No populated VD board." line, and its own spacing.
+// =============================================================================
+
+const sx = (r: QcFormRecord | null) => QC_SERIES_X_FORM.sheet.layout(r, "2026-10-28").flatMap((p) => p.ops);
+const sxTexts = (r: QcFormRecord | null) => sx(r).filter((o): o is TextOp => o.type === "text");
+const sxAt = (r: QcFormRecord | null, t: string) => sxTexts(r).find((o) => o.text === t);
+const sxRecord = (values: Record<string, string>): QcFormRecord => ({
+  id: 9,
+  values: { ...qcFormEmptyValues(QC_SERIES_X_FORM), ...values },
+  createdAt: new Date(0),
+  modifiedAt: new Date(0),
+});
+
+describe("the blank Series X sheet", () => {
+  it("prints the title on two lines, then the subtitle, then the Part Number line", () => {
+    const first = sxAt(null, "Series X Controller GE Transportation")!;
+    const second = sxAt(null, "Log Sheet")!;
+    const subtitle = sxAt(null, "Quality Control Inspection")!;
+    const part = sxAt(null, "Part Number (ECU)")!;
+    expect(first.y).toBeLessThan(second.y);
+    expect(second.y).toBeLessThan(subtitle.y);
+    expect(subtitle.y).toBeLessThan(part.y);
+  });
+
+  it("prints its own boards, 105-3 for the 681 105, and the VD line with no blank", () => {
+    const printed = sxTexts(null).map((o) => o.text);
+    expect(printed).toEqual(expect.arrayContaining(["672 007-1 WO#", "672 005-1 WO#", "681 138-1 WO#", "681 105-3 WO#"]));
+    expect(printed).not.toContain("681 105-2 WO#");
+    expect(printed).not.toContain("672 256-1 WO#");
+    const vd = sxAt(null, "No populated VD board.")!;
+    expect(vd.y).toBe(sxAt(null, "672 005-1 WO#")!.y);
+    const lines = sx(null).filter((o) => o.type === "line" && "y1" in o && o.y1 === vd.y + 2 && o.x1 > vd.x);
+    expect(lines).toHaveLength(0);
+  });
+
+  it("puts each 681 board beside its 672 row", () => {
+    expect(sxAt(null, "681 100-1 WO#")!.y).toBe(sxAt(null, "672 255-1 WO#")!.y);
+    expect(sxAt(null, "681 105-3 WO#")!.y).toBe(sxAt(null, "672 265-2 WO#")!.y);
+  });
+
+  it("draws the Part Number box and fifteen check boxes, inside the content band, with its footer", () => {
+    expect(sx(null).filter((o) => o.type === "rect")).toHaveLength(16);
+    expect(sxAt(null, "QCFRM 035 Rev 0")).toBeDefined();
+    for (const o of sx(null)) {
+      const top = "y" in o ? o.y : o.y1;
+      expect(top).toBeGreaterThanOrEqual(GE_SHEET_CONTENT_TOP);
+      expect(top).toBeLessThanOrEqual(GE_SHEET_CONTENT_BOTTOM);
+    }
+    // The notes' last ruled line sits clear of the footer.
+    const notesLines = sx(null).filter((o) => o.type === "line" && "y1" in o && o.y1 > sxAt(null, "Notes/Comments:")!.y - 1);
+    expect(Math.max(...notesLines.map((o) => ("y1" in o ? o.y1 : 0)))).toBeLessThan(sxAt(null, "QCFRM 035 Rev 0")!.y);
+  });
+});
+
+describe("a filled Series X sheet", () => {
+  it("writes each board's work order on its row, and leaves the VD line alone", () => {
+    const filled = sxRecord({ serialNumber: "FM2510/0024T", wo681138: "1738702", wo681104: "1711961" });
+    expect(sxAt(filled, "1738702")!.y).toBe(sxAt(filled, "681 138-1 WO#")!.y);
+    expect(sxAt(filled, "1711961")!.y).toBe(sxAt(filled, "681 104-1 WO#")!.y);
+    expect(sxAt(filled, "FM2510/0024T")?.filled).toBe(true);
   });
 });

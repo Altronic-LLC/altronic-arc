@@ -563,6 +563,7 @@ src/
 │   ├── qcCpu95MockData.ts        Sample CPU-95 (QCFRM-012) test sheets, one per Altmode shape
 │   ├── qcCpu95FiringSpecs.json   Standard TEST firing specs by part number — the form, the blank sheet and the backfill script read it
 │   ├── qcGet1MockData.ts         Sample GET-1 (GE ECU) log sheets — signed off, reworked, part-way, just scanned
+│   ├── qcSeriesXMockData.ts      Sample QCFRM-035 (Series X) log sheets — two signed off (one board blank), part-way, just scanned
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
@@ -773,6 +774,9 @@ src/
 │   ├── qcGet1Form.ts             GET-1 (GE Transportation Log Sheet) as a QcFormSpec, and its GE log sheet text
 │   ├── qcGet1Fields.ts           GET-1 column descriptors — 15 checks, firmware revision, 12 board work orders, sign-off
 │   ├── qcGeLogSheet.ts           The GE log sheet (GET-1 Rev 3 scan) as a layout model, described by DATA — the GE family's shared paper
+│   ├── qcGeControllerChecks.ts   The fifteen GE controller checks — word for word the same on GET-1 and Series X, so shared
+│   ├── qcSeriesXForm.ts          QCFRM-035 (Series X Controller log sheet) as a QcFormSpec, and its GE log sheet text + spacing
+│   ├── qcSeriesXFields.ts        QCFRM-035 column descriptors — the shared checks, firmware revision, 11 board work orders, sign-off
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -5523,8 +5527,8 @@ trimmed copy of Tim's Claude Doc, which is the source of truth — local file
 paths and customer names are left out, since the repo is public). Copying CPU-95's
 12–15 files per form 60 times was the cost risk, so **Phase 0 (2026-10-23)
 pulled a generic engine out of CPU-95** and rebuilt CPU-95 on it with no
-change to how it works. GET-1 is the Phase 1 pilot, built 2026-10-26 (see
-"GET-1" below).
+change to how it works. GET-1 is the Phase 1 pilot, built 2026-10-26, and
+QCFRM-035 (Series X) the second, built 2026-10-28 (see both below).
 
 **A form is a `QcFormSpec`** (`lib/qcFormEngine.ts`): its fields (one
 descriptor per SharePoint column), sections, `unitOf(values)` (what the part
@@ -5573,8 +5577,9 @@ Seven things that are load-bearing:
   part is `qcFormSheet.ts`'s `sheetBlank` (tick for Yes, NO / N/A in words,
   MM/DD/YYYY, N/A in print on a line the unit doesn't use). The GE family's
   is `qcGeLogSheet.ts`, a layout driven by a `GeLogSheetDef` (title, checks,
-  board work orders, footer) — GET-1 is its first user. Grow it as each GE
-  sheet arrives; the Yes/No checklists and the logs get theirs the same way.
+  board work orders, footer, and `spacing` where the paper differs) — GET-1
+  and Series X use it. Grow it as each GE sheet arrives; the Yes/No checklists
+  and the logs get theirs the same way.
 - **A section renders its fields in the order the form declares them**
   (`qcFieldRuns`: consecutive inputs, checks and flags), so a field that
   follows its checks on the paper follows them on screen. CPU-95's sections
@@ -5601,10 +5606,10 @@ sheet** per GE ECU (17FM760D3, a few 17FM760D2). Pieces: `lib/qcGet1Fields.ts`
 (descriptors), `lib/qcGet1Form.ts` (spec + the sheet's text),
 `lib/qcGeLogSheet.ts` (the paper), `data/qcGet1MockData.ts`.
 
-**The list does not exist yet.** It is "GET-1 GE Transportation Log Sheets"
+**The list was created 2026-10-26** — "GET-1 GE Transportation Log Sheets"
 on `SITES.pmo`, built by `scripts/create-qc-form-list.ps1 -Columns
-qc-get1-columns.json` (run it in your own terminal), then
-`VITE_SP_QC_GET1_LIST_ID` set as a repo variable and a redeploy. **No default
+qc-get1-columns.json` (run it in your own terminal), with
+`VITE_SP_QC_GET1_LIST_ID` set as a repo variable. **No default
 in `config.ts`**, and the variable is in `deploy.yml`'s named list — unlike
 CPU-95's, which survives without one only because it has a default. Until it
 is set the screen shows "VITE_SP_QC_GET1_LIST_ID is not set"; demo mode works.
@@ -5640,6 +5645,47 @@ The export: one page, the GET-1 Rev 3 scan's geometry. A Yes ticks the box;
 **No and N/A are written to the LEFT of the box** — where operators write N/A
 on a sheet that has no box for it. Notes wrap over the three note lines and
 continue on a last page.
+
+**GET-1 turned out to be the SMALL GE sheet** (Tim, 2026-10-28): operations
+haven't done many lately, and Series X (QCFRM-035) is the larger group —
+which is why it came next.
+
+### QC Forms — QCFRM-035, the Series X Controller log sheet (Quality Control, PMO site)
+
+Phase 1's second form (2026-10-28), at `/qc-forms/series-x`: "Series X
+Controller GE Transportation Log Sheet — Quality Control Inspection", QCFRM 035
+Rev 0. One **log sheet** per Series X controller (17FM850A1, 17FM850A2). By
+volume the biggest GE sheet: 542 scanned pages in 2024 and 441 in 2025.
+Pieces: `lib/qcSeriesXFields.ts`, `lib/qcSeriesXForm.ts`,
+`data/qcSeriesXMockData.ts`, on the shared `lib/qcGeLogSheet.ts`.
+
+**The list does not exist yet.** It is "QCFRM-035 Series X Controller Log
+Sheets" on `SITES.pmo`, built by `scripts/create-qc-form-list.ps1 -Columns
+qc-series-x-columns.json` (in your own terminal), then
+`VITE_SP_QC_SERIES_X_LIST_ID` as a repo variable and a redeploy. No default,
+in `deploy.yml` — the GET-1 arrangement.
+
+It is GET-1's sheet with different boards. Five things, read off the scans:
+
+- **The fifteen checks are word for word GET-1's**, so both forms read
+  `lib/qcGeControllerChecks.ts`, with the same column names
+  (`qcSeriesXFields.test.ts` compares the two JSONs). If one form's revision
+  rewords a line, give THAT form its own copy — the other's paper hasn't
+  changed.
+- **Eleven boards**: 672 255-1, 007-1, 257-1, 005-1, 259-1, 265-2 on the left;
+  681 100-1, 138-1, 102-1, 104-1, 105-3 on the right. The right column's
+  fourth line is printed **"No populated VD board."** — no blank, no field;
+  it's a `GeLogSheetBoardRow` with no `key`. 672 005-1 is sometimes a dash on
+  the paper, which is a blank, not a value.
+- **681 105-3, not the printed 105-2** — but unlike GET-1 the scans show the
+  change happening: sheets up to early 2025 use 105-2 as printed, from about
+  mid-2025 operators correct it to 105-3. ARC records 105-3, GET-1's call.
+- **The two-line title and tighter rows are `spacing`** in `QC_SERIES_X_SHEET`,
+  measured off the 2025 scans. GET-1's spacing is the default
+  (`GE_SHEET_SPACING`), so its export didn't move.
+- **The Part Number line's box is ticked on some sheets** — still not a check
+  (GET-1's call), and "Turbo CC Test", "Tested", "SFI" and the circled F go
+  in Notes.
 
 ### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, PMO site)
 

@@ -165,6 +165,9 @@ jobs:
           # default in config.ts — the GET-1 screen says the variable isn't
           # set until scripts/create-qc-form-list.ps1 has built the list.
           VITE_SP_QC_GET1_LIST_ID: ${{ vars.VITE_SP_QC_GET1_LIST_ID }}
+          # QC Forms — QCFRM-035 (Series X Controller log sheet), PMO site. No
+          # default, the GET-1 arrangement.
+          VITE_SP_QC_SERIES_X_LIST_ID: ${{ vars.VITE_SP_QC_SERIES_X_LIST_ID }}
           # MRB Data (Supply Chain, PMO site). Documented default in
           # config.ts, so a build without this still points at the live list;
           # set it only to override.

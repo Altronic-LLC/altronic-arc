@@ -640,6 +640,16 @@ export const SP_QC_CPU95_LIST_ID =
 export const SP_QC_GET1_LIST_ID = import.meta.env.VITE_SP_QC_GET1_LIST_ID || "";
 
 /**
+ * QCFRM-035 — Series X Controller GE Transportation Log Sheet, the second GE
+ * log sheet in QC Forms Phase 1. "QCFRM-035 Series X Controller Log Sheets" on
+ * Altronic_PMO, built by
+ * `scripts/create-qc-form-list.ps1 -Columns qc-series-x-columns.json`. No
+ * default, the GET-1 arrangement: until this is set the Series X screen says
+ * the variable isn't set.
+ */
+export const SP_QC_SERIES_X_LIST_ID = import.meta.env.VITE_SP_QC_SERIES_X_LIST_ID || "";
+
+/**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.
  *
  * The list came out of a migration and its columns are named `field_2` …

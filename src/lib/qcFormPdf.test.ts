@@ -108,6 +108,18 @@ describe("qcFormPdfFileName", () => {
   });
 });
 
+describe("the Series X PDF (the GE log sheet, QCFRM-035)", () => {
+  it("is one page of real text, named for the form and the serial", async () => {
+    const { QC_SERIES_X_FORM } = await import("./qcSeriesXForm");
+    const blank = await buildQcFormPdfDocument(QC_SERIES_X_FORM, null, { exportedOn: "2026-10-28", compress: false });
+    expect(blank.getNumberOfPages()).toBe(1);
+    const text = pdfText(blank.output());
+    expect(text).toContain("Series X Controller GE Transportation");
+    expect(text).toContain("No populated VD board.");
+    expect(qcFormPdfFileName(QC_SERIES_X_FORM, null)).toBe("QCFRM-035 Series X blank.pdf");
+  });
+});
+
 describe("the GET-1 PDF (the GE log sheet)", () => {
   it("is one page of real text, named for the form and the serial", async () => {
     const { QC_GET1_FORM } = await import("./qcGet1Form");
