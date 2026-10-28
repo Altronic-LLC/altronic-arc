@@ -5659,11 +5659,11 @@ volume the biggest GE sheet: 542 scanned pages in 2024 and 441 in 2025.
 Pieces: `lib/qcSeriesXFields.ts`, `lib/qcSeriesXForm.ts`,
 `data/qcSeriesXMockData.ts`, on the shared `lib/qcGeLogSheet.ts`.
 
-**The list does not exist yet.** It is "QCFRM-035 Series X Controller Log
-Sheets" on `SITES.pmo`, built by `scripts/create-qc-form-list.ps1 -Columns
-qc-series-x-columns.json` (in your own terminal), then
-`VITE_SP_QC_SERIES_X_LIST_ID` as a repo variable and a redeploy. No default,
-in `deploy.yml` — the GET-1 arrangement.
+**The list was created 2026-10-28** — "QCFRM-035 Series X Controller Log
+Sheets" on `SITES.pmo` (`6541b7d7-26d8-4738-8255-2afd4e3217e2`), built by
+`scripts/create-qc-form-list.ps1 -Columns qc-series-x-columns.json`, with
+`VITE_SP_QC_SERIES_X_LIST_ID` set as a repo variable. No default in
+`config.ts`, in `deploy.yml` — the GET-1 arrangement.
 
 It is GET-1's sheet with different boards. Five things, read off the scans:
 
