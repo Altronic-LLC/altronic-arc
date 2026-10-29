@@ -34,3 +34,84 @@ export function panelRights(roles: readonly PanelRole[]): PanelRights {
     engineering: roles.some((r) => ENGINEERING_ROLES.includes(r)),
   };
 }
+
+// =============================================================================
+// Panel team access (BusinessIT#42) — who may open the panel planning tools
+// (Capacity, Time Off) and change them. Tim, 2026-10-28: "limit the group but
+// give an ARC admin the ability to add more people as needed".
+//
+//   - Anybody on the Panel User Roles list, in ANY role, may OPEN them.
+//   - Any role but Viewer may CHANGE them (Viewer is "scheduling visibility").
+//   - An ARC admin may do both — they manage the list, so a list nobody is on
+//     is never a door locked from the inside.
+//
+// Navigation, not security: SharePoint's list permissions are the boundary.
+// Which FIELDS each role may edit is still to be decided (Tim).
+// =============================================================================
+
+/** Panel roles that manage the standard tasks a new order raises. */
+const TEMPLATE_MANAGER_ROLES: readonly PanelRole[] = ["Manager", "Admin", "Super User"];
+
+export interface PanelTeamAccess {
+  canOpen: boolean;
+  canEdit: boolean;
+  /**
+   * May change the Panel Task Templates — the tasks every new order raises.
+   * The panel managers: Manager, Admin or Super User, or an ARC admin.
+   */
+  canManageTemplates: boolean;
+  /** Why not, for the templates; empty when allowed. */
+  templatesHint: string;
+  /**
+   * May change the capacity settings and enter company holidays (Tim,
+   * 2026-10-29): a panel Super User, or an ARC admin.
+   */
+  canManageCapacity: boolean;
+  /** Why not, for those; empty when allowed. */
+  capacityHint: string;
+  /** Still loading the roles or Admins list — neither yes nor no yet. */
+  resolving: boolean;
+  /** Why not, in words; empty when allowed. */
+  hint: string;
+}
+
+export function panelTeamAccess(input: {
+  roles: readonly PanelRole[];
+  isArcAdmin: boolean;
+  resolving: boolean;
+}): PanelTeamAccess {
+  const { roles, isArcAdmin } = input;
+  const canOpen = isArcAdmin || roles.length > 0;
+  const canEdit = isArcAdmin || roles.some((r) => r !== "Viewer");
+  const canManageTemplates = isArcAdmin || roles.some((r) => TEMPLATE_MANAGER_ROLES.includes(r));
+  const canManageCapacity = isArcAdmin || roles.includes("Super User");
+  // A yes is final; a no waits until the lists have loaded.
+  const resolving = input.resolving && !canEdit;
+  let hint = "";
+  if (resolving) hint = "Checking your panel team access…";
+  else if (!canOpen) {
+    hint =
+      "This is for the panel team. Ask an ARC admin to add you to Panel User Roles " +
+      "(Admin → Panel User Roles).";
+  } else if (!canEdit) hint = "Viewers can look but not change anything here.";
+  const templatesHint = canManageTemplates
+    ? ""
+    : input.resolving
+      ? "Checking your panel team access…"
+      : "Only a panel Manager, Admin or Super User (or an ARC admin) can change the standard tasks.";
+  const capacityHint = canManageCapacity
+    ? ""
+    : input.resolving
+      ? "Checking your panel team access…"
+      : "Only a panel Super User (or an ARC admin) can change this.";
+  return {
+    canOpen,
+    canEdit,
+    canManageTemplates,
+    templatesHint,
+    canManageCapacity,
+    capacityHint,
+    resolving,
+    hint,
+  };
+}

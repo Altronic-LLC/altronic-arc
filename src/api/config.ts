@@ -981,6 +981,37 @@ export const SP_PANELTEAM_SITE_URL =
 export const PANEL_ROLES_ENFORCED = USE_MOCK || !!SP_PANEL_ROLES_LIST_ID;
 
 /**
+ * "Panel Time Off" — the panel team's own "Where am I?" (BusinessIT#42): a
+ * person, a date range and the hours off each day, which the Capacity view
+ * takes out of that person's capacity. Created by
+ * scripts/create-panel-time-off-list.ps1. NO default: unset means the Time
+ * Off screen says it isn't set up and Capacity assumes nobody is off.
+ */
+export const SP_PANEL_TIME_OFF_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_TIME_OFF_LIST_ID || undefined;
+
+/**
+ * "Panel Task Templates" — the tasks every new Panel Order raises (ARC's
+ * version of Wrike's "Panel Blueprint - Production Job"), managed by the
+ * panel managers in ARC. Created and seeded by
+ * scripts/setup-panel-planning.ps1. NO default: unset means ARC raises the
+ * built-in four (DEFAULT_PANEL_TASK_TEMPLATES) and the screen that edits them
+ * says the list isn't set up.
+ */
+export const SP_PANEL_TASK_TEMPLATES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID || undefined;
+
+/**
+ * "Panel Settings" — the panel team's few adjustable settings, one row per
+ * setting (Title = its name, Value = text): today the Capacity view's amber
+ * threshold, changed in ARC by a panel Super User or an ARC admin. Created by
+ * scripts/setup-panel-planning.ps1. NO default: unset means the built-in 85%,
+ * and the setting can't be changed.
+ */
+export const SP_PANEL_SETTINGS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_SETTINGS_LIST_ID || undefined;
+
+/**
  * "QC Time Tracking" — the panel team's log of hours QC spends on a project.
  * Same site as the other three Panels lists, its own list. Added 2026-09-01.
  */

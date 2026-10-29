@@ -46,6 +46,8 @@ import {
   TestTubes,
   Timer,
   Users,
+  CalendarOff,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
@@ -53,6 +55,7 @@ import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
@@ -104,6 +107,8 @@ interface DepartmentItem {
    * the "Coming soon" row — to everyone else.
    */
   mcnAccess?: "with" | "without";
+  /** Panel planning tools (BusinessIT#42): shown only to the panel team and ARC admins. */
+  requiresPanelTeam?: boolean;
 }
 
 interface DepartmentGroup {
@@ -198,6 +203,20 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Panel Tasks",
         icon: <ListChecks className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/task"),
+      },
+      {
+        to: "/panels/capacity",
+        label: "Panel Engineering Capacity",
+        icon: <Gauge className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/capacity"),
+        requiresPanelTeam: true,
+      },
+      {
+        to: "/panels/time-off",
+        label: "Panel Time Off",
+        icon: <CalendarOff className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/time-off"),
+        requiresPanelTeam: true,
       },
       {
         to: "/panels/qc-time-tracking",
@@ -784,6 +803,7 @@ function DepartmentsMenu({
   const canSeePricing = pricingRights.canOpen;
   const mcnAccess = useMyMcnAccess();
   const canSeeMcns = MCNS_CONFIGURED && mcnAccess.rights.canOpen;
+  const panelTeam = usePanelTeamAccess();
 
   useEffect(() => {
     if (!open) return;
@@ -834,6 +854,7 @@ function DepartmentsMenu({
               <div className="space-y-1">
                 {group.items
                   .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
+                  .filter((item) => !item.requiresPanelTeam || panelTeam.canOpen)
                   .filter(
                     (item) =>
                       !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),

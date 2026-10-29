@@ -12,6 +12,9 @@ import type { PanelOrder, PanelOrderStatus, Person } from "@/types/task";
 import { SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { usePanelTaskTemplates } from "@/hooks/usePanelTaskTemplates";
+import { activeTemplates } from "@/lib/panelOrderTasks";
+import { formatHours } from "@/lib/capacity";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface PanelOrderFormModalProps {
@@ -23,6 +26,10 @@ interface PanelOrderFormModalProps {
  * the admin-managed Panel Project Reference list; Customer choices come from
  * the runtime column discovery (usePanelOrderChoices). New orders start as
  * "Submitted" and the creator is auto-added as a watcher.
+ *
+ * "Create standard tasks" (on by default) raises the Panel Task Templates for
+ * the order — Wrike's New Production Order form — each assigned to the
+ * Engineer Assigned picked here, or unassigned when that's blank.
  */
 export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
   const navigate = useNavigate();
@@ -32,6 +39,8 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
   const { data: choices } = usePanelOrderChoices();
   const createOrder = useCreatePanelOrder();
   const directory = useDirectoryPeople();
+  const { data: templateRows = [], isLoading: templatesLoading } = usePanelTaskTemplates();
+  const templates = activeTemplates(templateRows);
 
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -42,6 +51,7 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
   const [contactEmail, setContactEmail] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [engineerKey, setEngineerKey] = useState<string | null>(null);
+  const [standardTasks, setStandardTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -111,9 +121,10 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
         orderNotes: orderNotes.trim() || undefined,
         engineerAssigned: engineer,
         watchers: [currentUser],
+        standardTasks: standardTasks && templates.length > 0,
       });
       onClose();
-      navigate(`/panels/order/${created.id}`);
+      navigate(`/panels/order/${created.order.id}`);
     } catch {
       setError("Couldn't create the panel order — please retry.");
       setBusy(false);
@@ -252,6 +263,43 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
               disabled={busy}
             />
           </FieldLabel>
+
+          {/* Standard tasks — Wrike's blueprint, raised with the order. */}
+          <div className="rounded-md border border-border bg-surface-2/50 px-3 py-2.5 text-xs">
+            <label className="flex items-center gap-2 font-semibold text-fg">
+              <input
+                type="checkbox"
+                checked={standardTasks}
+                onChange={(e) => setStandardTasks(e.target.checked)}
+                disabled={busy || templates.length === 0}
+              />
+              Create standard tasks
+            </label>
+            {templatesLoading ? (
+              <p className="mt-1 text-fg-muted">Loading the standard tasks…</p>
+            ) : templates.length === 0 ? (
+              <p className="mt-1 text-fg-muted">There are no standard tasks set up.</p>
+            ) : (
+              standardTasks && (
+                <div className="mt-1.5 text-fg-muted">
+                  <ul className="flex flex-wrap gap-x-3 gap-y-0.5" aria-label="Standard tasks">
+                    {templates.map((t) => (
+                      <li key={t.id}>
+                        {t.title}
+                        {t.estimatedHours !== null && ` (${formatHours(t.estimatedHours)})`}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1">
+                    {engineerKey
+                      ? "Each is assigned to the engineer above; any one can be reassigned later."
+                      : "Left unassigned, since no engineer is picked."}{" "}
+                    They have no dates yet, so they wait in the capacity backlog.
+                  </p>
+                </div>
+              )
+            )}
+          </div>
 
           {error && (
             <div className="rounded-md border border-cooper-red/40 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">

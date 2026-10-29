@@ -50,6 +50,8 @@ import {
   SP_PANEL_ORDERS_LIST_ID,
   SP_PANEL_QC_ISSUES_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
+  SP_PANEL_TASK_TEMPLATES_LIST_ID,
+  SP_PANEL_TIME_OFF_LIST_ID,
   SP_POTTING_SAMPLE_LOG_LIST_ID,
   SP_QC_COILS_LIST_ID,
   SP_QC_TIME_TRACKING_LIST_ID,
@@ -209,6 +211,10 @@ export const APPS: AppSpec[] = [
   // Panels ---------------------------------------------------------------
   { path: "/panels/orders", label: "Panel Orders", site: "panelTeam", lists: ids(SP_PANEL_ORDERS_LIST_ID) },
   { path: "/panels/tasks", label: "Panel Tasks", site: "panelTeam", lists: ids(SP_PANEL_TASKS_LIST_ID) },
+  // Capacity reads Panel Tasks; refused time off only means nobody looks off.
+  { path: "/panels/capacity", label: "Panel Engineering Capacity", site: "panelTeam", lists: ids(SP_PANEL_TASKS_LIST_ID) },
+  { path: "/panels/task-templates", label: "Panel standard tasks", site: "panelTeam", lists: ids(SP_PANEL_TASK_TEMPLATES_LIST_ID) },
+  { path: "/panels/time-off", label: "Panel Time Off", site: "panelTeam", lists: ids(SP_PANEL_TIME_OFF_LIST_ID) },
   { path: "/panels/qc-time-tracking", label: "QC Time Tracking", site: "panelTeam", lists: ids(SP_QC_TIME_TRACKING_LIST_ID) },
   { path: "/panels/qc-issues", label: "Panel QC Issue Tracker", site: "panelTeam", lists: ids(SP_PANEL_QC_ISSUES_LIST_ID) },
 

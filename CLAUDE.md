@@ -507,6 +507,9 @@ src/
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
+│   ├── panelTimeOff.ts           Panel Time Off CRUD (panelTeam site) — the panel team's "Where am I?", person + date range, or a company holiday (nobody); delete OK
+│   ├── panelTaskTemplates.ts     Panel Task Templates CRUD — the standard tasks a new Panel Order raises; unset = the built-in four, read-only; delete OK
+│   ├── panelSettings.ts          Panel Settings (Title/Value rows) — the Capacity amber threshold; unset = 85%, read-only
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
 │   ├── qcForms.ts                EVERY QC form's test sheet CRUD, by form spec (Quality Control, PMO site) — mock store per form, no delete
 │   ├── qcFormLists.ts            Each QC form's SharePoint list (site, id, env var) — the api half of the registry
@@ -624,7 +627,11 @@ src/
 │   ├── useEquipment.ts           Equipment register queries + create + edits, every write gated by manageAssetsGate
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
-│   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
+│   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded) + usePanelTeamAccess / useRequirePanelTeamEdit / …TemplateManager / …CapacityManager
+│   ├── usePanelTimeOff.ts        Panel Time Off queries + team-gated writes; a company holiday also needs a Super User / ARC admin
+│   ├── usePanelOrderTasks.ts     Raising an order's standard tasks (with the order, or the order page's button) + the ONE email to its engineer
+│   ├── usePanelTaskTemplates.ts  Panel Task Templates query + manager-gated writes
+│   ├── usePanelSettings.ts       Panel Settings query + the Super User-gated amber threshold write
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
 │   ├── useQcForms.ts             Any QC form's test sheet queries + mutations, cached per form — no delete hook
 │   ├── useVisitReports.ts        Visit Report queries + mutations
@@ -773,7 +780,13 @@ src/
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
-│   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
+│   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays) (pure)
+│   ├── panelOrderTasks.ts        A Panel Order's standard tasks (pure) — defaults, titles, who's assigned, what's missing, the one email
+│   ├── panelSettings.ts          Panel Settings (pure) — keys, defaults, reading Title/Value rows, the amber threshold rule
+│   ├── capacity.ts               SHARED capacity engine (pure) — generic work items + time off → per-person day/week load, amber >85% / red >100%, backlog
+│   ├── panelCapacity.ts          Panels' adapter: PanelTask → CapacityWorkItem (Engineering/Operations get one beside their mappers)
+│   ├── panelTaskStatus.ts        Panel task statuses (Wrike's Panel Workflow) — groups, open/done, old-four → new reading (pure)
+│   ├── panelTimeOff.ts           Panel Time Off on a calendar — a range on every day it covers, company holidays first, cell labels, search (pure)
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
 │   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
 │   ├── qcForms.ts                QC Forms registry — every form's spec, by route id; drives the landing page and /qc-forms/:formId
@@ -943,7 +956,11 @@ src/
 │   ├── TaskResolutionModal.tsx   "Mark complete" resolution capture
 │   ├── OperationsTaskFormModal.tsx  Create/edit Operations task
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
-│   ├── PanelTaskFormModal.tsx    Create/edit panel task
+│   ├── PanelTaskFormModal.tsx    Create/edit panel task (incl. start/due dates + estimated hours)
+│   ├── CapacityGrid.tsx          SHARED capacity screen body — Days/Weeks + navigation in the URL, grid, task bars, cell detail, backlog
+│   ├── PanelTeamGate.tsx         "Panel team only" gate for Capacity + Time Off
+│   ├── PanelTimeOffFormModal.tsx Add/edit/remove a Panel Time Off entry (defaultDate from the calendar)
+│   ├── MonthCalendar.tsx         SHARED month calendar + day panel — Where Am I? and Panel Time Off (grows to fit, "+N more", ?day= panel)
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
 │   ├── QcFormModal.tsx           Create/edit a test sheet for ANY QC form — spec driven; Enter-as-Tab, firing grid, Export (filled form) in edit mode
 │   ├── QcFormExportButton.tsx    Shared QC Forms export button — build a PDF, download it, toast a failure
@@ -1108,6 +1125,9 @@ src/
 │   ├── PanelOrderDetailView.tsx  Panel order detail
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
+│   ├── PanelCapacityView.tsx     Panel Engineering Capacity (/panels/capacity) — Panels' gate, header and data around the shared CapacityGrid
+│   ├── PanelTimeOffView.tsx      Panel Time Off (/panels/time-off) — month calendar + day panel (shared MonthCalendar); ?view=list / phone = sortable list
+│   ├── PanelTaskTemplatesView.tsx Panel Orders → Standard tasks (/panels/task-templates) — the tasks a new order raises; panel managers edit
 │   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
 │   ├── QcFormsView.tsx           QC Forms landing dashboard — search + a button per controlled form
 │   ├── QcFormView.tsx            /qc-forms/:formId — any QC form's sheet list (status lights, sortable, cards on a phone, blank export)
@@ -1144,7 +1164,7 @@ src/
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── MrbView.tsx               MRB register — Needs disposition / Decided / Archive / All
 │   ├── MrbDetailView.tsx         One MRB entry — Part / Nonconformance / Cost cards, attachments, comments
-│   ├── WhereAmIView.tsx          Where am I? — month grid (rows grow, +N more, day panel via ?day=) on desktop, agenda on a phone
+│   ├── WhereAmIView.tsx          Where am I? — the shared MonthCalendar (rows grow, +N more, day panel via ?day=) on desktop, agenda on a phone
 │   ├── AgendaView.tsx            /agenda — your tasks + EIRs overdue or coming due; window + Watching in the URL and remembered
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
 │   ├── FaitsView.tsx             FAITs list (Supply Chain)
@@ -6080,6 +6100,257 @@ rather than a bespoke multi-key sort, so it still plugs into the shared
 flipping direction reverses both the group order and the within-group date
 order together — accepted, since compressing two sort keys into one numeric
 value is the standard trade-off here).
+
+### Panel Engineering Capacity + Panel Time Off (Panels, panelTeam site)
+
+BusinessIT#42 (Ray's brainstorm on the issue; Tim, 2026-10-28). The panel team
+plans in Wrike's Workload chart today; this brings that into ARC. Panel Orders
+and Panel Tasks had never been used by the team, so their shape was free to
+change. Pieces: `lib/capacity.ts` (pure, every rule — SHARED),
+`components/CapacityGrid.tsx` (the screen body — SHARED), `lib/panelCapacity.ts`
+(the Panels adapter), `PanelCapacityView` (`/panels/capacity`),
+`PanelTimeOffView` (`/panels/time-off`), `api/panelTimeOff.ts`,
+`hooks/usePanelTimeOff.ts`, `PanelTeamGate`.
+
+**Built to serve Engineering and Operations tasks too** (Tim, 2026-10-28).
+The engine and the grid know nothing about Panels: they take
+`CapacityWorkItem`s (id, title, href, assignees, start, due, hours, done,
+context, statusLabel) and `CapacityTimeOff`s (`everyone` = a company holiday). To add capacity to another
+task system:
+
+1. Give its list a start date and estimated hours (Engineering tasks have
+   only `DueDate` today; check Operations), with a column script and a
+   real-mode `$select` test, the way Panel Tasks got them.
+2. Write an adapter beside its mapper — `lib/<dept>Capacity.ts`, like
+   `panelTaskWorkItem`: a source-prefixed `id` (`task:3344`), its `href`, and
+   what "done" means on that list (Complete? Closed? Cancelled?).
+3. A view that gates and fetches, then renders `<CapacityGrid>`; pass
+   `dailyHours` if that team's day isn't 8.
+4. Time off: Panel Time Off is the panel team's list. Engineering's Where am
+   I? has no person column, so it can't feed this; a company-wide time-off list
+   would be the shared answer — a decision, not a tidy-up.
+
+**Hover and planning live in the shared grid** (Tim, from Wrike, 2026-10-28).
+Each bar shows hours a day and has a hover card (title, `h/d · total`, dates,
+days off skipped, context). With `onSave`, the grid PLANS in day view:
+
+- **Drags are STAGED, never saved one by one** (Tim: an email per drag would
+  be a mess). The middle of a bar moves both dates, an end moves one
+  (`rescheduled` — never past the other end), a bar dropped on another
+  person's row swaps THAT row's person for the new one on the item, keeping
+  any other assignees (`reassigned` — the drag remembers the row it came
+  from), and a backlog task carried onto a person and a
+  day is assigned and scheduled — the WHOLE backlog row drags except its
+  title, whose own text is the link (Tim, 2026-10-28) (`placeOnDay`: undated → starts
+  the first working day there, `ceil(hours / dailyHours)` working days long;
+  dated → keeps its length).
+- **The plan is `Map<id, CapacityChange>` against the items AS SAVED**
+  (`mergeChange`): a field dragged back to its saved value drops out, so
+  dragging away and back is not a change. Cells, bars and the backlog show
+  the plan plus the live drag; changed bars get a dashed yellow outline.
+- **Save hands the lot to `onSave` at once**; ids it reports failed stay
+  staged. Discard clears it.
+- **An unsaved plan is KEPT, not blocked** (Tim, 2026-10-28: he left for the
+  Dashboard and lost one). ARC uses a `BrowserRouter`, which has no
+  `useBlocker`, so the Header's links can't be stopped; instead, with
+  `draftKey` the plan is written to localStorage
+  (`arc:capacity-plan:<key>`, `serializePlan` — dates as day keys) on every
+  change, read back on the next visit and announced ("kept from your last
+  visit"), pruned once the items load (`prunePlan`: gone, done or already
+  saved drops out), removed on Save/Discard, ignored after 7 days — the
+  `useDraft` rules. Without `draftKey` the old guard applies instead
+  (`beforeunload` + a confirm on links inside the grid).
+- **The person under the pointer comes from `data-person-id`** on every row
+  via `document.elementFromPoint`; the day from the headers' boxes
+  (`data-day-key`). Tests stub both (`CapacityGrid.test.tsx`).
+- Mouse and pen only — touch still opens the task, and the task page is the
+  keyboard path.
+
+Panels passes `onSave` only when `usePanelTeamAccess().canEdit`, through
+`useSavePanelTaskPlan`: the team rule asked in the mutationFn, ONE PATCH per
+task (`setPanelTaskPlan`: dates, Assigned in the multi-person two-key shape,
+new assignees folded into Watchers, refused if anybody is unresolvable on the
+panel site), one task at a time, then one assignment alert per task whose
+assignees changed (newly added people only), carrying its due date. A failed
+task doesn't stop the rest.
+
+**Several people can be assigned to a Panel Task** (Tim, 2026-10-29).
+`Assigned` became a MULTI-person column (`setup-panel-planning.ps1` step 6 —
+run before the deploy, since ARC now writes the multi shape). `PanelTask.assigned`
+is `Person[]`; the mapper reads either shape (an old single value is one
+person; a bare id gets its name joined, else `User #n`). The engine splits an
+item's hours evenly between its assignees (Wrike's rule, `hoursEach`), each
+share spread over that person's own working days and time off. A plan kept in
+the browser before this stored one `assignee`; `parsePlan` reads it as a
+one-person list. The Wrike import now assigns every resolved responsible.
+
+**Only the Engineer role gets a row** (Tim, 2026-10-29) — `onlyPeople` +
+`notOnGridReason` on the grid. An item shows on each engineer it names, at
+their share; an item naming NO engineer goes to the backlog with "Assigned to
+X, who isn't an Engineer on Panel User Roles" (never dropped), where dragging
+it onto an engineer REPLACES its assignees with that engineer (a backlog carry
+assigns; a bar drag swaps one person).
+
+**Amber is adjustable** (Tim, 2026-10-29): `CAPACITY_AMBER_RATIO` is only the
+default; `buildCapacity`/`CapacityGrid` take `amberRatio`. Panels keeps its
+value on the **Panel Settings** list (`VITE_SP_PANEL_SETTINGS_LIST_ID`, no
+default; Title = setting name, Value = text; `lib/panelSettings.ts` +
+`api/panelSettings.ts`). A whole percentage from 50 to 100; an unreadable
+value falls back to 85 rather than breaking the screen. Changed from the
+"Amber above N% · Change" control on the Capacity header, by a panel **Super
+User** or an ARC admin only (`canManageCapacity`,
+`useRequirePanelCapacityManager` inside the mutationFn). A setting's row is
+found by Title and updated, or added when missing.
+
+**Company holidays** (Tim, 2026-10-29): a Panel Time Off entry with
+`CompanyHoliday` = Yes and NO person (`TeamMember` stopped being required;
+setup step 5). The engine's `timeOffFor` gives an `everyone` entry to every
+row. Only a panel Super User or an ARC admin sees the form's "Company holiday"
+box, and adding, editing or removing a holiday asks
+`useRequirePanelCapacityManager` in the mutationFn (an existing entry is
+judged by its cached row). A write for a holiday clears `TeamMemberLookupId`
+and never resolves a person. Everyone else sees a holiday read-only.
+
+**Panel Tasks use the panel team's Wrike "Panel Workflow"** (Tim,
+2026-10-28) — 11 statuses in Wrike's four groups: Active (New, Pending
+Scheduling, Ready, In Progress, Revision Needed, Awaiting Pre-Req, Possible
+Support), Deferred (On Hold - Approval, On Hold - Internal), Completed,
+Canceled. `PANEL_TASK_STATUSES` + `PANEL_TASK_STATUS_GROUP` in types/task.ts;
+every "open / done" question goes through `lib/panelTaskStatus.ts`
+(Completed and Canceled are done; on-hold work still takes capacity). The
+SharePoint Status column must declare the same eleven —
+`scripts/set-panel-task-statuses.ps1` sets them (strict choice: an undeclared
+value is refused), and `-MigrateRows` moves rows still on the old four, which
+ARC reads as their match meanwhile (`normalisePanelTaskStatus`). Found via
+`/spaces/{id}/workflows`: the account `/workflows` endpoint returns only
+account-wide workflows, and 251 of 252 Wrike tasks used the space one.
+
+**Panel Time Off is a calendar like Where Am I?** (Tim, 2026-10-28). The month
+grid and day panel were LIFTED out of WhereAmIView into
+`components/MonthCalendar.tsx` (`MonthCalendar` + `CalendarDayPanel`, generic
+over the entry) rather than copied — a department can't import another's view,
+and two copies drift. Where Am I?'s tests passed unchanged across the move.
+A time-off row is a RANGE, so `panelTimeOffByDay` puts it on every day it
+covers (weekends included); a part day reads "Name · 4h". Without edit rights
+(`onAdd` omitted) there's no "+" and no click-to-add. A phone, and `?view=list`,
+get the sortable list.
+
+A view mixing two lists needs each item's assignee to carry an EMAIL:
+`samePerson` trusts lookupIds, which are only valid on one site.
+
+**Panel Tasks gained `StartDate`, `DueDate` (date-only) and `EstimatedHours`**
+— `scripts/add-panel-task-capacity-columns.ps1` adds them and **must run
+BEFORE the deploy that ships this**: the read `$select`s them, and selecting a
+column a list hasn't got 400s the whole read. The same script adds
+`LegacySource` + `ImportHash`, which only the Wrike import uses; ARC never
+selects them.
+
+The capacity rules (Wrike's "Basic" effort, decided with Tim):
+
+- **A task's hours are spread EVENLY over the working days (Mon–Fri)** from
+  start to due, inclusive. A task that started before the window counts at its
+  real daily share, not its whole total on day one.
+- **Capacity is 8h a day for everyone** (`PANEL_DAILY_CAPACITY_HOURS`), less
+  time off. No per-person capacity yet.
+- **Blue up to the amber threshold (85% by default), amber above it (Ray's
+  addition — Wrike has none), red over 100%** — 8.05h of 8h is red, Wrike's
+  rule. A week is the worst of its days.
+- **A WHOLE day off moves the task's hours onto the days around it; a PART day
+  only lowers that day's capacity.** Wrike skips non-working days the same way.
+- **Nothing is guessed onto the grid.** No assignee, no hours, or a missing
+  date → the backlog, with the reason. Complete tasks count nowhere.
+- **Day loads are kept UNROUNDED**; only display rounds. A week summed from
+  rounded days read 51.35h for 51.33h (caught by eye).
+- Rows: everyone with the **Engineer** role on Panel User Roles, and nobody
+  else (above). Generic callers that don't pass `onlyPeople` still add anyone
+  with work on screen.
+
+**Panel Time Off is its own list** (`VITE_SP_PANEL_TIME_OFF_LIST_ID`, no
+default — unset means "assume nobody is off"), created by
+`scripts/create-panel-time-off-list.ps1`. Engineering's Where am I? couldn't
+serve: no person column, one row per day. `TeamMember` is a single person —
+both halves selected, bare-integer write resolved on the PANEL site, refused
+when unresolvable. It has a delete (an intention, like Where am I?).
+
+**Access: Panel User Roles, plus ARC admins** (Tim: "limit the group but give
+an ARC admin the ability to add more people"). `panelTeamAccess` in
+`lib/panelRoles.ts`: any role opens; any role but **Viewer** edits; an ARC admin
+does both. Matched with `matchesAnyEmail` on every address. The menu entries
+and the Dashboard card show only to the team; the routes show "Panel team
+only". Time Off writes ask `useRequirePanelTeamEdit` INSIDE the mutationFn
+(awaits both lists; verified by breaking the Viewer rule). Two narrower
+rights sit beside it, asked the same way: `canManageTemplates` (Manager,
+Admin, Super User) for the standard tasks, and `canManageCapacity` (Super
+User only) for the amber threshold and company holidays; an ARC admin holds
+both. Panel Tasks themselves are NOT gated yet — **which fields each role
+edits is still Tim's to decide.**
+
+**A Panel Order raises its standard tasks** (Tim, 2026-10-29) — ARC's
+version of Wrike's "New Production Order" form + "Panel Blueprint - Production
+Job". Pieces: `lib/panelOrderTasks.ts` (pure), `api/panelTaskTemplates.ts`,
+`hooks/usePanelOrderTasks.ts`, `hooks/usePanelTaskTemplates.ts`,
+`PanelTaskTemplatesView` (`/panels/task-templates`, the "Standard tasks"
+button on Panel Orders). Rules:
+
+- **"Create standard tasks" on the New Order form, ticked by default.**
+  `useCreatePanelOrder` creates the order FIRST, then each active template in
+  SortOrder as a Panel Task — one at a time, best-effort: a refused task is
+  named in a toast and never fails the order. It returns `{ order, raised }`.
+- **Each task:** status New, the template's type and hours, NO dates (so it
+  waits in the Capacity backlog), the order's Project Reference, and
+  `PanelOrderRef` → the order (a single lookup, bare integer; a project can
+  carry several orders, so the project alone can't say which). Title is
+  "<project ref or order title> — <template>", like Wrike's Job # prefix.
+- **Assigned to the order's Engineer Assigned, or to nobody** when that's
+  blank. Any task can be reassigned on its own later; **changing the order's
+  engineer later does NOT move the tasks** (it would undo a deliberate
+  reassignment).
+- **ONE email to the engineer** listing every task, linked
+  (`buildOrderTasksAssignedEmails`, sent against the order so it threads with
+  it). It replaces the order's old "assigned to this order" alert, so the
+  engineer never gets two. None when the engineer raised the order.
+- **The order page's Tasks card** lists `tasksForOrder`; its "Create standard
+  tasks" / "Add missing standard tasks (N)" button raises only templates whose
+  task title isn't on the order yet (`missingTemplates`), so it is also the
+  retry after a partial failure and never doubles a task. A task's page links
+  back to its order.
+- **Panel Task Templates** (`VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID`, no default:
+  unset = the built-in four, read-only) — Title, TaskType, EstimatedHours,
+  SortOrder, Active. Seeded by the setup script ONLY while empty. It HAS a
+  delete: a task stores its own copy, so removing a template changes no task.
+  Edited by a panel **Manager, Admin or Super User**, or an ARC admin
+  (`canManageTemplates`, `useRequirePanelTemplateManager` in the mutationFn).
+  A short ordered list with up/down arrows — deliberately not a table.
+- **Task types BOM and Programming** were added for it (setup step 1).
+- **Work Type is Production Order** on every task an order raises.
+
+**Panel Tasks carry Wrike's two custom fields** (Tim, 2026-10-29): **Work
+Type** (`WorkType`: Production Order / Non-Production / Improvement /
+Internal) and **Priority** (`Priority`: High / Medium / Low) —
+`PANEL_TASK_WORK_TYPES` / `PANEL_TASK_PRIORITIES`, strict choice columns added
+by setup steps 7-8 (step 8 adds missing choices to a Priority column that's
+already there). Three options each, so pills (`ChoicePills`, with Not set) on
+the form and the task page; dot chips on the list and page header
+(`PanelWorkTypeChip` / `PanelPriorityChip`, colour on the dot only); list
+filters in the URL (`?workType=`, `?priority=`, `none` = not set). The
+mapper reads an unknown value as not set. The Wrike import maps both by the
+custom field's TITLE (read from the exported `/customfields`), leaving an
+unknown value blank with a note. SAP# and Project/Job are still unmapped.
+
+`scripts/setup-panel-planning.ps1` makes every SharePoint change above in one
+idempotent run (`-WhatIf` first): TaskType choices, PanelOrderRef, the
+Templates list (seeded), the Settings list, Time Off's CompanyHoliday +
+TeamMember not required, Assigned → multi, WorkType and Priority. **Run it BEFORE the deploy** —
+ARC's reads select PanelOrderRef and CompanyHoliday, and it writes Assigned in
+the multi shape. It prints the two new list ids for the repo variables.
+
+**Wrike import** — `scripts/import-wrike-panel-tasks.ps1` + `docs/WRIKE-IMPORT.md`.
+Re-runnable on purpose (Tim: pull during testing, run again before go-live):
+`-Export` (token from `$env:WRIKE_TOKEN`, raw JSON outside the repo) →
+`-Plan` → `-Apply`. Rows match on `LegacySource = wrike:<id>`; `ImportHash`
+holds the hash of what the import wrote, so a re-run **never overwrites a task
+somebody edited in ARC** — it lands in `conflicts.csv`. Nothing in it has run
+live yet.
 
 ### Panel QC Issue Tracker (Panels, panelTeam site)
 

@@ -20,6 +20,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.209.0",
+    date: "2026-10-30",
+    changes: [
+      "Panels: new Panel Engineering Capacity view shows each panel engineer's task hours day by day (or week by week) against 8 hours a day, blue up to 85%, amber over 85% and red over 100%",
+      "Capacity: everyone with the Engineer role on Panel User Roles gets a row; a task assigned to anyone else waits in the backlog, saying so, until it's dragged onto an engineer",
+      "Capacity: a panel Super User or an ARC admin can change where amber starts",
+      "Capacity: click a person to see their tasks as bars, or a day to see the tasks behind its hours; tasks without an assignee, dates or hours wait in a backlog that says what's missing",
+      "Capacity: hover a task bar to see its hours a day, total and dates",
+      "Capacity: plan in Days view by dragging — move a bar, drag an end to change its start or due date, drag a bar onto another person to hand their part of it over, or drag a backlog task onto a person and a day to assign and schedule it; the total hours stay the same and the hours a day adjust",
+      "Capacity: nothing is saved while you plan — press Save changes to save the lot, which is when the assignment emails go out (one per newly assigned task, with its due date), or Discard to throw the plan away; a plan you leave without saving is kept in your browser and comes back when you return",
+      "Panel Tasks use the panel team's Wrike Panel Workflow statuses — New, Pending Scheduling, Ready, In Progress, Revision Needed, Awaiting Pre-Req, Possible Support, Completed, On Hold - Approval, On Hold - Internal and Canceled — grouped as Active, On Hold, Completed and Canceled; the list's pills count by group, and a new task starts as New",
+      "Panel Tasks now have a start date, a due date and estimated hours, on the new-task form and the task page; the hours are spread evenly over the working days between the two dates",
+      "Panel Tasks can have more than one person assigned; Capacity splits the hours evenly between them",
+      "Panel Tasks gain the BOM and Programming task types",
+      "Panel Tasks gain Work Type (Production Order, Non-Production, Improvement / Internal) and Priority (High, Medium, Low), as in Wrike: picked on the new-task form and the task page, shown on the list, and filterable there; a Panel Order's standard tasks are Production Order",
+      "Creating a Panel Order can create its standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on the order's project with their usual hours, assigned to the order's engineer (or to nobody if none is picked); they wait in the Capacity backlog to be scheduled, and the engineer gets one email listing them",
+      "A Panel Order's page lists its tasks, and Create standard tasks adds any it's missing; a task's page links back to its order",
+      "Panel managers change the standard tasks — their names, types, hours and order — on the new Standard tasks screen, linked from Panel Orders",
+      "New Panel Time Off, the panel team's own \"Where am I?\": record who is out and for how many hours a day, and Capacity lowers their hours to match",
+      "Panel Time Off is a month calendar like Where Am I?: click a day's date to see everyone off that day, or the + on a day to add time off starting then; a List view shows past time off too",
+      "A panel Super User or an ARC admin can mark time off as a company holiday: no person to pick, and Capacity takes the day off everyone",
+      "Panel Engineering Capacity and Panel Time Off are for people on Panel User Roles and ARC admins; ARC admins add people there",
+    ],
+  },
+  {
     version: "0.208.0",
     date: "2026-10-29",
     changes: [

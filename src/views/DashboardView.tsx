@@ -29,6 +29,7 @@ import {
   HardHat,
   LayoutDashboard,
   ListChecks,
+  Gauge,
   Lock,
   MapPin,
   Megaphone,
@@ -70,6 +71,8 @@ import { useBuildRequestStatusChoices, useBuildRequests } from "@/hooks/useBuild
 import { withCurrentChoice } from "@/api/columnChoices";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
+import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
+import { isPanelTaskOpen } from "@/lib/panelTaskStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
@@ -227,10 +230,17 @@ const PANEL_ORDER_BAR_COLOR: Record<PanelOrderStatus, string> = {
 };
 
 const PANEL_TASK_BAR_COLOR: Record<PanelTaskStatus, string> = {
-  Pending: "bg-slate-400",
-  "In Process": "bg-ajax-yellow",
-  "On Hold": "bg-violet-500",
-  Complete: "bg-cooper-green",
+  New: "bg-slate-400",
+  "Pending Scheduling": "bg-slate-500",
+  Ready: "bg-cooper-green",
+  "In Progress": "bg-ajax-yellow",
+  "Revision Needed": "bg-cooper-red",
+  "Awaiting Pre-Req": "bg-superior-blue",
+  "Possible Support": "bg-violet-500",
+  Completed: "bg-cooper-green",
+  "On Hold - Approval": "bg-orange-500",
+  "On Hold - Internal": "bg-orange-400",
+  Canceled: "bg-slate-300",
 };
 
 /** Operations tasks have a single Assigned person, not Engineering's multi-person array. */
@@ -344,6 +354,7 @@ export function DashboardView() {
     refetch: refetchPanelOrders,
   } = panelOrdersQ;
   const panelTasksQ = usePanelTasks();
+  const panelTeam = usePanelTeamAccess();
   const {
     data: panelTasks = [],
     isError: panelTasksError,
@@ -591,10 +602,10 @@ export function DashboardView() {
     // this card — panel tasks reference the Panel Project Reference list.
     const active = panelTasks.filter(
       (t: PanelTask) =>
-        t.status !== "Complete" &&
-        (!mine || personMatchesSingle(t.assigned, myEmail) || personMatches(t.watchers, myEmail)),
+        isPanelTaskOpen(t.status) &&
+        (!mine || personMatches(t.assigned, myEmail) || personMatches(t.watchers, myEmail)),
     );
-    const segments: Segment[] = PANEL_TASK_STATUSES.filter((s) => s !== "Complete").map((s) => ({
+    const segments: Segment[] = PANEL_TASK_STATUSES.filter(isPanelTaskOpen).map((s) => ({
       label: s,
       count: active.filter((t) => t.status === s).length,
       color: PANEL_TASK_BAR_COLOR[s],
@@ -947,6 +958,17 @@ export function DashboardView() {
           to={panelTasksUrl}
           onClick={() => navigate(panelTasksUrl)}
         />
+        {/* Panel team only (BusinessIT#42). Blue like Panel Tasks: its numbers ARE those tasks. */}
+        {panelTeam.canOpen && (
+          <TypeCard
+            name="Panel Engineering Capacity"
+            icon={<Gauge className="h-5 w-5" />}
+            tone="superior-blue"
+            description="Who on the panel team is overloaded, day by day — tasks' hours against capacity and time off."
+            to="/panels/capacity"
+            onClick={() => navigate("/panels/capacity")}
+          />
+        )}
         <TypeCard
           name="QC Time Tracking"
           icon={<Timer className="h-5 w-5" />}

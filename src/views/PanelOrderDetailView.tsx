@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
@@ -8,6 +8,8 @@ import {
   FolderOpen,
   Hash,
   ListChecks,
+  ListTodo,
+  Loader2,
   Mail,
   Pencil,
   User,
@@ -28,8 +30,13 @@ import {
 } from "@/hooks/usePanelOrders";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAdmins } from "@/hooks/useAdmins";
-import type { Comment, Person } from "@/types/task";
-import { PanelOrderStatusBadge } from "@/components/panelAtoms";
+import type { Comment, PanelOrder, PanelTask, Person } from "@/types/task";
+import { PanelOrderStatusBadge, PanelTaskStatusBadge } from "@/components/panelAtoms";
+import { usePanelTasks } from "@/hooks/usePanelTasks";
+import { usePanelTaskTemplates } from "@/hooks/usePanelTaskTemplates";
+import { useRaiseMissingStandardTasks } from "@/hooks/usePanelOrderTasks";
+import { missingTemplates, tasksForOrder } from "@/lib/panelOrderTasks";
+import { formatHours } from "@/lib/capacity";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
@@ -223,6 +230,8 @@ export function PanelOrderDetailView() {
             </div>
             <InlineTitle value={order.title} onSave={(next) => patch({ Title: next })} />
           </div>
+
+          <OrderTasksCard order={order} />
 
           {/* Order Notes — supports `- [ ]` checklists (stamps + confirm on uncheck). */}
           <OrderNotesCard
@@ -548,6 +557,75 @@ function OrderNotesCard({
         <div className="text-sm text-fg-muted">No order notes.</div>
       )}
     </div>
+  );
+}
+
+/**
+ * The tasks raised for this order (Tim, 2026-10-29), and the way to raise the
+ * standard ones it's missing — for an order made before this existed, or one
+ * whose tasks didn't all save. Only what's missing is raised, assigned to the
+ * order's engineer as it stands now.
+ */
+function OrderTasksCard({ order }: { order: PanelOrder }) {
+  const { data: allTasks = [], isLoading, isError } = usePanelTasks();
+  const { data: templates = [] } = usePanelTaskTemplates();
+  const raise = useRaiseMissingStandardTasks();
+  const tasks = tasksForOrder(allTasks, order.id);
+  const missing = isLoading || isError ? [] : missingTemplates(order, templates, tasks);
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h2 className="flex items-center gap-1.5 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+          <ListTodo className="h-4 w-4" /> Tasks
+        </h2>
+        {missing.length > 0 && (
+          <button
+            type="button"
+            onClick={() => raise.mutate({ order, existing: tasks })}
+            disabled={raise.isPending}
+            title={`Adds ${missing.map((t) => t.title).join(", ")}${
+              order.engineerAssigned ? `, assigned to ${order.engineerAssigned.displayName}` : ", unassigned"
+            }`}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
+          >
+            {raise.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {tasks.length === 0
+              ? "Create standard tasks"
+              : `Add missing standard task${missing.length === 1 ? "" : "s"} (${missing.length})`}
+          </button>
+        )}
+      </div>
+      {isLoading ? (
+        <p className="text-sm text-fg-muted">Loading tasks…</p>
+      ) : isError ? (
+        <p className="text-sm text-cooper-red">Couldn't load the panel tasks.</p>
+      ) : tasks.length === 0 ? (
+        <p className="text-sm text-fg-muted">No tasks have been raised for this order.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {tasks.map((t) => (
+            <OrderTaskRow key={t.id} task={t} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function OrderTaskRow({ task }: { task: PanelTask }) {
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+      <PanelTaskStatusBadge status={task.status} />
+      <Link to={`/panels/task/${task.id}`} className="min-w-0 flex-1 truncate font-medium text-fg hover:underline">
+        {task.title}
+      </Link>
+      <span className="text-xs text-fg-muted">
+        {task.assigned.map((p) => p.displayName).join(", ") || "Unassigned"}
+        {task.estimatedHours !== null && ` · ${formatHours(task.estimatedHours)}`}
+        {task.dueDate && ` · due ${task.dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}`}
+      </span>
+    </li>
   );
 }
 

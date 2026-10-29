@@ -2952,7 +2952,7 @@ const SECTIONS: ManualSection[] = [
       "panel team",
     ],
     searchText:
-      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. The Open pill counts everything not Shipped. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
+      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
     render: () => (
       <>
         <P>
@@ -2983,6 +2983,31 @@ const SECTIONS: ManualSection[] = [
           contact email, engineer, and order notes — is optional and can be
           edited later from the detail page. New orders start as{" "}
           <strong>Submitted</strong> and you're auto-added as a watcher.
+        </P>
+        <H3>Standard tasks</H3>
+        <P>
+          <strong>Create standard tasks</strong>, ticked by default on the New
+          Panel Order form, also creates the order's tasks — what Wrike's New
+          Production Order form and blueprint did: <strong>Drawing
+          Creation</strong>, <strong>BOM Creation</strong>,{" "}
+          <strong>SOO Creation</strong> and <strong>Programming</strong>, each
+          with its usual hours, on the order's project and linked to the
+          order. If you pick an <strong>Engineer Assigned</strong>, every task
+          is assigned to them, and they get one email listing them all; leave
+          it blank and the tasks are unassigned. Either way they have no dates
+          yet, so they wait in the Panel Engineering Capacity backlog to be
+          dragged onto a day. Any task can be reassigned on its own later, and
+          changing the order's engineer afterwards doesn't move them.
+        </P>
+        <P>
+          The order's page has a <strong>Tasks</strong> card listing them.
+          For an order made before this, or one whose tasks didn't all save,{" "}
+          <strong>Create standard tasks</strong> there adds only the ones it's
+          missing. A panel Manager, Admin or Super User, or an ARC admin,
+          changes the list itself — the tasks' names, types, hours and order —
+          on the <strong>Standard tasks</strong> screen, from the button on
+          Panel Orders. A change applies to new orders; tasks already created
+          keep what they were given.
         </P>
         <H3>The detail page</H3>
         <P>
@@ -3028,7 +3053,7 @@ const SECTIONS: ManualSection[] = [
       "panel work",
     ],
     searchText:
-      "Panel Tasks is the panel team's task list on the ALTRONICPANELTEAM SharePoint site — drawings, SOOs, quotes, and administrative work. Each task has a title, status (Pending, In Process, On Hold, Complete), a Task Type (Drawings, SOO, Quote, Administrative), a single Assigned person, a project reference picked from the same Panel Project Reference list panel orders use, a Description that supports checklists, watchers, attachments, and comments with @-mentions. Reach it from the Dashboard's Panel Tasks card or the Departments dropdown's Panels group. Create with New Panel Task; new tasks start Pending and you're auto-added as a watcher. The Open pill counts everything not Complete. Status changes, assignee changes, comments, and checklist toggles send email like the other departments.",
+      "Panel Tasks is the panel team's task list on the ALTRONICPANELTEAM SharePoint site — drawings, SOOs, quotes, and administrative work. Each task has a title, a status from the panel team's Panel Workflow (New, Pending Scheduling, Ready, In Progress, Revision Needed, Awaiting Pre-Req, Possible Support, Completed, On Hold - Approval, On Hold - Internal, Canceled — grouped Active, On Hold, Completed, Canceled), a Task Type (Drawings, SOO, Quote, Administrative), a single Assigned person, a project reference picked from the same Panel Project Reference list panel orders use, a Description that supports checklists, watchers, attachments, and comments with @-mentions. Reach it from the Dashboard's Panel Tasks card or the Departments dropdown's Panels group. Create with New Panel Task; new tasks start New and you're auto-added as a watcher. The Open pill counts everything not Completed or Canceled; the other pills count each group. Status changes, assignee changes, comments, and checklist toggles send email like the other departments.",
     render: () => (
       <>
         <P>
@@ -3041,8 +3066,13 @@ const SECTIONS: ManualSection[] = [
         <H3>The task list</H3>
         <P>
           Status pills sit above the list — <strong>Open</strong> counts
-          everything not yet Complete, and one pill each for Pending, In
-          Process, On Hold, and Complete. The filter bar adds Project
+          everything not yet Completed or Canceled, then one pill per status
+          group: <strong>Active</strong> (New, Pending Scheduling, Ready, In
+          Progress, Revision Needed, Awaiting Pre-Req, Possible Support),{" "}
+          <strong>On Hold</strong> (On Hold - Approval, On Hold - Internal),{" "}
+          <strong>Completed</strong> and <strong>Canceled</strong>. These are
+          the panel team's Panel Workflow from Wrike, grouped the way Wrike
+          groups them. The filter bar adds Project
           Reference, Assigned, and the multi-keyword Search; all filters live
           in the URL so a filtered view is shareable. The Dashboard card's
           click-through carries your <em>mine</em> scope as a dismissible chip
@@ -3051,9 +3081,18 @@ const SECTIONS: ManualSection[] = [
         <H3>Creating &amp; working a task</H3>
         <P>
           Click <strong>New Panel Task</strong>. Only the title is required;
-          Task Type, Assigned person, project reference, and description are
-          optional and editable later. New tasks start as{" "}
-          <strong>Pending</strong> and you're auto-added as a watcher. On the
+          Task Type, Assigned, project reference, and description are
+          optional and editable later. A task can have{" "}
+          <strong>more than one person assigned</strong>; Panel Engineering
+          Capacity splits its hours evenly between them. The types are
+          Drawings, BOM, SOO, Programming, Quote and Administrative.{" "}
+          <strong>Work Type</strong> (Production Order, Non-Production,
+          Improvement / Internal) and <strong>Priority</strong> (High, Medium,
+          Low) are the panel team's Wrike fields: pick them as pills on the
+          form or in the task page's sidebar, see them as chips on the list,
+          and filter the list by either. A Panel Order's standard tasks are
+          Production Order. New tasks start as{" "}
+          <strong>New</strong> and you're auto-added as a watcher. On the
           detail page everything edits in place — the title inline, the
           sidebar's Status / Task Type / Project Reference / Assigned fields
           directly, and the <strong>Description</strong> as a card that
@@ -3063,6 +3102,149 @@ const SECTIONS: ManualSection[] = [
           department. Panel tasks share the <em>Panel Project Reference</em>{" "}
           list with panel orders, and admins manage it at{" "}
           <code>/admin/panel-projects</code>.
+        </P>
+        <H3>Scheduling a task</H3>
+        <P>
+          A task also has a <strong>Start date</strong>, a{" "}
+          <strong>Due date</strong> and <strong>Estimated hours</strong>, on
+          the New Panel Task form and in the task page's sidebar. With an
+          assignee, both dates and the hours, the task appears on{" "}
+          <strong>Panel Engineering Capacity</strong>; the sidebar says whether it's
+          there and, if not, what's missing.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-capacity",
+    title: "Panel Engineering Capacity & Panel Time Off",
+    group: "Panels",
+    keywords: [
+      "capacity",
+      "workload",
+      "overloaded",
+      "wrike",
+      "time off",
+      "vacation",
+      "pto",
+      "where am i",
+      "estimated hours",
+      "backlog",
+      "company holiday",
+      "holiday",
+      "amber",
+      "engineer",
+    ],
+    searchText:
+      "Panel Engineering Capacity shows each panel engineer's task hours day by day or week by week against 8 hours a day less time off. Everyone with the Engineer role on Panel User Roles gets a row; a task assigned only to people who aren't engineers waits in the backlog until it's dragged onto one. A task's estimated hours are spread evenly over the working days, Monday to Friday, between its start and due dates, and split evenly between its assignees. Blue is up to 85% of capacity, amber over 85%, red over 100%; a week is red if any day in it is. A panel Super User or an ARC admin can change where amber starts. A company holiday takes the day off everyone. Click a person to see their task bars, click a day to see the tasks behind it. Hover a bar for its hours a day and total. In Days view, plan by dragging: move a bar, drag an end to change a date, drag a bar onto another person, or drag a backlog task onto a person and a day. Nothing saves until Save changes, which is when the assignment emails go out; Discard throws the plan away. Tasks with no assignee, dates or hours wait in the backlog with the reason. Complete tasks don't count. Panel Time Off records who is out, the first and last day, and hours off each day; a whole day off moves the person's task hours to the days around it, a part day lowers that day's capacity. A panel Super User or an ARC admin can mark an entry as a company holiday, with no person; it applies to everyone. Both are for people on Panel User Roles and ARC admins; Viewers can look but not change time off.",
+    render: () => (
+      <>
+        <P>
+          <strong>Panel Engineering Capacity</strong> answers "who on the panel team
+          is overloaded, and when". Each row is an engineer, each column a day
+          (or, with <strong>Weeks</strong>, a week), and each cell is the
+          hours their tasks need that day against 8 hours, less any time off.
+          Reach it from the Dashboard card or the Departments menu's Panels
+          group; <strong>Today</strong> and the arrows move through the
+          weeks.
+        </P>
+        <H3>How the hours are worked out</H3>
+        <P>
+          A task's estimated hours are spread evenly over the working days
+          (Monday to Friday) from its start date to its due date. With more
+          than one person assigned, the hours are split evenly between them,
+          as Wrike does — a 20-hour task for two people is 10 hours each, each
+          share spread over that person's own days. A cell is{" "}
+          <strong>blue</strong> up to 85% of the day's capacity,{" "}
+          <strong>amber</strong> over 85%, and <strong>red</strong> over 100%,
+          marked with a "!". In week view a week is red if any day in it is,
+          because a full week can still hide one overloaded day. Completed and
+          Canceled tasks don't count.
+        </P>
+        <P>
+          Only people with the <strong>Engineer</strong> role on Panel User
+          Roles get a row. A task whose assignees include an engineer shows on
+          that engineer's row, at their share; a task assigned only to people
+          who aren't engineers waits in the backlog, saying so, until it's
+          dragged onto one.
+        </P>
+        <P>
+          Where amber starts is shown above the grid. A panel{" "}
+          <strong>Super User</strong> or an ARC admin can press{" "}
+          <strong>Change</strong> beside it and set a whole percentage from 50
+          to 100; it changes for everyone.
+        </P>
+        <H3>Seeing what's behind a number</H3>
+        <P>
+          Click a person's name to see their tasks as bars across the days
+          they span, or <strong>Expand all</strong> for everyone. Click a cell
+          to list the tasks behind its hours. Tasks with no assignee, no dates
+          or no estimated hours can't be placed, so they wait in the{" "}
+          <strong>Backlog</strong> under the grid, each with what's missing.
+        </P>
+        <H3>Planning on the grid</H3>
+        <P>
+          Hover a task bar to see its hours a day, its total and its dates.
+          In <strong>Days</strong> view you can plan by dragging:
+        </P>
+        <ul className="mb-3 ml-5 list-disc space-y-1 text-sm text-fg">
+          <li>Drag a bar to move the task; drag its left or right end to change the start or due date.</li>
+          <li>
+            Drag a bar onto another person's row to hand that person's part of the task over —
+            the other assignees stay on it.
+          </li>
+          <li>
+            Drag a <strong>Backlog</strong> task onto a person and a day to assign it to
+            them and schedule it — grab it anywhere on its row except the title, which opens the task. A
+            task with no dates starts that day and runs as many days as its hours
+            need at 8 a day; one with dates keeps its length.
+          </li>
+        </ul>
+        <P>
+          <strong>Nothing is saved while you plan.</strong> The cells
+          recalculate as you go and changed tasks are outlined; a bar at the
+          top counts the unsaved changes. Press{" "}
+          <strong>Save changes</strong> to save them all, which is when the
+          assignment emails go out (one per newly assigned task, with its
+          due date), or <strong>Discard</strong> to throw the plan away.
+          If you leave the page before saving, the plan is kept in this
+          browser and comes back next time, marked "kept from your last
+          visit" (for up to a week; anything since finished or saved
+          elsewhere drops out). Escape cancels a drag. The total hours never change, so a longer task has
+          fewer hours a day. Dragging works with a mouse; on a phone or
+          tablet, change the task on its own page. Viewers can't drag.
+        </P>
+        <H3>Panel Time Off</H3>
+        <P>
+          <strong>Panel Time Off</strong> is the panel team's own "Where am
+          I?". Add who is out, the first and last day, and the hours off each
+          day (blank means the whole day). A whole day off moves that
+          person's task hours onto the days around it and shows as "Off"; a
+          part day only lowers that day's capacity. On a computer it's a month
+          calendar, like Where Am I?: each time off shows on every day it
+          covers, with the hours for a part day. Click a day's date to see
+          everyone off that day in a panel beside the calendar, or the{" "}
+          <strong>+</strong> on a day (or the empty part of it) to add time off
+          starting that day; click an entry to change or remove it.{" "}
+          <strong>List</strong> shows the same entries as a table, opening on
+          what's current or coming up; tick <strong>Show past</strong> for the
+          rest. A phone shows the list.
+        </P>
+        <P>
+          A panel <strong>Super User</strong> or an ARC admin also sees{" "}
+          <strong>Company holiday</strong> on the form. Ticking it drops the
+          person: the entry is everyone's, shows first on its days as
+          "Company holiday", and takes the day off every engineer on the
+          capacity grid. Anyone else sees a company holiday but can't change
+          it.
+        </P>
+        <H3>Who can use them</H3>
+        <P>
+          Both are for people on <strong>Panel User Roles</strong> and for ARC
+          admins, who add people there (Admin → Panel User Roles). Anyone with
+          a role can look; a Viewer can't add or change time off. Changing
+          where amber starts and entering company holidays is for a panel
+          Super User or an ARC admin.
         </P>
       </>
     ),

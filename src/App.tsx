@@ -369,6 +369,15 @@ const PanelTaskDetailView = lazy(() =>
     default: m.PanelTaskDetailView,
   })),
 );
+const PanelCapacityView = lazy(() =>
+  import("@/views/PanelCapacityView").then((m) => ({ default: m.PanelCapacityView })),
+);
+const PanelTaskTemplatesView = lazy(() =>
+  import("@/views/PanelTaskTemplatesView").then((m) => ({ default: m.PanelTaskTemplatesView })),
+);
+const PanelTimeOffView = lazy(() =>
+  import("@/views/PanelTimeOffView").then((m) => ({ default: m.PanelTimeOffView })),
+);
 const QcTimeTrackingView = lazy(() =>
   import("@/views/QcTimeTrackingView").then((m) => ({ default: m.QcTimeTrackingView })),
 );
@@ -1242,6 +1251,30 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="this panel task" />}>
                   <PanelTaskDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/capacity"
+              element={
+                <Suspense fallback={<LoadingTasks noun="panel capacity" />}>
+                  <PanelCapacityView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/task-templates"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the standard tasks" />}>
+                  <PanelTaskTemplatesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/time-off"
+              element={
+                <Suspense fallback={<LoadingTasks noun="panel time off" />}>
+                  <PanelTimeOffView />
                 </Suspense>
               }
             />
