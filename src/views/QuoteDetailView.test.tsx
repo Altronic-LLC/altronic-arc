@@ -220,7 +220,7 @@ describe("QuoteDetailView — editing a Sent quote", () => {
     expect(await screen.findByRole("dialog", { name: "Edit IQ-COO-0001-R1" })).toBeInTheDocument();
   });
 
-  it("guards line and lead-time edits too", async () => {
+  it("guards line and alternates edits too", async () => {
     renderQuote(1);
     await waitForWorksheet();
     await userEvent.click(screen.getByRole("button", { name: "Add line" }));
@@ -229,7 +229,7 @@ describe("QuoteDetailView — editing a Sent quote", () => {
     await userEvent.click(screen.getByRole("button", { name: "Edit line 791950-08" }));
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    await userEvent.click(screen.getByRole("button", { name: "Edit lead times" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit alternates" }));
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
   });
 
@@ -331,36 +331,37 @@ describe("QuoteDetailView — customer reference and customer notes", () => {
   });
 });
 
-describe("QuoteDetailView — lead times", () => {
-  it("everyone sees the table; a quoter edits it, pasting rows from Excel", async () => {
+describe("QuoteDetailView — alternates", () => {
+  it("everyone sees the table; a quoter edits it, pasting three-option rows from Excel", async () => {
     who.email = QUOTER;
     renderQuote(2);
     await waitForWorksheet();
-    const card = screen.getByRole("region", { name: "Lead times" });
-    expect(within(card).getByText("693005-1")).toBeInTheDocument();
-    expect(within(card).getByText(/second supplier/)).toBeInTheDocument();
+    const card = screen.getByRole("region", { name: "Alternates" });
+    for (const header of ["Option 1", "Option 2", "Option 3", "Reason for the alternate"]) {
+      expect(within(card).getByText(header)).toBeInTheDocument();
+    }
+    expect(within(card).getAllByText("Manufacturer")).toHaveLength(3);
+    expect(within(card).getByText("MS3106A-20-27S")).toBeInTheDocument();
+    expect(within(card).getByText(/ships in 3 weeks instead of 22/)).toBeInTheDocument();
 
-    await userEvent.click(within(card).getByRole("button", { name: "Edit lead times" }));
-    const dialog = await screen.findByRole("dialog", { name: "Edit lead times" });
+    await userEvent.click(within(card).getByRole("button", { name: "Edit alternates" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit alternates" });
     await userEvent.click(within(dialog).getByRole("button", { name: /Paste from Excel/ }));
-    const paste = within(dialog).getByLabelText("Paste from Excel");
-    await userEvent.click(paste);
-    await userEvent.paste("610225-2\tPickup sensor\t4 weeks\tAlternate magnet, same spec");
+    await userEvent.click(within(dialog).getByLabelText("Paste from Excel"));
+    await userEvent.paste("Vishay\tCRCW0603\t4 weeks\tYageo\tRC0603\tStock\t\t\t\tYageo is in stock");
     await userEvent.click(within(dialog).getByRole("button", { name: "Add rows" }));
     expect(within(dialog).getByRole("status")).toHaveTextContent("Added 1 row.");
+    // Typed by hand into the new row's third option.
+    await userEvent.type(within(dialog).getByLabelText("Row 3 option 3 Manufacturer"), "Bourns");
     await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() =>
-      expect(quoteMockDb.quotes.find((q) => q.id === 2)!.leadTimes.map((r) => r.partNumber)).toEqual([
-        "791950-08",
-        "693005-1",
-        "610225-2",
-      ]),
-    );
-    expect(quoteMockDb.quotes.find((q) => q.id === 2)!.leadTimes[2]).toEqual({
-      partNumber: "610225-2",
-      description: "Pickup sensor",
-      leadTime: "4 weeks",
-      reason: "Alternate magnet, same spec",
+    await waitFor(() => expect(quoteMockDb.quotes.find((q) => q.id === 2)!.alternates).toHaveLength(3));
+    expect(quoteMockDb.quotes.find((q) => q.id === 2)!.alternates[2]).toEqual({
+      sources: [
+        { manufacturer: "Vishay", partNumber: "CRCW0603", leadTime: "4 weeks" },
+        { manufacturer: "Yageo", partNumber: "RC0603", leadTime: "Stock" },
+        { manufacturer: "Bourns", partNumber: "", leadTime: "" },
+      ],
+      reason: "Yageo is in stock",
     });
   });
 
@@ -368,20 +369,20 @@ describe("QuoteDetailView — lead times", () => {
     who.email = VIEWER;
     renderQuote(2);
     await waitForWorksheet();
-    const card = screen.getByRole("region", { name: "Lead times" });
-    expect(within(card).getByText("693005-1")).toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: "Edit lead times" })).toBeNull();
+    const card = screen.getByRole("region", { name: "Alternates" });
+    expect(within(card).getByText("MS3106A-20-27S")).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Edit alternates" })).toBeNull();
   });
 
   it("a table ARC couldn't read is said, and can't be edited", async () => {
     const row = quoteMockDb.quotes.find((q) => q.id === 2)!;
-    row.leadTimesCorrupt = true;
-    row.leadTimes = [];
+    row.alternatesCorrupt = true;
+    row.alternates = [];
     renderQuote(2);
     await waitForWorksheet();
-    const card = screen.getByRole("region", { name: "Lead times" });
+    const card = screen.getByRole("region", { name: "Alternates" });
     expect(within(card).getByRole("alert")).toHaveTextContent(/couldn't be read/);
-    expect(within(card).queryByRole("button", { name: "Edit lead times" })).toBeNull();
+    expect(within(card).queryByRole("button", { name: "Edit alternates" })).toBeNull();
   });
 });
 

@@ -90,7 +90,7 @@ function model(overrides: Partial<QuotePdfModel> = {}): QuotePdfModel {
     quoteTotal: 15833.2,
     budgetary: null,
     quoteNotes: "Lead time six weeks ARO.",
-    leadTimes: [],
+    alternates: [],
     ...overrides,
   };
 }
@@ -359,18 +359,36 @@ describe("the quote PDF", () => {
     expect(without.text).not.toContain("REFERENCE");
   });
 
-  it("prints the lead-time table on a page of its own, and adds no page without one", async () => {
-    const leadTimes = [
-      { partNumber: "693005-1", description: "Primary harness", leadTime: "3 weeks", reason: "Second source" },
-      { partNumber: "791950-08", description: "CPU-95 module", leadTime: "6-8 weeks", reason: "" },
+  it("prints the alternates on a page of its own — three options and the reason — and adds no page without them", async () => {
+    const alternates = [
+      {
+        sources: [
+          { manufacturer: "TE Connectivity", partNumber: "1-1437290-3", leadTime: "22 weeks" },
+          { manufacturer: "Amphenol", partNumber: "MS3106A-20-27S", leadTime: "3 weeks" },
+          { manufacturer: "", partNumber: "", leadTime: "" },
+        ],
+        reason: "Equivalent, ships sooner",
+      },
     ];
-    const { text, pages } = await render(model({ leadTimes }));
+    const { text, pages } = await render(model({ alternates }));
     expect(pages).toBe(2);
     // Each page's runs are written in order, footer last — so everything
     // after "Page 1 of 2" is page two.
     const pageTwo = text.slice(text.indexOf("Page 1 of 2"));
-    expect(text.indexOf("Lead times")).toBeGreaterThan(text.indexOf("Page 1 of 2"));
-    for (const value of ["Part #", "Lead time", "Notes", "693005-1", "Primary harness", "3 weeks", "Second source", "6-8 weeks"]) {
+    expect(text.indexOf("Alternates")).toBeGreaterThan(text.indexOf("Page 1 of 2"));
+    for (const value of [
+      "Option 1",
+      "Option 2",
+      "Option 3",
+      "Reason for the alternate",
+      "TE Connectivity",
+      "1-1437290-3",
+      "Lead time: 22 weeks",
+      "Amphenol",
+      "MS3106A-20-27S",
+      "Lead time: 3 weeks",
+      "Equivalent, ships sooner",
+    ]) {
       expect(pageTwo).toContain(value);
     }
     expect(text).toContain("Page 2 of 2");

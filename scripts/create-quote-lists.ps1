@@ -16,7 +16,7 @@
                            unique); QuoteBase (indexed), Rev, CustomerRef,
                            Status, ValidityDays, ContactName, ContactEmail,
                            Budgetary, BudgetaryText, QuoteNotes,
-                           CustomerReference, LeadTimes (JSON), Communication,
+                           CustomerReference, Alternates (JSON), Communication,
                            Watchers, EngineeringTaskId, OperationsTaskId
                            (numbers — a task's item id), EngineeringProjectRef,
                            OperationsProjectRef (project titles)
@@ -29,7 +29,7 @@
                            line), ManualPrice, CustomerPrice
 
     COLUMNS ADDED IN v0.209.0 (Ray, 2026-10-29) — CustomerReference,
-    LeadTimes, EngineeringTaskId, OperationsTaskId and OperationsProjectRef on
+    Alternates, EngineeringTaskId, OperationsTaskId and OperationsProjectRef on
     Quotes, and LaborCost on Quote Assemblies. ARC selects them, and selecting
     a column a list hasn't got 400s the WHOLE read, so re-run this script
     against the live lists BEFORE that version deploys.
@@ -202,8 +202,9 @@ $Lists = @(
             (Note "QuoteNotes" "Quote Notes"),
             # Printed on the customer's quote.
             (Text "CustomerReference" "Customer Reference"),
-            # JSON: the page-two lead-time table. Plain text, never rich.
-            (Note "LeadTimes" "Lead Times"),
+            # JSON: the page-two Alternates table (three manufacturer options
+            # + a reason per row). Plain text, never rich.
+            (Note "Alternates" "Alternates"),
             (Communication),
             (People "Watchers" "Watchers"),
             # A task's ITEM ID. Number, not Hyperlink — Graph can't write a
@@ -527,7 +528,7 @@ Write-Host "  the second must REPLACE the stored value, not double the thread." 
 
 Write-Host "`nWRITE / READ-BACK CHECK: a 2xx from a write is not proof a value landed (the DisplayName trap)." -ForegroundColor Yellow
 Write-Host "  Before building on these lists, write one value into each column through Graph and read it back" -ForegroundColor Yellow
-Write-Host "  — at minimum PersonName on Quote Roles, the lookups (bare integers), LaborCost, LeadTimes and the task ids." -ForegroundColor Yellow
+Write-Host "  — at minimum PersonName on Quote Roles, the lookups (bare integers), LaborCost, Alternates and the task ids." -ForegroundColor Yellow
 
 Write-Host "`nList ids — add to .env.local, to the GitHub repo variables, and to deploy.yml's named list:" -ForegroundColor Cyan
 foreach ($spec in $Lists) { Write-Host "  $($spec.envVar)=$($listIds[$spec.name])" -ForegroundColor Green }

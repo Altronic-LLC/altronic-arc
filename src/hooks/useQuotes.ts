@@ -6,7 +6,7 @@ import {
   editQuoteComment,
   getQuote,
   listQuotes,
-  LeadTimesUnreadableError,
+  AlternatesUnreadableError,
   setQuoteWatchers,
   updateQuoteFields,
   type QuoteCommentInput,
@@ -174,7 +174,7 @@ export function useUpdateQuoteFields() {
     onError: (err: unknown, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(QUOTES_KEY, ctx.previous);
       errorToast(
-        err instanceof LeadTimesUnreadableError
+        err instanceof AlternatesUnreadableError
           ? err.message
           : describeListWriteFailure(err, { action: "save that change", site: QUOTE_SITE_LABEL, permission: "editing" }),
       );

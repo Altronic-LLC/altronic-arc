@@ -24,11 +24,25 @@ function quote(over: Partial<Quote> = {}): Quote {
     budgetaryText: "",
     quoteNotes: "  Lead time 6 weeks ARO.  ",
     customerReference: "  RFQ 4471 — retrofit  ",
-    leadTimes: [
-      { partNumber: " 693005-1 ", description: "Harness", leadTime: "3 weeks", reason: "Second source" },
-      { partNumber: "", description: "", leadTime: "  ", reason: "" },
+    alternates: [
+      {
+        sources: [
+          { manufacturer: " TE ", partNumber: "1-1437290-3", leadTime: "22 weeks" },
+          { manufacturer: "Amphenol", partNumber: "MS3106A", leadTime: "3 weeks" },
+          { manufacturer: "", partNumber: "", leadTime: "" },
+        ],
+        reason: " Second source ",
+      },
+      {
+        sources: [
+          { manufacturer: "", partNumber: "", leadTime: "  " },
+          { manufacturer: "", partNumber: "", leadTime: "" },
+          { manufacturer: "", partNumber: "", leadTime: "" },
+        ],
+        reason: "",
+      },
     ],
-    leadTimesCorrupt: false,
+    alternatesCorrupt: false,
     comments: [
       {
         timestamp: new Date("2026-10-01T12:00:00Z"),
@@ -166,7 +180,16 @@ describe("buildQuotePdfModel", () => {
       budgetary: null,
       quoteNotes: "Lead time 6 weeks ARO.",
       // Trimmed, blank rows dropped.
-      leadTimes: [{ partNumber: "693005-1", description: "Harness", leadTime: "3 weeks", reason: "Second source" }],
+      alternates: [
+        {
+          sources: [
+            { manufacturer: "TE", partNumber: "1-1437290-3", leadTime: "22 weeks" },
+            { manufacturer: "Amphenol", partNumber: "MS3106A", leadTime: "3 weeks" },
+            { manufacturer: "", partNumber: "", leadTime: "" },
+          ],
+          reason: "Second source",
+        },
+      ],
     });
   });
 
@@ -361,7 +384,7 @@ describe("buildQuotePdfModel", () => {
           "customerNumber",
           "expiryDate",
           "issueDate",
-          "leadTimes",
+          "alternates",
           "preparedBy",
           "quoteNotes",
           "quoteTotal",
@@ -387,8 +410,9 @@ describe("buildQuotePdfModel", () => {
       }
       expect(Object.keys(model!.budgetary!).sort()).toEqual(["text", "title"]);
       expect(Object.keys(model!.preparedBy!).sort()).toEqual(["email", "name"]);
-      for (const r of model!.leadTimes) {
-        expect(Object.keys(r).sort()).toEqual(["description", "leadTime", "partNumber", "reason"]);
+      for (const r of model!.alternates) {
+        expect(Object.keys(r).sort()).toEqual(["reason", "sources"]);
+        for (const x of r.sources) expect(Object.keys(x).sort()).toEqual(["leadTime", "manufacturer", "partNumber"]);
       }
     });
   });

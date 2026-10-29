@@ -1,6 +1,6 @@
 import type { jsPDF } from "jspdf";
 import type { UserOptions } from "jspdf-autotable";
-import type { QuotePdfAssembly, QuotePdfLeadTime, QuotePdfModel } from "@/types/quote";
+import type { QuotePdfAlternate, QuotePdfAssembly, QuotePdfModel } from "@/types/quote";
 import { ALTRONIC_WORDMARK_ASPECT, ALTRONIC_WORDMARK_BLACK_PNG } from "@/assets/brand/altronicWordmark";
 
 // =============================================================================
@@ -28,10 +28,12 @@ import { ALTRONIC_WORDMARK_ASPECT, ALTRONIC_WORDMARK_BLACK_PNG } from "@/assets/
 // (whoever generated the PDF) sit side by side, with the customer's reference
 // under them.
 //
-// LEAD TIMES (the 2026-10-27 review) go on a page of their own after the
-// notes — "page two" when the quote fits on one — as a four-column table:
-// Part # | Description | Lead time | Notes (why that part or alternate was
-// chosen). No table, no extra page.
+// ALTERNATES (the 2026-10-27 review; Ray, 2026-10-29) go on a page of their
+// own after the notes — "page two" when the quote fits on one. Each row is up
+// to three manufacturer options (manufacturer, its part number, lead time)
+// and the reason the alternate was chosen. Ten narrow columns don't fit a
+// portrait page, so each option is ONE cell with its three facts stacked:
+// Option 1 | Option 2 | Option 3 | Reason. No rows, no extra page.
 //
 // Altronic branding: monochrome black/white, greys for structure, gold
 // (#CBA052) only as a sparing accent hairline. The mark is the 12KB
@@ -166,7 +168,7 @@ export function renderQuotePdf(
 
   if (model.quoteNotes.trim()) y = drawNotes(doc, model.quoteNotes, y);
 
-  if (model.leadTimes.length > 0) drawLeadTimes(doc, autoTable, model.leadTimes);
+  if (model.alternates.length > 0) drawAlternates(doc, autoTable, model.alternates);
 
   drawFooters(doc, model.quoteNumber);
 }
@@ -631,17 +633,22 @@ function drawNotes(doc: jsPDF, notes: string, y: number): number {
   return y + 10;
 }
 
+/** One option's cell: manufacturer, its part number, lead time — each on its own line, blanks left out. */
+export function alternateSourceCell(x: { manufacturer: string; partNumber: string; leadTime: string }): string {
+  return [x.manufacturer, x.partNumber, x.leadTime ? `Lead time: ${x.leadTime}` : ""].filter(Boolean).join("\n");
+}
+
 /**
- * The lead-time table, on a page of its own. Each row's texts are read from
+ * The alternates table, on a page of its own. Each row's texts are read from
  * NAMED fields of the model row — nothing iterates keys.
  */
-function drawLeadTimes(doc: jsPDF, autoTable: AutoTableFn, rows: QuotePdfLeadTime[]): void {
+function drawAlternates(doc: jsPDF, autoTable: AutoTableFn, rows: QuotePdfAlternate[]): void {
   doc.addPage();
   let y = MARGIN_TOP;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(...BLACK);
-  doc.text("Lead times", MARGIN_X, y + 4);
+  doc.text("Alternates", MARGIN_X, y + 4);
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.75);
   doc.line(MARGIN_X, y + 12, PAGE_W - MARGIN_X, y + 12);
@@ -652,8 +659,13 @@ function drawLeadTimes(doc: jsPDF, autoTable: AutoTableFn, rows: QuotePdfLeadTim
     margin: { left: MARGIN_X, right: MARGIN_X, top: MARGIN_TOP, bottom: MARGIN_BOTTOM },
     tableWidth: CONTENT_W,
     showHead: "everyPage",
-    head: [["Part #", "Description", "Lead time", "Notes"]],
-    body: rows.map((r) => [r.partNumber, r.description, r.leadTime, r.reason]),
+    head: [["Option 1", "Option 2", "Option 3", "Reason for the alternate"]],
+    body: rows.map((r) => [
+      alternateSourceCell(r.sources[0] ?? { manufacturer: "", partNumber: "", leadTime: "" }),
+      alternateSourceCell(r.sources[1] ?? { manufacturer: "", partNumber: "", leadTime: "" }),
+      alternateSourceCell(r.sources[2] ?? { manufacturer: "", partNumber: "", leadTime: "" }),
+      r.reason,
+    ]),
     theme: "plain",
     styles: {
       font: "helvetica",
@@ -666,9 +678,9 @@ function drawLeadTimes(doc: jsPDF, autoTable: AutoTableFn, rows: QuotePdfLeadTim
     },
     headStyles: { fontStyle: "bold", fontSize: 8, textColor: MID_GREY, fillColor: LIGHT_GREY },
     columnStyles: {
-      0: { cellWidth: 100, fontStyle: "bold" },
-      1: { cellWidth: 170 },
-      2: { cellWidth: 80 },
+      0: { cellWidth: 110 },
+      1: { cellWidth: 110 },
+      2: { cellWidth: 110 },
       3: { cellWidth: "auto", textColor: DARK_GREY },
     },
     rowPageBreak: "avoid",

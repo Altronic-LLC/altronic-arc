@@ -4,7 +4,9 @@ import {
   type Quote,
   type QuoteAssembly,
   type QuoteCustomer,
-  type QuoteLeadTime,
+  QUOTE_ALTERNATE_SOURCES,
+  type QuoteAlternate,
+  type QuoteAlternateSource,
   type QuotePriceBreak,
   type QuoteRole,
   type QuoteRoleEntry,
@@ -28,7 +30,7 @@ import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 //
 //  - **A column added after the lists were created must exist before a
 //    build that selects it ships** — selecting a missing column 400s the
-//    WHOLE read. `CustomerReference`, `LeadTimes`, `EngineeringTaskId`,
+//    WHOLE read. `CustomerReference`, `Alternates`, `EngineeringTaskId`,
 //    `OperationsTaskId`, `OperationsProjectRef` (Quotes) and `LaborCost`
 //    (Quote Assemblies) came with v0.209.0; re-run create-quote-lists.ps1
 //    first.
@@ -66,7 +68,7 @@ export const QUOTE_SELECT = [
   "BudgetaryText",
   "QuoteNotes",
   "CustomerReference",
-  "LeadTimes",
+  "Alternates",
   "Communication",
   "Watchers",
   "EngineeringTaskId",
@@ -206,16 +208,36 @@ export function serializePriceBreaks(breaks: readonly QuotePriceBreak[]): string
 }
 
 // -----------------------------------------------------------------------------
-// Lead times — JSON in a plain-text note column
+// Alternates — JSON in a plain-text note column
 // -----------------------------------------------------------------------------
 
+const BLANK_SOURCE: QuoteAlternateSource = { manufacturer: "", partNumber: "", leadTime: "" };
+
+/** Exactly `QUOTE_ALTERNATE_SOURCES` options, padded with blanks or cut. */
+export function padSources(sources: readonly Partial<QuoteAlternateSource>[]): QuoteAlternateSource[] {
+  return Array.from({ length: QUOTE_ALTERNATE_SOURCES }, (_, i) => ({
+    manufacturer: text(sources[i]?.manufacturer),
+    partNumber: text(sources[i]?.partNumber),
+    leadTime: text(sources[i]?.leadTime),
+  }));
+}
+
+/** A row with nothing in it. */
+export function blankAlternate(): QuoteAlternate {
+  return { sources: padSources([]).map(() => ({ ...BLANK_SOURCE })), reason: "" };
+}
+
+function isBlankAlternate(r: QuoteAlternate): boolean {
+  return !r.reason.trim() && r.sources.every((s) => !s.manufacturer.trim() && !s.partNumber.trim() && !s.leadTime.trim());
+}
+
 /**
- * `LeadTimes` JSON → rows. A blank column is `[]`. Anything that isn't a JSON
+ * `Alternates` JSON → rows. A blank column is `[]`. Anything that isn't a JSON
  * array is CORRUPT — reported, never silently read as empty, because the next
  * save would then overwrite whatever is really there. A non-object entry
  * inside a good array is dropped; missing texts read as "".
  */
-export function parseLeadTimes(raw: unknown): { rows: QuoteLeadTime[]; corrupt: boolean } {
+export function parseAlternates(raw: unknown): { rows: QuoteAlternate[]; corrupt: boolean } {
   if (typeof raw !== "string" || !raw.trim()) return { rows: [], corrupt: false };
   let parsed: unknown;
   try {
@@ -224,57 +246,60 @@ export function parseLeadTimes(raw: unknown): { rows: QuoteLeadTime[]; corrupt: 
     return { rows: [], corrupt: true };
   }
   if (!Array.isArray(parsed)) return { rows: [], corrupt: true };
-  const rows: QuoteLeadTime[] = [];
+  const rows: QuoteAlternate[] = [];
   for (const entry of parsed) {
     if (!entry || typeof entry !== "object") continue;
     const e = entry as Record<string, unknown>;
-    rows.push({
-      partNumber: text(e.partNumber),
-      description: text(e.description),
-      leadTime: text(e.leadTime),
-      reason: text(e.reason),
-    });
+    const sources = Array.isArray(e.sources) ? (e.sources as Partial<QuoteAlternateSource>[]) : [];
+    rows.push({ sources: padSources(sources.map((x) => (x && typeof x === "object" ? x : {}))), reason: text(e.reason) });
   }
   return { rows, corrupt: false };
 }
 
-/** Rows → the stored JSON. Blank rows are dropped; none at all is `""`. */
-export function serializeLeadTimes(rows: readonly QuoteLeadTime[]): string {
+/** Rows → the stored JSON. Texts are trimmed, blank rows dropped; none at all is `""`. */
+export function serializeAlternates(rows: readonly QuoteAlternate[]): string {
   const kept = rows
     .map((r) => ({
-      partNumber: r.partNumber.trim(),
-      description: r.description.trim(),
-      leadTime: r.leadTime.trim(),
+      sources: padSources(r.sources).map((x) => ({
+        manufacturer: x.manufacturer.trim(),
+        partNumber: x.partNumber.trim(),
+        leadTime: x.leadTime.trim(),
+      })),
       reason: r.reason.trim(),
     }))
-    .filter((r) => r.partNumber || r.description || r.leadTime || r.reason);
+    .filter((r) => !isBlankAlternate(r));
   return kept.length === 0 ? "" : JSON.stringify(kept);
 }
 
 /**
  * Rows pasted from a spreadsheet: one line per row, cells split on TABS
- * (what Excel puts on the clipboard), in the order Part # | Description |
- * Lead time | Reason. A line with no tab is taken as a lone part number.
- * Blank lines are skipped, and so is a first line that looks like a header
- * ("Part" / "Description" / "Lead time").
+ * (what Excel puts on the clipboard), in the order
+ * Mfr 1 | Mfr part # 1 | Lead time 1 | Mfr 2 | … | Lead time 3 | Reason.
+ * Anything past the tenth column belongs to the reason, not lost. Blank lines
+ * are skipped, and so is a first line that looks like a header (its first
+ * cell starts "Manufacturer" or "Mfr").
  */
-export function parsePastedLeadTimes(textValue: string): QuoteLeadTime[] {
+export function parsePastedAlternates(textValue: string): QuoteAlternate[] {
   const lines = textValue.replace(/\r\n?/g, "\n").split("\n");
-  const rows: QuoteLeadTime[] = [];
+  const perSource = 3;
+  const rows: QuoteAlternate[] = [];
   let first = true;
   lines.forEach((line) => {
     if (!line.trim()) return;
     const cells = line.split("\t").map((c) => c.trim());
-    const isHeader = first && /^part/i.test(cells[0] ?? "") && /desc|lead|reason/i.test(cells.slice(1).join(" "));
+    const isHeader = first && /^(manufactur|mfr|mfg)/i.test(cells[0] ?? "");
     first = false;
     if (isHeader) return;
-    rows.push({
-      partNumber: cells[0] ?? "",
-      description: cells[1] ?? "",
-      leadTime: cells[2] ?? "",
-      // Anything past the fourth column belongs to the reason, not lost.
-      reason: cells.slice(3).filter(Boolean).join(" "),
-    });
+    const sources = Array.from({ length: QUOTE_ALTERNATE_SOURCES }, (_, i) => ({
+      manufacturer: cells[i * perSource] ?? "",
+      partNumber: cells[i * perSource + 1] ?? "",
+      leadTime: cells[i * perSource + 2] ?? "",
+    }));
+    const reason = cells
+      .slice(QUOTE_ALTERNATE_SOURCES * perSource)
+      .filter(Boolean)
+      .join(" ");
+    rows.push({ sources, reason });
   });
   return rows;
 }
@@ -285,7 +310,7 @@ export function parsePastedLeadTimes(textValue: string): QuoteLeadTime[] {
 
 export function toQuote(item: GraphListItem): Quote {
   const f = (item.fields ?? {}) as Record<string, unknown>;
-  const leadTimes = parseLeadTimes(f.LeadTimes);
+  const alternates = parseAlternates(f.Alternates);
   return {
     id: parseInt(item.id, 10),
     quoteNumber: text(f.Title).trim(),
@@ -300,8 +325,8 @@ export function toQuote(item: GraphListItem): Quote {
     budgetaryText: text(f.BudgetaryText),
     quoteNotes: text(f.QuoteNotes),
     customerReference: text(f.CustomerReference).trim(),
-    leadTimes: leadTimes.rows,
-    leadTimesCorrupt: leadTimes.corrupt,
+    alternates: alternates.rows,
+    alternatesCorrupt: alternates.corrupt,
     comments: parseCommunication(text(f.Communication)),
     watchers: parsePersonField(f.Watchers),
     engineeringTaskId: toInt(f.EngineeringTaskId),
@@ -440,7 +465,7 @@ export interface QuoteCreateFieldsInput {
   budgetaryText: string;
   quoteNotes: string;
   customerReference?: string;
-  leadTimes?: QuoteLeadTime[];
+  alternates?: QuoteAlternate[];
   engineeringTaskId?: number | null;
   operationsTaskId?: number | null;
   engineeringProjectRef?: string;
@@ -471,8 +496,8 @@ export function buildQuoteCreateFields(input: QuoteCreateFieldsInput): Record<st
   if (input.budgetaryText) fields.BudgetaryText = input.budgetaryText;
   if (input.quoteNotes) fields.QuoteNotes = input.quoteNotes;
   if (input.customerReference?.trim()) fields.CustomerReference = input.customerReference.trim();
-  const leadTimes = serializeLeadTimes(input.leadTimes ?? []);
-  if (leadTimes) fields.LeadTimes = leadTimes;
+  const alternates = serializeAlternates(input.alternates ?? []);
+  if (alternates) fields.Alternates = alternates;
   if (input.engineeringTaskId) fields.EngineeringTaskId = input.engineeringTaskId;
   if (input.operationsTaskId) fields.OperationsTaskId = input.operationsTaskId;
   if (input.engineeringProjectRef?.trim()) fields.EngineeringProjectRef = input.engineeringProjectRef.trim();
@@ -495,7 +520,7 @@ export type QuotePatch = Partial<
     | "budgetaryText"
     | "quoteNotes"
     | "customerReference"
-    | "leadTimes"
+    | "alternates"
     | "engineeringTaskId"
     | "operationsTaskId"
     | "engineeringProjectRef"
@@ -513,7 +538,7 @@ const QUOTE_COLUMNS: ColumnSpec<Required<QuotePatch>> = {
   budgetaryText: { column: "BudgetaryText", write: str },
   quoteNotes: { column: "QuoteNotes", write: str },
   customerReference: { column: "CustomerReference", write: trimmed },
-  leadTimes: { column: "LeadTimes", write: (v) => serializeLeadTimes(Array.isArray(v) ? v : []) },
+  alternates: { column: "Alternates", write: (v) => serializeAlternates(Array.isArray(v) ? v : []) },
   // A positive id, or null — the same rule as a bare lookup.
   engineeringTaskId: { column: "EngineeringTaskId", write: bareLookup },
   operationsTaskId: { column: "OperationsTaskId", write: bareLookup },
@@ -533,7 +558,9 @@ export function applyQuotePatch(quote: Quote, changes: QuotePatch): Quote {
     if (!(key in QUOTE_COLUMNS) || changes[key] === undefined) continue;
     (next as Record<string, unknown>)[key] = changes[key];
   }
-  if (changes.leadTimes !== undefined) next.leadTimes = changes.leadTimes.map((r) => ({ ...r }));
+  if (changes.alternates !== undefined) {
+    next.alternates = changes.alternates.map((r) => ({ sources: padSources(r.sources), reason: r.reason }));
+  }
   return next;
 }
 

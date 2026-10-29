@@ -5352,8 +5352,10 @@ const SECTIONS: ManualSection[] = [
       "line items",
       "material",
       "labor",
-      "lead times",
+      "alternates",
+      "alternate",
       "lead time",
+      "manufacturer",
       "customer reference",
       "customer notes",
       "linked task",
@@ -5378,7 +5380,7 @@ const SECTIONS: ManualSection[] = [
       "manager",
     ],
     searchText:
-      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. A Lead times table (part, description, lead time, reason for that part or alternate), typed or pasted from Excel, prints on its own page of the PDF. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the lead-time table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
+      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. An Alternates table — up to three options per row, each a manufacturer, its part number and lead time, plus the reason for choosing the alternate — typed or pasted from Excel, prints on its own page of the PDF. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the Alternates table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
     render: () => (
       <>
         <P>
@@ -5516,17 +5518,20 @@ const SECTIONS: ManualSection[] = [
           an <strong>Open</strong> link straight to it. Only a quoter or
           manager can change a link; everyone can see them. Links never print.
         </P>
-        <H3>Lead times</H3>
+        <H3>Alternates</H3>
         <P>
-          The <strong>Lead times</strong> card holds a table for the customer:
-          each part, its description, its lead time, and the{" "}
-          <strong>reason for that part or alternate</strong> — for example why
-          a second-source connector was chosen. Press <strong>Edit</strong> to
-          type rows, or <strong>Paste from Excel</strong>: copy the cells in
-          your working spreadsheet (Part # | Description | Lead time | Reason)
-          and paste them in, and they are added below the rows already there.
-          The table prints on its own page after the quote; with no rows, there
-          is no extra page.
+          The <strong>Alternates</strong> card holds a table for the customer.
+          Each row has up to three options side by side — each a{" "}
+          <strong>manufacturer</strong>, its <strong>part number</strong> and
+          its <strong>lead time</strong> — and a free-text{" "}
+          <strong>reason for choosing the alternate</strong>. Press{" "}
+          <strong>Edit</strong> to type rows, or{" "}
+          <strong>Paste from Excel</strong>: copy the cells in your working
+          spreadsheet — Manufacturer, Mfr part #, Lead time three times across,
+          then the reason (ten columns) — and paste them in. They are added
+          below the rows already there, and a header row is skipped. The table
+          prints on its own page after the quote; with no rows, there is no
+          extra page.
         </P>
         <H3>How pricing works</H3>
         <UL>
@@ -5569,12 +5574,12 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             <strong>New revision</strong> copies the quote forward as the next rev
-            (R1 becomes R2), with its lines, customer reference, lead times,
+            (R1 becomes R2), with its lines, customer reference, alternates,
             linked work, comments and attachments. The earlier rev is left exactly as it was sent. If
             something doesn't copy across, ARC tells you what.
           </LI>
           <LI>
-            Editing the header, a line or the lead times updates the current
+            Editing the header, a line or the alternates updates the current
             rev in place, without a new number. If that rev has already been{" "}
             <strong>Sent</strong>, ARC asks first — <strong>Update anyway</strong>,
             or create the next rev — so the choice is deliberate.
@@ -5597,7 +5602,7 @@ const SECTIONS: ManualSection[] = [
           part numbers under them, then the quantity quoted, unit price and
           Subtotal, and the volume pricing when the line has quantity breaks.
           The Total comes after the last line, then the quote notes, and the
-          lead-time table on a page of its own. Your customer reference prints
+          Alternates table on a page of its own. Your customer reference prints
           under the customer. It never shows material, labor, overhead, cost,
           margin, discounts or customer notes.
         </P>
@@ -5614,8 +5619,8 @@ const SECTIONS: ManualSection[] = [
         <Tip>
           The <strong>budgetary text</strong> (filled in with the standard
           non-binding wording when you tick Budgetary, and editable) and the{" "}
-          <strong>quote notes</strong>, the customer reference and the lead-time
-          table print on the customer's quote, word for word — the form says so
+          <strong>quote notes</strong>, the customer reference and the
+          Alternates table print on the customer's quote, word for word — the form says so
           beside each. Comments, attachments and customer notes are internal
           and never print.
         </Tip>

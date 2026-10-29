@@ -72,7 +72,7 @@ describe("createQuoteRevision (mock mode)", () => {
     expect(sources).toHaveLength(2);
   });
 
-  it("copies the reference, lead times and task / project links", async () => {
+  it("copies the reference, alternates and task / project links", async () => {
     const source = (await getQuote(2))!;
     await updateQuoteFields(
       2,
@@ -87,18 +87,18 @@ describe("createQuoteRevision (mock mode)", () => {
       engineeringProjectRef: "0042-NGI",
       operationsProjectRef: "0007-Line 3",
     });
-    expect(quote.leadTimes).toEqual(source.leadTimes);
-    expect(quote.leadTimes.length).toBeGreaterThan(0);
+    expect(quote.alternates).toEqual(source.alternates);
+    expect(quote.alternates.length).toBeGreaterThan(0);
   });
 
-  it("starts with an EMPTY lead-time table, and says so, when the source's couldn't be read", async () => {
+  it("starts with an EMPTY alternates table, and says so, when the source's couldn't be read", async () => {
     const row = quoteMockDb.quotes.find((q) => q.id === 2)!;
-    row.leadTimesCorrupt = true;
-    row.leadTimes = [];
+    row.alternatesCorrupt = true;
+    row.alternates = [];
     const { quote, warnings } = await createQuoteRevision(2);
-    expect(quote.leadTimes).toEqual([]);
+    expect(quote.alternates).toEqual([]);
     expect(warnings).toEqual([
-      "IQ-COO-0001-R2's lead-time table couldn't be read, so R3 starts with an empty one.",
+      "IQ-COO-0001-R2's alternates table couldn't be read, so R3 starts with an empty one.",
     ]);
   });
 

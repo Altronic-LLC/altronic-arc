@@ -253,10 +253,10 @@ describe("quote writes", () => {
     ]);
   });
 
-  it("refuses to write lead times over a stored value it couldn't read", async () => {
-    const corrupt = toQuote(quoteItem(7, { LeadTimes: "{broken" }) as never);
+  it("refuses to write alternates over a stored value it couldn't read", async () => {
+    const corrupt = toQuote(quoteItem(7, { Alternates: "{broken" }) as never);
     await expect(
-      updateQuoteFields(7, { leadTimes: [{ partNumber: "P", description: "", leadTime: "", reason: "" }] }, corrupt),
+      updateQuoteFields(7, { alternates: [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }] }, corrupt),
     ).rejects.toThrow(/couldn't be read/);
     expect(graphFetch).not.toHaveBeenCalled();
     // Other fields on the same quote still save.
@@ -372,7 +372,7 @@ describe("createQuoteRevision — order", () => {
       Communication: "10/01/2026 9:00:00 AM|||Ray|||ray@x.com|||<p>hi</p>",
       Watchers: [{ LookupId: 22, LookupValue: "Ray", Email: "ray@x.com" }],
       CustomerReference: "RFQ 4471",
-      LeadTimes: '[{"partNumber":"P1","description":"","leadTime":"3 wk","reason":"R"}]',
+      Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
       EngineeringTaskId: 9,
       OperationsTaskId: 4,
       EngineeringProjectRef: "0042-NGI",
@@ -414,7 +414,7 @@ describe("createQuoteRevision — order", () => {
       Rev: 2,
       Status: "Draft",
       CustomerReference: "RFQ 4471",
-      LeadTimes: '[{"partNumber":"P1","description":"","leadTime":"3 wk","reason":"R"}]',
+      Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
       EngineeringTaskId: 9,
       OperationsTaskId: 4,
       EngineeringProjectRef: "0042-NGI",

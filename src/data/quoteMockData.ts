@@ -97,8 +97,8 @@ function quote(partial: Partial<Quote> & Pick<Quote, "id" | "quoteNumber" | "quo
     budgetaryText: "",
     quoteNotes: "",
     customerReference: "",
-    leadTimes: [],
-    leadTimesCorrupt: false,
+    alternates: [],
+    alternatesCorrupt: false,
     comments: [],
     watchers: [],
     engineeringTaskId: null,
@@ -145,18 +145,22 @@ export const MOCK_QUOTES: Quote[] = [
     contactEmail: "mark.balent@example.com",
     customerReference: "RFQ 4471 — CPU-95 retrofit kits",
     quoteNotes: "Prices FOB Girard, OH. Lead time 6–8 weeks ARO.",
-    leadTimes: [
+    alternates: [
       {
-        partNumber: "791950-08",
-        description: "CPU-95 ignition module",
-        leadTime: "6–8 weeks",
-        reason: "",
+        sources: [
+          { manufacturer: "TE Connectivity", partNumber: "1-1437290-3", leadTime: "22 weeks" },
+          { manufacturer: "Amphenol", partNumber: "MS3106A-20-27S", leadTime: "3 weeks" },
+          { manufacturer: "", partNumber: "", leadTime: "" },
+        ],
+        reason: "Amphenol connector is form-fit equivalent and ships in 3 weeks instead of 22.",
       },
       {
-        partNumber: "693005-1",
-        description: "Primary harness, 16 ft",
-        leadTime: "3 weeks",
-        reason: "Connector sourced from a second supplier — the first quoted 22 weeks.",
+        sources: [
+          { manufacturer: "Murata", partNumber: "GRM31CR71H475KA12L", leadTime: "16 weeks" },
+          { manufacturer: "KEMET", partNumber: "C1206C475K5RACTU", leadTime: "6 weeks" },
+          { manufacturer: "Samsung", partNumber: "CL31B475KBHNNNE", leadTime: "Stock" },
+        ],
+        reason: "",
       },
     ],
     comments: [
@@ -384,7 +388,7 @@ function cloneQuote(q: Quote): Quote {
     ...q,
     comments: q.comments.map((c) => ({ ...c })),
     watchers: q.watchers.map((p) => ({ ...p })),
-    leadTimes: q.leadTimes.map((r) => ({ ...r })),
+    alternates: q.alternates.map((r) => ({ sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
     createdBy: q.createdBy ? { ...q.createdBy } : null,
   };
 }

@@ -18,10 +18,10 @@ import {
   compareQuotes,
   isUniqueValueRejection,
   mockUniqueRejection,
-  parseLeadTimes,
-  parsePastedLeadTimes,
+  parseAlternates,
+  parsePastedAlternates,
   parsePriceBreaks,
-  serializeLeadTimes,
+  serializeAlternates,
   serializePriceBreaks,
   toQuote,
   toQuoteAssembly,
@@ -34,7 +34,7 @@ import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 const CONTRACT = {
   quotes: [
     "Title", "QuoteBase", "Rev", "CustomerRef", "Status", "ValidityDays", "ContactName", "ContactEmail",
-    "Budgetary", "BudgetaryText", "QuoteNotes", "CustomerReference", "LeadTimes", "Communication", "Watchers",
+    "Budgetary", "BudgetaryText", "QuoteNotes", "CustomerReference", "Alternates", "Communication", "Watchers",
     "EngineeringTaskId", "OperationsTaskId", "EngineeringProjectRef", "OperationsProjectRef",
   ],
   assemblies: [
@@ -124,46 +124,54 @@ describe("price breaks", () => {
   });
 });
 
-describe("lead times", () => {
+describe("alternates", () => {
+  const src = (manufacturer = "", partNumber = "", leadTime = "") => ({ manufacturer, partNumber, leadTime });
   const ROWS = [
-    { partNumber: "693005-1", description: "Harness", leadTime: "3 weeks", reason: "Second source" },
-    { partNumber: "791950-08", description: "", leadTime: "6–8 weeks", reason: "" },
+    { sources: [src("TE", "1-1437290-3", "22 weeks"), src("Amphenol", "MS3106A", "3 weeks"), src()], reason: "Faster" },
+    { sources: [src("Murata", "GRM31", "16 weeks"), src(), src()], reason: "" },
   ];
 
-  it("round-trips, dropping blank rows and trimming", () => {
-    const stored = serializeLeadTimes([...ROWS, { partNumber: " ", description: "", leadTime: "", reason: "" }]);
-    expect(parseLeadTimes(stored)).toEqual({ rows: ROWS, corrupt: false });
-    expect(serializeLeadTimes([])).toBe("");
-    expect(parseLeadTimes("")).toEqual({ rows: [], corrupt: false });
-    expect(parseLeadTimes(undefined)).toEqual({ rows: [], corrupt: false });
+  it("round-trips, dropping blank rows, trimming, and always THREE options a row", () => {
+    const stored = serializeAlternates([
+      ...ROWS,
+      { sources: [src(" "), src(), src()], reason: " " },
+    ]);
+    expect(parseAlternates(stored)).toEqual({ rows: ROWS, corrupt: false });
+    expect(serializeAlternates([])).toBe("");
+    expect(parseAlternates("")).toEqual({ rows: [], corrupt: false });
+    expect(parseAlternates(undefined)).toEqual({ rows: [], corrupt: false });
+    // A short or missing sources array is padded to three.
+    expect(parseAlternates('[{"sources":[{"manufacturer":"X"}],"reason":"r"}]').rows[0].sources).toEqual([
+      src("X"),
+      src(),
+      src(),
+    ]);
   });
 
   it("reports a value it can't read as CORRUPT, never as an empty table", () => {
-    expect(parseLeadTimes("{broken")).toEqual({ rows: [], corrupt: true });
-    expect(parseLeadTimes('{"partNumber":"x"}')).toEqual({ rows: [], corrupt: true });
-    expect(toQuote(item({ LeadTimes: "{broken" })).leadTimesCorrupt).toBe(true);
+    expect(parseAlternates("{broken")).toEqual({ rows: [], corrupt: true });
+    expect(parseAlternates('{"reason":"x"}')).toEqual({ rows: [], corrupt: true });
+    expect(toQuote(item({ Alternates: "{broken" })).alternatesCorrupt).toBe(true);
   });
 
-  it("parses rows pasted from Excel — tabs between cells, header skipped", () => {
+  it("parses rows pasted from Excel — three Mfr / Mfr part # / Lead time sets, then the reason", () => {
     const pasted = [
-      "Part #\tDescription\tLead time\tReason",
-      "693005-1\tHarness\t3 weeks\tSecond source",
+      "Manufacturer 1\tMfr part # 1\tLead time 1\tManufacturer 2\tMfr part # 2\tLead time 2\tManufacturer 3\tMfr part # 3\tLead time 3\tReason",
+      "TE\t1-1437290-3\t22 weeks\tAmphenol\tMS3106A\t3 weeks\t\t\t\tFaster",
       "",
-      "791950-08\t\t6–8 weeks",
-      "LONE-PART",
-      "X1\tD\t2 wk\tcheaper\tand in stock",
+      "Murata\tGRM31\t16 weeks",
+      "A\tB\tC\tD\tE\tF\tG\tH\tI\tcheaper\tand in stock",
     ].join("\r\n");
-    expect(parsePastedLeadTimes(pasted)).toEqual([
+    expect(parsePastedAlternates(pasted)).toEqual([
       ROWS[0],
       ROWS[1],
-      { partNumber: "LONE-PART", description: "", leadTime: "", reason: "" },
-      { partNumber: "X1", description: "D", leadTime: "2 wk", reason: "cheaper and in stock" },
+      { sources: [src("A", "B", "C"), src("D", "E", "F"), src("G", "H", "I")], reason: "cheaper and in stock" },
     ]);
   });
 
   it("keeps a first row that is data, not a header", () => {
-    expect(parsePastedLeadTimes("PART-9\tWidget\t1 wk")).toEqual([
-      { partNumber: "PART-9", description: "Widget", leadTime: "1 wk", reason: "" },
+    expect(parsePastedAlternates("Vishay\tCRCW0603\t4 wk")).toEqual([
+      { sources: [src("Vishay", "CRCW0603", "4 wk"), src(), src()], reason: "" },
     ]);
   });
 });
@@ -196,7 +204,7 @@ describe("toQuote", () => {
           Communication: "10/01/2026 9:00:00 AM|||Ray White|||ray@x.com|||<p>hi</p>",
           Watchers: [{ LookupId: 22, LookupValue: "Ray White", Email: "ray@x.com" }],
           CustomerReference: " RFQ 4471 ",
-          LeadTimes: '[{"partNumber":"P1","description":"D","leadTime":"3 wk","reason":"R"}]',
+          Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
           EngineeringTaskId: 5,
           OperationsTaskId: "12",
           EngineeringProjectRef: "0042-NGI",
@@ -217,8 +225,8 @@ describe("toQuote", () => {
       contactName: "Mark",
       budgetary: true,
       customerReference: "RFQ 4471",
-      leadTimes: [{ partNumber: "P1", description: "D", leadTime: "3 wk", reason: "R" }],
-      leadTimesCorrupt: false,
+      alternates: [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
+      alternatesCorrupt: false,
       engineeringTaskId: 5,
       operationsTaskId: 12,
       engineeringProjectRef: "0042-NGI",
@@ -244,7 +252,7 @@ describe("toQuote", () => {
     expect(q.engineeringTaskId).toBeNull();
     expect(q.operationsTaskId).toBeNull();
     expect(q.customerReference).toBe("");
-    expect(q.leadTimes).toEqual([]);
+    expect(q.alternates).toEqual([]);
     expect(toQuote(item({ CustomerRefLookupId: "" })).customerId).toBeNull();
   });
 });
@@ -330,8 +338,8 @@ const QUOTE: Quote = {
   budgetaryText: "",
   quoteNotes: "",
   customerReference: "",
-  leadTimes: [],
-  leadTimesCorrupt: false,
+  alternates: [],
+  alternatesCorrupt: false,
   comments: [],
   watchers: [],
   engineeringTaskId: null,
@@ -376,12 +384,12 @@ describe("quote field builders", () => {
     expect(Object.keys(fields).join()).not.toMatch(/Link/);
   });
 
-  it("create carries the reference, lead times and links when set", () => {
+  it("create carries the reference, alternates and links when set", () => {
     const fields = buildQuoteCreateFields({
       quoteNumber: "x", quoteBase: "x", rev: 2, customerId: null, status: "Draft", validityDays: 30,
       contactName: "", contactEmail: "", budgetary: false, budgetaryText: "", quoteNotes: "",
       customerReference: " RFQ 1 ",
-      leadTimes: [{ partNumber: "P1", description: "", leadTime: "2 wk", reason: "" }],
+      alternates: [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
       engineeringTaskId: 47,
       operationsTaskId: 9,
       engineeringProjectRef: "0042-NGI",
@@ -390,7 +398,7 @@ describe("quote field builders", () => {
     });
     expect(fields).toMatchObject({
       CustomerReference: "RFQ 1",
-      LeadTimes: '[{"partNumber":"P1","description":"","leadTime":"2 wk","reason":""}]',
+      Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
       EngineeringTaskId: 47,
       OperationsTaskId: 9,
       EngineeringProjectRef: "0042-NGI",
@@ -420,7 +428,7 @@ describe("quote field builders", () => {
     expect(buildQuoteUpdateFields({ contactName: undefined }, QUOTE)).toEqual({});
   });
 
-  it("update writes the links as numbers / titles, and the lead times as JSON", () => {
+  it("update writes the links as numbers / titles, and the alternates as JSON", () => {
     expect(buildQuoteUpdateFields({ engineeringTaskId: 47, operationsProjectRef: "0007" }, QUOTE)).toEqual({
       EngineeringTaskId: 47,
       OperationsProjectRef: "0007",
@@ -428,10 +436,10 @@ describe("quote field builders", () => {
     expect(buildQuoteUpdateFields({ engineeringTaskId: null }, { ...QUOTE, engineeringTaskId: 47 })).toEqual({
       EngineeringTaskId: null,
     });
-    expect(buildQuoteUpdateFields({ leadTimes: [] }, QUOTE)).toEqual({});
-    expect(
-      buildQuoteUpdateFields({ leadTimes: [{ partNumber: "P", description: "", leadTime: "", reason: "" }] }, QUOTE),
-    ).toEqual({ LeadTimes: '[{"partNumber":"P","description":"","leadTime":"","reason":""}]' });
+    expect(buildQuoteUpdateFields({ alternates: [] }, QUOTE)).toEqual({});
+    expect(buildQuoteUpdateFields({ alternates: [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }] }, QUOTE)).toEqual({
+      Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
+    });
     expect(buildQuoteUpdateFields({ customerReference: " RFQ " }, QUOTE)).toEqual({ CustomerReference: "RFQ" });
   });
 

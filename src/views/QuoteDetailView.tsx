@@ -31,7 +31,7 @@ import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import type { Comment, Person } from "@/types/task";
-import { QUOTE_STATUSES, type Quote, type QuoteAssembly, type QuoteLeadTime, type QuoteStatus } from "@/types/quote";
+import { QUOTE_STATUSES, type Quote, type QuoteAssembly, type QuoteAlternate, type QuoteStatus } from "@/types/quote";
 import { isLatestRevision, nextRevFor } from "@/lib/quoteNumber";
 import { priceQuote, type QuoteAssemblyPricing } from "@/lib/quotePricing";
 import type { QuotePatch } from "@/lib/quoteMapper";
@@ -50,7 +50,7 @@ import { PersonMultiField } from "@/components/PersonMultiField";
 import { QuotesNav } from "@/components/QuotesNav";
 import { CustomerNotes, PRINTED_NOTE, QuoteFormModal } from "@/components/QuoteFormModal";
 import { QuoteAssemblyFormModal } from "@/components/QuoteAssemblyFormModal";
-import { LeadTimesEditor, QuoteLeadTimesCard } from "@/components/QuoteLeadTimesCard";
+import { AlternatesEditor, QuoteAlternatesCard } from "@/components/QuoteAlternatesCard";
 import { QuoteLinksPanel } from "@/components/QuoteLinksPanel";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { cn } from "@/lib/cn";
@@ -73,7 +73,7 @@ import { formatMoney, formatPct, formatUnitCost } from "@/lib/quoteMoney";
 // SharePoint list permissions are the real boundary (design §3).
 //
 // SENT-EDIT CONFIRMATION (design §11). Any in-place edit of a quote whose
-// status is Sent — the header, a line, the lead times — first asks "Update
+// status is Sent — the header, a line, the alternates — first asks "Update
 // anyway, or create R{n+1}?". `useSentEditGuard` is the ONE implementation;
 // every edit entry point goes through `guard(fn)`. A STATUS change is not
 // guarded — moving a Sent quote to Won is the workflow, not an edit of what
@@ -157,7 +157,7 @@ export function useSentEditGuard(quote: Quote | undefined) {
 type ModalState =
   | { kind: "header" }
   | { kind: "assembly"; assembly?: QuoteAssembly }
-  | { kind: "leadTimes" }
+  | { kind: "alternates" }
   | null;
 
 type ConfirmState =
@@ -362,8 +362,8 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
     update.mutate({ id: q.id, patch });
   }
 
-  async function saveLeadTimes(rows: QuoteLeadTime[]) {
-    await update.mutateAsync({ id: q.id, patch: { leadTimes: rows } });
+  async function saveAlternates(rows: QuoteAlternate[]) {
+    await update.mutateAsync({ id: q.id, patch: { alternates: rows } });
   }
 
   const pdfBusy = generatePdf.isPending || savePdf.isPending;
@@ -573,11 +573,11 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             )}
           </Card>
 
-          <QuoteLeadTimesCard
-            rows={q.leadTimes}
-            corrupt={q.leadTimesCorrupt}
+          <QuoteAlternatesCard
+            rows={q.alternates}
+            corrupt={q.alternatesCorrupt}
             canEdit={canEdit}
-            onEdit={() => guard(() => setModal({ kind: "leadTimes" }))}
+            onEdit={() => guard(() => setModal({ kind: "alternates" }))}
           />
 
           {/* The customer's data package and supplier quotes — full main-column
@@ -654,11 +654,11 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.kind === "leadTimes" && (
-        <LeadTimesEditor
-          rows={q.leadTimes}
+      {modal?.kind === "alternates" && (
+        <AlternatesEditor
+          rows={q.alternates}
           busy={update.isPending}
-          onSave={saveLeadTimes}
+          onSave={saveAlternates}
           onClose={() => setModal(null)}
         />
       )}
@@ -699,7 +699,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             },
           ]}
         >
-          Create R{nextRev} of {q.quoteBase}? Its lines, lead times, links, discussion and attachments are copied
+          Create R{nextRev} of {q.quoteBase}? Its lines, alternates, links, discussion and attachments are copied
           forward;{" "}
           {q.quoteNumber} stays exactly as it is.
         </ConfirmDialog>

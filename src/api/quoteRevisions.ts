@@ -16,7 +16,7 @@ import { createQuoteAssembly, listQuoteAssemblies } from "./quoteAssemblies";
 //
 //   1. The header — same base, rev = highest rev of that base + 1, status
 //      Draft, comments carried, and every header field copied (customer
-//      reference, lead times, task and project links). If THIS fails the
+//      reference, alternates, task and project links). If THIS fails the
 //      whole call throws: there is nothing to point anything else at. A
 //      unique-value refusal on Title (two people making R2 at once) re-reads
 //      and renumbers once, like a create.
@@ -28,7 +28,7 @@ import { createQuoteAssembly, listQuoteAssemblies } from "./quoteAssemblies";
 // making it look failed is how somebody creates R3 to "retry". Never throws
 // after the header exists.
 //
-// A quote whose lead-time table couldn't be read starts the new rev with an
+// A quote whose alternates table couldn't be read starts the new rev with an
 // EMPTY table and a warning — copying a value ARC can't parse would only move
 // the problem.
 //
@@ -87,7 +87,7 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
       budgetaryText: source.budgetaryText,
       quoteNotes: source.quoteNotes,
       customerReference: source.customerReference,
-      leadTimes: source.leadTimes,
+      alternates: source.alternates,
       engineeringTaskId: source.engineeringTaskId,
       operationsTaskId: source.operationsTaskId,
       engineeringProjectRef: source.engineeringProjectRef,
@@ -98,8 +98,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
   );
   const newRev = `R${created.rev}`;
 
-  if (source.leadTimesCorrupt) {
-    warnings.push(`${source.quoteNumber}'s lead-time table couldn't be read, so ${newRev} starts with an empty one.`);
+  if (source.alternatesCorrupt) {
+    warnings.push(`${source.quoteNumber}'s alternates table couldn't be read, so ${newRev} starts with an empty one.`);
   }
 
   // 2. Lines.

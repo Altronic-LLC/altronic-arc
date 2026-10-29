@@ -69,17 +69,29 @@ export const MAX_QUOTE_PRICE_BREAKS = 3;
  */
 export const DEFAULT_QUOTE_OVERHEAD_PCT = 18;
 
+/** How many manufacturer options one Alternates row holds. */
+export const QUOTE_ALTERNATE_SOURCES = 3;
+
 /**
- * One row of the customer-facing lead-time table, printed on page two of the
- * PDF. Stored as JSON in the quote's `LeadTimes` column. Every field is
- * free text — "12–14 weeks", "Stock" — because that is how a lead time is
- * quoted.
+ * One manufacturer option on an Alternates row. Free text throughout —
+ * "12–14 weeks", "Stock" — because that is how a lead time is quoted.
  */
-export interface QuoteLeadTime {
+export interface QuoteAlternateSource {
+  manufacturer: string;
+  /** The manufacturer's part number. */
   partNumber: string;
-  description: string;
   leadTime: string;
-  /** Why this part (or its alternate) was chosen — printed. */
+}
+
+/**
+ * One row of the quote's ALTERNATES table (Ray, 2026-10-29): up to three
+ * manufacturer options side by side, and a free-text reason for choosing the
+ * alternate. Stored as JSON in the quote's `Alternates` column and printed on
+ * page two of the customer PDF.
+ */
+export interface QuoteAlternate {
+  /** ALWAYS `QUOTE_ALTERNATE_SOURCES` long; a blank option is all "". */
+  sources: QuoteAlternateSource[];
   reason: string;
 }
 
@@ -126,14 +138,14 @@ export interface Quote {
    * of what is being quoted ("RFQ 4471 — HUB V4 retrofit"). Printed.
    */
   customerReference: string;
-  /** `LeadTimes` JSON — the page-two lead-time table. */
-  leadTimes: QuoteLeadTime[];
+  /** `Alternates` JSON — the page-two alternates table. */
+  alternates: QuoteAlternate[];
   /**
-   * True when `LeadTimes` holds something ARC couldn't parse. The table is
+   * True when `Alternates` holds something ARC couldn't parse. The table is
    * then shown empty and EVERY write to it is refused — replacing data we
    * failed to read is worse than an error (the ECN checklist rule).
    */
-  leadTimesCorrupt: boolean;
+  alternatesCorrupt: boolean;
   /** `Communication` — the INTERNAL thread. Never printed. Newest first. */
   comments: Comment[];
   watchers: Person[];
@@ -246,11 +258,9 @@ export interface QuotePdfAssembly {
   lineTotal: number;
 }
 
-/** A lead-time row as printed — the same four customer-facing texts. */
-export interface QuotePdfLeadTime {
-  partNumber: string;
-  description: string;
-  leadTime: string;
+/** An Alternates row as printed — the same customer-facing texts. */
+export interface QuotePdfAlternate {
+  sources: { manufacturer: string; partNumber: string; leadTime: string }[];
   reason: string;
 }
 
@@ -280,6 +290,6 @@ export interface QuotePdfModel {
   quoteTotal: number;
   /** Printed at the bottom; "" when none. */
   quoteNotes: string;
-  /** The page-two lead-time table; empty = no page two. */
-  leadTimes: QuotePdfLeadTime[];
+  /** The page-two alternates table; empty = no page two. */
+  alternates: QuotePdfAlternate[];
 }

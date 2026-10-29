@@ -533,7 +533,7 @@ src/
 │   ├── quoteAssemblies.ts        Quote LINES CRUD — final material, labor, overhead and target GM per line (delete OK — the composition of a draft)
 │   ├── quoteCustomers.ts         Quote Customers create/edit — unique CustomerCode, retired not deleted
 │   ├── quoteRoles.ts             Quote Roles list CRUD (viewer / quoter / manager) — unset = nobody has access
-│   ├── quoteRevisions.ts         New rev — copies header (reference, lead times, links), lines, comments, attachments; best-effort after the header
+│   ├── quoteRevisions.ts         New rev — copies header (reference, alternates, links), lines, comments, attachments; best-effort after the header
 │   ├── quotePdfFiles.ts          Save a quote PDF to General/IC Quotes (PMO library) — rename on clash, never creates the folder
 │   ├── pricingLookup.ts          Sales Pricing's ONE seam to SAP (Fabric warehouse) — parts, customers, discounts, comparables; mock now, real throws PricingDataNotConnectedError
 │   ├── pricingRequests.ts        Pricing Requests CRUD + comments + watchers (salesTeam site) — PR-YYYY-####, final price only, DIFFED edits, no delete
@@ -966,7 +966,7 @@ src/
 │   ├── QuoteFormModal.tsx            New quote — customer (+ its notes), customer reference, contact, validity, budgetary text, notes (number shown as "will be …")
 │   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE — part numbers, material / labor / overhead (18% default), target GM, breaks, manual price
 │   ├── QuoteLinksPanel.tsx           A quote's Linked work — Engineering / Operations task (item id) and project (title) pickers, saved on pick
-│   ├── QuoteLeadTimesCard.tsx        A quote's Lead times table + its editor (typed, or pasted from Excel) — printed on its own PDF page
+│   ├── QuoteAlternatesCard.tsx       A quote's Alternates table (3 × manufacturer / part # / lead time + reason) + its editor (typed, or pasted from Excel) — printed on its own PDF page
 │   ├── QuoteCustomerFormModal.tsx    New/edit a quote customer — proposed code, clash candidates, similar-name warning (manager)
 │   ├── pricingAtoms.tsx              Sales Pricing status chip, sub-nav (Requests / New Products / Customer Quotes / Roles), access gate, card shells
 │   ├── PricingRequestFormModal.tsx   New pricing request — Altronic # / SAP # (optional), description, customer from SAP (typed while not connected)
@@ -4630,7 +4630,7 @@ ability to comment and discuss and get buy-in from other departments."
   until its material and labor are typed in — only the dummy Motor Tech data
   was affected.
 - **No alternates feature** — there are no component rows to hang one on.
-  The reason an alternate was chosen goes in the lead-time table.
+  Alternates are a header-level table instead (below).
 - **Per-line threads were NOT added.** Discussion is the quote's, and supplier
   quotes go in the quote's attachments.
 
@@ -4654,18 +4654,27 @@ guard — a link is collaboration. A stored value the lists no longer offer
 stays in its picker, marked (`withStoredValue`). A linked task gets an Open
 link. Links never print.
 
-**Lead times** (`QuoteLeadTimesCard`) — `LeadTimes` JSON on Quotes: rows of
-part #, description, lead time, reason (why that part or alternate).
-Typed, or pasted from Excel (`parsePastedLeadTimes`: tab-separated, a header
-row skipped, extra columns joined into the reason, rows ADDED below). Printed
-on a page of its own after the quote; no rows, no page. Behind the Sent
-guard (it prints). **A value ARC can't parse is `leadTimesCorrupt`**: shown
-as an error, not editable, and `updateQuoteFields` REFUSES a lead-time write
-over it (`LeadTimesUnreadableError`); a new rev starts with an empty table
-and a warning. The ECN checklist rule.
+**Alternates** (`QuoteAlternatesCard`, Ray, 2026-10-29) — `Alternates` JSON
+on Quotes. Each row is EXACTLY three options (`QUOTE_ALTERNATE_SOURCES`,
+`padSources`), each `{ manufacturer, partNumber, leadTime }`, plus a free-text
+`reason` for choosing the alternate. Deliberately no part # / description
+column — Ray asked for only those. Typed, or pasted from Excel
+(`parsePastedAlternates`: tab-separated, ten columns in the order Mfr 1 | Mfr
+part # 1 | Lead time 1 | … | Lead time 3 | Reason, extra columns joined into
+the reason, a first row starting "Manufacturer"/"Mfr" skipped, rows ADDED
+below). The whole table prints on a page of its own after the quote; a
+portrait page can't fit ten columns, so the PDF shows Option 1 | Option 2 |
+Option 3 | Reason, each option cell stacking manufacturer, part # and "Lead
+time: …" (`alternateSourceCell`). No rows, no page. Behind the Sent guard (it
+prints). **A value ARC can't parse is `alternatesCorrupt`**: shown as an
+error, not editable, and `updateQuoteFields` REFUSES a write over it
+(`AlternatesUnreadableError`); a new rev starts with an empty table and a
+warning. The ECN checklist rule. The column was briefly `LeadTimes` (Part # |
+Description | Lead time | Reason) on the branch and never reached
+SharePoint.
 
 **These columns must exist before v0.209.0 deploys** — `CustomerReference`,
-`LeadTimes`, `EngineeringTaskId`, `OperationsTaskId`, `OperationsProjectRef`
+`Alternates`, `EngineeringTaskId`, `OperationsTaskId`, `OperationsProjectRef`
 (Quotes) and `LaborCost` (Quote Assemblies) are `$select`ed, and selecting a
 missing column 400s the WHOLE read. Re-run `create-quote-lists.ps1` against
 the live lists first; it only adds what's missing.
@@ -4687,7 +4696,7 @@ Parts Roles / CMMS pattern). Each tag implies the ones below it.
 |---|---|---|---|
 | See quotes and sell / break prices; comment, attach, watch | yes | yes | yes |
 | See and edit material, labor, overhead, a line's target GM, margin | — | yes | yes |
-| Create and edit quotes, lines, lead times, links, revs; generate the PDF | — | yes | yes |
+| Create and edit quotes, lines, alternates, links, revs; generate the PDF | — | yes | yes |
 | Set Won / Lost / Expired | — | — | yes |
 | Create and edit customers; manage the roles list | — | — | yes |
 
@@ -4781,7 +4790,7 @@ Enforce Unique Values; the in-app check only gives the friendly message first.
 SAP leading zeros survive.
 
 **Revisions.** Two actions: **New rev** (`api/quoteRevisions.ts`) copies the
-header (customer reference, lead times and links included, all in the create
+header (customer reference, alternates and links included, all in the create
 POST) and every line forward as NEW rows, carries the
 comments (original author and timestamp, oldest-first, tagged "carried over
 from R1" — the EIR promotion rule) and copies attachments with
@@ -4806,7 +4815,7 @@ made deliberate. **The latest rev is DERIVED** (highest `Rev` for a
 - **Leak tests** generate a PDF from distinctive cost and margin values,
   extract its text and fail on any of them or the words "cost", "margin",
   "markup". That works only because the text is real.
-- **`BudgetaryText`, `QuoteNotes`, `CustomerReference` and the lead-time
+- **`BudgetaryText`, `QuoteNotes`, `CustomerReference` and the Alternates
   rows are the only customer-visible free text**, typed on purpose, so the
   leak test cannot judge them — the form says
   beside each that it prints. Budgetary text is seeded from AQT's default
@@ -4857,7 +4866,7 @@ Six more things that are load-bearing:
   doubles the thread. Graph's `appendChangesToExistingText` answer proves
   nothing (FAIT 89).
 - **Worksheet layout**: the quote's own Attachments sit in the MAIN column
-  directly above the Discussion, after the Lead times card; Linked work and
+  directly above the Discussion, after the Alternates card; Linked work and
   Saved PDFs are in the sidebar.
 - **The roles list is managed at `/sales/quotes/roles`**, inside the module,
   by a quote manager or an ARC admin — not under `/admin`.

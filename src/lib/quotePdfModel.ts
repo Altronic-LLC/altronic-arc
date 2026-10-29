@@ -145,15 +145,17 @@ export function buildQuotePdfModel(args: {
           }
         : null,
       quoteNotes: quote.quoteNotes.trim(),
-      // Field by field — the four customer-facing texts, blank rows dropped.
-      leadTimes: quote.leadTimes
+      // Field by field — the customer-facing texts, blank rows dropped.
+      alternates: quote.alternates
         .map((r) => ({
-          partNumber: r.partNumber.trim(),
-          description: r.description.trim(),
-          leadTime: r.leadTime.trim(),
+          sources: r.sources.map((x) => ({
+            manufacturer: x.manufacturer.trim(),
+            partNumber: x.partNumber.trim(),
+            leadTime: x.leadTime.trim(),
+          })),
           reason: r.reason.trim(),
         }))
-        .filter((r) => r.partNumber || r.description || r.leadTime || r.reason),
+        .filter((r) => r.reason || r.sources.some((x) => x.manufacturer || x.partNumber || x.leadTime)),
     },
     problems,
   };

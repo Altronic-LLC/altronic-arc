@@ -81,8 +81,9 @@ describe("quotes API (mock mode)", () => {
     expect(linked).toMatchObject({ engineeringTaskId: 47, operationsTaskId: null, operationsProjectRef: "0007" });
     expect((await updateQuoteFields(4, { engineeringTaskId: null }, linked)).engineeringTaskId).toBeNull();
 
-    const timed = await updateQuoteFields(4, { leadTimes: [{ partNumber: "P", description: "", leadTime: "2 wk", reason: "" }] }, linked);
-    expect(timed.leadTimes).toEqual([{ partNumber: "P", description: "", leadTime: "2 wk", reason: "" }]);
+    const row = { sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" };
+    const withAlternates = await updateQuoteFields(4, { alternates: [row] }, linked);
+    expect(withAlternates.alternates).toEqual([row]);
 
     const commented = await addQuoteComment(4, { authorName: "Ray White", authorEmail: RAY.email, bodyHtml: "<p>a</p>" });
     expect(commented.comments[0].bodyHtml).toBe("<p>a</p>");

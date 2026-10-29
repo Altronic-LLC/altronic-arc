@@ -47,8 +47,8 @@ import { nextMockId, quoteMockClone, quoteMockDb } from "@/data/quoteMockData";
 // `updateQuoteFields`. The old Hyperlink columns are left unread: Graph can't
 // write a Hyperlink column at all.
 //
-// LEAD TIMES. A quote whose `LeadTimes` value couldn't be parsed refuses any
-// write to it (`LeadTimesUnreadableError`) — replacing data we failed to read
+// ALTERNATES. A quote whose `Alternates` value couldn't be parsed refuses any
+// write to it (`AlternatesUnreadableError`) — replacing data we failed to read
 // is worse than an error.
 // =============================================================================
 
@@ -199,8 +199,8 @@ async function postQuote(numbering: QuoteNumbering, body: QuoteRowBody): Promise
       budgetaryText: body.budgetaryText,
       quoteNotes: body.quoteNotes,
       customerReference: (body.customerReference ?? "").trim(),
-      leadTimes: (body.leadTimes ?? []).map((r) => ({ ...r })),
-      leadTimesCorrupt: false,
+      alternates: (body.alternates ?? []).map((r) => ({ sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
+      alternatesCorrupt: false,
       comments: parseCommunication(body.communication ?? ""),
       watchers: body.watchers.map((p) => ({ ...p })),
       engineeringTaskId: body.engineeringTaskId ?? null,
@@ -291,14 +291,14 @@ async function patchQuoteColumns(id: number, fields: Record<string, unknown>): P
   return updated;
 }
 
-/** Thrown when a quote's stored lead-time table couldn't be read, so it won't be overwritten. */
-export class LeadTimesUnreadableError extends Error {
+/** Thrown when a quote's stored alternates table couldn't be read, so it won't be overwritten. */
+export class AlternatesUnreadableError extends Error {
   constructor() {
     super(
-      "This quote's lead-time table couldn't be read, so ARC won't save over it. " +
-        "Check the LeadTimes column on the Quotes list in SharePoint.",
+      "This quote's alternates table couldn't be read, so ARC won't save over it. " +
+        "Check the Alternates column on the Quotes list in SharePoint.",
     );
-    this.name = "LeadTimesUnreadableError";
+    this.name = "AlternatesUnreadableError";
   }
 }
 
@@ -308,7 +308,7 @@ export class LeadTimesUnreadableError extends Error {
  * previous row comes back). Number, base and rev are never edited.
  */
 export async function updateQuoteFields(id: number, changes: QuotePatch, previous: Quote): Promise<Quote> {
-  if (changes.leadTimes !== undefined && previous.leadTimesCorrupt) throw new LeadTimesUnreadableError();
+  if (changes.alternates !== undefined && previous.alternatesCorrupt) throw new AlternatesUnreadableError();
   if (USE_MOCK) return mockReplace(id, (q) => applyQuotePatch(q, changes));
   const fields = buildQuoteUpdateFields(changes, previous);
   if (Object.keys(fields).length === 0) return previous;
