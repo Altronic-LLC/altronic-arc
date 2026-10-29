@@ -112,7 +112,7 @@ describe("QuoteAssemblyFormModal", () => {
   it("requires a target GM unless a manual price is set", async () => {
     const onClose = vi.fn();
     renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
-    await userEvent.type(screen.getByLabelText(/Altronic part #/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
     await userEvent.click(screen.getByRole("button", { name: "Add line" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Enter a target gross margin, or a manual price.");
     await userEvent.type(screen.getByLabelText(/Target gross margin %/), "100");
@@ -124,7 +124,7 @@ describe("QuoteAssemblyFormModal", () => {
   it("refuses a negative cost", async () => {
     const onClose = vi.fn();
     renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
-    await userEvent.type(screen.getByLabelText(/Altronic part #/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
     await userEvent.type(screen.getByLabelText(/Labor/), "-3");
     await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
     await userEvent.click(screen.getByRole("button", { name: "Add line" }));
@@ -135,7 +135,7 @@ describe("QuoteAssemblyFormModal", () => {
   it("refuses a break at quantity 1, naming why", async () => {
     const onClose = vi.fn();
     renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
-    await userEvent.type(screen.getByLabelText(/Altronic part #/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
     await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
     await userEvent.click(screen.getByRole("button", { name: /Add a break/ }));
     await userEvent.type(screen.getByLabelText("Break 1 quantity"), "1");
@@ -147,7 +147,7 @@ describe("QuoteAssemblyFormModal", () => {
   it("adds a line with its costs, target GM, stored price and a DASHED SAP #", async () => {
     const onClose = vi.fn();
     renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
-    await userEvent.type(screen.getByLabelText(/Altronic part #/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
     const sap = screen.getByLabelText(/SAP #/);
     expect(sap).toHaveAttribute("placeholder", "####-####-##");
     await userEvent.type(sap, "1003011440");
@@ -178,7 +178,7 @@ describe("QuoteAssemblyFormModal", () => {
 
   it("refuses an incomplete SAP #", async () => {
     renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={vi.fn()} />);
-    await userEvent.type(screen.getByLabelText(/Altronic part #/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
     await userEvent.type(screen.getByLabelText(/SAP #/), "1003");
     await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
     await userEvent.click(screen.getByRole("button", { name: "Add line" }));
@@ -202,7 +202,7 @@ describe("QuoteAssemblyFormModal", () => {
     renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
     const qty = screen.getByLabelText(/Quantity quoted/) as HTMLInputElement;
     expect(qty.value).toBe("1");
-    await userEvent.type(screen.getByLabelText(/Altronic part #/), "SPARE-Q");
+    await userEvent.type(screen.getByLabelText(/Part Number/), "SPARE-Q");
     await userEvent.type(screen.getByLabelText(/Material/), "32");
     const overhead = screen.getByLabelText(OVERHEAD);
     await userEvent.clear(overhead);

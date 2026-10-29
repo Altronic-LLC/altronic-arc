@@ -220,8 +220,8 @@ $Lists = @(
     @{
         name         = "Quote Assemblies"
         envVar       = "VITE_SP_QUOTE_ASSEMBLIES_LIST_ID"
-        description  = "Lines on an Insourcing Quote, one row each, with the part's final material, labor and overhead. Title = the line's Altronic part #. Edit through ARC."
-        titleDisplay = "Altronic Part #"
+        description  = "Lines on an Insourcing Quote, one row each, with the part's final material, labor and overhead. Title = the line's part number. Edit through ARC."
+        titleDisplay = "Part Number"
         attachments  = $false
         columns      = @(
             (Lookup "QuoteRef" "Quote" "Quotes" -Indexed),

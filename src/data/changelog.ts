@@ -24,6 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-10-29",
     changes: [
       "Insourcing Quotes: each line now takes the part's final Material, Labor and Overhead (a percent of material, 18% unless changed) and turns them into the selling price at the line's target GM — component rows and the Final assembly / Part choice are gone",
+      "Insourcing Quotes: a line's Altronic part # is now labelled Part Number",
       "Insourcing Quotes: a Customer reference / description on the quote, printed under Prepared for on the PDF",
       "Insourcing Quotes: a customer's notes from the customer list show on every one of their quotes (never printed)",
       "Insourcing Quotes: link a quote to an Engineering or Operations task and project from the right-hand panel, with a link straight to the task",

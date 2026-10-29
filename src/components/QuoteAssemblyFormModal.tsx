@@ -189,7 +189,7 @@ export function QuoteAssemblyFormModal({
     e.preventDefault();
     const line = Number(lineNo);
     if (!Number.isInteger(line) || line < 1) return setError("Line # must be a whole number, 1 or more.");
-    if (!altronicPartNumber.trim()) return setError("Altronic part # is required.");
+    if (!altronicPartNumber.trim()) return setError("Part Number is required.");
     if (!qtyOk) return setError("Quantity quoted must be a whole number, 1 or more.");
     const sapProblem = sapPartNumberProblem(sapPartNumber);
     if (sapProblem) return setError(`${sapProblem}.`);
@@ -296,7 +296,7 @@ export function QuoteAssemblyFormModal({
             Part numbers, description and the quantity-break prices are printed on the customer's quote.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Altronic part #" required>
+            <Field label="Part Number" required>
               <input
                 ref={firstFieldRef}
                 value={altronicPartNumber}

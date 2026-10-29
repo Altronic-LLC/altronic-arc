@@ -5465,7 +5465,7 @@ const SECTIONS: ManualSection[] = [
         <P>
           A quote holds one or more <strong>line items</strong> — the parts the
           customer would buy. Press <strong>Add line</strong> and enter its
-          Altronic, SAP and customer part numbers, a description, the quantity
+          <strong>Part Number</strong>, SAP and customer part numbers, a description, the quantity
           quoted, and the part's <strong>final</strong> cost of one:
         </P>
         <UL>
