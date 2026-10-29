@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.207.2",
+    date: "2026-10-29",
+    changes: [
+      "Supply Chain Files, Sales Documentation and Application Photos: uploading a file at the top of the folder works again — it was refused with an error, while uploads into a subfolder were fine",
+    ],
+  },
+  {
     version: "0.207.1",
     date: "2026-10-28",
     changes: [
