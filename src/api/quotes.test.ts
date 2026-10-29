@@ -6,7 +6,6 @@ import {
   editQuoteComment,
   getQuote,
   listQuotes,
-  setQuoteLinks,
   setQuoteWatchers,
   updateQuoteFields,
 } from "./quotes";
@@ -77,10 +76,13 @@ describe("quotes API (mock mode)", () => {
 
   it("watchers, links and comments", async () => {
     expect((await setQuoteWatchers(4, [RAY])).watchers).toEqual([RAY]);
-    const linked = await setQuoteLinks(4, { engineeringTaskLink: { url: "https://x/task/1", description: "T1" } });
-    expect(linked.engineeringTaskLink?.url).toBe("https://x/task/1");
-    expect(linked.operationsTaskLink).toBeNull();
-    expect((await setQuoteLinks(4, { engineeringTaskLink: null })).engineeringTaskLink).toBeNull();
+    const before = (await getQuote(4))!;
+    const linked = await updateQuoteFields(4, { engineeringTaskId: 47, operationsProjectRef: "0007" }, before);
+    expect(linked).toMatchObject({ engineeringTaskId: 47, operationsTaskId: null, operationsProjectRef: "0007" });
+    expect((await updateQuoteFields(4, { engineeringTaskId: null }, linked)).engineeringTaskId).toBeNull();
+
+    const timed = await updateQuoteFields(4, { leadTimes: [{ partNumber: "P", description: "", leadTime: "2 wk", reason: "" }] }, linked);
+    expect(timed.leadTimes).toEqual([{ partNumber: "P", description: "", leadTime: "2 wk", reason: "" }]);
 
     const commented = await addQuoteComment(4, { authorName: "Ray White", authorEmail: RAY.email, bodyHtml: "<p>a</p>" });
     expect(commented.comments[0].bodyHtml).toBe("<p>a</p>");

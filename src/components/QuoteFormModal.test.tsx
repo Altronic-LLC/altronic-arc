@@ -33,7 +33,8 @@ describe("QuoteFormModal — create", () => {
     renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);
     const text = screen.getByLabelText(/Budgetary text/) as HTMLTextAreaElement;
     expect(text.value).toBe(DEFAULT_BUDGETARY_TEXT);
-    expect(screen.getAllByText("Printed on the customer's quote.").length).toBe(2);
+    // Customer reference, budgetary text and quote notes.
+    expect(screen.getAllByText("Printed on the customer's quote.").length).toBe(3);
   });
 
   it("offers only ACTIVE customers, and says who can add one", async () => {
@@ -67,13 +68,32 @@ describe("QuoteFormModal — create", () => {
     renderWithProviders(<QuoteFormModal onClose={onClose} onSaved={onSaved} />);
     await pickCustomer(/Wabtec/);
     await userEvent.type(screen.getByLabelText("Contact name"), "Dana K");
+    await userEvent.type(screen.getByLabelText(/Customer reference/), " RFQ 88 ");
     await userEvent.click(screen.getByRole("button", { name: "Create quote" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const created = quoteMockDb.quotes.find((q) => q.id === onSaved.mock.calls[0][0]);
     expect(created?.quoteNumber).toBe("IQ-WAB-0004-R1");
     expect(created?.contactName).toBe("Dana K");
+    expect(created?.customerReference).toBe("RFQ 88");
     expect(created?.budgetary).toBe(true);
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("QuoteFormModal — customer notes", () => {
+  it("shows the picked customer's notes, marked as not printed", async () => {
+    renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);
+    expect(screen.queryByTestId("customer-notes")).toBeNull();
+    await pickCustomer(/Wabtec/);
+    const notes = await screen.findByTestId("customer-notes");
+    expect(notes).toHaveTextContent("Quotes go to the Erie buyer group.");
+    expect(notes).toHaveTextContent("Not printed.");
+  });
+
+  it("shows nothing for a customer without notes", async () => {
+    renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);
+    await pickCustomer(/INNIO/);
+    expect(screen.queryByTestId("customer-notes")).toBeNull();
   });
 });
 

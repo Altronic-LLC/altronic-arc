@@ -1,6 +1,6 @@
 import type { jsPDF } from "jspdf";
 import type { UserOptions } from "jspdf-autotable";
-import type { QuotePdfAssembly, QuotePdfModel } from "@/types/quote";
+import type { QuotePdfAssembly, QuotePdfLeadTime, QuotePdfModel } from "@/types/quote";
 import { ALTRONIC_WORDMARK_ASPECT, ALTRONIC_WORDMARK_BLACK_PNG } from "@/assets/brand/altronicWordmark";
 
 // =============================================================================
@@ -25,7 +25,13 @@ import { ALTRONIC_WORDMARK_ASPECT, ALTRONIC_WORDMARK_BLACK_PNG } from "@/assets/
 // grey beneath) | Description | Price (each quantity break stacked as
 // "range pcs  $price", or one larger price when there are no breaks) | Qty |
 // Subtotal. A right-aligned "Total" follows. "Prepared for" and "Prepared by"
-// (whoever generated the PDF) sit side by side.
+// (whoever generated the PDF) sit side by side, with the customer's reference
+// under them.
+//
+// LEAD TIMES (the 2026-10-27 review) go on a page of their own after the
+// notes — "page two" when the quote fits on one — as a four-column table:
+// Part # | Description | Lead time | Notes (why that part or alternate was
+// chosen). No table, no extra page.
 //
 // Altronic branding: monochrome black/white, greys for structure, gold
 // (#CBA052) only as a sparing accent hairline. The mark is the 12KB
@@ -160,6 +166,8 @@ export function renderQuotePdf(
 
   if (model.quoteNotes.trim()) y = drawNotes(doc, model.quoteNotes, y);
 
+  if (model.leadTimes.length > 0) drawLeadTimes(doc, autoTable, model.leadTimes);
+
   drawFooters(doc, model.quoteNumber);
 }
 
@@ -264,7 +272,25 @@ function drawCustomer(doc: jsPDF, model: QuotePdfModel, y: number): number {
 
   const leftEnd = column(MARGIN_X, "PREPARED FOR", forLines);
   const rightEnd = byLines.length > 0 ? column(MARGIN_X + colW, "PREPARED BY", byLines) : y;
-  return Math.max(leftEnd, rightEnd) + 14;
+  let end = Math.max(leftEnd, rightEnd) + 14;
+
+  const reference = model.customerReference.trim();
+  if (reference) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...MID_GREY);
+    doc.text("REFERENCE", MARGIN_X, end);
+    end += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...BLACK);
+    for (const part of doc.splitTextToSize(reference, CONTENT_W) as string[]) {
+      doc.text(part, MARGIN_X, end);
+      end += lineHeight(10);
+    }
+    end += 14;
+  }
+  return end;
 }
 
 function drawBudgetary(
@@ -603,6 +629,50 @@ function drawNotes(doc: jsPDF, notes: string, y: number): number {
   }
   doc.setTextColor(...BLACK);
   return y + 10;
+}
+
+/**
+ * The lead-time table, on a page of its own. Each row's texts are read from
+ * NAMED fields of the model row — nothing iterates keys.
+ */
+function drawLeadTimes(doc: jsPDF, autoTable: AutoTableFn, rows: QuotePdfLeadTime[]): void {
+  doc.addPage();
+  let y = MARGIN_TOP;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...BLACK);
+  doc.text("Lead times", MARGIN_X, y + 4);
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.75);
+  doc.line(MARGIN_X, y + 12, PAGE_W - MARGIN_X, y + 12);
+  y += 26;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: MARGIN_X, right: MARGIN_X, top: MARGIN_TOP, bottom: MARGIN_BOTTOM },
+    tableWidth: CONTENT_W,
+    showHead: "everyPage",
+    head: [["Part #", "Description", "Lead time", "Notes"]],
+    body: rows.map((r) => [r.partNumber, r.description, r.leadTime, r.reason]),
+    theme: "plain",
+    styles: {
+      font: "helvetica",
+      fontSize: 9,
+      textColor: BLACK,
+      cellPadding: { top: 5, bottom: 5, left: 4, right: 4 },
+      lineColor: LINE_GREY,
+      lineWidth: { bottom: 0.5 },
+      valign: "top",
+    },
+    headStyles: { fontStyle: "bold", fontSize: 8, textColor: MID_GREY, fillColor: LIGHT_GREY },
+    columnStyles: {
+      0: { cellWidth: 100, fontStyle: "bold" },
+      1: { cellWidth: 170 },
+      2: { cellWidth: 80 },
+      3: { cellWidth: "auto", textColor: DARK_GREY },
+    },
+    rowPageBreak: "avoid",
+  });
 }
 
 function drawFooters(doc: jsPDF, quoteNumber: string): void {

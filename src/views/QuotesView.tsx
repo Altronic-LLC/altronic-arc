@@ -5,8 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, FileText, MessageSquare, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
 import { QUOTES_CONFIGURED } from "@/api/config";
 import { listQuoteAssemblies } from "@/api/quoteAssemblies";
-import { listQuoteItems } from "@/api/quoteItems";
-import { QUOTE_ASSEMBLIES_KEY, QUOTE_ITEMS_KEY, useQuotes } from "@/hooks/useQuotes";
+import { QUOTE_ASSEMBLIES_KEY, useQuotes } from "@/hooks/useQuotes";
 import { useQuoteCustomers } from "@/hooks/useQuoteCustomers";
 import { useMyQuoteAccess, type MyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { QUOTE_STATUSES, type Quote, type QuoteCustomer, type QuoteStatus } from "@/types/quote";
@@ -96,9 +95,9 @@ export function QuoteAccessGate({ children }: { children: (access: MyQuoteAccess
         <div className="rounded-xl border border-ajax-yellow/40 bg-ajax-yellow/10 p-4 text-sm text-fg">
           <p className="font-medium">Insourcing Quotes isn't set up yet.</p>
           <p className="mt-1 text-fg-muted">
-            The five SharePoint list ids need to be set as repository variables, then redeployed:{" "}
+            The four SharePoint list ids need to be set as repository variables, then redeployed:{" "}
             <span className="font-mono text-xs">
-              VITE_SP_QUOTES_LIST_ID, VITE_SP_QUOTE_ASSEMBLIES_LIST_ID, VITE_SP_QUOTE_ITEMS_LIST_ID,
+              VITE_SP_QUOTES_LIST_ID, VITE_SP_QUOTE_ASSEMBLIES_LIST_ID,
               VITE_SP_QUOTE_CUSTOMERS_LIST_ID, VITE_SP_QUOTE_ROLES_LIST_ID
             </span>
             .
@@ -219,11 +218,6 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
     queryFn: listQuoteAssemblies,
     staleTime: 60_000,
   });
-  const { data: items = [] } = useQuery({
-    queryKey: QUOTE_ITEMS_KEY,
-    queryFn: listQuoteItems,
-    staleTime: 60_000,
-  });
   const listUnavailable = !!error && isPermissionDenied(error);
 
   const [params, setParams] = useSearchParams();
@@ -252,7 +246,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
     const base = showEarlier ? quotes : latestRevisions(quotes);
     return base.map((quote) => {
       const own = assemblies.filter((a) => a.quoteId === quote.id);
-      const pricing = priceQuote(own, items);
+      const pricing = priceQuote(own);
       return {
         id: quote.id,
         quote,
@@ -264,7 +258,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
         latest: isLatestRevision(quote, quotes),
       };
     });
-  }, [quotes, assemblies, items, customerById, showEarlier]);
+  }, [quotes, assemblies, customerById, showEarlier]);
 
   const customerOptions = useMemo(
     () =>

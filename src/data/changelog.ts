@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.209.0",
+    date: "2026-10-29",
+    changes: [
+      "Insourcing Quotes: each line now takes the part's final Material, Labor and Overhead (a percent of material, 18% unless changed) and turns them into the selling price at the line's target GM — component rows and the Final assembly / Part choice are gone",
+      "Insourcing Quotes: a Customer reference / description on the quote, printed under Prepared for on the PDF",
+      "Insourcing Quotes: a customer's notes from the customer list show on every one of their quotes (never printed)",
+      "Insourcing Quotes: link a quote to an Engineering or Operations task and project from the right-hand panel, with a link straight to the task",
+      "Insourcing Quotes: a Lead times table — part, description, lead time and why that part or alternate was chosen — typed or pasted from Excel, printed on its own page of the PDF",
+      "Insourcing Quotes: a new revision carries the reference, lead times and links forward with the lines and discussion",
+    ],
+  },
+  {
     version: "0.208.0",
     date: "2026-10-29",
     changes: [

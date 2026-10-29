@@ -6,7 +6,7 @@ import {
   editQuoteComment,
   getQuote,
   listQuotes,
-  setQuoteLinks,
+  LeadTimesUnreadableError,
   setQuoteWatchers,
   updateQuoteFields,
   type QuoteCommentInput,
@@ -16,7 +16,7 @@ import { createQuoteRevision } from "@/api/quoteRevisions";
 import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
 import { notifyMentions } from "@/api/email";
 import type { Person } from "@/types/task";
-import type { Quote, QuoteItem, QuoteLink } from "@/types/quote";
+import type { Quote } from "@/types/quote";
 import { applyQuotePatch, type QuotePatch } from "@/lib/quoteMapper";
 import { revisionsOf } from "@/lib/quoteNumber";
 import {
@@ -54,9 +54,8 @@ import { requireQuoteGate, useResolveQuoteAccess } from "./useQuoteRoles";
 // =============================================================================
 
 export const QUOTES_KEY = ["quotes", "list"] as const;
-/** Where an assembly / item hook's caches live — invalidated by a new rev. */
+/** Where the lines hook's cache lives — invalidated by a new rev. */
 export const QUOTE_ASSEMBLIES_KEY = ["quote-assemblies", "list"] as const;
-export const QUOTE_ITEMS_KEY = ["quote-items", "list"] as const;
 
 /** For the "ask an admin about X" sentence on a refused write. */
 export const QUOTE_SITE_LABEL = "Altronic_PMO";
@@ -89,12 +88,9 @@ export function useQuoteRevisions(quoteBase: string | null | undefined) {
   return { ...rest, data };
 }
 
-/** Everyone already on a quote or a component — the @-mention picker's starting point. */
-export function collectQuotePeople(quotes: Quote[], items: QuoteItem[] = []): Person[] {
-  return mergePeople(
-    ...quotes.map((q) => [...q.watchers, ...(q.createdBy ? [q.createdBy] : [])]),
-    ...items.map((i) => i.watchers),
-  );
+/** Everyone already on a quote — the @-mention picker's starting point. */
+export function collectQuotePeople(quotes: Quote[]): Person[] {
+  return mergePeople(...quotes.map((q) => [...q.watchers, ...(q.createdBy ? [q.createdBy] : [])]));
 }
 
 export function patchQuote(qc: QueryClient, id: number, update: (q: Quote) => Quote) {
@@ -178,7 +174,9 @@ export function useUpdateQuoteFields() {
     onError: (err: unknown, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(QUOTES_KEY, ctx.previous);
       errorToast(
-        describeListWriteFailure(err, { action: "save that change", site: QUOTE_SITE_LABEL, permission: "editing" }),
+        err instanceof LeadTimesUnreadableError
+          ? err.message
+          : describeListWriteFailure(err, { action: "save that change", site: QUOTE_SITE_LABEL, permission: "editing" }),
       );
     },
     onSettled: (_data, _err, vars) => {
@@ -339,11 +337,7 @@ function beginQuoteMentionAutoWatch(qc: QueryClient, id: number, bodyHtml: strin
   return beginMentionAutoWatch({
     bodyHtml,
     currentWatchers: quote.watchers,
-    directory: () =>
-      collectQuotePeople(
-        qc.getQueryData<Quote[]>(QUOTES_KEY) ?? [],
-        qc.getQueryData<QuoteItem[]>(QUOTE_ITEMS_KEY) ?? [],
-      ),
+    directory: () => collectQuotePeople(qc.getQueryData<Quote[]>(QUOTES_KEY) ?? []),
     resolveLookupId: resolvePmoSiteUserLookupId,
     patch: (watchers) => patchQuote(qc, id, (q) => ({ ...q, watchers })),
     write: (watchers) => setQuoteWatchers(id, watchers),
@@ -369,7 +363,6 @@ export function useCreateQuoteRevision() {
       upsertQuote(qc, quote);
       void qc.invalidateQueries({ queryKey: QUOTES_KEY });
       void qc.invalidateQueries({ queryKey: QUOTE_ASSEMBLIES_KEY });
-      void qc.invalidateQueries({ queryKey: QUOTE_ITEMS_KEY });
       pushToast({ message: `Created ${quote.quoteNumber}.` });
       for (const message of warnings) pushToast({ message, variant: "error" });
     },
@@ -381,32 +374,5 @@ export function useCreateQuoteRevision() {
           permission: "creating items",
         }),
       ),
-  });
-}
-
-// -----------------------------------------------------------------------------
-// Phase 2 plumbing — the task hyperlinks, each in its own PATCH.
-// -----------------------------------------------------------------------------
-
-export function useSetQuoteLinks() {
-  const qc = useQueryClient();
-  const resolve = useResolveQuoteAccess();
-  return useMutation({
-    mutationFn: async ({
-      id,
-      links,
-    }: {
-      id: number;
-      links: { engineeringTaskLink?: QuoteLink | null; operationsTaskLink?: QuoteLink | null };
-    }) => {
-      requireQuoteGate(editQuoteGate(await resolve()));
-      return setQuoteLinks(id, links);
-    },
-    onSuccess: (updated) => patchQuote(qc, updated.id, () => updated),
-    onError: (err: unknown) =>
-      errorToast(
-        describeListWriteFailure(err, { action: "set the task link", site: QUOTE_SITE_LABEL, permission: "editing" }),
-      ),
-    onSettled: () => qc.invalidateQueries({ queryKey: QUOTES_KEY }),
   });
 }

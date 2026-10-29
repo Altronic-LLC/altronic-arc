@@ -21,7 +21,6 @@ vi.mock("./config", async (importOriginal) => {
     USE_MOCK: false,
     SP_QUOTES_LIST_ID: undefined,
     SP_QUOTE_ASSEMBLIES_LIST_ID: undefined,
-    SP_QUOTE_ITEMS_LIST_ID: undefined,
     SP_QUOTE_CUSTOMERS_LIST_ID: undefined,
     SP_QUOTE_ROLES_LIST_ID: undefined,
   };
@@ -29,7 +28,6 @@ vi.mock("./config", async (importOriginal) => {
 
 import { createQuote, getQuote, listQuotes } from "./quotes";
 import { createQuoteAssembly, listQuoteAssemblies } from "./quoteAssemblies";
-import { createQuoteItem, listQuoteItems } from "./quoteItems";
 import { createQuoteCustomer, listQuoteCustomers } from "./quoteCustomers";
 import { createQuoteRoleEntry, deleteQuoteRoleEntry, listQuoteRoleEntries } from "./quoteRoles";
 
@@ -38,7 +36,6 @@ describe("quote lists not configured", () => {
     expect(await listQuotes()).toEqual([]);
     expect(await getQuote(1)).toBeNull();
     expect(await listQuoteAssemblies()).toEqual([]);
-    expect(await listQuoteItems()).toEqual([]);
     expect(await listQuoteCustomers()).toEqual([]);
     expect(await listQuoteRoleEntries()).toEqual([]);
     expect(graphFetch).not.toHaveBeenCalled();
@@ -56,15 +53,9 @@ describe("quote lists not configured", () => {
       createQuoteAssembly({
         quoteId: 1, lineNo: 1, altronicPartNumber: "A", sapPartNumber: "", customerPartNumber: "",
         description: "", priceBreaks: [], targetGM: null, manualPrice: null, customerPrice: null,
-        lineType: "Assembly", cost: null, materialOverheadPct: null, quotedQty: 1,
+        materialCost: null, laborCost: null, materialOverheadPct: null, quotedQty: 1,
       }),
     ).rejects.toThrow(/VITE_SP_QUOTE_ASSEMBLIES_LIST_ID/);
-    await expect(
-      createQuoteItem({
-        quoteId: 1, assemblyId: 1, lineNo: 1, altronicPartNumber: "A", sapPartNumber: "",
-        description: "", quantity: 1, cost: null, materialOverheadPct: null,
-      }),
-    ).rejects.toThrow(/VITE_SP_QUOTE_ITEMS_LIST_ID/);
     await expect(
       createQuoteCustomer({ name: "X", code: "XX", customerNumber: "", note: "" }),
     ).rejects.toThrow(/VITE_SP_QUOTE_CUSTOMERS_LIST_ID/);

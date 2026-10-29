@@ -41,7 +41,6 @@ function inputFor(quoteId: number) {
     quote,
     customer: quoteMockDb.customers.find((c) => c.id === quote.customerId) ?? null,
     assemblies: quoteMockDb.assemblies,
-    items: quoteMockDb.items,
   };
 }
 

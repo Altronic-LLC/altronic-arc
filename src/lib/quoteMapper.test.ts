@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { GraphListItem } from "@/types/task";
-import type { Quote, QuoteAssembly, QuoteCustomer, QuoteItem } from "@/types/quote";
+import type { Quote, QuoteAssembly, QuoteCustomer } from "@/types/quote";
 import {
   QUOTE_ASSEMBLY_SELECT,
   QUOTE_CUSTOMER_SELECT,
-  QUOTE_ITEM_SELECT,
   QUOTE_ROLE_SELECT,
   QUOTE_SELECT,
   applyQuotePatch,
@@ -13,20 +12,20 @@ import {
   buildQuoteCreateFields,
   buildQuoteCustomerCreateFields,
   buildQuoteCustomerUpdateFields,
-  buildQuoteItemCreateFields,
-  buildQuoteItemUpdateFields,
   buildQuoteRoleCreateFields,
   buildQuoteRoleUpdateFields,
   buildQuoteUpdateFields,
   compareQuotes,
   isUniqueValueRejection,
   mockUniqueRejection,
+  parseLeadTimes,
+  parsePastedLeadTimes,
   parsePriceBreaks,
+  serializeLeadTimes,
   serializePriceBreaks,
   toQuote,
   toQuoteAssembly,
   toQuoteCustomer,
-  toQuoteItem,
   toQuoteRoleEntry,
 } from "./quoteMapper";
 import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
@@ -35,16 +34,12 @@ import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 const CONTRACT = {
   quotes: [
     "Title", "QuoteBase", "Rev", "CustomerRef", "Status", "ValidityDays", "ContactName", "ContactEmail",
-    "Budgetary", "BudgetaryText", "QuoteNotes", "Communication", "Watchers", "EngineeringTaskLink",
-    "OperationsTaskLink", "EngineeringProjectRef",
+    "Budgetary", "BudgetaryText", "QuoteNotes", "CustomerReference", "LeadTimes", "Communication", "Watchers",
+    "EngineeringTaskId", "OperationsTaskId", "EngineeringProjectRef", "OperationsProjectRef",
   ],
   assemblies: [
-    "Title", "QuoteRef", "LineNo", "QuotedQty", "LineType", "Cost", "MaterialOverheadPct", "SapPartNumber", "CustomerPartNumber", "Description", "PriceBreaks",
-    "TargetGM", "ManualPrice", "CustomerPrice",
-  ],
-  items: [
-    "Title", "QuoteRef", "AssemblyRef", "LineNo", "SapPartNumber", "Description",
-    "Quantity", "Cost", "MaterialOverheadPct", "Communication", "Watchers",
+    "Title", "QuoteRef", "LineNo", "QuotedQty", "Cost", "LaborCost", "MaterialOverheadPct", "SapPartNumber",
+    "CustomerPartNumber", "Description", "PriceBreaks", "TargetGM", "ManualPrice", "CustomerPrice",
   ],
   customers: ["Title", "CustomerCode", "CustomerNumber", "Active", "Note"],
   roles: ["Title", "PersonName", "Roles", "Note"],
@@ -80,7 +75,11 @@ function item(fields: Record<string, unknown>, extra: Partial<GraphListItem> = {
 describe("$select — inside the 13.1 contract, BOTH halves of every single lookup", () => {
   it("quotes", () => assertWithinContract(QUOTE_SELECT, CONTRACT.quotes, ["CustomerRef"]));
   it("assemblies", () => assertWithinContract(QUOTE_ASSEMBLY_SELECT, CONTRACT.assemblies, ["QuoteRef"]));
-  it("items", () => assertWithinContract(QUOTE_ITEM_SELECT, CONTRACT.items, ["QuoteRef", "AssemblyRef"]));
+  it("no longer reads the Hyperlink link columns or the old LineType", () => {
+    expect(columnsOf(QUOTE_SELECT)).not.toContain("EngineeringTaskLink");
+    expect(columnsOf(QUOTE_SELECT)).not.toContain("OperationsTaskLink");
+    expect(columnsOf(QUOTE_ASSEMBLY_SELECT)).not.toContain("LineType");
+  });
   it("customers", () => assertWithinContract(QUOTE_CUSTOMER_SELECT, CONTRACT.customers, []));
   it("roles — PersonName, never DisplayName", () => {
     assertWithinContract(QUOTE_ROLE_SELECT, CONTRACT.roles, []);
@@ -125,6 +124,50 @@ describe("price breaks", () => {
   });
 });
 
+describe("lead times", () => {
+  const ROWS = [
+    { partNumber: "693005-1", description: "Harness", leadTime: "3 weeks", reason: "Second source" },
+    { partNumber: "791950-08", description: "", leadTime: "6–8 weeks", reason: "" },
+  ];
+
+  it("round-trips, dropping blank rows and trimming", () => {
+    const stored = serializeLeadTimes([...ROWS, { partNumber: " ", description: "", leadTime: "", reason: "" }]);
+    expect(parseLeadTimes(stored)).toEqual({ rows: ROWS, corrupt: false });
+    expect(serializeLeadTimes([])).toBe("");
+    expect(parseLeadTimes("")).toEqual({ rows: [], corrupt: false });
+    expect(parseLeadTimes(undefined)).toEqual({ rows: [], corrupt: false });
+  });
+
+  it("reports a value it can't read as CORRUPT, never as an empty table", () => {
+    expect(parseLeadTimes("{broken")).toEqual({ rows: [], corrupt: true });
+    expect(parseLeadTimes('{"partNumber":"x"}')).toEqual({ rows: [], corrupt: true });
+    expect(toQuote(item({ LeadTimes: "{broken" })).leadTimesCorrupt).toBe(true);
+  });
+
+  it("parses rows pasted from Excel — tabs between cells, header skipped", () => {
+    const pasted = [
+      "Part #\tDescription\tLead time\tReason",
+      "693005-1\tHarness\t3 weeks\tSecond source",
+      "",
+      "791950-08\t\t6–8 weeks",
+      "LONE-PART",
+      "X1\tD\t2 wk\tcheaper\tand in stock",
+    ].join("\r\n");
+    expect(parsePastedLeadTimes(pasted)).toEqual([
+      ROWS[0],
+      ROWS[1],
+      { partNumber: "LONE-PART", description: "", leadTime: "", reason: "" },
+      { partNumber: "X1", description: "D", leadTime: "2 wk", reason: "cheaper and in stock" },
+    ]);
+  });
+
+  it("keeps a first row that is data, not a header", () => {
+    expect(parsePastedLeadTimes("PART-9\tWidget\t1 wk")).toEqual([
+      { partNumber: "PART-9", description: "Widget", leadTime: "1 wk", reason: "" },
+    ]);
+  });
+});
+
 describe("role tags", () => {
   it("parse loosely, keep known tags in canonical order", () => {
     expect(parseQuoteRoles("Manager, viewer;bogus, viewer")).toEqual(["viewer", "manager"]);
@@ -152,9 +195,12 @@ describe("toQuote", () => {
           QuoteNotes: "FOB Girard",
           Communication: "10/01/2026 9:00:00 AM|||Ray White|||ray@x.com|||<p>hi</p>",
           Watchers: [{ LookupId: 22, LookupValue: "Ray White", Email: "ray@x.com" }],
-          EngineeringTaskLink: { Url: "https://arc/task/5", Description: "T5" },
-          OperationsTaskLink: null,
+          CustomerReference: " RFQ 4471 ",
+          LeadTimes: '[{"partNumber":"P1","description":"D","leadTime":"3 wk","reason":"R"}]',
+          EngineeringTaskId: 5,
+          OperationsTaskId: "12",
           EngineeringProjectRef: "0042-NGI",
+          OperationsProjectRef: "0007-Line 3",
           Attachments: true,
         },
         { createdBy: { user: { displayName: "Katie", email: "k@x.com" } } },
@@ -170,9 +216,13 @@ describe("toQuote", () => {
       validityDays: 45,
       contactName: "Mark",
       budgetary: true,
-      engineeringTaskLink: { url: "https://arc/task/5", description: "T5" },
-      operationsTaskLink: null,
+      customerReference: "RFQ 4471",
+      leadTimes: [{ partNumber: "P1", description: "D", leadTime: "3 wk", reason: "R" }],
+      leadTimesCorrupt: false,
+      engineeringTaskId: 5,
+      operationsTaskId: 12,
       engineeringProjectRef: "0042-NGI",
+      operationsProjectRef: "0007-Line 3",
       hasAttachments: true,
       createdBy: { displayName: "Katie", email: "k@x.com" },
       createdAt: "2026-10-01T12:00:00Z",
@@ -191,11 +241,15 @@ describe("toQuote", () => {
     expect(q.validityDays).toBe(30);
     expect(q.budgetary).toBe(false);
     expect(q.createdBy).toBeNull();
+    expect(q.engineeringTaskId).toBeNull();
+    expect(q.operationsTaskId).toBeNull();
+    expect(q.customerReference).toBe("");
+    expect(q.leadTimes).toEqual([]);
     expect(toQuote(item({ CustomerRefLookupId: "" })).customerId).toBeNull();
   });
 });
 
-describe("toQuoteAssembly / toQuoteItem / toQuoteCustomer / toQuoteRoleEntry", () => {
+describe("toQuoteAssembly / toQuoteCustomer / toQuoteRoleEntry", () => {
   it("assembly", () => {
     const a = toQuoteAssembly(
       item({
@@ -203,6 +257,9 @@ describe("toQuoteAssembly / toQuoteItem / toQuoteCustomer / toQuoteRoleEntry", (
         QuoteRefLookupId: "12",
         LineNo: 2,
         QuotedQty: 30,
+        Cost: 520,
+        LaborCost: 85,
+        MaterialOverheadPct: 18,
         SapPartNumber: "1002-4587-10",
         CustomerPartNumber: "C-1",
         Description: "Module",
@@ -217,9 +274,9 @@ describe("toQuoteAssembly / toQuoteItem / toQuoteCustomer / toQuoteRoleEntry", (
       quoteId: 12,
       lineNo: 2,
       quotedQty: 30,
-      lineType: "Assembly",
-      cost: null,
-      materialOverheadPct: null,
+      materialCost: 520,
+      laborCost: 85,
+      materialOverheadPct: 18,
       altronicPartNumber: "791950-08",
       sapPartNumber: "1002-4587-10",
       customerPartNumber: "C-1",
@@ -241,42 +298,9 @@ describe("toQuoteAssembly / toQuoteItem / toQuoteCustomer / toQuoteRoleEntry", (
     expect(buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 1, quotedQty: 0 }).QuotedQty).toBe(1);
   });
 
-  it("assembly — LineType Part with its own cost; missing or unknown LineType reads Assembly", () => {
-    const part = toQuoteAssembly(item({ Title: "SP", LineType: "Part", Cost: 38.4, MaterialOverheadPct: 10 }));
-    expect(part).toMatchObject({ lineType: "Part", cost: 38.4, materialOverheadPct: 10 });
-    expect(toQuoteAssembly(item({ Title: "A" })).lineType).toBe("Assembly");
-    expect(toQuoteAssembly(item({ Title: "A", LineType: "Kit" })).lineType).toBe("Assembly");
-    expect(toQuoteAssembly(item({ Title: "A", LineType: "part" })).lineType).toBe("Part");
-    // The SAP # is read as stored — no reformatting of legacy values.
+  it("assembly — blank costs read null; the SAP # is read as stored", () => {
+    expect(toQuoteAssembly(item({ Title: "A" }))).toMatchObject({ materialCost: null, laborCost: null, materialOverheadPct: null });
     expect(toQuoteAssembly(item({ Title: "A", SapPartNumber: "100245871" })).sapPartNumber).toBe("100245871");
-  });
-
-  it("item", () => {
-    const i = toQuoteItem(
-      item({
-        Title: "R-681",
-        QuoteRefLookupId: "12",
-        AssemblyRefLookupId: "4",
-        LineNo: 3,
-        Quantity: 12,
-        Cost: 0.1,
-        MaterialOverheadPct: null,
-        // A stray TargetGM on an item (an old list) is ignored — the margin is the assembly's.
-        TargetGM: 60,
-        Attachments: false,
-      }),
-    );
-    expect(i).toMatchObject({
-      quoteId: 12,
-      assemblyId: 4,
-      lineNo: 3,
-      quantity: 12,
-      cost: 0.1,
-      materialOverheadPct: null,
-      comments: [],
-      watchers: [],
-      hasAttachments: false,
-    });
   });
 
   it("customer — text sold-to keeps zeros; missing Active reads active", () => {
@@ -305,11 +329,15 @@ const QUOTE: Quote = {
   budgetary: false,
   budgetaryText: "",
   quoteNotes: "",
+  customerReference: "",
+  leadTimes: [],
+  leadTimesCorrupt: false,
   comments: [],
   watchers: [],
-  engineeringTaskLink: null,
-  operationsTaskLink: null,
+  engineeringTaskId: null,
+  operationsTaskId: null,
   engineeringProjectRef: "",
+  operationsProjectRef: "",
   hasAttachments: false,
   createdBy: null,
   createdAt: null,
@@ -317,7 +345,7 @@ const QUOTE: Quote = {
 };
 
 describe("quote field builders", () => {
-  it("create: bare-integer lookup, two-key Watchers, NO hyperlink columns", () => {
+  it("create: bare-integer lookup, two-key Watchers, NO hyperlink columns, blanks left out", () => {
     const fields = buildQuoteCreateFields({
       quoteNumber: "IQ-COO-0001-R1",
       quoteBase: "IQ-COO-0001",
@@ -348,6 +376,28 @@ describe("quote field builders", () => {
     expect(Object.keys(fields).join()).not.toMatch(/Link/);
   });
 
+  it("create carries the reference, lead times and links when set", () => {
+    const fields = buildQuoteCreateFields({
+      quoteNumber: "x", quoteBase: "x", rev: 2, customerId: null, status: "Draft", validityDays: 30,
+      contactName: "", contactEmail: "", budgetary: false, budgetaryText: "", quoteNotes: "",
+      customerReference: " RFQ 1 ",
+      leadTimes: [{ partNumber: "P1", description: "", leadTime: "2 wk", reason: "" }],
+      engineeringTaskId: 47,
+      operationsTaskId: 9,
+      engineeringProjectRef: "0042-NGI",
+      operationsProjectRef: "0007-Line 3",
+      watchers: [],
+    });
+    expect(fields).toMatchObject({
+      CustomerReference: "RFQ 1",
+      LeadTimes: '[{"partNumber":"P1","description":"","leadTime":"2 wk","reason":""}]',
+      EngineeringTaskId: 47,
+      OperationsTaskId: 9,
+      EngineeringProjectRef: "0042-NGI",
+      OperationsProjectRef: "0007-Line 3",
+    });
+  });
+
   it("create leaves Watchers out when nobody resolved", () => {
     const fields = buildQuoteCreateFields({
       quoteNumber: "x", quoteBase: "x", rev: 1, customerId: null, status: "Draft", validityDays: 30,
@@ -370,6 +420,21 @@ describe("quote field builders", () => {
     expect(buildQuoteUpdateFields({ contactName: undefined }, QUOTE)).toEqual({});
   });
 
+  it("update writes the links as numbers / titles, and the lead times as JSON", () => {
+    expect(buildQuoteUpdateFields({ engineeringTaskId: 47, operationsProjectRef: "0007" }, QUOTE)).toEqual({
+      EngineeringTaskId: 47,
+      OperationsProjectRef: "0007",
+    });
+    expect(buildQuoteUpdateFields({ engineeringTaskId: null }, { ...QUOTE, engineeringTaskId: 47 })).toEqual({
+      EngineeringTaskId: null,
+    });
+    expect(buildQuoteUpdateFields({ leadTimes: [] }, QUOTE)).toEqual({});
+    expect(
+      buildQuoteUpdateFields({ leadTimes: [{ partNumber: "P", description: "", leadTime: "", reason: "" }] }, QUOTE),
+    ).toEqual({ LeadTimes: '[{"partNumber":"P","description":"","leadTime":"","reason":""}]' });
+    expect(buildQuoteUpdateFields({ customerReference: " RFQ " }, QUOTE)).toEqual({ CustomerReference: "RFQ" });
+  });
+
   it("frozen keys can't travel", () => {
     const sneaky = { quoteNumber: "IQ-HACK-9999-R1", rev: 9 } as unknown as Parameters<typeof buildQuoteUpdateFields>[0];
     expect(buildQuoteUpdateFields(sneaky, QUOTE)).toEqual({});
@@ -381,10 +446,10 @@ const ASSEMBLY: QuoteAssembly = {
   id: 1,
   quoteId: 1,
   lineNo: 1,
-  lineType: "Assembly",
   quotedQty: 1,
-  cost: null,
-  materialOverheadPct: null,
+  materialCost: 400,
+  laborCost: null,
+  materialOverheadPct: 18,
   altronicPartNumber: "791950-08",
   sapPartNumber: "",
   customerPartNumber: "",
@@ -403,7 +468,8 @@ describe("assembly builders", () => {
       QuoteRefLookupId: 12,
       LineNo: 1,
       QuotedQty: 1,
-      LineType: "Assembly",
+      Cost: 400,
+      MaterialOverheadPct: 18,
       PriceBreaks: '[{"qty":10,"discountPct":5,"note":""}]',
       TargetGM: 35,
       CustomerPrice: 100,
@@ -422,50 +488,12 @@ describe("assembly builders", () => {
     expect(buildQuoteAssemblyUpdateFields({ targetGM: null }, ASSEMBLY)).toEqual({ TargetGM: null });
     expect(buildQuoteAssemblyUpdateFields({ quotedQty: 1 }, ASSEMBLY)).toEqual({});
     expect(buildQuoteAssemblyUpdateFields({ quotedQty: 25 }, ASSEMBLY)).toEqual({ QuotedQty: 25 });
-    // Part → Assembly clears the line's own cost in the same write.
-    const part = { ...ASSEMBLY, lineType: "Part" as const, cost: 12, materialOverheadPct: 5 };
-    expect(
-      buildQuoteAssemblyUpdateFields({ lineType: "Assembly", cost: null, materialOverheadPct: null }, part),
-    ).toEqual({ LineType: "Assembly", Cost: null, MaterialOverheadPct: null });
-  });
-});
-
-const ITEM: QuoteItem = {
-  id: 1,
-  quoteId: 1,
-  assemblyId: 2,
-  lineNo: 1,
-  altronicPartNumber: "R-1",
-  sapPartNumber: "",
-  description: "",
-  quantity: 1,
-  cost: 10,
-  materialOverheadPct: null,
-  comments: [],
-  watchers: [],
-  hasAttachments: false,
-};
-
-describe("item builders", () => {
-  it("create writes both lookups as bare integers", () => {
-    const fields = buildQuoteItemCreateFields(
-      { ...ITEM, quoteId: 12, assemblyId: 4 },
-      [{ displayName: "A", lookupId: 5 }],
-    );
-    expect(fields).toMatchObject({ QuoteRefLookupId: 12, AssemblyRefLookupId: 4, WatchersLookupId: [5] });
-    expect(fields).not.toHaveProperty("MaterialOverheadPct");
-    expect(fields).not.toHaveProperty("TargetGM");
-    // A component has no customer part number — and the read never asks for one.
-    expect(fields).not.toHaveProperty("CustomerPartNumber");
-    expect(QUOTE_ITEM_SELECT.split(",")).not.toContain("CustomerPartNumber");
-  });
-
-  it("update diffs; a moved assembly is a bare integer", () => {
-    expect(buildQuoteItemUpdateFields({ cost: 10 }, ITEM)).toEqual({});
-    expect(buildQuoteItemUpdateFields({ cost: null, assemblyId: 9 }, ITEM)).toEqual({
-      Cost: null,
-      AssemblyRefLookupId: 9,
+    // Material is the Cost column; labor its own.
+    expect(buildQuoteAssemblyUpdateFields({ materialCost: 410, laborCost: 30 }, ASSEMBLY)).toEqual({
+      Cost: 410,
+      LaborCost: 30,
     });
+    expect(buildQuoteAssemblyUpdateFields({ laborCost: null }, ASSEMBLY)).toEqual({});
   });
 });
 

@@ -46,7 +46,6 @@ vi.mock("./config", async (importOriginal) => {
     SP_PMO_SITE_URL: "https://example.sharepoint.com/sites/Altronic_PMO",
     SP_QUOTES_LIST_ID: "quotes-list",
     SP_QUOTE_ASSEMBLIES_LIST_ID: "assemblies-list",
-    SP_QUOTE_ITEMS_LIST_ID: "items-list",
     SP_QUOTE_CUSTOMERS_LIST_ID: "customers-list",
     SP_QUOTE_ROLES_LIST_ID: "roles-list",
   };
@@ -57,7 +56,6 @@ import {
   createQuote,
   getQuote,
   listQuotes,
-  setQuoteLinks,
   setQuoteWatchers,
   updateQuoteFields,
 } from "./quotes";
@@ -67,11 +65,10 @@ import {
   listQuoteAssemblies,
   updateQuoteAssemblyFields,
 } from "./quoteAssemblies";
-import { createQuoteItem, listQuoteItems, updateQuoteItemFields } from "./quoteItems";
 import { QuoteCustomerCodeTakenError, createQuoteCustomer, listQuoteCustomers } from "./quoteCustomers";
 import { createQuoteRoleEntry, listQuoteRoleEntries } from "./quoteRoles";
 import { createQuoteRevision } from "./quoteRevisions";
-import { toQuote, toQuoteAssembly, toQuoteItem } from "@/lib/quoteMapper";
+import { toQuote, toQuoteAssembly } from "@/lib/quoteMapper";
 
 const PMO_URL = "https://example.sharepoint.com/sites/Altronic_PMO";
 const DUPLICATE = Object.assign(new Error("Graph 409 Conflict"), {
@@ -143,15 +140,14 @@ describe("reads", () => {
     expect(q.customerId).toBe(3);
   });
 
-  it("assemblies and items select both halves of every lookup", async () => {
+  it("lines select both halves of QuoteRef, and the labor column", async () => {
     graphFetchAll.mockResolvedValue([]);
     await listQuoteAssemblies();
-    await listQuoteItems();
-    const [assemblyUrl, itemUrl] = graphFetchAll.mock.calls.map((c) => String(c[0]));
+    const [assemblyUrl] = graphFetchAll.mock.calls.map((c) => String(c[0]));
     expect(assemblyUrl).toContain("/lists/assemblies-list/");
     expect(assemblyUrl).toMatch(/QuoteRef,QuoteRefLookupId/);
-    expect(itemUrl).toMatch(/QuoteRef,QuoteRefLookupId/);
-    expect(itemUrl).toMatch(/AssemblyRef,AssemblyRefLookupId/);
+    expect(assemblyUrl).toMatch(/Cost,LaborCost,MaterialOverheadPct/);
+    expect(assemblyUrl).not.toContain("LineType");
   });
 
   it("customers and roles read their own lists; roles select PersonName", async () => {
@@ -249,15 +245,24 @@ describe("quote writes", () => {
     expect(body).toEqual({ Status: "Sent", CustomerRefLookupId: 4 });
   });
 
-  it("setQuoteLinks is its own PATCH of only the given Hyperlink", async () => {
-    graphFetch.mockResolvedValueOnce({}).mockResolvedValueOnce(quoteItem(7));
-    await setQuoteLinks(7, { engineeringTaskLink: { url: "https://arc/task/9", description: "T9" } });
+  it("links are plain columns: a task id as a NUMBER, a project as its title", async () => {
+    graphFetch.mockResolvedValueOnce({}).mockResolvedValueOnce(quoteItem(7, { EngineeringTaskId: 9 }));
+    await updateQuoteFields(7, { engineeringTaskId: 9, operationsProjectRef: "0007-Line 3" }, previous);
     expect(calls("PATCH")).toEqual([
-      [
-        "/sites/pmo-site/lists/quotes-list/items/7/fields",
-        { EngineeringTaskLink: { Url: "https://arc/task/9", Description: "T9" } },
-      ],
+      ["/sites/pmo-site/lists/quotes-list/items/7/fields", { EngineeringTaskId: 9, OperationsProjectRef: "0007-Line 3" }],
     ]);
+  });
+
+  it("refuses to write lead times over a stored value it couldn't read", async () => {
+    const corrupt = toQuote(quoteItem(7, { LeadTimes: "{broken" }) as never);
+    await expect(
+      updateQuoteFields(7, { leadTimes: [{ partNumber: "P", description: "", leadTime: "", reason: "" }] }, corrupt),
+    ).rejects.toThrow(/couldn't be read/);
+    expect(graphFetch).not.toHaveBeenCalled();
+    // Other fields on the same quote still save.
+    graphFetch.mockResolvedValueOnce({}).mockResolvedValueOnce(quoteItem(7, { ContactName: "Dana" }));
+    await updateQuoteFields(7, { contactName: "Dana" }, corrupt);
+    expect(calls("PATCH")).toEqual([["/sites/pmo-site/lists/quotes-list/items/7/fields", { ContactName: "Dana" }]]);
   });
 
   it("setQuoteWatchers resolves on PMO and writes the two-key shape; refuses when nobody resolves", async () => {
@@ -296,50 +301,38 @@ describe("quote writes", () => {
   });
 });
 
-describe("assemblies and items", () => {
-  it("create writes QuoteRef (and AssemblyRef) as BARE integers", async () => {
+describe("lines", () => {
+  it("create writes QuoteRef as a BARE integer, with material, labor and overhead", async () => {
     graphFetch
       .mockResolvedValueOnce({ id: "3" })
-      .mockResolvedValueOnce({ id: "3", fields: { Title: "A", QuoteRefLookupId: "12" } })
-      .mockResolvedValueOnce({ id: "8" })
-      .mockResolvedValueOnce({ id: "8", fields: { Title: "C", QuoteRefLookupId: "12", AssemblyRefLookupId: "3" } });
+      .mockResolvedValueOnce({ id: "3", fields: { Title: "A", QuoteRefLookupId: "12" } });
     await createQuoteAssembly({
       quoteId: 12, lineNo: 1, altronicPartNumber: "A", sapPartNumber: "", customerPartNumber: "",
       description: "", priceBreaks: [], targetGM: 35, manualPrice: null, customerPrice: null,
-      lineType: "Part", cost: 12.5, materialOverheadPct: 8, quotedQty: 3,
+      materialCost: 12.5, laborCost: 4, materialOverheadPct: 18, quotedQty: 3,
     });
-    await createQuoteItem({
-      quoteId: 12, assemblyId: 3, lineNo: 1, altronicPartNumber: "C", sapPartNumber: "",
-      description: "", quantity: 2, cost: 5, materialOverheadPct: null,
-      watchers: [{ displayName: "Ray", email: "ray@x.com" }],
-    });
-    const [[aUrl, a], [iUrl, i]] = calls("POST");
+    const [[aUrl, a]] = calls("POST");
     expect(aUrl).toBe("/sites/pmo-site/lists/assemblies-list/items");
-    expect((a.fields as Record<string, unknown>).QuoteRefLookupId).toBe(12);
-    // The margin is the ASSEMBLY's; a component carries cost only.
-    expect((a.fields as Record<string, unknown>).TargetGM).toBe(35);
-    // A Part line carries its own cost; LineType is always sent.
-    expect(a.fields).toMatchObject({ LineType: "Part", Cost: 12.5, MaterialOverheadPct: 8, QuotedQty: 3 });
-    expect(i.fields).not.toHaveProperty("TargetGM");
-    expect(iUrl).toBe("/sites/pmo-site/lists/items-list/items");
-    expect(i.fields).toMatchObject({ QuoteRefLookupId: 12, AssemblyRefLookupId: 3, WatchersLookupId: [40] });
-    expect(JSON.stringify(a) + JSON.stringify(i)).not.toMatch(/QuoteRefLookupId@odata/);
+    expect(a.fields).toMatchObject({
+      QuoteRefLookupId: 12,
+      TargetGM: 35,
+      Cost: 12.5,
+      LaborCost: 4,
+      MaterialOverheadPct: 18,
+      QuotedQty: 3,
+    });
+    expect(a.fields).not.toHaveProperty("LineType");
+    expect(JSON.stringify(a)).not.toMatch(/QuoteRefLookupId@odata/);
   });
 
   it("updates are diffed; unchanged sends nothing", async () => {
     const assembly = toQuoteAssembly({ id: "3", fields: { Title: "A", QuoteRefLookupId: "12", ManualPrice: 10 } } as never);
-    const item = toQuoteItem({ id: "8", fields: { Title: "C", Cost: 5, AssemblyRefLookupId: "3" } } as never);
     await updateQuoteAssemblyFields(3, { manualPrice: 10 }, assembly);
-    await updateQuoteItemFields(8, { cost: 5, assemblyId: 3 }, item);
     expect(graphFetch).not.toHaveBeenCalled();
 
-    graphFetch.mockResolvedValue({ id: "8", fields: {} });
-    await updateQuoteItemFields(8, { cost: 6, assemblyId: 4 }, item);
-    expect(calls("PATCH")[0][1]).toEqual({ Cost: 6, AssemblyRefLookupId: 4 });
-
-    // The target GM is an ASSEMBLY column now.
-    await updateQuoteAssemblyFields(3, { targetGM: 40 }, assembly);
-    expect(calls("PATCH")[1][1]).toEqual({ TargetGM: 40 });
+    graphFetch.mockResolvedValue({ id: "3", fields: {} });
+    await updateQuoteAssemblyFields(3, { targetGM: 40, laborCost: 22 }, assembly);
+    expect(calls("PATCH")[0][1]).toEqual({ TargetGM: 40, LaborCost: 22 });
   });
 
   it("delete: a 404 resolves, anything else throws", async () => {
@@ -372,13 +365,18 @@ describe("customers and roles", () => {
   });
 });
 
-describe("createQuoteRevision — order and re-parenting", () => {
-  it("header → assemblies → items, each pointed at the NEW rows", async () => {
+describe("createQuoteRevision — order", () => {
+  it("header (with every header field) → lines, each pointed at the NEW header", async () => {
     const source = quoteItem(2, {
       Title: "IQ-COO-0042-R1",
       Communication: "10/01/2026 9:00:00 AM|||Ray|||ray@x.com|||<p>hi</p>",
       Watchers: [{ LookupId: 22, LookupValue: "Ray", Email: "ray@x.com" }],
-      EngineeringTaskLink: { Url: "https://arc/task/9", Description: "T9" },
+      CustomerReference: "RFQ 4471",
+      LeadTimes: '[{"partNumber":"P1","description":"","leadTime":"3 wk","reason":"R"}]',
+      EngineeringTaskId: 9,
+      OperationsTaskId: 4,
+      EngineeringProjectRef: "0042-NGI",
+      OperationsProjectRef: "0007-Line 3",
     });
     let nextId = 100;
     graphFetch.mockImplementation(async (url: string, init?: { method?: string }) => {
@@ -392,17 +390,10 @@ describe("createQuoteRevision — order and re-parenting", () => {
     });
     graphFetchAll.mockImplementation(async (url: string) => {
       if (url.includes("quotes-list")) return titles("IQ-COO-0042-R1");
-      if (url.includes("assemblies-list")) {
-        return [
-          { id: "11", fields: { Title: "ASSY-1", QuoteRefLookupId: "2", LineNo: 1 } },
-          { id: "12", fields: { Title: "ASSY-2", QuoteRefLookupId: "2", LineNo: 2 } },
-          { id: "13", fields: { Title: "OTHER", QuoteRefLookupId: "9", LineNo: 1 } },
-        ];
-      }
       return [
-        { id: "21", fields: { Title: "C1", QuoteRefLookupId: "2", AssemblyRefLookupId: "11", LineNo: 1, Quantity: 1 } },
-        { id: "22", fields: { Title: "C2", QuoteRefLookupId: "2", AssemblyRefLookupId: "12", LineNo: 1, Quantity: 3 } },
-        { id: "23", fields: { Title: "X", QuoteRefLookupId: "9", AssemblyRefLookupId: "13", LineNo: 1 } },
+        { id: "11", fields: { Title: "LINE-1", QuoteRefLookupId: "2", LineNo: 1, Cost: 50, LaborCost: 7 } },
+        { id: "12", fields: { Title: "LINE-2", QuoteRefLookupId: "2", LineNo: 2 } },
+        { id: "13", fields: { Title: "OTHER", QuoteRefLookupId: "9", LineNo: 1 } },
       ];
     });
 
@@ -415,39 +406,36 @@ describe("createQuoteRevision — order and re-parenting", () => {
       "quotes-list",
       "assemblies-list",
       "assemblies-list",
-      "items-list",
-      "items-list",
     ]);
     const header = posts[0][1].fields as Record<string, unknown>;
-    expect(header).toMatchObject({ Title: "IQ-COO-0042-R2", QuoteBase: "IQ-COO-0042", Rev: 2, Status: "Draft" });
+    expect(header).toMatchObject({
+      Title: "IQ-COO-0042-R2",
+      QuoteBase: "IQ-COO-0042",
+      Rev: 2,
+      Status: "Draft",
+      CustomerReference: "RFQ 4471",
+      LeadTimes: '[{"partNumber":"P1","description":"","leadTime":"3 wk","reason":"R"}]',
+      EngineeringTaskId: 9,
+      OperationsTaskId: 4,
+      EngineeringProjectRef: "0042-NGI",
+      OperationsProjectRef: "0007-Line 3",
+    });
     expect(Object.keys(header).some((k) => /Link/.test(k))).toBe(false);
     expect(String(header.Communication)).toContain("<p>hi</p><p><em>— carried over from R1</em></p>");
-    // Header id 100, assemblies 101/102 (from 11/12), items re-parented accordingly.
-    expect(posts.slice(1, 3).map(([, b]) => (b.fields as Record<string, unknown>).QuoteRefLookupId)).toEqual([100, 100]);
-    expect(posts.slice(3).map(([, b]) => b.fields)).toEqual([
-      expect.objectContaining({ Title: "C1", QuoteRefLookupId: 100, AssemblyRefLookupId: 101 }),
-      expect.objectContaining({ Title: "C2", QuoteRefLookupId: 100, AssemblyRefLookupId: 102, Quantity: 3 }),
+    expect(posts.slice(1).map(([, b]) => b.fields)).toEqual([
+      expect.objectContaining({ Title: "LINE-1", QuoteRefLookupId: 100, Cost: 50, LaborCost: 7 }),
+      expect.objectContaining({ Title: "LINE-2", QuoteRefLookupId: 100 }),
     ]);
-    // The link went in its own PATCH, after the header.
-    expect(calls("PATCH")).toContainEqual([
-      "/sites/pmo-site/lists/quotes-list/items/100/fields",
-      { EngineeringTaskLink: { Url: "https://arc/task/9", Description: "T9" } },
-    ]);
-    expect(copyAttachments.mock.calls).toEqual([
-      ["quote", 2, "quote", 100],
-      ["quoteItem", 21, "quoteItem", 103],
-      ["quoteItem", 22, "quoteItem", 104],
-    ]);
+    // Nothing separate to PATCH any more — every link travelled in the create.
+    expect(calls("PATCH")).toEqual([]);
+    expect(copyAttachments.mock.calls).toEqual([["quote", 2, "quote", 100]]);
   });
 
-  it("collects a failed link PATCH and a failed attachment copy as warnings", async () => {
-    graphFetch.mockImplementation(async (url: string, init?: { method?: string; body?: string }) => {
+  it("collects a failed attachment copy as a warning", async () => {
+    graphFetch.mockImplementation(async (url: string, init?: { method?: string }) => {
       const method = init?.method ?? "GET";
       if (method === "POST") return { id: "100" };
-      if (method === "PATCH") throw new Error("Graph 400 invalidRequest");
-      if (url.includes("/items/2?")) {
-        return quoteItem(2, { EngineeringTaskLink: { Url: "https://arc/task/9", Description: "T9" } });
-      }
+      if (url.includes("/items/2?")) return quoteItem(2);
       return quoteItem(100, { Title: "IQ-COO-0042-R2", Rev: 2 });
     });
     graphFetchAll.mockImplementation(async (url: string) =>
@@ -456,9 +444,6 @@ describe("createQuoteRevision — order and re-parenting", () => {
     copyAttachments.mockResolvedValueOnce({ copied: [], failed: ["spec.pdf"] });
     const { quote, warnings } = await createQuoteRevision(2);
     expect(quote.id).toBe(100);
-    expect(warnings).toEqual([
-      "The task links weren't copied to R2: Graph 400 invalidRequest",
-      "Quote attachments: spec.pdf didn't copy to R2.",
-    ]);
+    expect(warnings).toEqual(["Quote attachments: spec.pdf didn't copy to R2."]);
   });
 });

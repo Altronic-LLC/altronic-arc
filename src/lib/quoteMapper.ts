@@ -1,13 +1,10 @@
 import type { GraphListItem, Person } from "@/types/task";
 import {
-  QUOTE_LINE_TYPES,
   QUOTE_STATUSES,
   type Quote,
   type QuoteAssembly,
   type QuoteCustomer,
-  type QuoteItem,
-  type QuoteLineType,
-  type QuoteLink,
+  type QuoteLeadTime,
   type QuotePriceBreak,
   type QuoteRole,
   type QuoteRoleEntry,
@@ -19,7 +16,8 @@ import { multiPersonField } from "./graphFields";
 import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 
 // =============================================================================
-// Insourcing Quotes — Graph item ⇄ domain, for all five lists on the PMO site.
+// Insourcing Quotes — Graph item ⇄ domain, for the four lists ARC uses on the
+// PMO site. (Quote Items, the old component list, is no longer read.)
 //
 // The column internal names are the contract with scripts/create-quote-lists.ps1
 // (docs/INSOURCING-QUOTING-DESIGN.md, section 13.1). Never `$select` a column
@@ -27,6 +25,13 @@ import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 // WHOLE read.
 //
 // Four rules that are load-bearing, each one a bug this repo has paid for:
+//
+//  - **A column added after the lists were created must exist before a
+//    build that selects it ships** — selecting a missing column 400s the
+//    WHOLE read. `CustomerReference`, `LeadTimes`, `EngineeringTaskId`,
+//    `OperationsTaskId`, `OperationsProjectRef` (Quotes) and `LaborCost`
+//    (Quote Assemblies) came with v0.209.0; re-run create-quote-lists.ps1
+//    first.
 //
 //  - **Every SINGLE lookup selects BOTH halves** (`CustomerRef` AND
 //    `CustomerRefLookupId`). Graph returns a single-value lookup as a bare
@@ -36,10 +41,9 @@ import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 //  - **A single lookup is WRITTEN as a bare integer** (`CustomerRefLookupId: 3`,
 //    `null` clears) — never `multiLookupField`'s `Collection(Edm.Int32)` shape,
 //    which 400s it.
-//  - **Hyperlink columns never travel in a create POST** (a bare 400 that
-//    fails the whole create — the EIR promotion, 2026-08-26). The create
-//    builder doesn't know they exist; `setQuoteLinks` writes them in their own
-//    PATCH.
+//  - **Task links are NUMBER columns, not Hyperlinks.** Graph can't write a
+//    Hyperlink column at all (the EIRReference finding, 2026-10-27), so the
+//    old EngineeringTaskLink / OperationsTaskLink columns are left unread.
 //  - **Updates are DIFFED** against the row the edit started from: only the
 //    columns that changed travel, and nothing at all when nothing changed (the
 //    SCN / MRB / Visit Reports mechanism).
@@ -61,11 +65,14 @@ export const QUOTE_SELECT = [
   "Budgetary",
   "BudgetaryText",
   "QuoteNotes",
+  "CustomerReference",
+  "LeadTimes",
   "Communication",
   "Watchers",
-  "EngineeringTaskLink",
-  "OperationsTaskLink",
+  "EngineeringTaskId",
+  "OperationsTaskId",
   "EngineeringProjectRef",
+  "OperationsProjectRef",
   "Attachments",
 ].join(",");
 
@@ -75,8 +82,8 @@ export const QUOTE_ASSEMBLY_SELECT = [
   "QuoteRefLookupId",
   "LineNo",
   "QuotedQty",
-  "LineType",
   "Cost",
+  "LaborCost",
   "MaterialOverheadPct",
   "SapPartNumber",
   "CustomerPartNumber",
@@ -85,23 +92,6 @@ export const QUOTE_ASSEMBLY_SELECT = [
   "TargetGM",
   "ManualPrice",
   "CustomerPrice",
-].join(",");
-
-export const QUOTE_ITEM_SELECT = [
-  "Title",
-  "QuoteRef",
-  "QuoteRefLookupId",
-  "AssemblyRef",
-  "AssemblyRefLookupId",
-  "LineNo",
-  "SapPartNumber",
-  "Description",
-  "Quantity",
-  "Cost",
-  "MaterialOverheadPct",
-  "Communication",
-  "Watchers",
-  "Attachments",
 ].join(",");
 
 export const QUOTE_CUSTOMER_SELECT = ["Title", "CustomerCode", "CustomerNumber", "Active", "Note"].join(",");
@@ -154,15 +144,6 @@ function bool(value: unknown, fallback = false): boolean {
     return v === "yes" || v === "true" || v === "1";
   }
   return fallback;
-}
-
-/** `{ Url, Description }` → QuoteLink, or null for an empty column. */
-export function parseQuoteLink(value: unknown): QuoteLink | null {
-  if (!value || typeof value !== "object") return null;
-  const raw = value as { Url?: unknown; Description?: unknown };
-  const url = text(raw.Url).trim();
-  if (!url) return null;
-  return { url, description: text(raw.Description).trim() || url };
 }
 
 function parseCreatedBy(item: GraphListItem): Person | null {
@@ -225,16 +206,86 @@ export function serializePriceBreaks(breaks: readonly QuotePriceBreak[]): string
 }
 
 // -----------------------------------------------------------------------------
-// Roles — a lowercase CSV of tags
+// Lead times — JSON in a plain-text note column
 // -----------------------------------------------------------------------------
 
-/** `"Quoter, manager"` (or an array) → known tags, de-duplicated, in QUOTE_ROLES order. Unknown tags drop. */
+/**
+ * `LeadTimes` JSON → rows. A blank column is `[]`. Anything that isn't a JSON
+ * array is CORRUPT — reported, never silently read as empty, because the next
+ * save would then overwrite whatever is really there. A non-object entry
+ * inside a good array is dropped; missing texts read as "".
+ */
+export function parseLeadTimes(raw: unknown): { rows: QuoteLeadTime[]; corrupt: boolean } {
+  if (typeof raw !== "string" || !raw.trim()) return { rows: [], corrupt: false };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { rows: [], corrupt: true };
+  }
+  if (!Array.isArray(parsed)) return { rows: [], corrupt: true };
+  const rows: QuoteLeadTime[] = [];
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    rows.push({
+      partNumber: text(e.partNumber),
+      description: text(e.description),
+      leadTime: text(e.leadTime),
+      reason: text(e.reason),
+    });
+  }
+  return { rows, corrupt: false };
+}
+
+/** Rows → the stored JSON. Blank rows are dropped; none at all is `""`. */
+export function serializeLeadTimes(rows: readonly QuoteLeadTime[]): string {
+  const kept = rows
+    .map((r) => ({
+      partNumber: r.partNumber.trim(),
+      description: r.description.trim(),
+      leadTime: r.leadTime.trim(),
+      reason: r.reason.trim(),
+    }))
+    .filter((r) => r.partNumber || r.description || r.leadTime || r.reason);
+  return kept.length === 0 ? "" : JSON.stringify(kept);
+}
+
+/**
+ * Rows pasted from a spreadsheet: one line per row, cells split on TABS
+ * (what Excel puts on the clipboard), in the order Part # | Description |
+ * Lead time | Reason. A line with no tab is taken as a lone part number.
+ * Blank lines are skipped, and so is a first line that looks like a header
+ * ("Part" / "Description" / "Lead time").
+ */
+export function parsePastedLeadTimes(textValue: string): QuoteLeadTime[] {
+  const lines = textValue.replace(/\r\n?/g, "\n").split("\n");
+  const rows: QuoteLeadTime[] = [];
+  let first = true;
+  lines.forEach((line) => {
+    if (!line.trim()) return;
+    const cells = line.split("\t").map((c) => c.trim());
+    const isHeader = first && /^part/i.test(cells[0] ?? "") && /desc|lead|reason/i.test(cells.slice(1).join(" "));
+    first = false;
+    if (isHeader) return;
+    rows.push({
+      partNumber: cells[0] ?? "",
+      description: cells[1] ?? "",
+      leadTime: cells[2] ?? "",
+      // Anything past the fourth column belongs to the reason, not lost.
+      reason: cells.slice(3).filter(Boolean).join(" "),
+    });
+  });
+  return rows;
+}
+
 // -----------------------------------------------------------------------------
 // Graph item → domain
 // -----------------------------------------------------------------------------
 
 export function toQuote(item: GraphListItem): Quote {
   const f = (item.fields ?? {}) as Record<string, unknown>;
+  const leadTimes = parseLeadTimes(f.LeadTimes);
   return {
     id: parseInt(item.id, 10),
     quoteNumber: text(f.Title).trim(),
@@ -248,11 +299,15 @@ export function toQuote(item: GraphListItem): Quote {
     budgetary: bool(f.Budgetary),
     budgetaryText: text(f.BudgetaryText),
     quoteNotes: text(f.QuoteNotes),
+    customerReference: text(f.CustomerReference).trim(),
+    leadTimes: leadTimes.rows,
+    leadTimesCorrupt: leadTimes.corrupt,
     comments: parseCommunication(text(f.Communication)),
     watchers: parsePersonField(f.Watchers),
-    engineeringTaskLink: parseQuoteLink(f.EngineeringTaskLink),
-    operationsTaskLink: parseQuoteLink(f.OperationsTaskLink),
+    engineeringTaskId: toInt(f.EngineeringTaskId),
+    operationsTaskId: toInt(f.OperationsTaskId),
     engineeringProjectRef: text(f.EngineeringProjectRef).trim(),
+    operationsProjectRef: text(f.OperationsProjectRef).trim(),
     hasAttachments: f.Attachments === true,
     createdBy: parseCreatedBy(item),
     createdAt: item.createdDateTime ?? null,
@@ -269,12 +324,6 @@ export function parseQuotedQty(raw: unknown): number {
   return n !== null && Number.isInteger(n) && n >= 1 ? n : 1;
 }
 
-/** A quote line's type. Missing or unknown reads as "Assembly" — every row before `LineType` existed was one. */
-export function parseQuoteLineType(raw: unknown): QuoteLineType {
-  const t = text(raw).trim().toLowerCase();
-  return QUOTE_LINE_TYPES.find((v) => v.toLowerCase() === t) ?? "Assembly";
-}
-
 export function toQuoteAssembly(item: GraphListItem): QuoteAssembly {
   const f = (item.fields ?? {}) as Record<string, unknown>;
   return {
@@ -282,8 +331,8 @@ export function toQuoteAssembly(item: GraphListItem): QuoteAssembly {
     quoteId: lookupId(f, "QuoteRef"),
     lineNo: num(f.LineNo) ?? 0,
     quotedQty: parseQuotedQty(f.QuotedQty),
-    lineType: parseQuoteLineType(f.LineType),
-    cost: num(f.Cost),
+    materialCost: num(f.Cost),
+    laborCost: num(f.LaborCost),
     materialOverheadPct: num(f.MaterialOverheadPct),
     altronicPartNumber: text(f.Title).trim(),
     sapPartNumber: text(f.SapPartNumber).trim(),
@@ -293,25 +342,6 @@ export function toQuoteAssembly(item: GraphListItem): QuoteAssembly {
     targetGM: num(f.TargetGM),
     manualPrice: num(f.ManualPrice),
     customerPrice: num(f.CustomerPrice),
-  };
-}
-
-export function toQuoteItem(item: GraphListItem): QuoteItem {
-  const f = (item.fields ?? {}) as Record<string, unknown>;
-  return {
-    id: parseInt(item.id, 10),
-    quoteId: lookupId(f, "QuoteRef"),
-    assemblyId: lookupId(f, "AssemblyRef"),
-    lineNo: num(f.LineNo) ?? 0,
-    altronicPartNumber: text(f.Title).trim(),
-    sapPartNumber: text(f.SapPartNumber).trim(),
-    description: text(f.Description),
-    quantity: num(f.Quantity) ?? 1,
-    cost: num(f.Cost),
-    materialOverheadPct: num(f.MaterialOverheadPct),
-    comments: parseCommunication(text(f.Communication)),
-    watchers: parsePersonField(f.Watchers),
-    hasAttachments: f.Attachments === true,
   };
 }
 
@@ -350,7 +380,7 @@ export function compareQuotes(a: Quote, b: Quote): number {
   return seq(b) - seq(a) || b.rev - a.rev || b.id - a.id;
 }
 
-/** Assemblies / items in worksheet order. */
+/** Lines in worksheet order. */
 export function compareLines(a: { lineNo: number; id: number }, b: { lineNo: number; id: number }): number {
   return a.lineNo - b.lineNo || a.id - b.id;
 }
@@ -409,7 +439,12 @@ export interface QuoteCreateFieldsInput {
   budgetary: boolean;
   budgetaryText: string;
   quoteNotes: string;
+  customerReference?: string;
+  leadTimes?: QuoteLeadTime[];
+  engineeringTaskId?: number | null;
+  operationsTaskId?: number | null;
   engineeringProjectRef?: string;
+  operationsProjectRef?: string;
   /** Already RESOLVED against the PMO site — people without a lookupId are dropped. */
   watchers: Person[];
   /** A pre-built Communication value (a new rev's carried thread). Omitted when blank. */
@@ -417,9 +452,9 @@ export interface QuoteCreateFieldsInput {
 }
 
 /**
- * The create POST's fields. NO Hyperlink columns (EngineeringTaskLink /
- * OperationsTaskLink 400 at create — see `setQuoteLinks`). Watchers go in as
- * the two-key `Collection(Edm.Int32)` shape, and only when somebody resolved.
+ * The create POST's fields. Blank optional columns are left out. Watchers go
+ * in as the two-key `Collection(Edm.Int32)` shape, and only when somebody
+ * resolved.
  */
 export function buildQuoteCreateFields(input: QuoteCreateFieldsInput): Record<string, unknown> {
   const fields: Record<string, unknown> = {
@@ -435,13 +470,19 @@ export function buildQuoteCreateFields(input: QuoteCreateFieldsInput): Record<st
   if (input.contactEmail.trim()) fields.ContactEmail = input.contactEmail.trim();
   if (input.budgetaryText) fields.BudgetaryText = input.budgetaryText;
   if (input.quoteNotes) fields.QuoteNotes = input.quoteNotes;
+  if (input.customerReference?.trim()) fields.CustomerReference = input.customerReference.trim();
+  const leadTimes = serializeLeadTimes(input.leadTimes ?? []);
+  if (leadTimes) fields.LeadTimes = leadTimes;
+  if (input.engineeringTaskId) fields.EngineeringTaskId = input.engineeringTaskId;
+  if (input.operationsTaskId) fields.OperationsTaskId = input.operationsTaskId;
   if (input.engineeringProjectRef?.trim()) fields.EngineeringProjectRef = input.engineeringProjectRef.trim();
+  if (input.operationsProjectRef?.trim()) fields.OperationsProjectRef = input.operationsProjectRef.trim();
   if (input.communication) fields.Communication = input.communication;
   if (input.watchers.some((p) => p.lookupId)) Object.assign(fields, multiPersonField("Watchers", input.watchers));
   return fields;
 }
 
-/** The editable header fields. Number, base and rev are frozen; people, comments and links have their own writes. */
+/** The editable header fields. Number, base and rev are frozen; people and comments have their own writes. */
 export type QuotePatch = Partial<
   Pick<
     Quote,
@@ -453,7 +494,12 @@ export type QuotePatch = Partial<
     | "budgetary"
     | "budgetaryText"
     | "quoteNotes"
+    | "customerReference"
+    | "leadTimes"
+    | "engineeringTaskId"
+    | "operationsTaskId"
     | "engineeringProjectRef"
+    | "operationsProjectRef"
   >
 >;
 
@@ -466,7 +512,13 @@ const QUOTE_COLUMNS: ColumnSpec<Required<QuotePatch>> = {
   budgetary: { column: "Budgetary", write: (v) => v === true },
   budgetaryText: { column: "BudgetaryText", write: str },
   quoteNotes: { column: "QuoteNotes", write: str },
+  customerReference: { column: "CustomerReference", write: trimmed },
+  leadTimes: { column: "LeadTimes", write: (v) => serializeLeadTimes(Array.isArray(v) ? v : []) },
+  // A positive id, or null — the same rule as a bare lookup.
+  engineeringTaskId: { column: "EngineeringTaskId", write: bareLookup },
+  operationsTaskId: { column: "OperationsTaskId", write: bareLookup },
   engineeringProjectRef: { column: "EngineeringProjectRef", write: trimmed },
+  operationsProjectRef: { column: "OperationsProjectRef", write: trimmed },
 };
 
 /** DIFFED: only the columns that changed against `previous`; `{}` when nothing did. */
@@ -481,6 +533,7 @@ export function applyQuotePatch(quote: Quote, changes: QuotePatch): Quote {
     if (!(key in QUOTE_COLUMNS) || changes[key] === undefined) continue;
     (next as Record<string, unknown>)[key] = changes[key];
   }
+  if (changes.leadTimes !== undefined) next.leadTimes = changes.leadTimes.map((r) => ({ ...r }));
   return next;
 }
 
@@ -493,17 +546,16 @@ export interface QuoteAssemblyInput {
   lineNo: number;
   /** Whole number ≥ 1. */
   quotedQty: number;
-  lineType: QuoteLineType;
-  /** Part lines only; null on an assembly. */
-  cost: number | null;
-  /** Part lines only; null on an assembly. */
+  materialCost: number | null;
+  laborCost: number | null;
+  /** Percent of material. */
   materialOverheadPct: number | null;
   altronicPartNumber: string;
   sapPartNumber: string;
   customerPartNumber: string;
   description: string;
   priceBreaks: QuotePriceBreak[];
-  /** The ONE margin on an assembly (percent). Components carry cost only. */
+  /** The ONE margin on the line (percent). */
   targetGM: number | null;
   manualPrice: number | null;
   customerPrice: number | null;
@@ -518,10 +570,9 @@ export function buildQuoteAssemblyCreateFields(input: QuoteAssemblyInput): Recor
     LineNo: input.lineNo,
     // Always sent: the quantity is never blank.
     QuotedQty: parseQuotedQty(input.quotedQty),
-    // Always sent, so SharePoint's own views never read a blank type.
-    LineType: input.lineType,
   };
-  if (input.cost !== null) fields.Cost = input.cost;
+  if (input.materialCost !== null) fields.Cost = input.materialCost;
+  if (input.laborCost !== null) fields.LaborCost = input.laborCost;
   if (input.materialOverheadPct !== null) fields.MaterialOverheadPct = input.materialOverheadPct;
   if (input.sapPartNumber.trim()) fields.SapPartNumber = input.sapPartNumber.trim();
   if (input.customerPartNumber.trim()) fields.CustomerPartNumber = input.customerPartNumber.trim();
@@ -537,8 +588,8 @@ export function buildQuoteAssemblyCreateFields(input: QuoteAssemblyInput): Recor
 const ASSEMBLY_COLUMNS: ColumnSpec<Required<QuoteAssemblyPatch>> = {
   lineNo: { column: "LineNo", write: nullableNum },
   quotedQty: { column: "QuotedQty", write: (v) => parseQuotedQty(v) },
-  lineType: { column: "LineType", write: str },
-  cost: { column: "Cost", write: nullableNum },
+  materialCost: { column: "Cost", write: nullableNum },
+  laborCost: { column: "LaborCost", write: nullableNum },
   materialOverheadPct: { column: "MaterialOverheadPct", write: nullableNum },
   altronicPartNumber: { column: "Title", write: trimmed },
   sapPartNumber: { column: "SapPartNumber", write: trimmed },
@@ -564,85 +615,6 @@ export function applyQuoteAssemblyPatch(row: QuoteAssembly, changes: QuoteAssemb
     (next as Record<string, unknown>)[key] = changes[key];
   }
   next.priceBreaks = [...next.priceBreaks];
-  return next;
-}
-
-// -----------------------------------------------------------------------------
-// Items (components)
-// -----------------------------------------------------------------------------
-
-export interface QuoteItemInput {
-  quoteId: number;
-  assemblyId: number;
-  lineNo: number;
-  altronicPartNumber: string;
-  sapPartNumber: string;
-  description: string;
-  quantity: number;
-  cost: number | null;
-  materialOverheadPct: number | null;
-  /** Unresolved is fine — the API resolves against the PMO site before writing. */
-  watchers?: Person[];
-  /** A pre-built Communication value (a new rev's carried thread). */
-  communication?: string;
-}
-
-export type QuoteItemPatch = Partial<
-  Pick<
-    QuoteItem,
-    | "assemblyId"
-    | "lineNo"
-    | "altronicPartNumber"
-    | "sapPartNumber"
-    | "description"
-    | "quantity"
-    | "cost"
-    | "materialOverheadPct"
-  >
->;
-
-/** `watchers` must already be RESOLVED against the PMO site. */
-export function buildQuoteItemCreateFields(
-  input: QuoteItemInput,
-  watchers: Person[] = [],
-): Record<string, unknown> {
-  const fields: Record<string, unknown> = {
-    Title: input.altronicPartNumber.trim(),
-    QuoteRefLookupId: input.quoteId,
-    AssemblyRefLookupId: input.assemblyId,
-    LineNo: input.lineNo,
-    Quantity: input.quantity,
-  };
-  if (input.sapPartNumber.trim()) fields.SapPartNumber = input.sapPartNumber.trim();
-  if (input.description) fields.Description = input.description;
-  if (input.cost !== null) fields.Cost = input.cost;
-  if (input.materialOverheadPct !== null) fields.MaterialOverheadPct = input.materialOverheadPct;
-  if (input.communication) fields.Communication = input.communication;
-  if (watchers.some((p) => p.lookupId)) Object.assign(fields, multiPersonField("Watchers", watchers));
-  return fields;
-}
-
-const ITEM_COLUMNS: ColumnSpec<Required<QuoteItemPatch>> = {
-  assemblyId: { column: "AssemblyRefLookupId", write: bareLookup },
-  lineNo: { column: "LineNo", write: nullableNum },
-  altronicPartNumber: { column: "Title", write: trimmed },
-  sapPartNumber: { column: "SapPartNumber", write: trimmed },
-  description: { column: "Description", write: str },
-  quantity: { column: "Quantity", write: nullableNum },
-  cost: { column: "Cost", write: nullableNum },
-  materialOverheadPct: { column: "MaterialOverheadPct", write: nullableNum },
-};
-
-export function buildQuoteItemUpdateFields(changes: QuoteItemPatch, previous: QuoteItem): Record<string, unknown> {
-  return diff(ITEM_COLUMNS, changes, previous as Required<QuoteItemPatch>);
-}
-
-export function applyQuoteItemPatch(row: QuoteItem, changes: QuoteItemPatch): QuoteItem {
-  const next = { ...row };
-  for (const key of Object.keys(changes) as (keyof QuoteItemPatch)[]) {
-    if (!(key in ITEM_COLUMNS) || changes[key] === undefined) continue;
-    (next as Record<string, unknown>)[key] = changes[key];
-  }
   return next;
 }
 

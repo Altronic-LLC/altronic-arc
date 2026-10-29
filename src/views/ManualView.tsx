@@ -5350,9 +5350,13 @@ const SECTIONS: ManualSection[] = [
       "final assembly",
       "assemblies",
       "line items",
-      "part line",
-      "standalone part",
-      "components",
+      "material",
+      "labor",
+      "lead times",
+      "lead time",
+      "customer reference",
+      "customer notes",
+      "linked task",
       "cost",
       "margin",
       "gross margin",
@@ -5374,15 +5378,16 @@ const SECTIONS: ManualSection[] = [
       "manager",
     ],
     searchText:
-      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). Build a quote from lines: a final assembly made of components, or a standalone part quoted on its own. Components carry cost, material overhead and quantity only; the margin is set once per final assembly (or part) — its target gross margin prices it from the total cost — with up to three quantity breaks and an optional manual price. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes, assemblies and components, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site. Budgetary text and quote notes print on the customer's quote; comments, attachments, cost and margin never do.",
+      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. A Lead times table (part, description, lead time, reason for that part or alternate), typed or pasted from Excel, prints on its own page of the PDF. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the lead-time table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
     render: () => (
       <>
         <P>
           <strong>Departments → Supply Chain → Insourcing Quotes</strong>{" "}
-          (<code>/sales/quotes</code>) is where an insourcing quote is built:
-          the customer's data package, what each part costs us, the price, and
-          the conversation between Sales, Engineering, Supply Chain and
-          Operations — ending in a PDF quote for the customer. Customers never
+          (<code>/sales/quotes</code>) takes the final cost of each part being
+          quoted — material, labor and overhead — and turns it into a selling
+          price. It is also where Sales, Engineering, Supply Chain and
+          Operations discuss the quote and agree it, beside the customer's
+          data package, ending in a PDF quote for the customer. Customers never
           use the tool; they only receive the PDF.
         </P>
         <H3>Who can use it — the three roles</H3>
@@ -5393,14 +5398,15 @@ const SECTIONS: ManualSection[] = [
         </P>
         <UL>
           <LI>
-            <strong>Viewer</strong> — sees quotes, assemblies, components and
-            the selling and break prices, and can comment, watch and attach
-            files.
+            <strong>Viewer</strong> — sees quotes, their lines and the selling
+            and break prices, and can comment, watch and attach files.
           </LI>
           <LI>
             <strong>Quoter</strong> — everything a viewer can do, plus sees
-            and edits cost, overhead and margin, creates and edits quotes,
-            assemblies and components, makes new revs, and generates the PDF.
+            and edits material, labor, overhead and margin, creates and edits
+            quotes and their lines, links tasks and projects, makes new revs,
+            and generates the PDF. Whoever enters labor (for example
+            Operations) needs the Quoter role.
           </LI>
           <LI>
             <strong>Manager</strong> — everything a quoter can do, plus sets a
@@ -5436,43 +5442,51 @@ const SECTIONS: ManualSection[] = [
           new customer picks from the existing ones and asks a manager to add
           it.
         </P>
+        <P>
+          A customer's <strong>Customer notes</strong> — payment terms, who
+          quotes go to, how they want lengths quoted — show on every quote for
+          that customer, and under the customer picker when you start a new
+          one. They are internal and never print.
+        </P>
         <H3>Creating a quote</H3>
         <P>
           Press <strong>New quote</strong>, pick the customer, and fill in the
           contact, how many days the quote is valid (30 by default) and
-          whether it is <strong>budgetary</strong>. ARC numbers it for you —{" "}
+          whether it is <strong>budgetary</strong>. Add a{" "}
+          <strong>Customer reference / description</strong> — the customer's
+          RFQ number, or a few words on what is being quoted. It prints on the
+          quote under the customer. ARC numbers it for you —{" "}
           <code>IQ-COO-0042-R1</code> is customer code COO, quote 42, rev 1.
           The running number is shared by every customer, so two quotes can
           never get the same number. A new quote starts as{" "}
           <strong>Draft</strong>.
         </P>
-        <H3>Adding final assemblies and components</H3>
+        <H3>Adding lines</H3>
         <P>
-          A quote holds one or more <strong>line items</strong> — what the
-          customer would actually buy. Press <strong>Add line</strong> and
-          choose what the line is:
+          A quote holds one or more <strong>line items</strong> — the parts the
+          customer would buy. Press <strong>Add line</strong> and enter its
+          Altronic, SAP and customer part numbers, a description, the quantity
+          quoted, and the part's <strong>final</strong> cost of one:
         </P>
         <UL>
           <LI>
-            <strong>Final assembly</strong> — its Altronic, SAP and customer
-            part numbers, a description, its <strong>target gross margin</strong>,
-            up to three quantity breaks, and an optional manual price. It is
-            built from <strong>components</strong> you add under it.
+            <strong>Material</strong> — what the material for one costs.
           </LI>
           <LI>
-            <strong>Part</strong> — a standalone part quoted on its own, not a
-            full assembly. Enter its cost, an optional material overhead and
-            its target gross margin on the line itself. A part has no
-            components.
+            <strong>Labor</strong> — what building one costs. It can be left
+            blank and filled in later by whoever owns it; blank counts as
+            nothing.
           </LI>
           <LI>
-            <strong>Component</strong> (under a final assembly) — its Altronic
-            and SAP part numbers and description, how many go into one
-            assembly, its cost and an optional material overhead. Components
-            have no customer part number — that belongs to the line. A component has{" "}
-            <strong>no margin of its own</strong>.
+            <strong>Overhead</strong> — a percent of the material cost, 18% on
+            a new line unless you change it.
           </LI>
         </UL>
+        <P>
+          Then set the line's <strong>target gross margin</strong>, up to three
+          quantity breaks, and an optional manual price. The form shows the
+          material, overhead, labor and total cost, and the price they give.
+        </P>
         <P>
           SAP part numbers are entered as <strong>####-####-##</strong> — ten
           digits, like 1003-0114-40. The dashes go in as you type, and a SAP #
@@ -5480,15 +5494,39 @@ const SECTIONS: ManualSection[] = [
           SAP number yet.
         </P>
         <P>
-          The worksheet shows each final assembly with its components — for
-          each component its quantity, unit cost, overhead, loaded cost and
-          extended cost — and underneath, the assembly's total cost, target
-          gross margin, price, the margin actually achieved, and markup. A part
-          shows its own cost, overhead and loaded cost instead. Each component
-          has its own comments, watchers and attachments (a datasheet, a
-          vendor's quote) that open beneath it. Lines and components can be
-          removed while you build the quote. A final assembly can't be changed
-          into a part while it still has components.
+          The worksheet shows each line with its price, quantity quoted,
+          Subtotal and quantity breaks, and underneath, for quoters and
+          managers, its material, overhead, labor, total cost, target gross
+          margin, price, the margin actually achieved, and markup. Lines can be
+          removed while you build the quote. Discuss a line in the
+          quote's <strong>Discussion</strong>, and keep supplier quotes and
+          drawings in the quote's attachments.
+        </P>
+        <Tip>
+          Quotes built before 29 October 2026 broke a final assembly into
+          components. ARC no longer shows those components — open the line and
+          enter its final material and labor cost to price it again.
+        </Tip>
+        <H3>Linked work</H3>
+        <P>
+          The <strong>Linked work</strong> panel on the right links the quote
+          to an <strong>Engineering task</strong> and{" "}
+          <strong>project</strong> and an <strong>Operations task</strong> and{" "}
+          <strong>project</strong> — pick each from its list. A linked task has
+          an <strong>Open</strong> link straight to it. Only a quoter or
+          manager can change a link; everyone can see them. Links never print.
+        </P>
+        <H3>Lead times</H3>
+        <P>
+          The <strong>Lead times</strong> card holds a table for the customer:
+          each part, its description, its lead time, and the{" "}
+          <strong>reason for that part or alternate</strong> — for example why
+          a second-source connector was chosen. Press <strong>Edit</strong> to
+          type rows, or <strong>Paste from Excel</strong>: copy the cells in
+          your working spreadsheet (Part # | Description | Lead time | Reason)
+          and paste them in, and they are added below the rows already there.
+          The table prints on its own page after the quote; with no rows, there
+          is no extra page.
         </P>
         <H3>How pricing works</H3>
         <UL>
@@ -5499,17 +5537,12 @@ const SECTIONS: ManualSection[] = [
             quote's <strong>Total</strong> adds up every line's Subtotal.
           </LI>
           <LI>
-            Each component carries <strong>cost only</strong>: its cost plus
-            any material overhead, times how many go into one assembly.
+            A line's <strong>total cost</strong> is its material, plus the
+            overhead on the material, plus labor. Labor carries no overhead.
           </LI>
           <LI>
-            The margin is set <strong>once, on the final assembly</strong> (or
-            the part). Its <strong>target gross margin</strong> turns the
-            assembly's total cost into <strong>one price</strong>, rounded to
-            the cent. You don't adjust margins component by component.
-          </LI>
-          <LI>
-            A part works the same way from its own cost and overhead.
+            The line's <strong>target gross margin</strong> turns that total
+            cost into <strong>one price</strong>, rounded to the cent.
           </LI>
           <LI>
             The quote's overall margin is <strong>weighted</strong> by money
@@ -5536,12 +5569,12 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             <strong>New revision</strong> copies the quote forward as the next rev
-            (R1 becomes R2), with its assemblies, components, comments and
-            attachments. The earlier rev is left exactly as it was sent. If
+            (R1 becomes R2), with its lines, customer reference, lead times,
+            linked work, comments and attachments. The earlier rev is left exactly as it was sent. If
             something doesn't copy across, ARC tells you what.
           </LI>
           <LI>
-            Editing the header, an assembly or a component updates the current
+            Editing the header, a line or the lead times updates the current
             rev in place, without a new number. If that rev has already been{" "}
             <strong>Sent</strong>, ARC asks first — <strong>Update anyway</strong>,
             or create the next rev — so the choice is deliberate.
@@ -5563,22 +5596,28 @@ const SECTIONS: ManualSection[] = [
           number and description in a grey band with the SAP and customer
           part numbers under them, then the quantity quoted, unit price and
           Subtotal, and the volume pricing when the line has quantity breaks.
-          The Total comes after the last line. It never shows components, cost, overhead, margin or
-          discounts.
+          The Total comes after the last line, then the quote notes, and the
+          lead-time table on a page of its own. Your customer reference prints
+          under the customer. It never shows material, labor, overhead, cost,
+          margin, discounts or customer notes.
         </P>
         <P>
           <strong>Save PDF to folder</strong> saves the PDF to the{" "}
           <strong>General/IC Quotes</strong> folder in the Altronic_PMO
           Documents library. ARC never overwrites a saved quote: if the name is
           already there, the new file is saved alongside it with a number
-          added. When you mark a quote Sent, ARC offers to save it.
+          added. When you mark a quote Sent, ARC offers to save it. The{" "}
+          <strong>Saved PDFs</strong> panel on the quote lists every PDF saved
+          for it, from every rev, newest first, so an earlier rev's quote is
+          always one click away.
         </P>
         <Tip>
           The <strong>budgetary text</strong> (filled in with the standard
           non-binding wording when you tick Budgetary, and editable) and the{" "}
-          <strong>quote notes</strong> print on the customer's quote, word for
-          word — the form says so beside each. Comments and attachments are
-          internal and never print.
+          <strong>quote notes</strong>, the customer reference and the lead-time
+          table print on the customer's quote, word for word — the form says so
+          beside each. Comments, attachments and customer notes are internal
+          and never print.
         </Tip>
       </>
     ),

@@ -57,6 +57,7 @@ function model(overrides: Partial<QuotePdfModel> = {}): QuotePdfModel {
     customerNumber: "0001042",
     contactName: "Jane Buyer",
     contactEmail: "jane.buyer@example.com",
+    customerReference: "",
     preparedBy: { name: "Ray White", email: "ray.white@altronic-llc.com" },
     assemblies: [
       {
@@ -89,6 +90,7 @@ function model(overrides: Partial<QuotePdfModel> = {}): QuotePdfModel {
     quoteTotal: 15833.2,
     budgetary: null,
     quoteNotes: "Lead time six weeks ARO.",
+    leadTimes: [],
     ...overrides,
   };
 }
@@ -347,6 +349,32 @@ describe("the quote PDF", () => {
 
     const without = await render(model({ quoteNotes: "   " }));
     expect(without.text).not.toContain("Notes");
+  });
+
+  it("prints the customer's reference under PREPARED FOR, and nothing when blank", async () => {
+    const withRef = await render(model({ customerReference: "RFQ 4471 HUB V4 retrofit" }));
+    expect(withRef.text).toContain("REFERENCE");
+    expect(withRef.text).toContain("RFQ 4471 HUB V4 retrofit");
+    const without = await render(model());
+    expect(without.text).not.toContain("REFERENCE");
+  });
+
+  it("prints the lead-time table on a page of its own, and adds no page without one", async () => {
+    const leadTimes = [
+      { partNumber: "693005-1", description: "Primary harness", leadTime: "3 weeks", reason: "Second source" },
+      { partNumber: "791950-08", description: "CPU-95 module", leadTime: "6-8 weeks", reason: "" },
+    ];
+    const { text, pages } = await render(model({ leadTimes }));
+    expect(pages).toBe(2);
+    // Each page's runs are written in order, footer last — so everything
+    // after "Page 1 of 2" is page two.
+    const pageTwo = text.slice(text.indexOf("Page 1 of 2"));
+    expect(text.indexOf("Lead times")).toBeGreaterThan(text.indexOf("Page 1 of 2"));
+    for (const value of ["Part #", "Lead time", "Notes", "693005-1", "Primary harness", "3 weeks", "Second source", "6-8 weeks"]) {
+      expect(pageTwo).toContain(value);
+    }
+    expect(text).toContain("Page 2 of 2");
+    expect((await render(model())).pages).toBe(1);
   });
 
   it("puts a page footer on every page", async () => {

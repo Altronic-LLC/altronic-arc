@@ -5,7 +5,6 @@ import {
   type Quote,
   type QuoteAssembly,
   type QuoteCustomer,
-  type QuoteItem,
 } from "@/types/quote";
 import { priceQuoteAssembly } from "./quotePricing";
 import { buildQuotePdfModel, quoteExpiryDate } from "./quotePdfModel";
@@ -24,6 +23,12 @@ function quote(over: Partial<Quote> = {}): Quote {
     budgetary: false,
     budgetaryText: "",
     quoteNotes: "  Lead time 6 weeks ARO.  ",
+    customerReference: "  RFQ 4471 — retrofit  ",
+    leadTimes: [
+      { partNumber: " 693005-1 ", description: "Harness", leadTime: "3 weeks", reason: "Second source" },
+      { partNumber: "", description: "", leadTime: "  ", reason: "" },
+    ],
+    leadTimesCorrupt: false,
     comments: [
       {
         timestamp: new Date("2026-10-01T12:00:00Z"),
@@ -33,9 +38,10 @@ function quote(over: Partial<Quote> = {}): Quote {
       },
     ],
     watchers: [{ displayName: "Hidden Watcher", email: "hidden.watcher@altronic-llc.com", lookupId: 7 }],
-    engineeringTaskLink: { url: "https://example.invalid/task/9", description: "ENG-LINK-SECRET" },
-    operationsTaskLink: null,
+    engineeringTaskId: 98765,
+    operationsTaskId: 87654,
     engineeringProjectRef: "PROJ-SECRET-REF",
+    operationsProjectRef: "OPS-PROJ-SECRET",
     hasAttachments: true,
     createdBy: { displayName: "Creator Person" },
     createdAt: "2026-10-01T00:00:00Z",
@@ -58,10 +64,10 @@ function assembly(over: Partial<QuoteAssembly> = {}): QuoteAssembly {
     id: 10,
     quoteId: 1,
     lineNo: 1,
-    lineType: "Assembly",
     quotedQty: 1,
-    cost: null,
-    materialOverheadPct: null,
+    materialCost: 1234.56,
+    laborCost: 345.67,
+    materialOverheadPct: 12.34,
     altronicPartNumber: "791950-08",
     sapPartNumber: "SAP-791950",
     customerPartNumber: "ACME-77",
@@ -73,32 +79,6 @@ function assembly(over: Partial<QuoteAssembly> = {}): QuoteAssembly {
     targetGM: 37.77,
     manualPrice: null,
     customerPrice: 999.01,
-    ...over,
-  };
-}
-
-function item(over: Partial<QuoteItem> = {}): QuoteItem {
-  return {
-    id: 100,
-    quoteId: 1,
-    assemblyId: 10,
-    lineNo: 1,
-    altronicPartNumber: "COMP-SECRET-601",
-    sapPartNumber: "COMP-SAP-SECRET",
-    description: "COMPONENT-DESC-SECRET",
-    quantity: 2,
-    cost: 1234.56,
-    materialOverheadPct: 12.34,
-    comments: [
-      {
-        timestamp: new Date("2026-10-01T12:00:00Z"),
-        authorName: "Item Commenter",
-        authorEmail: "item.commenter@altronic-llc.com",
-        bodyHtml: "<p>ITEM-REMARK-SECRET</p>",
-      },
-    ],
-    watchers: [{ displayName: "Item Watcher" }],
-    hasAttachments: true,
     ...over,
   };
 }
@@ -147,14 +127,13 @@ describe("buildQuotePdfModel", () => {
     quote: quote(),
     customer: CUSTOMER,
     assemblies: [assembly()],
-    items: [item()],
     issueDate: "2026-10-09",
   };
 
   it("builds the customer model", () => {
     const { model, problems } = buildQuotePdfModel(base);
     expect(problems).toEqual([]);
-    const price = priceQuoteAssembly(assembly(), [item()]).price!;
+    const price = priceQuoteAssembly(assembly()).price!;
     expect(model).toEqual({
       quoteNumber: "IQ-ACM-0042-R2",
       rev: 2,
@@ -164,6 +143,7 @@ describe("buildQuotePdfModel", () => {
       customerNumber: "0001042",
       contactName: "Pat Buyer",
       contactEmail: "pat@acme.example",
+      customerReference: "RFQ 4471 — retrofit",
       preparedBy: null,
       assemblies: [
         {
@@ -185,6 +165,8 @@ describe("buildQuotePdfModel", () => {
       quoteTotal: price,
       budgetary: null,
       quoteNotes: "Lead time 6 weeks ARO.",
+      // Trimmed, blank rows dropped.
+      leadTimes: [{ partNumber: "693005-1", description: "Harness", leadTime: "3 weeks", reason: "Second source" }],
     });
   });
 
@@ -204,11 +186,13 @@ describe("buildQuotePdfModel", () => {
     // 30 falls in the 25+ tier (11% off); the second line is quoted for one.
     const { model } = buildQuotePdfModel({
       ...base,
-      assemblies: [assembly({ quotedQty: 30 }), assembly({ id: 11, lineNo: 2, altronicPartNumber: "B" })],
-      items: [item(), item({ id: 101, assemblyId: 11, cost: 10 })],
+      assemblies: [
+        assembly({ quotedQty: 30 }),
+        assembly({ id: 11, lineNo: 2, altronicPartNumber: "B", materialCost: 10, laborCost: null }),
+      ],
     });
     const [a, b] = model!.assemblies;
-    const p = priceQuoteAssembly(assembly({ quotedQty: 30 }), [item()]);
+    const p = priceQuoteAssembly(assembly({ quotedQty: 30 }));
     expect(a.quotedQty).toBe(30);
     expect(a.quotedUnitPrice).toBe(p.tiers[2].unitPrice);
     expect(a.lineTotal).toBe(p.lineTotal);
@@ -224,7 +208,6 @@ describe("buildQuotePdfModel", () => {
         assembly({ id: 12, quoteId: 99, lineNo: 0, altronicPartNumber: "OTHER" }),
         assembly({ id: 10, lineNo: 1, altronicPartNumber: "A" }),
       ],
-      items: [item(), item({ id: 101, assemblyId: 11, cost: 10 })],
     });
     expect(model!.assemblies.map((a) => a.altronicPartNumber)).toEqual(["A", "B"]);
   });
@@ -237,19 +220,14 @@ describe("buildQuotePdfModel", () => {
     expect(model!.assemblies[0].tiers).toEqual([{ rangeLabel: "1+", unitPrice: 500 }]);
   });
 
-  it("refuses an unpriced assembly, no assemblies, a bad break, no customer or a bad date", () => {
-    const unpriced = buildQuotePdfModel({ ...base, items: [item({ cost: null })] });
+  it("refuses an unpriced line, no lines, a bad break, no customer or a bad date", () => {
+    const unpriced = buildQuotePdfModel({
+      ...base,
+      assemblies: [assembly({ materialCost: null, laborCost: null })],
+    });
     expect(unpriced.model).toBeNull();
     expect(unpriced.problems).toEqual([
-      "Line 1 (791950-08) has no price yet — complete its components and target GM, or set a manual price.",
-    ]);
-    const unpricedPart = buildQuotePdfModel({
-      ...base,
-      assemblies: [assembly({ lineType: "Part", cost: null })],
-      items: [],
-    });
-    expect(unpricedPart.problems).toEqual([
-      "Line 1 (791950-08) has no price yet — enter its cost and target GM, or set a manual price.",
+      "Line 1 (791950-08) has no price yet — enter its material and/or labor cost and a target GM, or set a manual price.",
     ]);
 
     const none = buildQuotePdfModel({ ...base, assemblies: [assembly({ quoteId: 2 })] });
@@ -289,13 +267,12 @@ describe("buildQuotePdfModel", () => {
   });
 
   describe("THE LEAK GUARANTEE", () => {
-    // A standalone PART line alongside the assembly, with its own distinctive
-    // cost, overhead and target GM.
+    // A second line with its own distinctive material, labor, overhead and target GM.
     const partLine = assembly({
       id: 20,
       lineNo: 2,
-      lineType: "Part",
-      cost: 4321.09,
+      materialCost: 4321.09,
+      laborCost: 210.98,
       materialOverheadPct: 7.65,
       targetGM: 41.23,
       altronicPartNumber: "SPARE-PART-1",
@@ -312,10 +289,10 @@ describe("buildQuotePdfModel", () => {
       },
     });
     const json = JSON.stringify(model);
-    const pricing = priceQuoteAssembly(assembly(), [item()]);
-    const partPricing = priceQuoteAssembly(partLine, []);
+    const pricing = priceQuoteAssembly(assembly());
+    const partPricing = priceQuoteAssembly(partLine);
 
-    it("prints the Part line like any other line", () => {
+    it("prints every line", () => {
       expect(model!.assemblies.map((a) => a.altronicPartNumber)).toEqual(["791950-08", "SPARE-PART-1"]);
       expect(model!.assemblies[1].tiers[0].unitPrice).toBe(partPricing.price);
     });
@@ -323,12 +300,14 @@ describe("buildQuotePdfModel", () => {
     it("contains no cost, overhead, target GM, profit or margin figure", () => {
       expect(model).not.toBeNull();
       const forbidden = [
-        "1234.56", // unit cost
-        "12.34", // material overhead
-        "37.77", // the assembly's target GM
-        "4321.09", // the Part line's cost
-        "7.65", // the Part line's overhead
-        "41.23", // the Part line's target GM
+        "1234.56", // material
+        "345.67", // labor
+        "12.34", // overhead %
+        "37.77", // the first line's target GM
+        "4321.09", // the second line's material
+        "210.98", // the second line's labor
+        "7.65", // the second line's overhead
+        "41.23", // the second line's target GM
         partPricing.unitCost!.toFixed(2),
         partPricing.profit!.toFixed(2),
         partPricing.gmPct!.toFixed(2),
@@ -336,7 +315,7 @@ describe("buildQuotePdfModel", () => {
         ...partPricing.tiers.map((t) => t.gmPct!.toFixed(2)),
         "999.01", // the stored CustomerPrice — the model recomputes
         pricing.unitCost!.toFixed(2),
-        pricing.items[0].loadedUnitCost!.toFixed(2),
+        pricing.cost!.overhead.toFixed(2),
         pricing.profit!.toFixed(2),
         pricing.gmPct!.toFixed(2),
         pricing.markupPct!.toFixed(2),
@@ -352,20 +331,16 @@ describe("buildQuotePdfModel", () => {
       expect(json).not.toMatch(/"[^"]*(cost|margin|markup|overhead|gm|profit|discount)[^"]*":/i);
     });
 
-    it("contains no comments, watchers, component lines or internal links", () => {
+    it("contains no comments, watchers, customer notes or internal links", () => {
       for (const secret of [
         "INTERNAL-ONLY-REMARK",
         "Secret Commenter",
         "secret.commenter",
         "Hidden Watcher",
-        "ITEM-REMARK-SECRET",
-        "Item Watcher",
-        "COMP-SECRET-601",
-        "COMP-SAP-SECRET",
-        "COMP-CUST-SECRET",
-        "COMPONENT-DESC-SECRET",
-        "ENG-LINK-SECRET",
+        "98765",
+        "87654",
         "PROJ-SECRET-REF",
+        "OPS-PROJ-SECRET",
         "CUSTOMER-NOTE-SECRET",
         "BREAK-NOTE-SECRET",
         "Creator Person",
@@ -382,9 +357,11 @@ describe("buildQuotePdfModel", () => {
           "contactEmail",
           "contactName",
           "customerName",
+          "customerReference",
           "customerNumber",
           "expiryDate",
           "issueDate",
+          "leadTimes",
           "preparedBy",
           "quoteNotes",
           "quoteTotal",
@@ -410,6 +387,9 @@ describe("buildQuotePdfModel", () => {
       }
       expect(Object.keys(model!.budgetary!).sort()).toEqual(["text", "title"]);
       expect(Object.keys(model!.preparedBy!).sort()).toEqual(["email", "name"]);
+      for (const r of model!.leadTimes) {
+        expect(Object.keys(r).sort()).toEqual(["description", "leadTime", "partNumber", "reason"]);
+      }
     });
   });
 });

@@ -23,10 +23,10 @@ describe("quote assemblies API (mock mode)", () => {
     const created = await createQuoteAssembly({
       quoteId: 4,
       lineNo: 2,
-      lineType: "Assembly",
       quotedQty: 2,
-      cost: null,
-      materialOverheadPct: null,
+      materialCost: 150,
+      laborCost: 25,
+      materialOverheadPct: 18,
       altronicPartNumber: " NGI-2000-HARN ",
       sapPartNumber: "",
       customerPartNumber: "",
@@ -36,7 +36,14 @@ describe("quote assemblies API (mock mode)", () => {
       manualPrice: null,
       customerPrice: 300,
     });
-    expect(created).toMatchObject({ quoteId: 4, altronicPartNumber: "NGI-2000-HARN", targetGM: 35 });
+    expect(created).toMatchObject({
+      quoteId: 4,
+      altronicPartNumber: "NGI-2000-HARN",
+      targetGM: 35,
+      materialCost: 150,
+      laborCost: 25,
+      materialOverheadPct: 18,
+    });
 
     const edited = await updateQuoteAssemblyFields(created.id, { manualPrice: 280, customerPrice: 280 }, created);
     expect(edited).toMatchObject({ manualPrice: 280, customerPrice: 280, priceBreaks: created.priceBreaks });

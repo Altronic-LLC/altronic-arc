@@ -52,9 +52,9 @@ describe("QuotesView", () => {
 
   it("Total is the quote's Total at the quoted quantities", async () => {
     renderList();
-    // IQ-WAB-0002: 25 sensors at the 25+ break ($87.70) = $2,192.50, plus one
-    // spare part at $76.80 = $2,269.30.
-    await waitFor(() => expect(screen.getAllByText("$2,269.30").length).toBeGreaterThan(0));
+    // IQ-WAB-0002: 25 sensors at the 25+ break ($88.75) = $2,218.75, plus one
+    // spare part at $76.80 = $2,295.55.
+    await waitFor(() => expect(screen.getAllByText("$2,295.55").length).toBeGreaterThan(0));
   });
 
   it("filters by the status pills, with counts", async () => {

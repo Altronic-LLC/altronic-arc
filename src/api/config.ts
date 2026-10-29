@@ -1197,7 +1197,7 @@ export const COST_IMPACT_NOTICE_ALERTS =
   "Katie Fleming <katie.fleming@altronic-llc.com>";
 
 // =============================================================================
-// Insourcing Quotes (BusinessIT #37) — FIVE lists on the PMO site (SITES.pmo),
+// Insourcing Quotes (BusinessIT #37) — FOUR lists on the PMO site (SITES.pmo),
 // created by `scripts/create-quote-lists.ps1` and kept off the site's
 // navigation (reachable via Site contents only). Design:
 // docs/INSOURCING-QUOTING-DESIGN.md.
@@ -1206,19 +1206,19 @@ export const COST_IMPACT_NOTICE_ALERTS =
 // an unset id must read as "not set up" rather than point at nothing. Set each
 // as a repo variable once the script has run — and every one is in
 // deploy.yml's named list, or a production build can never see it.
+//
+// A fifth list, "Quote Items" (the old component breakdown), still exists in
+// SharePoint but ARC stopped reading it in v0.209.0: a line now carries its
+// final material, labor and overhead.
 // =============================================================================
 
 /** "Quotes" — the header, one row per quote REVISION. */
 export const SP_QUOTES_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_QUOTES_LIST_ID || undefined;
 
-/** "Quote Assemblies" — the final assemblies on a quote. */
+/** "Quote Assemblies" — the lines on a quote. */
 export const SP_QUOTE_ASSEMBLIES_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_QUOTE_ASSEMBLIES_LIST_ID || undefined;
-
-/** "Quote Items" — the components under each final assembly. */
-export const SP_QUOTE_ITEMS_LIST_ID: string | undefined =
-  import.meta.env.VITE_SP_QUOTE_ITEMS_LIST_ID || undefined;
 
 /** "Quote Customers" — name, generated code, SAP sold-to number. */
 export const SP_QUOTE_CUSTOMERS_LIST_ID: string | undefined =
@@ -1233,12 +1233,11 @@ export const SP_QUOTE_CUSTOMERS_LIST_ID: string | undefined =
 export const SP_QUOTE_ROLES_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_QUOTE_ROLES_LIST_ID || undefined;
 
-/** Are all five quote lists configured? Mock mode always is, for demos. */
+/** Are all four quote lists configured? Mock mode always is, for demos. */
 export const QUOTES_CONFIGURED =
   USE_MOCK ||
   (!!SP_QUOTES_LIST_ID &&
     !!SP_QUOTE_ASSEMBLIES_LIST_ID &&
-    !!SP_QUOTE_ITEMS_LIST_ID &&
     !!SP_QUOTE_CUSTOMERS_LIST_ID &&
     !!SP_QUOTE_ROLES_LIST_ID);
 

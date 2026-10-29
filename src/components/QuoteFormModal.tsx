@@ -29,6 +29,11 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // Only ACTIVE customers are offered. Only a quote manager adds customers — the
 // picker says so, and links to the customer list for someone who can.
 //
+// The customer's NOTES (Quote Customers' Note column) are shown under the
+// picker as soon as a customer is chosen — the terms and habits worth knowing
+// before quoting them. They are internal and never printed. The Customer
+// reference / description IS printed.
+//
 // Budgetary: every new-product quote is budgetary unless unticked, so it
 // defaults to Yes on create. Ticking it with an EMPTY text seeds the default
 // wording; text somebody has written is never overwritten. Budgetary text and
@@ -46,6 +51,7 @@ interface QuoteFormModalProps {
 }
 
 type DraftFields = {
+  customerReference: string;
   contactName: string;
   contactEmail: string;
   validityDays: string;
@@ -66,6 +72,7 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
 
   const draft = useFormDraft<DraftFields>(editing ? null : "newQuote");
   const [text, setText] = useState<DraftFields>(() => ({
+    customerReference: quote?.customerReference ?? "",
     contactName: quote?.contactName ?? "",
     contactEmail: quote?.contactEmail ?? "",
     validityDays: String(quote?.validityDays ?? DEFAULT_QUOTE_VALIDITY_DAYS),
@@ -93,7 +100,9 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
         .map((c) => ({ value: String(c.id), label: `${c.name} (${c.code})` })),
     [customers],
   );
-  const currentCustomer = quote ? customers.find((c) => c.id === quote.customerId) : undefined;
+  const currentCustomer = quote
+    ? customers.find((c) => c.id === quote.customerId)
+    : customers.find((c) => String(c.id) === customerId);
 
   useEffect(() => {
     if (editing) firstFieldRef.current?.focus();
@@ -135,7 +144,19 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
 
     try {
       if (quote) {
-        const next: Required<Pick<QuotePatch, "contactName" | "contactEmail" | "validityDays" | "budgetary" | "budgetaryText" | "quoteNotes">> = {
+        const next: Required<
+          Pick<
+            QuotePatch,
+            | "customerReference"
+            | "contactName"
+            | "contactEmail"
+            | "validityDays"
+            | "budgetary"
+            | "budgetaryText"
+            | "quoteNotes"
+          >
+        > = {
+          customerReference: text.customerReference.trim(),
           contactName: text.contactName.trim(),
           contactEmail: email,
           validityDays: validity,
@@ -157,6 +178,7 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
       const created = await create.mutateAsync({
         customerId: customer.id,
         customerCode: customer.code,
+        customerReference: text.customerReference.trim(),
         contactName: text.contactName.trim(),
         contactEmail: email,
         validityDays: validity,
@@ -215,6 +237,7 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
                 onDiscard={() => {
                   draft.clear();
                   setText({
+                    customerReference: "",
                     contactName: "",
                     contactEmail: "",
                     validityDays: String(DEFAULT_QUOTE_VALIDITY_DAYS),
@@ -254,6 +277,17 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
                   </p>
                 </>
               )}
+              {currentCustomer?.note.trim() && <CustomerNotes note={currentCustomer.note} />}
+            </Field>
+
+            <Field label="Customer reference / description" className="sm:col-span-2" hint={PRINTED_NOTE}>
+              <input
+                value={text.customerReference}
+                onChange={(e) => setField("customerReference", e.target.value)}
+                placeholder="e.g. RFQ 4471 — HUB V4 retrofit"
+                className="input"
+                disabled={busy}
+              />
             </Field>
 
             <Field label="Contact name">
@@ -353,6 +387,20 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A customer's own notes, shown wherever one of their quotes is worked on. Internal — never printed. */
+export function CustomerNotes({ note }: { note: string }) {
+  return (
+    <div
+      data-testid="customer-notes"
+      className="mt-2 rounded-md border border-superior-blue/30 bg-superior-blue/5 px-3 py-2 text-sm"
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Customer notes</p>
+      <p className="mt-0.5 whitespace-pre-wrap text-fg">{note.trim()}</p>
+      <p className="mt-1 text-[11px] text-fg-muted">From the customer list. Not printed.</p>
     </div>
   );
 }

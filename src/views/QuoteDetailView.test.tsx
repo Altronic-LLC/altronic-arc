@@ -11,8 +11,8 @@ import { QuoteDetailView } from "./QuoteDetailView";
 //
 // The load-bearing case is the first: a VIEWER must meet no cost, margin or
 // overhead value, column header or input anywhere on the page — hidden, not
-// masked. The distinctive mock costs (412.35, 88.10, 22.75…) are searched for
-// in the whole document's text.
+// masked. The distinctive mock costs (520.00 material, 85.00 labor, 93.60
+// overhead, 698.60 total…) are searched for in the whole document's text.
 //
 // The PDF hooks are mocked (jsPDF has no place in a view test); the revision
 // API is a call-through spy so "Create R2" is shown to reach it.
@@ -70,22 +70,24 @@ function renderQuote(id: number) {
   });
 }
 
-/** Wait until the worksheet's components have loaded (the CPU-95 board line). */
+/** Wait until the worksheet's lines have loaded (the CPU-95 line on quotes 1 and 2). */
 async function waitForWorksheet() {
   await screen.findByRole("heading", { level: 1 }, { timeout: 10_000 });
-  await waitFor(() => expect(screen.getAllByText("791950-PCB").length).toBeGreaterThan(0), {
+  await waitFor(() => expect(screen.getByRole("article", { name: "Line 791950-08" })).toBeInTheDocument(), {
     timeout: 10_000,
   });
 }
 
 /** Cost-bearing text that must never reach a viewer's screen. */
 const COST_STRINGS = [
-  "412.35",
-  "88.10",
-  "22.75",
-  "31.20",
-  "Unit cost",
-  "Loaded cost",
+  "520.00",
+  "85.00",
+  "93.60",
+  "698.60",
+  "54.00",
+  "75.72",
+  "Material",
+  "Labor",
   "Overhead",
   "Target GM",
   "GM %",
@@ -123,15 +125,14 @@ describe("QuoteDetailView — cost is hidden from viewers", () => {
     expect(document.querySelectorAll('input[type="number"]').length).toBe(0);
   });
 
-  it("a VIEWER sees a Part line's price but not its cost, overhead or target GM", async () => {
+  it("a VIEWER sees a no-labor line's price but not its material, overhead or target GM", async () => {
     who.email = VIEWER;
     renderQuote(3);
     await waitForLine("610225-ELEM");
-    const part = screen.getByRole("article", { name: "Part 610225-ELEM" });
-    expect(within(part).getByText("Part")).toBeInTheDocument();
-    expect(within(part).getAllByText("$76.80").length).toBeGreaterThan(0);
+    const line = screen.getByRole("article", { name: "Line 610225-ELEM" });
+    expect(within(line).getAllByText("$76.80").length).toBeGreaterThan(0);
     const text = document.body.textContent ?? "";
-    for (const s of ["38.40", "42.24", "45.0%", "10%", ...COST_STRINGS]) {
+    for (const s of ["38.40", "42.24", "3.84", "45.0%", "10%", ...COST_STRINGS]) {
       expect(text, `viewer saw "${s}"`).not.toContain(s);
     }
   });
@@ -141,9 +142,9 @@ describe("QuoteDetailView — cost is hidden from viewers", () => {
     renderQuote(2);
     await waitForWorksheet();
     const text = document.body.textContent ?? "";
-    expect(text).toContain("$412.35");
-    expect(text).toContain("Unit cost");
-    expect(text).toContain("Loaded cost");
+    expect(text).toContain("$520.00");
+    expect(text).toContain("Material");
+    expect(text).toContain("Labor");
     expect(text).toContain("Total cost");
     expect(text).toContain("Manual price");
   });
@@ -219,13 +220,16 @@ describe("QuoteDetailView — editing a Sent quote", () => {
     expect(await screen.findByRole("dialog", { name: "Edit IQ-COO-0001-R1" })).toBeInTheDocument();
   });
 
-  it("guards assembly and component edits too", async () => {
+  it("guards line and lead-time edits too", async () => {
     renderQuote(1);
     await waitForWorksheet();
     await userEvent.click(screen.getByRole("button", { name: "Add line" }));
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    await userEvent.click(screen.getByRole("button", { name: "Edit component 791950-PCB" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit line 791950-08" }));
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit lead times" }));
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
   });
 
@@ -287,51 +291,132 @@ describe("QuoteDetailView — the PDF", () => {
   });
 });
 
-describe("QuoteDetailView — components", () => {
-  it("a component row expands to its own discussion", async () => {
-    who.email = VIEWER;
+describe("QuoteDetailView — lines", () => {
+  it("deleting a line asks first, then removes it", async () => {
     renderQuote(2);
     await waitForWorksheet();
-    await userEvent.click(screen.getByRole("button", { name: "Show discussion for component 791950-PCB" }));
-    expect(await screen.findByText("Component discussion")).toBeInTheDocument();
-    expect(screen.getByText(/Board cost from the Sept build lot/)).toBeInTheDocument();
-  });
-
-  it("the expanded panel: attachments BEFORE comments in the wide column, watchers beside — no sideways scroll", async () => {
-    who.email = QUOTER;
-    renderQuote(2);
-    await waitForWorksheet();
-    await userEvent.click(screen.getByRole("button", { name: "Show discussion for component 791950-PCB" }));
-    const panel = await screen.findByTestId(/^component-panel-/);
-    const parts = [...panel.querySelectorAll("[data-panel-part]")].map((el) => el.getAttribute("data-panel-part"));
-    expect(parts).toEqual(["attachments", "comments", "watchers"]);
-    const attachments = panel.querySelector('[data-panel-part="attachments"]')!;
-    const comments = panel.querySelector('[data-panel-part="comments"]')!;
-    // Attachments precede the thread in DOM order, in the SAME (wide) column.
-    expect(attachments.compareDocumentPosition(comments) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(attachments.parentElement).toBe(comments.parentElement);
-    // Two columns from md, stacked below; every column may shrink (min-w-0).
-    expect(panel.className).toMatch(/\bgrid-cols-1\b/);
-    expect(panel.className).toMatch(/md:grid-cols-\[minmax\(0,1fr\)_16rem\]/);
-    for (const child of [...panel.children]) expect(child.className).toMatch(/\bmin-w-0\b/);
-    // The panel's own wrapper never scrolls sideways: pinned (sticky left-0), overflow-x hidden.
-    const wrapper = panel.parentElement!;
-    expect(wrapper.className).toMatch(/\bsticky\b/);
-    expect(wrapper.className).toMatch(/\bleft-0\b/);
-    expect(wrapper.className).toMatch(/\boverflow-x-hidden\b/);
-    expect(wrapper.className).not.toMatch(/overflow-x-(auto|scroll)/);
-  });
-
-  it("deleting an assembly names how many components go with it", async () => {
-    renderQuote(2);
-    await waitForWorksheet();
-    await userEvent.click(screen.getByRole("button", { name: "Delete assembly 693005-1" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete line 693005-1" }));
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent("This also deletes its 2 components");
+    expect(dialog).toHaveTextContent("Delete line 693005-1?");
     await act(async () => {
       await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
     });
     await waitFor(() => expect(quoteMockDb.assemblies.some((a) => a.id === 4)).toBe(false));
+  });
+
+  it("no component rows, Final assembly / Part badges or Add component anywhere", async () => {
+    renderQuote(2);
+    await waitForWorksheet();
+    expect(screen.queryByText(/Components \(/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add component/ })).toBeNull();
+    expect(screen.queryByText("Final assembly")).toBeNull();
+  });
+});
+
+describe("QuoteDetailView — customer reference and customer notes", () => {
+  it("shows the customer reference, and the customer's notes marked as never printed", async () => {
+    who.email = VIEWER;
+    renderQuote(2);
+    await waitForWorksheet();
+    expect(screen.getByText("RFQ 4471 — CPU-95 retrofit kits")).toBeInTheDocument();
+    const notes = screen.getByTestId("customer-notes");
+    expect(notes).toHaveTextContent(/Net 45/);
+    expect(notes).toHaveTextContent(/Not printed/);
+  });
+
+  it("shows no customer notes box for a customer without notes", async () => {
+    renderQuote(4); // INNIO — no notes
+    await screen.findByRole("heading", { level: 1, name: "IQ-INN-0003-R1" }, { timeout: 10_000 });
+    expect(screen.queryByTestId("customer-notes")).toBeNull();
+  });
+});
+
+describe("QuoteDetailView — lead times", () => {
+  it("everyone sees the table; a quoter edits it, pasting rows from Excel", async () => {
+    who.email = QUOTER;
+    renderQuote(2);
+    await waitForWorksheet();
+    const card = screen.getByRole("region", { name: "Lead times" });
+    expect(within(card).getByText("693005-1")).toBeInTheDocument();
+    expect(within(card).getByText(/second supplier/)).toBeInTheDocument();
+
+    await userEvent.click(within(card).getByRole("button", { name: "Edit lead times" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit lead times" });
+    await userEvent.click(within(dialog).getByRole("button", { name: /Paste from Excel/ }));
+    const paste = within(dialog).getByLabelText("Paste from Excel");
+    await userEvent.click(paste);
+    await userEvent.paste("610225-2\tPickup sensor\t4 weeks\tAlternate magnet, same spec");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add rows" }));
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Added 1 row.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(quoteMockDb.quotes.find((q) => q.id === 2)!.leadTimes.map((r) => r.partNumber)).toEqual([
+        "791950-08",
+        "693005-1",
+        "610225-2",
+      ]),
+    );
+    expect(quoteMockDb.quotes.find((q) => q.id === 2)!.leadTimes[2]).toEqual({
+      partNumber: "610225-2",
+      description: "Pickup sensor",
+      leadTime: "4 weeks",
+      reason: "Alternate magnet, same spec",
+    });
+  });
+
+  it("a viewer sees the table but no Edit", async () => {
+    who.email = VIEWER;
+    renderQuote(2);
+    await waitForWorksheet();
+    const card = screen.getByRole("region", { name: "Lead times" });
+    expect(within(card).getByText("693005-1")).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Edit lead times" })).toBeNull();
+  });
+
+  it("a table ARC couldn't read is said, and can't be edited", async () => {
+    const row = quoteMockDb.quotes.find((q) => q.id === 2)!;
+    row.leadTimesCorrupt = true;
+    row.leadTimes = [];
+    renderQuote(2);
+    await waitForWorksheet();
+    const card = screen.getByRole("region", { name: "Lead times" });
+    expect(within(card).getByRole("alert")).toHaveTextContent(/couldn't be read/);
+    expect(within(card).queryByRole("button", { name: "Edit lead times" })).toBeNull();
+  });
+});
+
+describe("QuoteDetailView — linked work", () => {
+  it("shows a linked Engineering task with an Open link to it", async () => {
+    renderQuote(4); // linked to task 47
+    await screen.findByRole("heading", { level: 1, name: "IQ-INN-0003-R1" }, { timeout: 10_000 });
+    const panel = screen.getByTestId("quote-links");
+    expect(within(panel).getByRole("link", { name: "Open the linked engineering task" })).toHaveAttribute(
+      "href",
+      "/task/47",
+    );
+    expect(within(panel).queryByRole("link", { name: "Open the linked operations task" })).toBeNull();
+  });
+
+  it("a quoter links an Operations project, saved straight away", async () => {
+    who.email = QUOTER;
+    renderQuote(2);
+    await waitForWorksheet();
+    const panel = screen.getByTestId("quote-links");
+    await userEvent.click(within(panel).getByRole("button", { name: "Operations project" }));
+    await userEvent.click(await screen.findByRole("option", { name: "0002-PVA Conformal Coating Machine" }));
+    await waitFor(() =>
+      expect(quoteMockDb.quotes.find((q) => q.id === 2)!.operationsProjectRef).toBe("0002-PVA Conformal Coating Machine"),
+    );
+  });
+
+  it("a viewer can't change a link", async () => {
+    who.email = VIEWER;
+    renderQuote(2);
+    await waitForWorksheet();
+    const panel = screen.getByTestId("quote-links");
+    for (const name of ["Engineering project", "Engineering task", "Operations project", "Operations task"]) {
+      expect(within(panel).getByRole("button", { name })).toBeDisabled();
+    }
   });
 });
 
@@ -340,15 +425,16 @@ describe("QuoteDetailView — quoted quantity, Subtotal and Total", () => {
     who.email = VIEWER;
     renderQuote(3);
     await waitForLine("610225-ELEM");
-    const sensor = screen.getByRole("article", { name: "Assembly 610225-2" });
+    const sensor = screen.getByRole("article", { name: "Line 610225-2" });
     const qty = within(sensor).getByLabelText("Quoted quantity");
+    // $96.47 less the 25+ break's 8% = $88.75; × 25 = $2,218.75.
     expect(within(qty).getByText("25")).toBeInTheDocument();
-    expect(within(qty).getByText("$87.70")).toBeInTheDocument();
-    expect(within(qty).getByText("$2,192.50")).toBeInTheDocument();
+    expect(within(qty).getByText("$88.75")).toBeInTheDocument();
+    expect(within(qty).getByText("$2,218.75")).toBeInTheDocument();
     expect(within(qty).queryByText(/Cost at qty|GM at qty|Profit at qty/)).toBeNull();
     const total = screen.getByLabelText("Quote total");
     expect(within(total).getByText("Total")).toBeInTheDocument();
-    expect(within(total).getByText("$2,269.30")).toBeInTheDocument();
+    expect(within(total).getByText("$2,295.55")).toBeInTheDocument(); // + the $76.80 line
     expect(within(total).queryByText("Total cost")).toBeNull();
   });
 
@@ -356,7 +442,7 @@ describe("QuoteDetailView — quoted quantity, Subtotal and Total", () => {
     who.email = QUOTER;
     renderQuote(3);
     await waitForLine("610225-ELEM");
-    const qty = within(screen.getByRole("article", { name: "Assembly 610225-2" })).getByLabelText("Quoted quantity");
+    const qty = within(screen.getByRole("article", { name: "Line 610225-2" })).getByLabelText("Quoted quantity");
     expect(within(qty).getByText("Cost at qty")).toBeInTheDocument();
     expect(within(qty).getByText("GM at qty")).toBeInTheDocument();
     expect(within(screen.getByLabelText("Quote total")).getByText("Total cost")).toBeInTheDocument();
@@ -372,78 +458,45 @@ describe("QuoteDetailView — the quote's attachments", () => {
     expect(attachments.compareDocumentPosition(discussion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(attachments.nextElementSibling).toBe(discussion);
     expect(attachments.closest("aside")).toBeNull();
-    expect(attachments).toHaveTextContent(/customer's data package/);
+    expect(attachments).toHaveTextContent(/customer's data package and supplier quotes/);
   });
 });
 
-describe("QuoteDetailView — the margin lives on the LINE, never on a component", () => {
-  it("the components table shows cost only: no target GM, sell or GM % header", async () => {
+describe("QuoteDetailView — the line's cost", () => {
+  it("shows material, overhead, labor, total cost, target GM, price, achieved GM and markup", async () => {
     who.email = QUOTER;
     renderQuote(2);
     await waitForWorksheet();
-    const card = screen.getByRole("article", { name: "Assembly 791950-08" });
-    const table = within(card).getAllByRole("table").find((t) => within(t).queryByText("Altronic part #"))!;
-    const headers = within(table)
-      .getAllByRole("columnheader")
-      .map((h) => (h.textContent ?? "").trim())
-      .filter(Boolean);
-    expect(headers).toEqual([
-      "Line",
-      "Altronic part #",
-      "SAP #",
-      "Description",
-      "Qty",
-      "Unit cost",
-      "Overhead %",
-      "Loaded cost",
-      "Ext. cost",
+    const card = screen.getByRole("article", { name: "Line 791950-08" });
+    const strip = within(card).getByLabelText("Line cost");
+    const labels = [...strip.querySelectorAll("dt")].map((d) => (d.textContent ?? "").trim());
+    expect(labels).toEqual([
+      "Material",
+      "Overhead (18%)",
+      "Labor",
+      "Total cost",
+      "Target GM",
+      "Price",
+      "Achieved GM",
+      "Markup %",
     ]);
-    for (const banned of [/target gm/i, /sell/i, /^gm/i, /margin/i, /price/i]) {
-      expect(headers.some((h) => banned.test(h)), `component header matched ${banned}`).toBe(false);
-    }
-    // Derived money is 2 decimals: 412.35 × 1.08 = 445.338 → $445.34, never $445.338.
-    expect(within(table).getAllByText("$445.34")).toHaveLength(2); // loaded and ext. at qty 1
-    expect(card.textContent).not.toContain("445.338");
+    // 520 + 93.60 overhead + 85 labor = 698.60; at 40% → 1,164.33.
+    expect(within(strip).getByText("$520.00")).toBeInTheDocument();
+    expect(within(strip).getByText("$93.60")).toBeInTheDocument();
+    expect(within(strip).getByText("$85.00")).toBeInTheDocument();
+    expect(within(strip).getByText("$698.60")).toBeInTheDocument();
+    expect(within(strip).getByText("$1,164.33")).toBeInTheDocument();
+    expect(within(strip).getAllByText("40.0%")).toHaveLength(2); // target, and achieved at the computed price
   });
 
-  it("the assembly roll-up shows its total cost, target GM, price, achieved GM and markup", async () => {
-    who.email = QUOTER;
-    renderQuote(2);
-    await waitForWorksheet();
-    const card = screen.getByRole("article", { name: "Assembly 791950-08" });
-    const rollUp = within(card).getByLabelText("Assembly roll-up");
-    expect(within(rollUp).getByText("Total cost")).toBeInTheDocument();
-    expect(within(rollUp).getByText("$642.16")).toBeInTheDocument();
-    expect(within(rollUp).getAllByText("40.0%")).toHaveLength(2); // target, and achieved at the computed price
-    expect(within(rollUp).getByText("$1,070.26")).toBeInTheDocument();
-    expect(within(rollUp).getByText("Achieved GM")).toBeInTheDocument();
-    expect(within(rollUp).getByText("Markup %")).toBeInTheDocument();
-  });
-
-  it("a Part line shows its own cost, a Part badge, and NO components section", async () => {
+  it("a line with no labor says so rather than inventing one", async () => {
     who.email = QUOTER;
     renderQuote(3);
     await waitForLine("610225-ELEM");
-    const part = screen.getByRole("article", { name: "Part 610225-ELEM" });
-    expect(within(part).getByText("Part")).toBeInTheDocument();
-    expect(within(part).getByText("$38.40")).toBeInTheDocument(); // unit cost
-    expect(within(part).getAllByText("$42.24").length).toBeGreaterThan(0); // loaded
-    expect(within(part).queryByText(/Components \(/)).toBeNull();
-    expect(within(part).queryByRole("button", { name: /Add component/ })).toBeNull();
-    // The assembly on the same quote still has its components.
-    const assembly = screen.getByRole("article", { name: "Assembly 610225-2" });
-    expect(within(assembly).getByRole("button", { name: /Add component/ })).toBeInTheDocument();
-  });
-
-  it("a Part line shows 'Loaded cost' exactly ONCE — its cost inputs sit in the one roll-up strip", async () => {
-    who.email = QUOTER;
-    renderQuote(3);
-    await waitForLine("610225-ELEM");
-    const part = screen.getByRole("article", { name: "Part 610225-ELEM" });
-    expect(within(part).getAllByText("Loaded cost")).toHaveLength(1);
-    const rollUp = within(part).getByLabelText("Part roll-up");
-    const labels = [...rollUp.querySelectorAll("dt")].map((d) => (d.textContent ?? "").trim());
-    expect(labels).toEqual(["Unit cost", "Overhead %", "Loaded cost", "Target GM", "Price", "Achieved GM", "Markup %"]);
+    const strip = within(screen.getByRole("article", { name: "Line 610225-ELEM" })).getByLabelText("Line cost");
+    expect(within(strip).getByText("Overhead (10%)")).toBeInTheDocument();
+    expect(within(strip).getByText("$3.84")).toBeInTheDocument();
+    expect(within(strip).getByText("$42.24")).toBeInTheDocument();
   });
 });
 

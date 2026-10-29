@@ -1,15 +1,12 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
-  ChevronDown,
   Download,
   ExternalLink,
   FileText,
   FolderUp,
   Loader2,
-  MessageSquare,
-  Paperclip,
   Pencil,
   Plus,
   Trash2,
@@ -27,13 +24,6 @@ import {
   useUpdateQuoteFields,
 } from "@/hooks/useQuotes";
 import { useDeleteQuoteAssembly, useQuoteAssemblies } from "@/hooks/useQuoteAssemblies";
-import {
-  useAddQuoteItemComment,
-  useDeleteQuoteItem,
-  useEditQuoteItemComment,
-  useQuoteItems,
-  useSetQuoteItemWatchers,
-} from "@/hooks/useQuoteItems";
 import { useQuoteCustomers } from "@/hooks/useQuoteCustomers";
 import type { MyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { downloadBlob, useGenerateQuotePdf, useQuotePdfs, useSaveQuotePdf } from "@/hooks/useQuotePdf";
@@ -41,9 +31,10 @@ import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import type { Comment, Person } from "@/types/task";
-import { QUOTE_STATUSES, type Quote, type QuoteAssembly, type QuoteItem, type QuoteStatus } from "@/types/quote";
+import { QUOTE_STATUSES, type Quote, type QuoteAssembly, type QuoteLeadTime, type QuoteStatus } from "@/types/quote";
 import { isLatestRevision, nextRevFor } from "@/lib/quoteNumber";
-import { priceQuote, type QuoteAssemblyPricing, type QuoteItemPricing } from "@/lib/quotePricing";
+import { priceQuote, type QuoteAssemblyPricing } from "@/lib/quotePricing";
+import type { QuotePatch } from "@/lib/quoteMapper";
 import { createQuoteGate, editQuoteGate, generatePdfGate, seeCostGate, setQuoteStatusGate } from "@/lib/quoteRoles";
 import { formatDisplayDate } from "@/lib/dateInput";
 import { mergePeople, personKey } from "@/lib/people";
@@ -57,9 +48,10 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { QuotesNav } from "@/components/QuotesNav";
-import { PRINTED_NOTE, QuoteFormModal } from "@/components/QuoteFormModal";
+import { CustomerNotes, PRINTED_NOTE, QuoteFormModal } from "@/components/QuoteFormModal";
 import { QuoteAssemblyFormModal } from "@/components/QuoteAssemblyFormModal";
-import { QuoteItemFormModal } from "@/components/QuoteItemFormModal";
+import { LeadTimesEditor, QuoteLeadTimesCard } from "@/components/QuoteLeadTimesCard";
+import { QuoteLinksPanel } from "@/components/QuoteLinksPanel";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { cn } from "@/lib/cn";
 import { QuoteAccessGate, QuoteStatusChip, quoteExpiry } from "./QuotesView";
@@ -68,12 +60,12 @@ import { formatMoney, formatPct, formatUnitCost } from "@/lib/quoteMoney";
 // =============================================================================
 // One quote revision — the WORKSHEET (/sales/quotes/:id).
 //
-// Quote → LINES → components. A line is a final assembly (costed from the
-// components under it) or a standalone Part (costed on the line itself, no
-// components). Each line shows its price and quantity-break table and — for
-// quoters and managers only — its cost, its ONE target GM (set on the line,
-// never per component: Ray, 2026-10-09) and the achieved GM. Components show
-// cost only: qty, unit cost, overhead %, loaded cost, ext. cost.
+// Quote → LINES. A line carries the part's FINAL cost — material, labor, and
+// overhead as a percent of material (Ray, 2026-10-29) — and the tool turns it
+// into a selling price at the line's ONE target GM. Each line shows its price
+// and quantity-break table to everyone and — for quoters and managers only —
+// its cost breakdown, target GM and achieved GM. The page is where Sales,
+// Engineering, Supply Chain and Operations discuss a quote and get buy-in.
 //
 // COST IS HIDDEN, NOT MASKED, for a viewer: no value, no column header, no
 // input reaches the DOM. Every cost-bearing element asks `seeCostGate`. That
@@ -81,14 +73,15 @@ import { formatMoney, formatPct, formatUnitCost } from "@/lib/quoteMoney";
 // SharePoint list permissions are the real boundary (design §3).
 //
 // SENT-EDIT CONFIRMATION (design §11). Any in-place edit of a quote whose
-// status is Sent — the header, an assembly, a component — first asks "Update
+// status is Sent — the header, a line, the lead times — first asks "Update
 // anyway, or create R{n+1}?". `useSentEditGuard` is the ONE implementation;
 // every edit entry point goes through `guard(fn)`. A STATUS change is not
 // guarded — moving a Sent quote to Won is the workflow, not an edit of what
-// was sent. Comments, watchers and attachments are collaboration, not edits.
+// was sent. Comments, watchers, attachments and the task / project links are
+// collaboration, not edits.
 //
-// The quote's own thread is headed "Discussion"; each component has its own
-// thread, opened inline beneath its row (the BuildRequestItemCard pattern).
+// The quote's thread is headed "Discussion". The customer's NOTES (from the
+// customer list) show on the Quote card — internal, never printed.
 // =============================================================================
 
 export function QuoteDetailView() {
@@ -164,12 +157,11 @@ export function useSentEditGuard(quote: Quote | undefined) {
 type ModalState =
   | { kind: "header" }
   | { kind: "assembly"; assembly?: QuoteAssembly }
-  | { kind: "item"; assemblyId: number; item?: QuoteItem }
+  | { kind: "leadTimes" }
   | null;
 
 type ConfirmState =
-  | { kind: "deleteAssembly"; assembly: QuoteAssembly; componentCount: number }
-  | { kind: "deleteItem"; item: QuoteItem }
+  | { kind: "deleteAssembly"; assembly: QuoteAssembly }
   | { kind: "newRev" }
   | { kind: "savePdfPrompt" }
   | null;
@@ -185,7 +177,6 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
   const { data: quotes = [] } = useQuotes();
   const { data: revisions = [] } = useQuoteRevisions(quote?.quoteBase);
   const { data: assemblies = [] } = useQuoteAssemblies(quoteId);
-  const { data: items = [] } = useQuoteItems(quoteId);
   const { data: customers = [] } = useQuoteCustomers();
   const currentUser = useCurrentUser();
   const directory = useDirectoryPeople();
@@ -196,7 +187,6 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
   const editComment = useEditQuoteComment();
   const createRev = useCreateQuoteRevision();
   const deleteAssembly = useDeleteQuoteAssembly();
-  const deleteItem = useDeleteQuoteItem();
   const generatePdf = useGenerateQuotePdf();
   const savePdf = useSaveQuotePdf();
 
@@ -219,10 +209,10 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
   }, [quoteId]);
 
   const mentionCandidates = useMemo(
-    () => mergePeople(collectQuotePeople(quotes, items), directory, [currentUser]),
-    [quotes, items, directory, currentUser],
+    () => mergePeople(collectQuotePeople(quotes), directory, [currentUser]),
+    [quotes, directory, currentUser],
   );
-  const pricing = useMemo(() => priceQuote(assemblies, items), [assemblies, items]);
+  const pricing = useMemo(() => priceQuote(assemblies), [assemblies]);
   const sortedAssemblies = useMemo(
     () => [...assemblies].sort((a, b) => a.lineNo - b.lineNo || a.id - b.id),
     [assemblies],
@@ -325,7 +315,6 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
         quote: q,
         customer,
         assemblies,
-        items,
       });
     } catch (err) {
       setPdfProblems(problemsFrom(err));
@@ -367,6 +356,14 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
     return q.watchers.some((p) => personKey(p) === key)
       ? q.watchers.filter((p) => personKey(p) !== key)
       : [...q.watchers, person];
+  }
+
+  function patchQuote(patch: QuotePatch) {
+    update.mutate({ id: q.id, patch });
+  }
+
+  async function saveLeadTimes(rows: QuoteLeadTime[]) {
+    await update.mutateAsync({ id: q.id, patch: { leadTimes: rows } });
   }
 
   const pdfBusy = generatePdf.isPending || savePdf.isPending;
@@ -501,6 +498,9 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <ReadField label="Customer">{customer ? `${customer.name} (${customer.code})` : null}</ReadField>
               <ReadField label="Customer number">{customer?.customerNumber || null}</ReadField>
+              <ReadField label="Customer reference / description" wide note={PRINTED_NOTE}>
+                {q.customerReference || null}
+              </ReadField>
               <ReadField label="Contact">{q.contactName || null}</ReadField>
               <ReadField label="Contact email">{q.contactEmail || null}</ReadField>
               <ReadField label="Validity">{`${q.validityDays} days`}</ReadField>
@@ -515,9 +515,10 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
                 {q.quoteNotes || null}
               </ReadField>
             </dl>
+            {customer?.note.trim() && <CustomerNotes note={customer.note} />}
           </Card>
 
-          {/* Lines — final assemblies and standalone parts */}
+          {/* Lines */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Line items</h2>
@@ -534,36 +535,20 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             </div>
             {sortedAssemblies.length === 0 && (
               <p className="rounded-xl border border-dashed border-border bg-surface p-6 text-center text-sm text-fg-muted">
-                No lines yet — add a final assembly or a part.
+                No lines yet — add the parts being quoted.
               </p>
             )}
             {sortedAssemblies.map((assembly) => {
               const assemblyPricing = pricing.assemblies.find((p) => p.assemblyId === assembly.id);
-              const own = items
-                .filter((i) => i.assemblyId === assembly.id)
-                .sort((a, b) => a.lineNo - b.lineNo || a.id - b.id);
               return (
                 <AssemblyCard
                   key={assembly.id}
                   assembly={assembly}
-                  items={own}
                   pricing={assemblyPricing}
                   canSeeCost={canSeeCost}
                   canEdit={canEdit}
-                  mentionCandidates={mentionCandidates}
                   onEdit={() => guard(() => setModal({ kind: "assembly", assembly }))}
-                  onDelete={() =>
-                    guard(() =>
-                      setConfirm({
-                        kind: "deleteAssembly",
-                        assembly,
-                        componentCount: own.length,
-                      }),
-                    )
-                  }
-                  onAddItem={() => guard(() => setModal({ kind: "item", assemblyId: assembly.id }))}
-                  onEditItem={(item) => guard(() => setModal({ kind: "item", assemblyId: assembly.id, item }))}
-                  onDeleteItem={(item) => guard(() => setConfirm({ kind: "deleteItem", item }))}
+                  onDelete={() => guard(() => setConfirm({ kind: "deleteAssembly", assembly }))}
                 />
               );
             })}
@@ -588,11 +573,19 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             )}
           </Card>
 
-          {/* The customer's data package — full main-column width, directly above
-              the Discussion (the same attachments-above-comments pattern as a
-              component's panel). */}
+          <QuoteLeadTimesCard
+            rows={q.leadTimes}
+            corrupt={q.leadTimesCorrupt}
+            canEdit={canEdit}
+            onEdit={() => guard(() => setModal({ kind: "leadTimes" }))}
+          />
+
+          {/* The customer's data package and supplier quotes — full main-column
+              width, directly above the Discussion. */}
           <div className="min-w-0" data-testid="quote-attachments">
-            <p className="mb-1 px-1 text-[11px] text-fg-muted">The customer's data package — drawings, specs, RFQs.</p>
+            <p className="mb-1 px-1 text-[11px] text-fg-muted">
+              The customer's data package and supplier quotes — drawings, specs, RFQs.
+            </p>
             <AttachmentsSection parent="quote" itemId={q.id} />
           </div>
 
@@ -638,17 +631,13 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
                 {q.createdAt && <span className="text-fg-muted"> · {new Date(q.createdAt).toLocaleDateString()}</span>}
               </p>
             </SidebarField>
-            <SidebarField label="Engineering task">
-              <LinkValue link={q.engineeringTaskLink} />
-            </SidebarField>
-            <SidebarField label="Operations task">
-              <LinkValue link={q.operationsTaskLink} />
-            </SidebarField>
-            <SidebarField label="Engineering project">
-              <p className="px-1 text-sm text-fg">
-                {q.engineeringProjectRef || <span className="text-fg-muted">Not linked</span>}
-              </p>
-            </SidebarField>
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h3 className="mb-2 font-display text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+              Linked work
+            </h3>
+            <QuoteLinksPanel quote={q} canEdit={canEdit} onPatch={patchQuote} />
           </div>
 
           <SavedPdfs quoteBase={q.quoteBase} />
@@ -660,26 +649,23 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
         <QuoteAssemblyFormModal
           quoteId={q.id}
           assembly={modal.assembly}
-          items={modal.assembly ? items.filter((i) => i.assemblyId === modal.assembly!.id) : []}
           nextLineNo={nextAssemblyLine}
           canSeeCost={canSeeCost}
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.kind === "item" && (
-        <QuoteItemFormModal
-          quoteId={q.id}
-          assemblyId={modal.assemblyId}
-          item={modal.item}
-          nextLineNo={Math.max(0, ...items.filter((i) => i.assemblyId === modal.assemblyId).map((i) => i.lineNo)) + 1}
-          canSeeCost={canSeeCost}
+      {modal?.kind === "leadTimes" && (
+        <LeadTimesEditor
+          rows={q.leadTimes}
+          busy={update.isPending}
+          onSave={saveLeadTimes}
           onClose={() => setModal(null)}
         />
       )}
 
       {confirm?.kind === "deleteAssembly" && (
         <ConfirmDialog
-          title={confirm.assembly.lineType === "Part" ? "Delete part" : "Delete assembly"}
+          title="Delete line"
           busy={deleteAssembly.isPending}
           onCancel={() => setConfirm(null)}
           actions={[
@@ -697,38 +683,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             },
           ]}
         >
-          {confirm.assembly.lineType === "Part" ? (
-            <>Delete part {confirm.assembly.altronicPartNumber || `line ${confirm.assembly.lineNo}`}?</>
-          ) : (
-            <>
-              Delete assembly {confirm.assembly.altronicPartNumber || `line ${confirm.assembly.lineNo}`}? This also
-              deletes its {confirm.componentCount} component
-              {confirm.componentCount === 1 ? "" : "s"}, with their comments and attachments.
-            </>
-          )}
-        </ConfirmDialog>
-      )}
-      {confirm?.kind === "deleteItem" && (
-        <ConfirmDialog
-          title="Delete component"
-          busy={deleteItem.isPending}
-          onCancel={() => setConfirm(null)}
-          actions={[
-            {
-              label: "Delete",
-              danger: true,
-              onClick: async () => {
-                try {
-                  await deleteItem.mutateAsync(confirm.item.id);
-                } finally {
-                  setConfirm(null);
-                }
-              },
-            },
-          ]}
-        >
-          Delete component {confirm.item.altronicPartNumber || `line ${confirm.item.lineNo}`}, with its comments and
-          attachments?
+          Delete line {confirm.assembly.altronicPartNumber || confirm.assembly.lineNo}?
         </ConfirmDialog>
       )}
       {confirm?.kind === "newRev" && (
@@ -744,7 +699,8 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             },
           ]}
         >
-          Create R{nextRev} of {q.quoteBase}? Its assemblies, components and discussion are copied forward;{" "}
+          Create R{nextRev} of {q.quoteBase}? Its lines, lead times, links, discussion and attachments are copied
+          forward;{" "}
           {q.quoteNumber} stays exactly as it is.
         </ConfirmDialog>
       )}
@@ -864,78 +820,33 @@ function StatusControl({
 }
 
 // -----------------------------------------------------------------------------
-// Assemblies and components
+// Lines
 // -----------------------------------------------------------------------------
-
-/**
- * The visible (client) width of a horizontally scrolling box, kept current
- * with a ResizeObserver. `undefined` until measured — the panel then simply
- * takes the cell's width, which is the card's whenever the table fits.
- */
-function useVisibleWidth() {
-  // A CALLBACK ref (state), not useRef: the box only mounts once the first
-  // component exists, and an effect keyed on a ref object would never see it.
-  const [el, ref] = useState<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState<number | undefined>(undefined);
-  useEffect(() => {
-    if (!el) return;
-    const measure = () => setWidth(el.clientWidth || undefined);
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [el]);
-  return { ref, width };
-}
 
 function AssemblyCard({
   assembly,
-  items,
   pricing,
   canSeeCost,
   canEdit,
-  mentionCandidates,
   onEdit,
   onDelete,
-  onAddItem,
-  onEditItem,
-  onDeleteItem,
 }: {
   assembly: QuoteAssembly;
-  items: QuoteItem[];
   pricing: QuoteAssemblyPricing | undefined;
   canSeeCost: boolean;
   canEdit: boolean;
-  mentionCandidates: Person[];
   onEdit: () => void;
   onDelete: () => void;
-  onAddItem: () => void;
-  onEditItem: (item: QuoteItem) => void;
-  onDeleteItem: (item: QuoteItem) => void;
 }) {
-  const priced = new Map((pricing?.items ?? []).map((p) => [p.itemId, p]));
-  const isPart = assembly.lineType === "Part";
-  const { ref: tableBoxRef, width: tableWidth } = useVisibleWidth();
-  const noun = isPart ? "part" : "assembly";
+  const name = assembly.altronicPartNumber || `line ${assembly.lineNo}`;
   return (
     <article
       className="rounded-xl border border-border bg-surface p-4 sm:p-5"
-      aria-label={`${isPart ? "Part" : "Assembly"} ${assembly.altronicPartNumber}`}
+      aria-label={`Line ${assembly.altronicPartNumber}`}
     >
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-            Line {assembly.lineNo}
-            <span
-              className={cn(
-                "rounded-full px-1.5 py-0.5 text-[10px] normal-case tracking-normal",
-                isPart ? "bg-superior-blue/15 text-fg" : "bg-surface-2 text-fg-muted",
-              )}
-            >
-              {isPart ? "Part" : "Final assembly"}
-            </span>
-          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Line {assembly.lineNo}</p>
           <h3 className="font-display text-base font-semibold text-fg">{assembly.altronicPartNumber || "No part #"}</h3>
           <p className="text-sm text-fg">{assembly.description}</p>
           <p className="mt-1 text-xs text-fg-muted">
@@ -960,8 +871,8 @@ function AssemblyCard({
         </div>
         {canEdit && (
           <div className="flex gap-1">
-            <EditButton label={`${noun} ${assembly.altronicPartNumber}`} onClick={onEdit} />
-            <IconButton label={`Delete ${noun} ${assembly.altronicPartNumber}`} onClick={onDelete}>
+            <EditButton label={`line ${name}`} onClick={onEdit} />
+            <IconButton label={`Delete line ${name}`} onClick={onDelete}>
               <Trash2 className="h-3.5 w-3.5" />
             </IconButton>
           </div>
@@ -1022,83 +933,19 @@ function AssemblyCard({
         </ul>
       )}
 
-      {/* Components — final assemblies only */}
-      {!isPart && (
-        <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-              Components ({items.length})
-            </h4>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={onAddItem}
-                className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
-              >
-                <Plus className="h-3 w-3" />
-                Add component
-              </button>
-            )}
-          </div>
-          {items.length === 0 ? (
-            <p className="text-sm text-fg-muted">No components yet.</p>
-          ) : (
-            <div ref={tableBoxRef} className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
-                  <tr>
-                    <th className="px-2 py-1.5" aria-label="Expand" />
-                    <th className="px-2 py-1.5 font-semibold">Line</th>
-                    <th className="px-2 py-1.5 font-semibold">Altronic part #</th>
-                    <th className="px-2 py-1.5 font-semibold">SAP #</th>
-                      <th className="px-2 py-1.5 font-semibold">Description</th>
-                    <th className="px-2 py-1.5 font-semibold">Qty</th>
-                    {canSeeCost && (
-                      <>
-                        <th className="px-2 py-1.5 font-semibold">Unit cost</th>
-                        <th className="px-2 py-1.5 font-semibold">Overhead %</th>
-                        <th className="px-2 py-1.5 font-semibold">Loaded cost</th>
-                        <th className="px-2 py-1.5 font-semibold">Ext. cost</th>
-                      </>
-                    )}
-                    {canEdit && <th className="px-2 py-1.5" aria-label="Actions" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <ComponentRow
-                      key={item.id}
-                      item={item}
-                      pricing={priced.get(item.id)}
-                      canSeeCost={canSeeCost}
-                      canEdit={canEdit}
-                      mentionCandidates={mentionCandidates}
-                      panelWidth={tableWidth}
-                      onEdit={() => onEditItem(item)}
-                      onDelete={() => onDeleteItem(item)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* The line's roll-up: its cost, its ONE target GM, the price it gives, and
-          what was achieved. A Part has no components, so its own cost inputs
-          (unit cost, overhead) lead the same strip — "Loaded cost" appears ONCE. */}
+      {/* The cost of one, and what it prices at: material + overhead (% of
+          material) + labor = total cost, at the line's ONE target GM. */}
       {canSeeCost && pricing && (
         <dl
-          aria-label={`${isPart ? "Part" : "Assembly"} roll-up`}
-          className={cn(
-            "mt-3 grid grid-cols-2 gap-3 rounded-lg bg-surface-2 p-3 text-sm",
-            isPart ? "sm:grid-cols-4 lg:grid-cols-7" : "sm:grid-cols-5",
-          )}
+          aria-label="Line cost"
+          className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-surface-2 p-3 text-sm sm:grid-cols-4"
         >
-          {isPart && <ReadField label="Unit cost">{formatUnitCost(assembly.cost)}</ReadField>}
-          {isPart && <ReadField label="Overhead %">{assembly.materialOverheadPct ?? 0}%</ReadField>}
-          <ReadField label={isPart ? "Loaded cost" : "Total cost"}>{formatMoney(pricing.unitCost)}</ReadField>
+          <ReadField label="Material">{formatUnitCost(assembly.materialCost)}</ReadField>
+          <ReadField label={`Overhead (${assembly.materialOverheadPct ?? 0}%)`}>
+            {formatMoney(pricing.cost?.overhead ?? null)}
+          </ReadField>
+          <ReadField label="Labor">{formatUnitCost(assembly.laborCost)}</ReadField>
+          <ReadField label="Total cost">{formatMoney(pricing.unitCost)}</ReadField>
           <ReadField label="Target GM">{formatPct(pricing.targetGM)}</ReadField>
           <ReadField label="Price">
             {formatMoney(pricing.price)}
@@ -1113,197 +960,6 @@ function AssemblyCard({
         </dl>
       )}
     </article>
-  );
-}
-
-/**
- * One component line. Expands to its OWN thread, watchers and attachments,
- * inline beneath the row (the BuildRequestItemCard pattern) — commenting and
- * watching are open to every role, viewer included.
- */
-function ComponentRow({
-  item,
-  pricing,
-  canSeeCost,
-  canEdit,
-  mentionCandidates,
-  panelWidth,
-  onEdit,
-  onDelete,
-}: {
-  item: QuoteItem;
-  pricing: QuoteItemPricing | undefined;
-  canSeeCost: boolean;
-  canEdit: boolean;
-  mentionCandidates: Person[];
-  /** The components table's VISIBLE width — the expanded panel is pinned to it. */
-  panelWidth: number | undefined;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const span = 6 + (canSeeCost ? 4 : 0) + (canEdit ? 1 : 0);
-  const label = item.altronicPartNumber || `line ${item.lineNo}`;
-  return (
-    <Fragment>
-      <tr className={cn("border-t border-border", expanded && "bg-surface-2/50")}>
-        <td className="px-2 py-1.5">
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            aria-label={`${expanded ? "Hide" : "Show"} discussion for component ${label}`}
-            className="rounded-sm p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
-          >
-            <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
-          </button>
-        </td>
-        <td className="px-2 py-1.5 tabular-nums text-fg-muted">{item.lineNo}</td>
-        <td className="whitespace-nowrap px-2 py-1.5 font-medium text-fg">
-          <span className="inline-flex items-center gap-1.5">
-            {item.altronicPartNumber || "—"}
-            {item.comments.length > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] text-fg-muted">
-                <MessageSquare className="h-3 w-3" />
-                {item.comments.length}
-              </span>
-            )}
-            {item.hasAttachments && <Paperclip className="h-3 w-3 text-fg-muted" aria-label="Has attachments" />}
-          </span>
-        </td>
-        <td className="whitespace-nowrap px-2 py-1.5 text-fg-muted">{item.sapPartNumber || "—"}</td>
-        <td className="max-w-[16rem] truncate px-2 py-1.5 text-fg" title={item.description}>
-          {item.description || "—"}
-        </td>
-        <td className="px-2 py-1.5 tabular-nums text-fg">{item.quantity}</td>
-        {canSeeCost && (
-          <>
-            <td className="whitespace-nowrap px-2 py-1.5 tabular-nums">{formatUnitCost(item.cost)}</td>
-            <td className="px-2 py-1.5 tabular-nums">{item.materialOverheadPct ?? 0}%</td>
-            <td className="whitespace-nowrap px-2 py-1.5 tabular-nums">{formatMoney(pricing?.loadedUnitCost)}</td>
-            <td className="whitespace-nowrap px-2 py-1.5 tabular-nums">{formatMoney(pricing?.extendedCost)}</td>
-          </>
-        )}
-        {canEdit && (
-          <td className="whitespace-nowrap px-2 py-1.5">
-            <span className="inline-flex gap-1">
-              <IconButton label={`Edit component ${label}`} onClick={onEdit}>
-                <Pencil className="h-3.5 w-3.5" />
-              </IconButton>
-              <IconButton label={`Delete component ${label}`} onClick={onDelete}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </IconButton>
-            </span>
-          </td>
-        )}
-      </tr>
-      {expanded && (
-        <tr className="border-t border-border bg-surface-2/30">
-          <td colSpan={span} className="p-0">
-            {/* Pinned to the scroll container's VISIBLE width (sticky left-0 +
-                the measured width), so the table scrolling sideways never
-                makes the panel scroll or overflow the card. */}
-            <div
-              className="sticky left-0 min-w-0 overflow-x-hidden px-3 py-3"
-              style={panelWidth ? { width: panelWidth } : undefined}
-            >
-              <ComponentThread item={item} mentionCandidates={mentionCandidates} />
-            </div>
-          </td>
-        </tr>
-      )}
-    </Fragment>
-  );
-}
-
-function ComponentThread({ item, mentionCandidates }: { item: QuoteItem; mentionCandidates: Person[] }) {
-  const currentUser = useCurrentUser();
-  const addComment = useAddQuoteItemComment();
-  const editComment = useEditQuoteItemComment();
-  const setWatchers = useSetQuoteItemWatchers();
-  const uploadItemFile = useCommentFileUpload("quoteItem", item.id);
-
-  function handleAddItemComment(bodyHtml: string) {
-    return addComment
-      .mutateAsync({
-        id: item.id,
-        comment: {
-          authorName: currentUser.displayName,
-          authorEmail: currentUser.email ?? "",
-          bodyHtml,
-        },
-      })
-      .then(() => undefined);
-  }
-
-  async function handleEditItemComment(comment: Comment, newBodyHtml: string) {
-    await editComment.mutateAsync({
-      id: item.id,
-      target: {
-        timestamp: comment.timestamp,
-        authorEmail: comment.authorEmail,
-      },
-      bodyHtml: newBodyHtml,
-      previousBodyHtml: comment.bodyHtml,
-    });
-  }
-
-  function toggled(person: Person): Person[] {
-    const key = personKey(person);
-    return item.watchers.some((p) => personKey(p) === key)
-      ? item.watchers.filter((p) => personKey(p) !== key)
-      : [...item.watchers, person];
-  }
-
-  // Two columns that fit the card — attachments ABOVE the thread in the wide
-  // left column, watchers in the narrow right one; stacked (attachments,
-  // comments, watchers) below md. min-w-0 + overflow-wrap on every grid child
-  // so a long file name or URL wraps instead of widening the panel.
-  return (
-    <div
-      data-testid={`component-panel-${item.id}`}
-      className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_16rem]"
-    >
-      <div className="flex min-w-0 flex-col gap-4 wrap-break-word">
-        <div className="min-w-0" data-panel-part="attachments">
-          <AttachmentsSection parent="quoteItem" itemId={item.id} />
-        </div>
-        <div className="min-w-0" data-panel-part="comments">
-          <h5 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-            Component discussion
-          </h5>
-          <CommentComposer
-            draftKey={`quoteItem:${item.id}`}
-            uploadFile={uploadItemFile}
-            onSubmit={handleAddItemComment}
-            mentionablePeople={mentionCandidates}
-          />
-          <div className="mt-4">
-            <CommentThread
-              uploadFile={uploadItemFile}
-              comments={item.comments}
-              currentUserEmail={currentUser.email}
-              currentUserName={currentUser.displayName}
-              mentionablePeople={mentionCandidates}
-              onEdit={handleEditItemComment}
-              onReply={handleAddItemComment}
-              draftKey={`quoteItem:${item.id}`}
-            />
-          </div>
-        </div>
-      </div>
-      <div className="min-w-0 wrap-break-word" data-panel-part="watchers">
-        <SidebarField label="Watchers">
-          <PersonMultiField
-            value={item.watchers}
-            allPeople={mentionCandidates}
-            onToggle={(p) => setWatchers.mutate({ id: item.id, people: toggled(p) })}
-            emptyLabel="No watchers"
-            searchPlaceholder="Add a watcher…"
-          />
-        </SidebarField>
-      </div>
-    </div>
   );
 }
 
@@ -1350,21 +1006,6 @@ function SavedPdfs({ quoteBase }: { quoteBase: string }) {
         </ul>
       )}
     </div>
-  );
-}
-
-function LinkValue({ link }: { link: Quote["engineeringTaskLink"] }) {
-  if (!link) return <p className="px-1 text-sm text-fg-muted">Not linked</p>;
-  return (
-    <a
-      href={link.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 px-1 text-sm text-accent hover:underline"
-    >
-      {link.description || link.url}
-      <ExternalLink className="h-3 w-3" />
-    </a>
   );
 }
 

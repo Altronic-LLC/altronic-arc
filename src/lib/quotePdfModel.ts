@@ -4,7 +4,6 @@ import {
   type Quote,
   type QuoteAssembly,
   type QuoteCustomer,
-  type QuoteItem,
   type QuotePdfAssembly,
   type QuotePdfModel,
 } from "@/types/quote";
@@ -16,9 +15,9 @@ import { priceBreakProblems, priceQuoteAssembly, roundCents } from "@/lib/quoteP
 //
 // THE LEAK GUARANTEE (docs/INSOURCING-QUOTING-DESIGN.md §7): the printer only
 // ever receives a `QuotePdfModel`, which has no field that could carry cost,
-// margin, markup, profit, target GM, overhead, component lines, comments or
+// margin, markup, profit, target GM, material, labor, overhead, comments or
 // attachments. That guarantee holds only if THIS function builds the model
-// FIELD BY FIELD. Never spread a Quote, QuoteAssembly or QuoteItem into it:
+// FIELD BY FIELD. Never spread a Quote or QuoteAssembly into it:
 // TypeScript's structural typing would let the extra keys ride along at
 // runtime, and a renderer that iterates keys (or a debug dump) would print
 // them. quotePdfModel.test.ts serialises a model built from fixtures full of
@@ -68,12 +67,11 @@ export function buildQuotePdfModel(args: {
   quote: Quote;
   customer: QuoteCustomer | null;
   assemblies: QuoteAssembly[];
-  items: QuoteItem[];
   issueDate: string;
   /** The signed-in user generating the PDF. Optional; blank → no "Prepared by". */
   preparedBy?: { name: string; email: string } | null;
 }): { model: QuotePdfModel | null; problems: string[] } {
-  const { quote, customer, items, issueDate } = args;
+  const { quote, customer, issueDate } = args;
   const problems: string[] = [];
 
   const expiryDate = quoteExpiryDate(issueDate, quote.validityDays);
@@ -91,12 +89,10 @@ export function buildQuotePdfModel(args: {
 
   const assemblies: QuotePdfAssembly[] = [];
   for (const a of own) {
-    const pricing = priceQuoteAssembly(a, items);
+    const pricing = priceQuoteAssembly(a);
     if (pricing.price === null) {
       problems.push(
-        a.lineType === "Part"
-          ? `${assemblyName(a)} has no price yet — enter its cost and target GM, or set a manual price.`
-          : `${assemblyName(a)} has no price yet — complete its components and target GM, or set a manual price.`,
+        `${assemblyName(a)} has no price yet — enter its material and/or labor cost and a target GM, or set a manual price.`,
       );
       continue;
     }
@@ -136,6 +132,7 @@ export function buildQuotePdfModel(args: {
       customerNumber: customer!.customerNumber,
       contactName: quote.contactName,
       contactEmail: quote.contactEmail,
+      customerReference: quote.customerReference.trim(),
       // Field by field, trimmed — never the caller's object.
       preparedBy: preparedByOf(args.preparedBy),
       assemblies,
@@ -148,6 +145,15 @@ export function buildQuotePdfModel(args: {
           }
         : null,
       quoteNotes: quote.quoteNotes.trim(),
+      // Field by field — the four customer-facing texts, blank rows dropped.
+      leadTimes: quote.leadTimes
+        .map((r) => ({
+          partNumber: r.partNumber.trim(),
+          description: r.description.trim(),
+          leadTime: r.leadTime.trim(),
+          reason: r.reason.trim(),
+        }))
+        .filter((r) => r.partNumber || r.description || r.leadTime || r.reason),
     },
     problems,
   };

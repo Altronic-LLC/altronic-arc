@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { __resetQuoteMockStores } from "@/data/quoteMockData";
+import { __resetQuoteMockStores, quoteMockDb } from "@/data/quoteMockData";
 import type { Quote } from "@/types/quote";
 
 // =============================================================================
@@ -23,7 +23,6 @@ vi.mock("@/api/quotes", async (orig) => {
     createQuote: vi.fn(a.createQuote),
     updateQuoteFields: vi.fn(a.updateQuoteFields),
     setQuoteWatchers: vi.fn(a.setQuoteWatchers),
-    setQuoteLinks: vi.fn(a.setQuoteLinks),
     addQuoteComment: vi.fn(a.addQuoteComment),
     editQuoteComment: vi.fn(a.editQuoteComment),
   };
@@ -48,7 +47,6 @@ import {
   useEditQuoteComment,
   useQuote,
   useQuoteRevisions,
-  useSetQuoteLinks,
   useSetQuoteWatchers,
   useUpdateQuoteFields,
 } from "./useQuotes";
@@ -96,7 +94,6 @@ beforeEach(() => {
     api.createQuote,
     api.updateQuoteFields,
     api.setQuoteWatchers,
-    api.setQuoteLinks,
     api.addQuoteComment,
     api.editQuoteComment,
     revApi.createQuoteRevision,
@@ -284,15 +281,27 @@ describe("revisions and links", () => {
   it("refuses a viewer's task link BEFORE any write; a quoter may set one", async () => {
     who.emails = VIEWER;
     const { wrapper } = setup();
-    const { result } = renderHook(() => useSetQuoteLinks(), { wrapper });
-    const links = { engineeringTaskLink: { url: "https://x/task/1", description: "T1" } };
-    await act(() => expect(result.current.mutateAsync({ id: 1, links })).rejects.toThrow());
-    expect(api.setQuoteLinks).not.toHaveBeenCalled();
+    const { result } = renderHook(() => useUpdateQuoteFields(), { wrapper });
+    await act(() =>
+      expect(result.current.mutateAsync({ id: 1, patch: { engineeringTaskId: 47 } })).rejects.toThrow(),
+    );
+    expect(api.updateQuoteFields).not.toHaveBeenCalled();
 
     who.emails = QUOTER;
     const s2 = setup();
-    const { result: r2 } = renderHook(() => useSetQuoteLinks(), { wrapper: s2.wrapper });
-    await act(() => r2.current.mutateAsync({ id: 1, links }));
-    expect(api.setQuoteLinks).toHaveBeenCalledWith(1, links);
+    const { result: r2 } = renderHook(() => useUpdateQuoteFields(), { wrapper: s2.wrapper });
+    const updated = await act(() => r2.current.mutateAsync({ id: 1, patch: { engineeringTaskId: 47 } }));
+    expect(updated.engineeringTaskId).toBe(47);
+  });
+
+  it("an unreadable lead-time table refuses the save and says why, without touching the rest", async () => {
+    quoteMockDb.quotes.find((q) => q.id === 2)!.leadTimesCorrupt = true;
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useUpdateQuoteFields(), { wrapper });
+    const rows = [{ partNumber: "P", description: "", leadTime: "", reason: "" }];
+    await act(() => expect(result.current.mutateAsync({ id: 2, patch: { leadTimes: rows } })).rejects.toThrow());
+    expect(pushToast).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/lead-time table couldn't be read/), variant: "error" }),
+    );
   });
 });
