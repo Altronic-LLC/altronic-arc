@@ -8,12 +8,20 @@ import {
   PANEL_TASK_TYPES,
   type PanelTask,
   type PanelTaskType,
+  type PanelTaskWorkType,
+  type PanelTaskPriority,
+  PANEL_TASK_WORK_TYPES,
+  PANEL_TASK_PRIORITIES,
   type Person,
 } from "@/types/task";
-import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
+import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
+import { ChoicePills } from "./ChoicePills";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+import { DateField } from "./DateField";
+import { fromDateInputValue } from "@/lib/spDates";
+import { estimatedHoursProblem, parseEstimatedHours } from "@/lib/capacity";
 
 interface PanelTaskFormModalProps {
   onClose: () => void;
@@ -22,7 +30,7 @@ interface PanelTaskFormModalProps {
 /**
  * Create modal for Panel Tasks. Project reference reads from the same
  * admin-managed Panel Project Reference list that orders use. New tasks
- * start as Pending and the creator is auto-added as a watcher.
+ * start as New and the creator is auto-added as a watcher.
  */
 export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
   const navigate = useNavigate();
@@ -35,8 +43,13 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [taskType, setTaskType] = useState<PanelTaskType | "">("");
-  const [assignedKey, setAssignedKey] = useState<string | null>(null);
+  const [workType, setWorkType] = useState<PanelTaskWorkType | "">("");
+  const [priority, setPriority] = useState<PanelTaskPriority | "">("");
+  const [assignedKeys, setAssignedKeys] = useState<string[]>([]);
   const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [hours, setHours] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -71,7 +84,7 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
       if (!seen.has(key)) seen.set(key, p);
     };
     for (const t of tasks as PanelTask[]) {
-      note(t.assigned);
+      t.assigned.forEach(note);
       t.watchers.forEach(note);
     }
     if (currentUser.email && !seen.has(currentUser.email.toLowerCase())) {
@@ -87,20 +100,32 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
       setError("Task title is required.");
       return;
     }
+    const hoursProblem = estimatedHoursProblem(hours);
+    if (hoursProblem) {
+      setError(hoursProblem);
+      return;
+    }
+    if (startDate && dueDate && dueDate < startDate) {
+      setError("The due date can't be before the start date.");
+      return;
+    }
     setError(null);
     setBusy(true);
 
     try {
-      const assigned = assignedKey
-        ? allPeople.find((p) => (p.email ?? p.displayName) === assignedKey) ?? null
-        : null;
+      const assigned = allPeople.filter((p) => assignedKeys.includes(p.email ?? p.displayName));
       const created = await createTask.mutateAsync({
         title: trimmedTitle,
         taskType: taskType || null,
+        workType: workType || null,
+        priority: priority || null,
         projectLookupId: projectId ? parseInt(projectId, 10) : null,
         description: description.trim() || undefined,
         assigned,
         watchers: [currentUser],
+        startDate: fromDateInputValue(startDate),
+        dueDate: fromDateInputValue(dueDate),
+        estimatedHours: parseEstimatedHours(hours),
       });
       onClose();
       navigate(`/panels/task/${created.id}`);
@@ -151,6 +176,33 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
             />
           </FieldLabel>
 
+          {/* Three choices each: pills, not a dropdown (the house rule). In a
+              div, not a <label>: each pill carries its own. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FieldBlock label="Work Type">
+              <ChoicePills
+                label="Work Type"
+                name="panel-task-work-type"
+                options={PANEL_TASK_WORK_TYPES}
+                value={workType}
+                onChange={(v) => setWorkType(v as PanelTaskWorkType | "")}
+                disabled={busy}
+                allowUnset
+              />
+            </FieldBlock>
+            <FieldBlock label="Priority">
+              <ChoicePills
+                label="Priority"
+                name="panel-task-priority"
+                options={PANEL_TASK_PRIORITIES}
+                value={priority}
+                onChange={(v) => setPriority(v as PanelTaskPriority | "")}
+                disabled={busy}
+                allowUnset
+              />
+            </FieldBlock>
+          </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Task Type">
               <ChoiceSelect
@@ -163,18 +215,54 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
               />
             </FieldLabel>
             <FieldLabel label="Assigned">
-              <SingleSelect
+              <MultiSelect
                 allLabel="Unassigned"
                 searchPlaceholder="Search people…"
                 options={allPeople.map((p) => ({
                   value: p.email ?? p.displayName,
                   label: p.displayName,
                 }))}
-                selected={assignedKey}
-                onChange={setAssignedKey}
+                selected={assignedKeys}
+                onChange={setAssignedKeys}
               />
             </FieldLabel>
           </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <FieldBlock label="Start date">
+              <DateField
+                value={startDate}
+                onChange={setStartDate}
+                disabled={busy}
+                aria-label="Start date"
+              />
+            </FieldBlock>
+            <FieldBlock label="Due date">
+              <DateField
+                value={dueDate}
+                onChange={setDueDate}
+                disabled={busy}
+                aria-label="Due date"
+              />
+            </FieldBlock>
+            <FieldLabel label="Estimated hours">
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step={0.25}
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                placeholder="e.g. 16"
+                className="select"
+                disabled={busy}
+              />
+            </FieldLabel>
+          </div>
+          <p className="-mt-1 text-xs text-fg-muted">
+            With an assignee, both dates and the hours, the task appears on the Capacity view —
+            its hours spread evenly over the working days between the two dates.
+          </p>
 
           <FieldLabel label="Project Reference">
             <SingleSelect
@@ -208,7 +296,7 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
 
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className="text-xs text-fg-muted">
-              Starts as <span className="font-semibold">Pending</span>. You'll be added as a
+              Starts as <span className="font-semibold">New</span>. You'll be added as a
               watcher.
             </span>
             <div className="flex gap-2">
@@ -232,6 +320,16 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/** FieldLabel for a control that can't sit inside a <label> (a calendar panel full of buttons). */
+function FieldBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      <span className="font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
+      {children}
     </div>
   );
 }

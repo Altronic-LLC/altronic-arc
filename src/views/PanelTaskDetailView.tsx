@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, FolderOpen, ListChecks, Pencil, Tag, User } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  Briefcase,
+  CalendarDays,
+  ClipboardList,
+  Clock,
+  Eye,
+  EyeOff,
+  Flag,
+  FolderOpen,
+  Gauge,
+  ListChecks,
+  Pencil,
+  Tag,
+  User,
+} from "lucide-react";
 import {
   useAddPanelTaskComment,
   useEditPanelTaskComment,
@@ -8,16 +23,26 @@ import {
   usePanelTasks,
   useSetPanelTaskAssigned,
   useSetPanelTaskProject,
+  useSetPanelTaskSchedule,
   useSetPanelTaskWatchers,
   useUnwatchPanelTask,
   useUpdatePanelTaskFields,
   useWatchPanelTask,
 } from "@/hooks/usePanelTasks";
-import { usePanelProjects } from "@/hooks/usePanelOrders";
+import { usePanelOrders, usePanelProjects } from "@/hooks/usePanelOrders";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAdmins } from "@/hooks/useAdmins";
-import { PANEL_TASK_STATUSES, PANEL_TASK_TYPES, type Comment, type Person } from "@/types/task";
-import { PanelTaskStatusBadge } from "@/components/panelAtoms";
+import {
+  PANEL_TASK_STATUS_GROUPS,
+  PANEL_TASK_TYPES,
+  PANEL_TASK_WORK_TYPES,
+  PANEL_TASK_PRIORITIES,
+  type Comment,
+  type Person,
+} from "@/types/task";
+import { isPanelTaskDone, panelTaskGroupLabel, panelTaskStatusesIn } from "@/lib/panelTaskStatus";
+import { PanelPriorityChip, PanelTaskStatusBadge, PanelWorkTypeChip } from "@/components/panelAtoms";
+import { ChoicePills } from "@/components/ChoicePills";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
@@ -32,6 +57,11 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { convertToChecklist, toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { cn } from "@/lib/cn";
+import { DateField } from "@/components/DateField";
+import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
+import { estimatedHoursProblem, parseEstimatedHours, scheduleProblem } from "@/lib/capacity";
+import { panelTaskWorkItem } from "@/lib/panelCapacity";
+import { pushToast } from "@/components/Toast";
 
 export function PanelTaskDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -46,12 +76,15 @@ export function PanelTaskDetailView() {
   const { data: task, isLoading } = usePanelTask(taskId);
   const { data: allTasks = [] } = usePanelTasks();
   const { data: projects = [] } = usePanelProjects();
+  // Only to name the order a standard task was raised for (a bare lookup).
+  const { data: orders = [] } = usePanelOrders();
   const { data: admins = [] } = useAdmins();
 
   const updateFields = useUpdatePanelTaskFields();
   const setAssigned = useSetPanelTaskAssigned();
   const setProject = useSetPanelTaskProject();
   const setWatchers = useSetPanelTaskWatchers();
+  const setSchedule = useSetPanelTaskSchedule();
   const watchTask = useWatchPanelTask();
   const unwatchTask = useUnwatchPanelTask();
   const addComment = useAddPanelTaskComment();
@@ -68,7 +101,7 @@ export function PanelTaskDetailView() {
       if (!map.has(k)) map.set(k, p);
     };
     for (const t of allTasks) {
-      note(t.assigned);
+      t.assigned.forEach(note);
       note(t.author);
       t.watchers.forEach(note);
     }
@@ -122,11 +155,6 @@ export function PanelTaskDetailView() {
     updateFields.mutate({ id: task.id, fields });
   }
 
-  function personByKey(key: string | null): Person | null {
-    if (!key) return null;
-    return allPeople.find((p) => (p.email ?? p.displayName) === key) ?? null;
-  }
-
   function handleAddComment(bodyHtml: string) {
     if (!task) return;
     // Returned, so a comment that fails to post goes back in the composer.
@@ -148,6 +176,16 @@ export function PanelTaskDetailView() {
       newBodyHtml,
       renotify,
     });
+  }
+
+  function handleAssignedToggle(p: Person) {
+    if (!task) return;
+    const key = (p.email ?? p.displayName).toLowerCase();
+    const has = task.assigned.some((a) => (a.email ?? a.displayName).toLowerCase() === key);
+    const next = has
+      ? task.assigned.filter((a) => (a.email ?? a.displayName).toLowerCase() !== key)
+      : [...task.assigned, p];
+    setAssigned.mutate({ id: task.id, people: next });
   }
 
   function handleWatcherToggle(p: Person) {
@@ -183,6 +221,8 @@ export function PanelTaskDetailView() {
                   {task.taskType}
                 </span>
               )}
+              {task.workType && <PanelWorkTypeChip workType={task.workType} />}
+              {task.priority && <PanelPriorityChip priority={task.priority} />}
               {task.projectRef && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg">
                   <FolderOpen className="h-3 w-3" />
@@ -250,17 +290,44 @@ export function PanelTaskDetailView() {
           <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <div className="grid grid-cols-1 gap-4">
               <SideField label="Status">
+                {/* The Panel Workflow's statuses under Wrike's groups. */}
                 <select
                   value={task.status}
                   onChange={(e) => patch({ Status: e.target.value })}
                   className="select"
                 >
-                  {PANEL_TASK_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
+                  {PANEL_TASK_STATUS_GROUPS.map((g) => (
+                    <optgroup key={g} label={panelTaskGroupLabel(g)}>
+                      {panelTaskStatusesIn(g).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
+              </SideField>
+
+              <SideField label="Work Type" icon={<Briefcase />}>
+                <ChoicePills
+                  label="Work Type"
+                  name="panel-task-work-type"
+                  options={PANEL_TASK_WORK_TYPES}
+                  value={task.workType ?? ""}
+                  onChange={(v) => patch({ WorkType: v || null })}
+                  allowUnset
+                />
+              </SideField>
+
+              <SideField label="Priority" icon={<Flag />}>
+                <ChoicePills
+                  label="Priority"
+                  name="panel-task-priority"
+                  options={PANEL_TASK_PRIORITIES}
+                  value={task.priority ?? ""}
+                  onChange={(v) => patch({ Priority: v || null })}
+                  allowUnset
+                />
               </SideField>
 
               <SideField label="Task Type" icon={<Tag />}>
@@ -296,19 +363,66 @@ export function PanelTaskDetailView() {
                 />
               </SideField>
 
+              {task.orderRef && (
+                <SideField label="Panel Order" icon={<ClipboardList />}>
+                  <Link
+                    to={`/panels/order/${task.orderRef.lookupId}`}
+                    className="block truncate text-sm text-accent hover:underline"
+                  >
+                    {task.orderRef.title ||
+                      orders.find((o) => o.id === task.orderRef?.lookupId)?.title ||
+                      `Order #${task.orderRef.lookupId}`}
+                  </Link>
+                </SideField>
+              )}
+
               <SideField label="Assigned" icon={<User />}>
-                <SingleSelect
-                  allLabel="Unassigned"
-                  searchPlaceholder="Search people…"
-                  options={allPeople.map((p) => ({
-                    value: p.email ?? p.displayName,
-                    label: p.displayName,
-                  }))}
-                  selected={
-                    task.assigned ? task.assigned.email ?? task.assigned.displayName : null
-                  }
-                  onChange={(key) => setAssigned.mutate({ id: task.id, person: personByKey(key) })}
+                {/* Several people may be assigned (Tim, 2026-10-29); the Capacity
+                    view splits the hours evenly between them. */}
+                <PersonMultiField
+                  value={task.assigned}
+                  allPeople={allPeople}
+                  onToggle={handleAssignedToggle}
+                  emptyLabel="Unassigned"
                 />
+              </SideField>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <SideField label="Start date" icon={<CalendarDays />}>
+                  <DateField
+                    value={toDateInputValue(task.startDate)}
+                    onChange={(v) =>
+                      setSchedule.mutate({
+                        id: task.id,
+                        schedule: { startDate: fromDateInputValue(v) },
+                      })
+                    }
+                    aria-label="Start date"
+                  />
+                </SideField>
+                <SideField label="Due date" icon={<CalendarDays />}>
+                  <DateField
+                    value={toDateInputValue(task.dueDate)}
+                    onChange={(v) =>
+                      setSchedule.mutate({
+                        id: task.id,
+                        schedule: { dueDate: fromDateInputValue(v) },
+                      })
+                    }
+                    aria-label="Due date"
+                  />
+                </SideField>
+              </div>
+
+              <SideField label="Estimated hours" icon={<Clock />}>
+                <HoursField
+                  key={`${task.id}-${task.estimatedHours ?? ""}`}
+                  value={task.estimatedHours}
+                  onSave={(hours) =>
+                    setSchedule.mutate({ id: task.id, schedule: { estimatedHours: hours } })
+                  }
+                />
+                <CapacityNote problem={isPanelTaskDone(task.status) ? null : scheduleProblem(panelTaskWorkItem(task))} />
               </SideField>
 
               <SideField label="Watchers" icon={<Eye />}>
@@ -480,6 +594,73 @@ function DescriptionCard({
         <div className="text-sm text-fg-muted">No description.</div>
       )}
     </div>
+  );
+}
+
+/** Estimated hours, saved on blur or Enter; Escape puts it back. */
+function HoursField({
+  value,
+  onSave,
+}: {
+  value: number | null;
+  onSave: (hours: number | null) => void;
+}) {
+  const [draft, setDraft] = useState(value === null ? "" : String(value));
+  function commit() {
+    const problem = estimatedHoursProblem(draft);
+    if (problem) {
+      pushToast({ message: problem, variant: "error" });
+      setDraft(value === null ? "" : String(value));
+      return;
+    }
+    const next = parseEstimatedHours(draft);
+    if (next !== value) onSave(next);
+  }
+  return (
+    <input
+      type="number"
+      inputMode="decimal"
+      min={0}
+      step={0.25}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setDraft(value === null ? "" : String(value));
+      }}
+      placeholder="Not estimated"
+      aria-label="Estimated hours"
+      className="select"
+    />
+  );
+}
+
+/** Whether the task shows on the Capacity view, and if not, why. */
+function CapacityNote({ problem }: { problem: string | null }) {
+  return (
+    <p className="flex items-start gap-1.5 text-[11px] leading-snug text-fg-muted">
+      <Gauge className="mt-px h-3 w-3 shrink-0" />
+      <span>
+        {problem ? (
+          <>
+            Not on the{" "}
+            <Link to="/panels/capacity" className="underline hover:text-fg">
+              Capacity view
+            </Link>{" "}
+            yet — {problem.toLowerCase()}. It's in the backlog there.
+          </>
+        ) : (
+          <>
+            On the{" "}
+            <Link to="/panels/capacity" className="underline hover:text-fg">
+              Capacity view
+            </Link>
+            , spread over its working days.
+          </>
+        )}
+      </span>
+    </p>
   );
 }
 

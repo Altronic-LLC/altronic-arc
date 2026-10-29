@@ -6,7 +6,10 @@ import {
   listPanelTasks,
   setPanelTaskAssigned,
   setPanelTaskProject,
+  setPanelTaskPlan,
+  setPanelTaskSchedule,
   setPanelTaskWatchers,
+  type PanelTaskSchedule,
   unwatchPanelTask,
   updatePanelTaskFields,
   watchPanelTask,
@@ -34,7 +37,8 @@ import {
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { PANEL_PROJECTS_KEY } from "./usePanelOrders";
-import { autoWatchers } from "@/lib/people";
+import { autoWatchers, mergePeople } from "@/lib/people";
+import { useRequirePanelTeamEdit } from "./usePanelRoles";
 
 // =============================================================================
 // Panel Tasks hooks — mirrors usePanelOrders.ts's optimistic-update infra,
@@ -129,7 +133,7 @@ export function useUpdatePanelTaskFields() {
           to: String(fields.Status ?? ""),
           actor,
           watchers: ctx.prevTask.watchers,
-          assignees: ctx.prevTask.assigned ? [ctx.prevTask.assigned] : [],
+          assignees: ctx.prevTask.assigned,
         });
       }
       if ("Description" in fields && ctx?.prevTask) {
@@ -141,7 +145,7 @@ export function useUpdatePanelTaskFields() {
           ),
           actor,
           watchers: ctx.prevTask.watchers,
-          assignees: ctx.prevTask.assigned ? [ctx.prevTask.assigned] : [],
+          assignees: ctx.prevTask.assigned,
         });
       }
     },
@@ -192,31 +196,140 @@ export function useSetPanelTaskProject() {
   });
 }
 
+/**
+ * Change a task's start date, due date and/or estimated hours — what places
+ * it on the Capacity view. One PATCH, optimistic, with Undo.
+ */
+export function useSetPanelTaskSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, schedule }: { id: number; schedule: Partial<PanelTaskSchedule> }) =>
+      setPanelTaskSchedule(id, schedule),
+    onMutate: ({ id, schedule }) =>
+      snapshotAndPatch(
+        qc,
+        id,
+        patchPanelTask(id, (t) => ({ ...t, ...schedule, modifiedAt: new Date() })),
+      ),
+    onSuccess: (_data, { id, schedule }, ctx) => {
+      const prev = ctx?.prevTask;
+      const revert: Partial<PanelTaskSchedule> = {};
+      if (prev) {
+        if (schedule.startDate !== undefined) revert.startDate = prev.startDate;
+        if (schedule.dueDate !== undefined) revert.dueDate = prev.dueDate;
+        if (schedule.estimatedHours !== undefined) revert.estimatedHours = prev.estimatedHours;
+      }
+      pushToast({
+        message: "Schedule updated.",
+        undo: prev
+          ? buildUndo(qc, ctx?.previous, () => setPanelTaskSchedule(id, revert))
+          : undefined,
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update the schedule — reverted.");
+    },
+    onSettled: () => invalidatePanelTasks(qc),
+  });
+}
+
+/** One task's part of a Capacity plan. */
+export interface PanelTaskPlanChange {
+  id: number;
+  assigned?: Person[];
+  startDate?: Date;
+  dueDate?: Date;
+}
+
+/**
+ * Save a Capacity plan — every staged change at once, one PATCH per task —
+ * and only THEN send the assignment emails, one per task whose assignee
+ * changed, carrying the new due date (Tim, 2026-10-28: an email per drag
+ * would be a mess). Asks the panel team rule inside the mutationFn. One
+ * task's refusal doesn't stop the rest; the failed ids come back so the grid
+ * keeps them staged.
+ */
+export function useSavePanelTaskPlan() {
+  const qc = useQueryClient();
+  const actor = useCurrentUser();
+  const requireEdit = useRequirePanelTeamEdit();
+  return useMutation({
+    mutationFn: async (changes: PanelTaskPlanChange[]) => {
+      await requireEdit();
+      const before = qc.getQueryData<PanelTask[]>(PANEL_TASKS_KEY) ?? [];
+      const saved: Array<{ before: PanelTask | undefined; after: PanelTask; change: PanelTaskPlanChange }> = [];
+      const failed: Array<{ id: number; title: string; message: string }> = [];
+      // One at a time: a burst of PATCHes to one list is how throttling starts.
+      for (const change of changes) {
+        const prev = before.find((t) => t.id === change.id);
+        try {
+          const after = await setPanelTaskPlan(change.id, change);
+          saved.push({ before: prev, after, change });
+        } catch (err) {
+          failed.push({
+            id: change.id,
+            title: prev?.title ?? `Task ${change.id}`,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      return { saved, failed };
+    },
+    onSuccess: ({ saved, failed }) => {
+      for (const { before, after, change } of saved) {
+        if (!change.assigned) continue;
+        fireAssigneeChangeAlert({
+          target: { kind: "panelTask", id: after.id, title: after.title },
+          prev: before?.assigned ?? [],
+          next: change.assigned,
+          actor,
+          watchers: mergePeople(before?.watchers ?? []),
+          details: { dueDate: after.dueDate, description: after.description },
+        });
+      }
+      if (saved.length) {
+        const assigned = saved.filter((s) => s.change.assigned).length;
+        pushToast({
+          message:
+            `Saved ${saved.length} task${saved.length === 1 ? "" : "s"}` +
+            (assigned ? ` — assignment email${assigned === 1 ? "" : "s"} sent for ${assigned}.` : "."),
+        });
+      }
+      if (failed.length) {
+        errorToast(
+          `Couldn't save ${failed.map((f) => `"${f.title}" (${f.message})`).join(", ")} — still unsaved, try again.`,
+        );
+      }
+    },
+    onError: (err) => errorToast(err instanceof Error ? err.message : "Couldn't save the plan."),
+    onSettled: () => invalidatePanelTasks(qc),
+  });
+}
+
 export function useSetPanelTaskAssigned() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: ({ id, person }: { id: number; person: Person | null }) =>
-      setPanelTaskAssigned(id, person),
-    onMutate: ({ id, person }) =>
+    mutationFn: ({ id, people }: { id: number; people: Person[] }) =>
+      setPanelTaskAssigned(id, people),
+    onMutate: ({ id, people }) =>
       snapshotAndPatch(
         qc,
         id,
-        patchPanelTask(id, (t) => ({ ...t, assigned: person, modifiedAt: new Date() })),
+        patchPanelTask(id, (t) => ({ ...t, assigned: people, modifiedAt: new Date() })),
       ),
-    onSuccess: (_data, { id, person }, ctx) => {
-      const prev = ctx?.prevTask?.assigned ?? null;
+    onSuccess: (_data, { id, people }, ctx) => {
+      const prev = ctx?.prevTask?.assigned ?? [];
       pushToast({
-        message: "Assignee updated.",
+        message: "Assignees updated.",
         undo: buildUndo(qc, ctx?.previous, () => setPanelTaskAssigned(id, prev)),
       });
       if (ctx?.prevTask) {
-        // Single-person Assigned wrapped in a 0-or-1 array to reuse the
-        // multi-person alert logic (the Operations/panel-orders trick).
         fireAssigneeChangeAlert({
           target: { kind: "panelTask", id, title: ctx.prevTask.title },
-          prev: prev ? [prev] : [],
-          next: person ? [person] : [],
+          prev,
+          next: people,
           actor,
           watchers: ctx.prevTask.watchers,
         });
@@ -360,7 +473,7 @@ export function useAddPanelTaskComment() {
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: task.watchers,
-        assignees: task.assigned ? [task.assigned] : [],
+        assignees: task.assigned,
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
@@ -414,7 +527,7 @@ function beginPanelTaskMentionAutoWatch(
 function collectPeopleFromPanelTasks(tasks: PanelTask[]): Person[] {
   const map = new Map<string, Person>();
   for (const t of tasks) {
-    const people = t.assigned ? [t.assigned, ...t.watchers] : t.watchers;
+    const people = [...t.assigned, ...t.watchers];
     for (const p of people) {
       const key = (p.email ?? p.displayName).toLowerCase();
       if (!map.has(key) && p.lookupId) map.set(key, p);
@@ -482,7 +595,7 @@ export function useEditPanelTaskComment() {
           bodyHtml: newBodyHtml,
           previousBodyHtml: prevBody,
           watchers: task.watchers,
-          assignees: task.assigned ? [task.assigned] : [],
+          assignees: task.assigned,
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {
@@ -540,12 +653,12 @@ export function useCreatePanelTask() {
       invalidatePanelTasks(qc);
       // Notify whoever was assigned at creation — see the note in
       // useOperationsTasks.ts's useCreateOperationsTask.
-      const assignee = variables.assigned ?? null;
-      if (assignee) {
+      const assignees = variables.assigned ?? [];
+      if (assignees.length) {
         fireAssigneeChangeAlert({
           target: { kind: "panelTask", id: task.id, title: task.title },
           prev: [],
-          next: [assignee],
+          next: assignees,
           actor,
           watchers: [],
         });
@@ -564,6 +677,8 @@ function applyFieldsLocally(t: PanelTask, fields: Record<string, unknown>): Pane
   if ("Title" in fields) next.title = fields.Title as string;
   if ("Status" in fields) next.status = fields.Status as PanelTask["status"];
   if ("TaskType" in fields) next.taskType = fields.TaskType as PanelTask["taskType"];
+  if ("WorkType" in fields) next.workType = (fields.WorkType as PanelTask["workType"]) ?? null;
+  if ("Priority" in fields) next.priority = (fields.Priority as PanelTask["priority"]) ?? null;
   if ("Description" in fields) next.description = (fields.Description as string) ?? "";
   next.modifiedAt = new Date();
   return next;
@@ -579,6 +694,10 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
         return "Status updated.";
       case "TaskType":
         return "Task type updated.";
+      case "WorkType":
+        return "Work type updated.";
+      case "Priority":
+        return "Priority updated.";
       case "Description":
         return "Description updated.";
       default:

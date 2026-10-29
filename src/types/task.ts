@@ -1019,11 +1019,77 @@ export interface PanelQcDefect {
   name: string;
 }
 
-export const PANEL_TASK_STATUSES = ["Pending", "In Process", "On Hold", "Complete"] as const;
+/**
+ * Panel task statuses — the panel team's Wrike "Panel Workflow", one for one
+ * (BusinessIT#42, Tim, 2026-10-28), in Wrike's order. Each sits in one of
+ * Wrike's four GROUPS (`PANEL_TASK_STATUS_GROUP`), which do the coarse work:
+ * Open = Active + Deferred, and Completed / Canceled count nowhere.
+ * Must match the SharePoint Status column's choices —
+ * scripts/set-panel-task-statuses.ps1 sets them.
+ */
+export const PANEL_TASK_STATUSES = [
+  "New",
+  "Pending Scheduling",
+  "Ready",
+  "In Progress",
+  "Revision Needed",
+  "Awaiting Pre-Req",
+  "Possible Support",
+  "Completed",
+  "On Hold - Approval",
+  "On Hold - Internal",
+  "Canceled",
+] as const;
 export type PanelTaskStatus = (typeof PANEL_TASK_STATUSES)[number];
 
-export const PANEL_TASK_TYPES = ["Drawings", "SOO", "Quote", "Administrative"] as const;
+/** Wrike's four status groups. */
+export const PANEL_TASK_STATUS_GROUPS = ["Active", "Deferred", "Completed", "Canceled"] as const;
+export type PanelTaskStatusGroup = (typeof PANEL_TASK_STATUS_GROUPS)[number];
+
+export const PANEL_TASK_STATUS_GROUP: Record<PanelTaskStatus, PanelTaskStatusGroup> = {
+  New: "Active",
+  "Pending Scheduling": "Active",
+  Ready: "Active",
+  "In Progress": "Active",
+  "Revision Needed": "Active",
+  "Awaiting Pre-Req": "Active",
+  "Possible Support": "Active",
+  Completed: "Completed",
+  "On Hold - Approval": "Deferred",
+  "On Hold - Internal": "Deferred",
+  Canceled: "Canceled",
+};
+
+/** A new panel task's status. */
+export const PANEL_TASK_DEFAULT_STATUS: PanelTaskStatus = "New";
+
+// BOM and Programming arrived with the order's standard tasks (Wrike's
+// "Panel Blueprint - Production Job"). The SharePoint TaskType column must
+// declare the same values — scripts/setup-panel-planning.ps1 adds them.
+export const PANEL_TASK_TYPES = [
+  "Drawings",
+  "BOM",
+  "SOO",
+  "Programming",
+  "Quote",
+  "Administrative",
+] as const;
 export type PanelTaskType = (typeof PANEL_TASK_TYPES)[number];
+
+/**
+ * Work Type — the panel space's Wrike custom field (Tim, 2026-10-29). Must
+ * match the SharePoint WorkType choices (scripts/setup-panel-planning.ps1).
+ */
+export const PANEL_TASK_WORK_TYPES = [
+  "Production Order",
+  "Non-Production",
+  "Improvement / Internal",
+] as const;
+export type PanelTaskWorkType = (typeof PANEL_TASK_WORK_TYPES)[number];
+
+/** Priority — the panel space's Wrike custom field, in Wrike's order (Tim, 2026-10-29). */
+export const PANEL_TASK_PRIORITIES = ["High", "Medium", "Low"] as const;
+export type PanelTaskPriority = (typeof PANEL_TASK_PRIORITIES)[number];
 
 /**
  * A task from the Panel Tasks list (ALTRONICPANELTEAM site). Structurally a
@@ -1036,12 +1102,32 @@ export interface PanelTask {
   title: string;
   status: PanelTaskStatus;
   taskType: PanelTaskType | null;
+  /** `WorkType` — Production Order / Non-Production / Improvement / Internal; null = not set. */
+  workType: PanelTaskWorkType | null;
+  /** `Priority` — High / Medium / Low; null = not set. */
+  priority: PanelTaskPriority | null;
   /** Single lookup into the Panel Project Reference list (shared with panel orders). */
   projectRef: ProjectReference | null;
-  /** Single person — Graph returns only the bare AssignedLookupId; resolved via panel site users. */
-  assigned: Person | null;
+  /**
+   * `PanelOrderRef` — single lookup into Panel Order Headers: the order this
+   * task was raised for (its standard tasks). A project can carry several
+   * orders, so the project alone can't say which. Title "" until joined.
+   */
+  orderRef: ProjectReference | null;
+  /**
+   * Everyone assigned — a MULTI-person column since 2026-10-29 (Tim); the
+   * Capacity view splits the hours evenly between them. Read either shape:
+   * rows saved while it was single come back as one person.
+   */
+  assigned: Person[];
   /** Long-form description — supports `- [ ]` checklists like a task Description. */
   description: string;
+  /** `StartDate` — date-only (midday UTC). With DueDate + EstimatedHours it places the task on the Capacity view. */
+  startDate: Date | null;
+  /** `DueDate` — date-only (midday UTC). */
+  dueDate: Date | null;
+  /** `EstimatedHours` — total hours, spread evenly over the working days from start to due. */
+  estimatedHours: number | null;
   watchers: Person[];
   comments: Comment[];
   hasAttachments: boolean;
@@ -1050,6 +1136,50 @@ export interface PanelTask {
   author: Person | null;
   editor?: Person | null;
   rawFields?: Record<string, unknown>;
+}
+
+/**
+ * One row of the Panel Task Templates list (ALTRONICPANELTEAM): a task every
+ * new Panel Order raises — ARC's version of Wrike's "Panel Blueprint -
+ * Production Job". Managed by the panel managers in ARC; a task stores its own
+ * copy, so editing a template changes no task already raised.
+ */
+export interface PanelTaskTemplate {
+  id: number;
+  /** `Title` — the task's name, e.g. "Drawing Creation". */
+  title: string;
+  /** `TaskType` — same choices as Panel Tasks. */
+  taskType: PanelTaskType | null;
+  /** `EstimatedHours` — the task's usual total effort. */
+  estimatedHours: number | null;
+  /** `SortOrder` — the order the tasks are raised and listed in. */
+  sortOrder: number;
+  /** `Active` — false = kept, but no longer raised for new orders. */
+  active: boolean;
+}
+
+/**
+ * One row of the Panel Time Off list (ALTRONICPANELTEAM) — the panel team's
+ * own "Where am I?". Unlike Engineering's, it has a PERSON column and a date
+ * RANGE, because the Capacity view has to know whose capacity it takes away.
+ */
+export interface PanelTimeOff {
+  id: number;
+  /** `TeamMember` — single person; Graph returns a bare LookupId, names joined from the site's users. */
+  person: Person | null;
+  /** `Title` (shown "Reason") — free text. */
+  reason: string;
+  /** `StartDate` — date-only (midday UTC). */
+  startDate: Date | null;
+  /** `EndDate` — date-only (midday UTC), inclusive. */
+  endDate: Date | null;
+  /** `HoursPerDay` — hours off on each day; null = the whole day. */
+  hoursPerDay: number | null;
+  /**
+   * `CompanyHoliday` — off for EVERYONE on the Capacity view, with no person
+   * (Tim, 2026-10-29). Only a panel Super User or an ARC admin adds one.
+   */
+  companyHoliday: boolean;
 }
 
 // =============================================================================

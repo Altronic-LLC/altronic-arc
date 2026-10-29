@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { PanelsTopLeft, Plus, X } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ListTodo, PanelsTopLeft, Plus, X } from "lucide-react";
 import { usePanelOrderChoices, usePanelOrders, usePanelProjects } from "@/hooks/usePanelOrders";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { MultiSelect } from "@/components/SearchableSelect";
@@ -172,6 +172,16 @@ export function PanelOrdersView() {
             />
           ))}
         </div>
+        {/* The tasks every new order raises — readable by all, edited by the panel managers. */}
+        <Link
+          to="/panels/task-templates"
+          title="Standard tasks"
+          aria-label="Standard tasks"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+        >
+          <ListTodo className="h-4 w-4" />
+          <span className="hidden sm:inline">Standard tasks</span>
+        </Link>
         <button
           onClick={() => setShowNew(true)}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"

@@ -1,12 +1,22 @@
+import { useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addPanelRole, listPanelRoles, removePanelRole, updatePanelRole } from "@/api/panelRoles";
-import { PANEL_ROLES_ENFORCED } from "@/api/config";
+import { PANEL_ROLES_ENFORCED, USE_MOCK } from "@/api/config";
+import { listAdmins } from "@/api/admins";
+import { isAdminEmail } from "@/lib/adminAccess";
+import { matchesAnyEmail } from "@/lib/emailIdentity";
 import type { PanelRole, PanelRoleEntry } from "@/types/task";
-import { panelRights, type PanelRights } from "@/lib/panelRoles";
-import { useCurrentUser } from "./useCurrentUser";
-import { useIsAdmin } from "./useIsAdmin";
+import {
+  panelRights,
+  panelTeamAccess,
+  type PanelRights,
+  type PanelTeamAccess,
+} from "@/lib/panelRoles";
+import { useCurrentUser, useCurrentUserEmails } from "./useCurrentUser";
+import { useAdminAccess, useIsAdmin } from "./useIsAdmin";
+import { ADMINS_KEY } from "./useAdmins";
 
-const PANEL_ROLES_KEY = ["panel-roles", "list"] as const;
+export const PANEL_ROLES_KEY = ["panel-roles", "list"] as const;
 
 // Defense-in-depth guard for the admin-only Panel User Roles mutations. The
 // views already hide these controls from non-admins; this stops the mutation
@@ -136,4 +146,94 @@ export function useMyPanelRoles(): MyPanelRoles {
         .filter((r): r is PanelRole => r !== null)
     : [];
   return { roles, ...panelRights(roles), enforced: true };
+}
+
+/** The roles a set of addresses holds on the list. */
+function rolesFor(entries: readonly PanelRoleEntry[], emails: readonly string[]): PanelRole[] {
+  return entries
+    .filter((e) => e.user?.email && matchesAnyEmail([...emails], e.user.email))
+    .map((e) => e.role)
+    .filter((r): r is PanelRole => r !== null);
+}
+
+/**
+ * Who may open / change the panel planning tools (BusinessIT#42) — the rule
+ * is `panelTeamAccess` in lib/panelRoles.ts. Matched against EVERY address
+ * the account carries (a sign-in name isn't always the mailbox). Demo mode
+ * always allows: the demo user isn't on the mock list.
+ */
+export function usePanelTeamAccess(): PanelTeamAccess {
+  const emails = useCurrentUserEmails();
+  const { data: entries = [], isLoading } = usePanelRoles();
+  const admin = useAdminAccess();
+  if (USE_MOCK) return panelTeamAccess({ roles: [], isArcAdmin: true, resolving: false });
+  return panelTeamAccess({
+    roles: rolesFor(entries, emails),
+    isArcAdmin: admin.isAdmin,
+    resolving: isLoading || admin.isResolving,
+  });
+}
+
+/**
+ * Throws unless the signed-in user may change the panel planning tools — for
+ * use INSIDE a mutationFn. Awaits both lists rather than trusting the
+ * render-time answer, which reads "no" while they load.
+ */
+export function useRequirePanelTeamEdit(): () => Promise<void> {
+  const qc = useQueryClient();
+  const emails = useCurrentUserEmails();
+  const ref = useRef(emails);
+  ref.current = emails;
+  return useCallback(async () => {
+    if (USE_MOCK) return;
+    const [entries, admins] = await Promise.all([
+      qc.ensureQueryData({ queryKey: PANEL_ROLES_KEY, queryFn: listPanelRoles }),
+      qc.ensureQueryData({ queryKey: ADMINS_KEY, queryFn: listAdmins }).catch(() => []),
+    ]);
+    const access = panelTeamAccess({
+      roles: rolesFor(entries, ref.current),
+      isArcAdmin: ref.current.some((e) => isAdminEmail(e, admins)),
+      resolving: false,
+    });
+    if (!access.canEdit) throw new Error(access.hint);
+  }, [qc]);
+}
+
+/**
+ * Asks one panel-access question INSIDE a mutationFn, awaiting the Panel User
+ * Roles and Admins lists rather than trusting the render-time answer.
+ * `refusal` returns why not, or "" when allowed.
+ */
+function usePanelAccessCheck(refusal: (a: PanelTeamAccess) => string): () => Promise<void> {
+  const qc = useQueryClient();
+  const emails = useCurrentUserEmails();
+  const ref = useRef(emails);
+  ref.current = emails;
+  const refusalRef = useRef(refusal);
+  refusalRef.current = refusal;
+  return useCallback(async () => {
+    if (USE_MOCK) return;
+    const [entries, admins] = await Promise.all([
+      qc.ensureQueryData({ queryKey: PANEL_ROLES_KEY, queryFn: listPanelRoles }),
+      qc.ensureQueryData({ queryKey: ADMINS_KEY, queryFn: listAdmins }).catch(() => []),
+    ]);
+    const why = refusalRef.current(
+      panelTeamAccess({
+        roles: rolesFor(entries, ref.current),
+        isArcAdmin: ref.current.some((e) => isAdminEmail(e, admins)),
+        resolving: false,
+      }),
+    );
+    if (why) throw new Error(why);
+  }, [qc]);
+}
+
+/** Throws unless the user may change the Panel Task Templates (Manager / Admin / Super User, or an ARC admin). */
+export function useRequirePanelTemplateManager(): () => Promise<void> {
+  return usePanelAccessCheck((a) => (a.canManageTemplates ? "" : a.templatesHint));
+}
+
+/** Throws unless the user may change capacity settings or company holidays (Super User, or an ARC admin). */
+export function useRequirePanelCapacityManager(): () => Promise<void> {
+  return usePanelAccessCheck((a) => (a.canManageCapacity ? "" : a.capacityHint));
 }

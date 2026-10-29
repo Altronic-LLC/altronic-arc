@@ -1,7 +1,8 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PANEL_TASKS_LIST_ID, SP_PANELTEAM_SITE_URL, USE_MOCK } from "./config";
-import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
+import { ensureLookupIds } from "./siteUsers";
 import type { GraphListItem, PanelTask, Person } from "@/types/task";
+import { PANEL_TASK_DEFAULT_STATUS } from "@/types/task";
 import { attachPanelTaskReferences, toPanelTask } from "@/lib/panelTaskMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
@@ -9,6 +10,7 @@ import { listPanelProjects } from "./panelProjects";
 import { listPanelSiteUsers } from "./panelOrders";
 import { MOCK_PANEL_PROJECTS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
 import { autoWatchers } from "@/lib/people";
+import { parseSpDate, toSpDateOnly } from "@/lib/spDates";
 import { mockDelay } from "./mockLatency";
 
 // =============================================================================
@@ -24,11 +26,23 @@ const PANEL_TASK_FIELD_SELECT = [
   "Title",
   "Status",
   "TaskType",
+  // Added by scripts/setup-panel-planning.ps1 (steps 7-8) — they must exist
+  // before this ships, or the whole read 400s.
+  "WorkType",
+  "Priority",
   "ProjectReferenceLookupId",
   "ProjectReference",
+  // The order a standard task was raised for (single lookup, both halves).
+  // scripts/setup-panel-planning.ps1 adds the column; it must exist
+  // before this ships, or the whole read 400s.
+  "PanelOrderRefLookupId",
+  "PanelOrderRef",
   "AssignedLookupId",
   "Assigned",
   "Description",
+  "StartDate",
+  "DueDate",
+  "EstimatedHours",
   "Communication",
   "Watchers",
   "Attachments",
@@ -48,6 +62,20 @@ function loadMockStoreFromStorage(): PanelTask[] | null {
       ...t,
       createdAt: new Date(t.createdAt),
       modifiedAt: new Date(t.modifiedAt),
+      // Stores written before the schedule fields existed have none.
+      startDate: parseSpDate(t.startDate),
+      dueDate: parseSpDate(t.dueDate),
+      estimatedHours: t.estimatedHours ?? null,
+      orderRef: t.orderRef ?? null,
+      workType: t.workType ?? null,
+      priority: t.priority ?? null,
+      // Stores written before several assignees (2026-10-29) hold one person
+      // or null; everything downstream expects a list.
+      assigned: Array.isArray(t.assigned)
+        ? t.assigned
+        : t.assigned
+          ? [t.assigned as unknown as Person]
+          : [],
       comments: t.comments.map((c) => ({
         ...c,
         timestamp: new Date(c.timestamp),
@@ -119,8 +147,15 @@ export async function updatePanelTaskFields(
     if ("Title" in fields) next.title = fields.Title as string;
     if ("Status" in fields) next.status = fields.Status as PanelTask["status"];
     if ("TaskType" in fields) next.taskType = fields.TaskType as PanelTask["taskType"];
+    if ("WorkType" in fields) next.workType = (fields.WorkType as PanelTask["workType"]) ?? null;
+    if ("Priority" in fields) next.priority = (fields.Priority as PanelTask["priority"]) ?? null;
     if ("Description" in fields) next.description = (fields.Description as string) ?? "";
-    if ("Assigned" in fields) next.assigned = (fields.Assigned as Person | null) ?? null;
+    if ("StartDate" in fields) next.startDate = parseSpDate(fields.StartDate);
+    if ("DueDate" in fields) next.dueDate = parseSpDate(fields.DueDate);
+    if ("EstimatedHours" in fields) {
+      next.estimatedHours = (fields.EstimatedHours as number | null) ?? null;
+    }
+    if ("Assigned" in fields && Array.isArray(fields.Assigned)) next.assigned = fields.Assigned as Person[];
     if ("Watchers" in fields && Array.isArray(fields.Watchers)) {
       next.watchers = fields.Watchers as Person[];
     }
@@ -155,26 +190,89 @@ export async function setPanelTaskProject(
   return updatePanelTaskFields(id, { ProjectReferenceLookupId: projectLookupId });
 }
 
-/** Replace the single Assigned person (or clear with `null`) — plain scalar LookupId. */
-export async function setPanelTaskAssigned(id: number, person: Person | null): Promise<PanelTask> {
-  // The assignee also becomes a watcher — see api/tasks.ts.
-  const current = await getPanelTask(id);
-  const watchers = autoWatchers(current?.watchers, person);
-  if (USE_MOCK) {
-    return updatePanelTaskFields(id, { Assigned: person, Watchers: watchers });
+/** What the Capacity view needs from a task: when, and how many hours. */
+export interface PanelTaskSchedule {
+  startDate: Date | null;
+  dueDate: Date | null;
+  estimatedHours: number | null;
+}
+
+/**
+ * The three schedule columns as a write payload — date-only at midday UTC,
+ * `null` to clear. One PATCH, so a task can't end up half-rescheduled.
+ */
+export function panelTaskScheduleFields(
+  schedule: Partial<PanelTaskSchedule>,
+): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  if (schedule.startDate !== undefined) fields.StartDate = toSpDateOnly(schedule.startDate);
+  if (schedule.dueDate !== undefined) fields.DueDate = toSpDateOnly(schedule.dueDate);
+  if (schedule.estimatedHours !== undefined) fields.EstimatedHours = schedule.estimatedHours;
+  return fields;
+}
+
+/** Change any of a task's start date, due date and estimated hours. */
+export async function setPanelTaskSchedule(
+  id: number,
+  schedule: Partial<PanelTaskSchedule>,
+): Promise<PanelTask> {
+  return updatePanelTaskFields(id, panelTaskScheduleFields(schedule));
+}
+
+/**
+ * Save a Capacity plan for one task: any of assignee, start and due, in ONE
+ * PATCH so the task can't land half-planned. A new assignee also becomes a
+ * watcher (the house rule), and one that can't be resolved on the panel site
+ * REFUSES the write rather than clearing the column.
+ */
+export async function setPanelTaskPlan(
+  id: number,
+  plan: { assigned?: Person[]; startDate?: Date; dueDate?: Date },
+): Promise<PanelTask> {
+  const fields: Record<string, unknown> = panelTaskScheduleFields({
+    startDate: plan.startDate,
+    dueDate: plan.dueDate,
+  });
+  if (plan.assigned) {
+    const current = await getPanelTask(id);
+    const watchers = autoWatchers(current?.watchers, plan.assigned);
+    if (USE_MOCK) {
+      Object.assign(fields, { Assigned: plan.assigned, Watchers: watchers });
+    } else {
+      Object.assign(fields, await assignedFields(plan.assigned, watchers));
+    }
   }
-  // Resolve (creating if needed) the site lookupId — the person may have been
-  // picked from the staff directory and never seen on this site before.
-  const ensured = await ensurePersonLookupId(SP_PANELTEAM_SITE_URL, person);
-  if (person && !ensured?.lookupId) {
+  return updatePanelTaskFields(id, fields);
+}
+
+/**
+ * Assigned (multi-person, the two-key shape) + Watchers, resolved on the panel
+ * site. Anybody who can't be resolved REFUSES the write — a task quietly
+ * missing one of its people reads as nobody's work.
+ */
+async function assignedFields(people: Person[], watchers: Person[]): Promise<Record<string, unknown>> {
+  const resolved = await ensureLookupIds(SP_PANELTEAM_SITE_URL, people);
+  const missing = resolved.filter((p) => !p.lookupId);
+  if (missing.length) {
     throw new Error(
-      "Cannot update Assigned: couldn't resolve a SharePoint user for the selected person.",
+      `Couldn't find ${missing.map((p) => p.displayName).join(", ")} on the panel team's SharePoint site, so the task wasn't assigned.`,
     );
   }
-  return updatePanelTaskFields(id, {
-    AssignedLookupId: ensured?.lookupId ?? null,
+  return {
+    ...multiPersonField("Assigned", resolved),
     ...multiPersonField("Watchers", await ensureLookupIds(SP_PANELTEAM_SITE_URL, watchers)),
-  });
+  };
+}
+
+/** Replace everyone assigned ([] clears it). New assignees also become watchers. */
+export async function setPanelTaskAssigned(id: number, people: Person[]): Promise<PanelTask> {
+  // The assignee also becomes a watcher — see api/tasks.ts.
+  const current = await getPanelTask(id);
+  const watchers = autoWatchers(current?.watchers, people);
+  if (USE_MOCK) {
+    return updatePanelTaskFields(id, { Assigned: people, Watchers: watchers });
+  }
+  return updatePanelTaskFields(id, await assignedFields(people, watchers));
 }
 
 /** Replace the Watchers list. */
@@ -290,10 +388,17 @@ export async function createPanelTask(input: {
   title: string;
   status?: PanelTask["status"];
   taskType?: PanelTask["taskType"];
+  workType?: PanelTask["workType"];
+  priority?: PanelTask["priority"];
   projectLookupId?: number | null;
   description?: string;
-  assigned?: Person | null;
+  assigned?: Person[];
   watchers?: Person[];
+  startDate?: Date | null;
+  dueDate?: Date | null;
+  estimatedHours?: number | null;
+  /** The Panel Order this task was raised for (its standard tasks). */
+  orderLookupId?: number | null;
 }): Promise<PanelTask> {
   if (USE_MOCK) {
     const nextId = Math.max(0, ...mockStore.map((t) => t.id)) + 1;
@@ -301,16 +406,22 @@ export async function createPanelTask(input: {
     const task: PanelTask = {
       id: nextId,
       title: input.title,
-      status: input.status ?? "Pending",
+      status: input.status ?? PANEL_TASK_DEFAULT_STATUS,
       taskType: input.taskType ?? null,
+      workType: input.workType ?? null,
+      priority: input.priority ?? null,
       projectRef: input.projectLookupId
         ? {
             lookupId: input.projectLookupId,
             title: MOCK_PANEL_PROJECTS.find((p) => p.id === input.projectLookupId)?.title ?? "",
           }
         : null,
-      assigned: input.assigned ?? null,
+      orderRef: input.orderLookupId ? { lookupId: input.orderLookupId, title: "" } : null,
+      assigned: input.assigned ?? [],
       description: input.description ?? "",
+      startDate: input.startDate ?? null,
+      dueDate: input.dueDate ?? null,
+      estimatedHours: input.estimatedHours ?? null,
       watchers: input.watchers ?? [],
       comments: [],
       hasAttachments: false,
@@ -325,14 +436,37 @@ export async function createPanelTask(input: {
 
   const fields: Record<string, unknown> = {
     Title: input.title,
-    Status: input.status ?? "Pending",
+    Status: input.status ?? PANEL_TASK_DEFAULT_STATUS,
   };
   if (input.taskType) fields.TaskType = input.taskType;
+  if (input.workType) fields.WorkType = input.workType;
+  if (input.priority) fields.Priority = input.priority;
   if (input.projectLookupId) fields.ProjectReferenceLookupId = input.projectLookupId;
+  // A single lookup: a bare integer, never the Collection(Edm.Int32) shape.
+  if (input.orderLookupId) fields.PanelOrderRefLookupId = input.orderLookupId;
   if (input.description) fields.Description = input.description;
+  // Blank schedule fields are left out of the create, like every other blank.
+  Object.assign(
+    fields,
+    panelTaskScheduleFields({
+      startDate: input.startDate ?? undefined,
+      dueDate: input.dueDate ?? undefined,
+      estimatedHours: input.estimatedHours ?? undefined,
+    }),
+  );
   // Resolve lookupIds (creating on demand) for directory-picked people.
-  const assigned = await ensurePersonLookupId(SP_PANELTEAM_SITE_URL, input.assigned ?? null);
-  if (assigned?.lookupId) fields.AssignedLookupId = assigned.lookupId;
+  // Anyone asked for who can't be resolved REFUSES the create — a task
+  // silently missing an assignee reads as nobody's (or fewer people's) work.
+  if (input.assigned?.length) {
+    const assigned = await ensureLookupIds(SP_PANELTEAM_SITE_URL, input.assigned);
+    const missing = assigned.filter((p) => !p.lookupId);
+    if (missing.length) {
+      throw new Error(
+        `Couldn't find ${missing.map((p) => p.displayName).join(", ")} on the panel team's SharePoint site, so the task wasn't created.`,
+      );
+    }
+    Object.assign(fields, multiPersonField("Assigned", assigned));
+  }
   const watchers = input.watchers
     ? await ensureLookupIds(SP_PANELTEAM_SITE_URL, input.watchers)
     : [];
