@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.208.0",
+    date: "2026-10-29",
+    changes: [
+      "Crimp Height Checks: a check now records the work order the run is for — a required box beside Harness or assembly (a check saved before today can still be corrected without one), its own column in the log, searchable, and included in the out-of-spec email",
+    ],
+  },
+  {
     version: "0.207.2",
     date: "2026-10-29",
     changes: [

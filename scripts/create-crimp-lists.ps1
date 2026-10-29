@@ -15,7 +15,7 @@
                             Terminal, WireGauge, Applicator, CrimpHeight,
                             Tolerance (copied from the spec), Reading1-3,
                             Average, OutOfSpec, ApplicatorChange,
-                            VerifierClock, HarnessOrAssembly, Notes
+                            VerifierClock, HarnessOrAssembly, WorkOrder, Notes
       Harness Alert Recipients
                             Title (shown "Name"), Email, Alert (choice:
                             "Crimp out of spec" / "Part number request") -
@@ -108,6 +108,7 @@ function Get-CheckColumns($specsListId) {
         @{ name = "ApplicatorChange"; displayName = "Any Change to Applicator"; text = @{} },
         @{ name = "VerifierClock"; displayName = "Verifier's Clock #"; text = @{} },
         @{ name = "HarnessOrAssembly"; displayName = "Harness or Assembly"; text = @{} },
+        @{ name = "WorkOrder"; displayName = "Work Order"; text = @{} },
         @{ name = "Notes"; displayName = "Notes"; text = $plainNote }
     )
 }
@@ -211,7 +212,7 @@ if (-not $WhatIf -and $specsId -and $checksId) {
         SpecRefLookupId = [int]$spec.id; Terminal = "ARC-VERIFY"; WireGauge = "18"; Applicator = "VERIFY"
         CrimpHeight = 0.0405; Tolerance = 0.002; Reading1 = 0.0386; Reading2 = 0.039; Reading3 = 0.0425
         Average = 0.03987; OutOfSpec = $true; ApplicatorChange = "verify"; VerifierClock = "998"
-        HarnessOrAssembly = "verify"; Notes = "verify"
+        HarnessOrAssembly = "verify"; WorkOrder = "1000209528"; Notes = "verify"
     }
     $row = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$checksId/items" -ContentType "application/json" `
         -Body (@{ fields = $checkFields } | ConvertTo-Json -Depth 4)

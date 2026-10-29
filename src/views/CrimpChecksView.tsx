@@ -88,6 +88,7 @@ const CRIMP_COLUMNS: SortColumn<CrimpCheck>[] = [
   { key: "average", label: "Avg", kind: "number", value: (c) => formatCrimp(c.average), sortValue: (c) => c.average, noFilter: true },
   { key: "clockNumber", label: "Clock #", value: (c) => c.clockNumber },
   { key: "harnessOrAssembly", label: "Harness / Assembly", value: (c) => c.harnessOrAssembly, noFilter: true },
+  { key: "workOrder", label: "Work Order", value: (c) => c.workOrder, noFilter: true },
   { key: "result", label: "Result", value: crimpResult },
 ];
 
@@ -145,7 +146,7 @@ export function CrimpChecksView() {
       if (terminals.length && !terminals.includes(c.terminal)) return false;
       if (outOnly && !c.outOfSpec) return false;
       if (tokens.length) {
-        const hay = [c.terminal, c.applicator, c.wireGauge, c.clockNumber, c.verifierClock, c.harnessOrAssembly, c.applicatorChange, c.notes]
+        const hay = [c.terminal, c.applicator, c.wireGauge, c.clockNumber, c.verifierClock, c.harnessOrAssembly, c.workOrder, c.applicatorChange, c.notes]
           .join(" ")
           .toLowerCase();
         if (!tokens.every((t) => hay.includes(t))) return false;
@@ -281,7 +282,7 @@ export function CrimpChecksView() {
               <SearchInput
                 value={query}
                 onChange={(q) => setParam("q", q)}
-                placeholder="Terminal, clock #, harness…"
+                placeholder="Terminal, clock #, harness, WO…"
                 className="select"
               />
             </Field>
@@ -353,7 +354,7 @@ export function CrimpChecksView() {
               </div>
 
               <div className="scroll-elegant hidden overflow-x-auto rounded-lg border border-border sm:block">
-                <table className="w-full min-w-[1100px] border-collapse text-sm">
+                <table className="w-full min-w-[1200px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border bg-surface-2 text-left">
                       {CRIMP_COLUMNS.map((column) => (
@@ -396,6 +397,7 @@ export function CrimpChecksView() {
                               {c.harnessOrAssembly || "—"}
                             </span>
                           </Td>
+                          <Td className="whitespace-nowrap font-mono text-[12px] text-fg-muted">{c.workOrder || "—"}</Td>
                           <Td className="whitespace-nowrap">
                             <ResultChip check={c} />
                           </Td>

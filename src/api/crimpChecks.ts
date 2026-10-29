@@ -129,6 +129,7 @@ function mockCheck(id: number, input: CrimpCheckInput, prev?: CrimpCheck): Crimp
     applicatorChange: input.applicatorChange.trim(),
     verifierClock: input.verifierClock.trim().toUpperCase(),
     harnessOrAssembly: input.harnessOrAssembly.trim(),
+    workOrder: input.workOrder.trim(),
     notes: input.notes,
     createdAt: prev?.createdAt ?? now,
     modifiedAt: now,

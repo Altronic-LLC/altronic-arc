@@ -55,6 +55,7 @@ describe("toCrimpCheck", () => {
         Reading1: 0.04,
         Reading2: "0.039",
         OutOfSpec: true,
+        WorkOrder: " 1000209528 ",
       },
       ...meta,
     });
@@ -65,8 +66,13 @@ describe("toCrimpCheck", () => {
       readings: [0.04, 0.039, null],
       outOfSpec: true,
       title: "900330 / 18 AWG / Start",
+      workOrder: "1000209528",
     });
     expect(check.checkedAt?.toISOString()).toBe("2026-10-27T13:00:00.000Z");
+  });
+
+  it("reads a missing WorkOrder as blank — checks saved before the column existed", () => {
+    expect(toCrimpCheck({ id: "1", fields: {}, ...meta }).workOrder).toBe("");
   });
 
   it("drops a check point SharePoint has that ARC doesn't know", () => {
@@ -84,6 +90,7 @@ describe("buildCrimpCheckFields", () => {
     applicatorChange: "",
     verifierClock: "",
     harnessOrAssembly: "",
+    workOrder: " 1000209528 ",
     notes: "",
   };
 
@@ -99,6 +106,7 @@ describe("buildCrimpCheckFields", () => {
       Average: 0.038,
       OutOfSpec: true,
       ClockNumber: "342",
+      WorkOrder: "1000209528",
       CrimpHeight: 0.04,
       Tolerance: 0.002,
     });

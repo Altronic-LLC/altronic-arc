@@ -30,7 +30,7 @@ export const CRIMP_SPEC_SELECT =
 export const CRIMP_CHECK_SELECT =
   "Title,CheckedAt,CheckPoint,ClockNumber,SpecRefLookupId,Terminal,WireGauge,Applicator," +
   "CrimpHeight,Tolerance,Reading1,Reading2,Reading3,Average,OutOfSpec,ApplicatorChange," +
-  "VerifierClock,HarnessOrAssembly,Notes";
+  "VerifierClock,HarnessOrAssembly,WorkOrder,Notes";
 
 function text(raw: unknown): string {
   return typeof raw === "string" ? raw : raw === null || raw === undefined ? "" : String(raw);
@@ -118,6 +118,7 @@ export function toCrimpCheck(item: GraphListItem): CrimpCheck {
     applicatorChange: text(f.ApplicatorChange),
     verifierClock: text(f.VerifierClock),
     harnessOrAssembly: text(f.HarnessOrAssembly),
+    workOrder: text(f.WorkOrder).trim(),
     notes: text(f.Notes),
     createdAt: new Date(item.createdDateTime),
     modifiedAt: new Date(item.lastModifiedDateTime),
@@ -152,6 +153,7 @@ export function buildCrimpCheckFields(input: CrimpCheckInput): Record<string, un
     ApplicatorChange: input.applicatorChange.trim(),
     VerifierClock: input.verifierClock.trim().toUpperCase(),
     HarnessOrAssembly: input.harnessOrAssembly.trim(),
+    WorkOrder: input.workOrder.trim(),
     Notes: input.notes,
   };
 }

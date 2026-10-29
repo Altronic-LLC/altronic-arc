@@ -60,11 +60,15 @@ describe("CrimpCheckFormModal", () => {
     expect(within(dialog).getAllByText("In spec")).toHaveLength(2);
     expect(within(dialog).getByText("High")).toBeInTheDocument();
     expect(within(dialog).getByText(/Out of spec — saving emails/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record check" }));
+    expect(within(dialog).getByText("Enter the work order this run is for.")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Work order *" }), "1000209528");
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Record check" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const saved = (await listCrimpChecks()).find((c) => c.id > MOCK_CRIMP_CHECKS.length)!;
-    expect(saved).toMatchObject({ terminal: "900330", clockNumber: "342", checkPoint: "Start", outOfSpec: true });
+    expect(saved).toMatchObject({ terminal: "900330", clockNumber: "342", checkPoint: "Start", outOfSpec: true, workOrder: "1000209528" });
     expect(saved.readings).toEqual([0.038, 0.04, 0.043]);
   });
 
@@ -103,5 +107,25 @@ describe("CrimpCheckFormModal", () => {
     renderWithProviders(<CrimpCheckFormModal check={check} onClose={vi.fn()} />);
     expect(screen.getByText("0.050 ± 0.001")).toBeInTheDocument();
     expect(await screen.findByText(/The spec has changed since this check/)).toBeInTheDocument();
+  });
+
+  it("won't let a check's work order be cleared", async () => {
+    const onClose = vi.fn();
+    const check = { ...MOCK_CRIMP_CHECKS[0], workOrder: "1000209528" };
+    renderWithProviders(<CrimpCheckFormModal check={check} onClose={onClose} />);
+    const box = screen.getByRole("textbox", { name: "Work order *" });
+    await userEvent.clear(box);
+    await userEvent.click(screen.getByRole("button", { name: /Save/ }));
+    expect(screen.getByText("Enter the work order this run is for.")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("still saves an older check that never had a work order", async () => {
+    const onClose = vi.fn();
+    const check = { ...MOCK_CRIMP_CHECKS[0], workOrder: "" };
+    renderWithProviders(<CrimpCheckFormModal check={check} onClose={onClose} />);
+    expect(screen.getByRole("textbox", { name: "Work order" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Save/ }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });

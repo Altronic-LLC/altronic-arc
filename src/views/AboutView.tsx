@@ -1127,7 +1127,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "crimpHeight / tolerance (copied)", type: "number", kind: "field" },
       { name: "reading1–3 / average", type: "number", kind: "field" },
       { name: "outOfSpec", type: "bool", kind: "field" },
-      { name: "applicatorChange / harnessOrAssembly / notes", type: "text", kind: "field" },
+      { name: "applicatorChange / harnessOrAssembly / workOrder / notes", type: "text", kind: "field" },
     ],
   },
   {

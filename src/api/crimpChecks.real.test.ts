@@ -46,6 +46,7 @@ const input: CrimpCheckInput = {
   applicatorChange: "",
   verifierClock: "",
   harnessOrAssembly: "",
+  workOrder: " 1000209528 ",
   notes: "",
 };
 
@@ -61,7 +62,8 @@ describe("createCrimpCheck (real mode)", () => {
     expect(url).toContain("/lists/check-list/items");
     const body = JSON.parse(init.body as string);
     expect(body.fields.SpecRefLookupId).toBe(5);
-    expect(body.fields).toMatchObject({ OutOfSpec: true, Title: "900330 / 18 AWG / Start", Reading2: 0.045 });
+    expect(body.fields).toMatchObject({ OutOfSpec: true, Title: "900330 / 18 AWG / Start", Reading2: 0.045, WorkOrder: "1000209528" });
+    expect(graphFetch.mock.calls[1][0]).toContain("WorkOrder");
     expect(Object.keys(body.fields).some((k) => k.includes("@odata.type"))).toBe(false);
     expect(created).toMatchObject({ id: 44, specId: 5, outOfSpec: true });
   });

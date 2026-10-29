@@ -84,6 +84,7 @@ function check(
     applicatorChange: "",
     verifierClock: "",
     harnessOrAssembly: "",
+    workOrder: "",
     notes: "",
     createdAt: at,
     modifiedAt: at,
@@ -92,17 +93,19 @@ function check(
 }
 
 export const MOCK_CRIMP_CHECKS: CrimpCheck[] = [
-  check(1, 5, 70, "Start", "101", [0.04, 0.039, 0.04], { harnessOrAssembly: "DEMO-H100-5", verifierClock: "101" }),
-  check(2, 5, 68, "End", "101", [0.039, 0.039, 0.039], { harnessOrAssembly: "DEMO-H100-5", verifierClock: "101" }),
-  check(3, 1, 50, "Start", "202", [0.09, 0.091, 0.09], { harnessOrAssembly: "DEMO-H220-1" }),
-  check(4, 1, 49, "In process", "202", [0.091, 0.089, 0.09], { harnessOrAssembly: "DEMO-H220-1" }),
+  check(1, 5, 70, "Start", "101", [0.04, 0.039, 0.04], { harnessOrAssembly: "DEMO-H100-5", workOrder: "9000000101", verifierClock: "101" }),
+  check(2, 5, 68, "End", "101", [0.039, 0.039, 0.039], { harnessOrAssembly: "DEMO-H100-5", workOrder: "9000000101", verifierClock: "101" }),
+  check(3, 1, 50, "Start", "202", [0.09, 0.091, 0.09], { harnessOrAssembly: "DEMO-H220-1", workOrder: "9000000102" }),
+  check(4, 1, 49, "In process", "202", [0.091, 0.089, 0.09], { harnessOrAssembly: "DEMO-H220-1", workOrder: "9000000102" }),
   check(5, 4, 30, "Start", "303", [0.042, 0.045, 0.043], {
     harnessOrAssembly: "DEMO-H310-2",
+    workOrder: "9000000103",
     applicatorChange: "No",
     notes: "Second reading high — applicator adjusted and re-checked.",
   }),
   check(6, 4, 29, "Start", "303", [0.042, 0.041, 0.042], {
     harnessOrAssembly: "DEMO-H310-2",
+    workOrder: "9000000103",
     applicatorChange: "Adjusted wire setting",
     verifierClock: "202",
   }),
