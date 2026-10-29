@@ -78,6 +78,8 @@ export interface CrimpCheck extends CrimpSpecSnapshot {
   applicatorChange: string;
   verifierClock: string;
   harnessOrAssembly: string;
+  /** The production work order the run is for — free text, optional. */
+  workOrder: string;
   notes: string;
   createdAt: Date;
   modifiedAt: Date;
@@ -92,5 +94,6 @@ export interface CrimpCheckInput {
   applicatorChange: string;
   verifierClock: string;
   harnessOrAssembly: string;
+  workOrder: string;
   notes: string;
 }

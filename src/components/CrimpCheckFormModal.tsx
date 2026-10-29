@@ -88,6 +88,10 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
   const [applicatorChange, setApplicatorChange] = useState(check?.applicatorChange ?? "");
   const [verifierClock, setVerifierClock] = useState(check?.verifierClock ?? "");
   const [harnessOrAssembly, setHarnessOrAssembly] = useState(check?.harnessOrAssembly ?? "");
+  const [workOrder, setWorkOrder] = useState(check?.workOrder ?? "");
+  // Required — except when correcting a check saved before the column existed,
+  // which must not need a work order invented to fix a typo.
+  const workOrderRequired = !check || check.workOrder.trim() !== "";
   const [notes, setNotes] = useState(check?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -156,6 +160,7 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
         );
       }
     }
+    if (workOrderRequired && !workOrder.trim()) return setError("Enter the work order this run is for.");
     setError(null);
     setBusy(true);
     const input = {
@@ -174,6 +179,7 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
       applicatorChange,
       verifierClock,
       harnessOrAssembly,
+      workOrder,
       notes,
     };
     try {
@@ -338,16 +344,29 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
             </Field>
           </div>
 
-          <Field label="Harness or assembly">
-            <input
-              type="text"
-              value={harnessOrAssembly}
-              onChange={(e) => setHarnessOrAssembly(e.target.value)}
-              placeholder="e.g. 693008-50"
-              className="select"
-              disabled={busy}
-            />
-          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Harness or assembly">
+              <input
+                type="text"
+                value={harnessOrAssembly}
+                onChange={(e) => setHarnessOrAssembly(e.target.value)}
+                placeholder="e.g. 693008-50"
+                className="select"
+                disabled={busy}
+              />
+            </Field>
+            <Field label={workOrderRequired ? "Work order *" : "Work order"}>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={workOrder}
+                onChange={(e) => setWorkOrder(e.target.value)}
+                placeholder={workOrderRequired ? "e.g. 1000209528" : "Not recorded on older checks"}
+                className="select"
+                disabled={busy}
+              />
+            </Field>
+          </div>
 
           <Field label="Notes">
             <textarea

@@ -7524,6 +7524,19 @@ no crimp height (615611, 504350, 504351, 615626, 704206; 504373 has a height
 but no tolerance), 615345's table height "603243" and 504427's margin note
 ("0.120 ± 0.005", probably an insulation crimp height) to check.
 
+**`WorkOrder` (text) was added 2026-10-29**, after the list was live, and is
+REQUIRED on the form (Tim) — except when editing a check that never had one,
+so a check saved before the column existed can still be corrected without a
+work order being invented (`workOrderRequired` in `CrimpCheckFormModal`; an
+existing one can't be blanked). It is NOT required in SharePoint, where the
+older rows are blank. It sits beside Harness or assembly on the form, has its own column in the log,
+is searched, and goes in the out-of-spec email. Nothing reads it as a number
+(the Harness Production Log's `WorkOrder` is text too); a check saved before
+the column existed reads blank. **Re-run `create-crimp-lists.ps1` BEFORE the
+deploy that selects it** — it adds only what's missing and reads every column
+back — or `CRIMP_CHECK_SELECT` asks for a column the list hasn't got and the
+whole log 400s blank.
+
 Not built: insulation crimp height (only wire crimp height is checked), and
 any chart of readings over time.
 

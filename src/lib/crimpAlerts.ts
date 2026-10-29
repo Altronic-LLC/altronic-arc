@@ -56,6 +56,7 @@ export function buildCrimpOutOfSpecEmails(args: {
     line("Average", formatCrimp(c.average)),
     line("Check", c.checkPoint ?? ""),
     line("Harness or assembly", c.harnessOrAssembly),
+    line("Work order", c.workOrder),
     line("Applicator change", c.applicatorChange),
     line("Notes", c.notes),
   ].join("");

@@ -15,6 +15,7 @@ describe("buildCrimpOutOfSpecEmails", () => {
     expect(email.headlineHtml).toContain("One reading is");
     expect(email.detailHtml).toContain("0.045 (above the upper limit)");
     expect(email.detailHtml).toContain("0.042 ± 0.002 in");
+    expect(email.detailHtml).toContain("9000000103");
   });
 
   it("keeps the actor when they're the only one configured — a work queue mustn't go silent", () => {

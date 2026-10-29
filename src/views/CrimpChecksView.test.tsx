@@ -61,6 +61,14 @@ describe("CrimpChecksView", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(2);
   });
 
+  it("finds checks by work order, and shows it in its own column", async () => {
+    renderWithProviders(<CrimpChecksView />, { route: "/harness/crimp-checks?q=9000000103" });
+    const table = await screen.findByRole("table");
+    expect(within(table).getByRole("columnheader", { name: /Work Order/ })).toBeInTheDocument();
+    expect(within(table).getAllByRole("row")).toHaveLength(3);
+    expect(within(table).getAllByText("9000000103")).toHaveLength(2);
+  });
+
   it("opens the check an email links to", async () => {
     renderWithProviders(
       <Routes>
