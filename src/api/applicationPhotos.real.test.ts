@@ -81,7 +81,8 @@ describe("Application Photos (real mode)", () => {
     uploadToDriveTarget.mockResolvedValue({ id: "f", name: "Photo.jpg", webUrl: "u", file: {} });
     const photo = new File(["x"], "Photo 2026-10-19 14-52-03.jpg", { type: "image/jpeg" });
     await uploadApplicationPhoto(null, photo);
-    expect(uploadToDriveTarget.mock.calls[0][0]).toBe(`${ROOT}/Photo%202026-10-19%2014-52-03.jpg:`);
+    // ONE colon path — `root:/folder:/file:` is refused by Graph (400, "segment 'root:'").
+    expect(uploadToDriveTarget.mock.calls[0][0]).toBe(`${DRIVE}/root:/General/A-Application%20Photos/Photo%202026-10-19%2014-52-03.jpg:`);
     expect(uploadToDriveTarget.mock.calls[0][2]).toMatchObject({ conflict: "rename" });
     await uploadApplicationPhoto("01ABC", photo);
     expect(uploadToDriveTarget.mock.calls[1][0]).toBe(`${DRIVE}/items/01ABC:/Photo%202026-10-19%2014-52-03.jpg:`);

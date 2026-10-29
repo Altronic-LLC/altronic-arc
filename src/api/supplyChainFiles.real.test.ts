@@ -85,7 +85,8 @@ describe("Supply Chain Files (real mode)", () => {
     uploadToDriveTarget.mockResolvedValue({ id: "f", name: "a.pdf", webUrl: "u", file: {} });
     const file = new File(["x"], "a b.pdf");
     await uploadSupplyChainFile(null, file);
-    expect(uploadToDriveTarget.mock.calls[0][0]).toBe(`${ROOT}/a%20b.pdf:`);
+    // ONE colon path — `root:/folder:/file:` is refused by Graph (400, "segment 'root:'").
+    expect(uploadToDriveTarget.mock.calls[0][0]).toBe(`${DRIVE}/root:/General/Supply%20Chain%20Files/a%20b.pdf:`);
     expect(uploadToDriveTarget.mock.calls[0][2]).toMatchObject({ conflict: "rename" });
     await uploadSupplyChainFile("01ABC", file);
     expect(uploadToDriveTarget.mock.calls[1][0]).toBe(`${DRIVE}/items/01ABC:/a%20b.pdf:`);
