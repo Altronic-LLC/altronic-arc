@@ -356,6 +356,7 @@ describe("QuoteDetailView — alternates", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(quoteMockDb.quotes.find((q) => q.id === 2)!.alternates).toHaveLength(3));
     expect(quoteMockDb.quotes.find((q) => q.id === 2)!.alternates[2]).toEqual({
+      designator: "",
       sources: [
         { manufacturer: "Vishay", partNumber: "CRCW0603", leadTime: "4 weeks" },
         { manufacturer: "Yageo", partNumber: "RC0603", leadTime: "Stock" },

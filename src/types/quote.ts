@@ -90,6 +90,11 @@ export interface QuoteAlternateSource {
  * page two of the customer PDF.
  */
 export interface QuoteAlternate {
+  /**
+   * Which part the row is about - the reference designator ("5a", "R12"),
+   * free text. "" when none. First column of the working spreadsheet.
+   */
+  designator: string;
   /** ALWAYS `QUOTE_ALTERNATE_SOURCES` long; a blank option is all "". */
   sources: QuoteAlternateSource[];
   reason: string;
@@ -260,6 +265,7 @@ export interface QuotePdfAssembly {
 
 /** An Alternates row as printed — the same customer-facing texts. */
 export interface QuotePdfAlternate {
+  designator: string;
   sources: { manufacturer: string; partNumber: string; leadTime: string }[];
   reason: string;
 }

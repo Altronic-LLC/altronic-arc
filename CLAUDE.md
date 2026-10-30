@@ -966,7 +966,7 @@ src/
 │   ├── QuoteFormModal.tsx            New quote — customer (+ its notes), customer reference, contact, validity, budgetary text, notes (number shown as "will be …")
 │   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE — part numbers, material / labor / overhead (18% default), target GM, breaks, manual price
 │   ├── QuoteLinksPanel.tsx           A quote's Linked work — Engineering / Operations task (item id) and project (title) pickers, saved on pick
-│   ├── QuoteAlternatesCard.tsx       A quote's Alternates table (3 × manufacturer / part # / lead time + reason) + its editor (typed, or pasted from Excel) — printed on its own PDF page
+│   ├── QuoteAlternatesCard.tsx       A quote's Alternates table (designator, 3 × manufacturer / part # / lead time, reason) + its editor (typed, or pasted from Excel) — printed on its own PDF page
 │   ├── QuoteCustomerFormModal.tsx    New/edit a quote customer — proposed code, clash candidates, similar-name warning (manager)
 │   ├── pricingAtoms.tsx              Sales Pricing status chip, sub-nav (Requests / New Products / Customer Quotes / Roles), access gate, card shells
 │   ├── PricingRequestFormModal.tsx   New pricing request — Altronic # / SAP # (optional), description, customer from SAP (typed while not connected)
@@ -4655,16 +4655,19 @@ stays in its picker, marked (`withStoredValue`). A linked task gets an Open
 link. Links never print.
 
 **Alternates** (`QuoteAlternatesCard`, Ray, 2026-10-29) — `Alternates` JSON
-on Quotes. Each row is EXACTLY three options (`QUOTE_ALTERNATE_SOURCES`,
+on Quotes. Each row has a free-text `designator` (the part, "5a" — the first
+column of the working sheet, added 2026-10-30) and EXACTLY three options (`QUOTE_ALTERNATE_SOURCES`,
 `padSources`), each `{ manufacturer, partNumber, leadTime }`, plus a free-text
 `reason` for choosing the alternate. Deliberately no part # / description
 column — Ray asked for only those. Typed, or pasted from Excel
-(`parsePastedAlternates`: tab-separated, ten columns in the order Mfr 1 | Mfr
-part # 1 | Lead time 1 | … | Lead time 3 | Reason, extra columns joined into
-the reason, a first row starting "Manufacturer"/"Mfr" skipped, rows ADDED
-below). The whole table prints on a page of its own after the quote; a
-portrait page can't fit ten columns, so the PDF shows Option 1 | Option 2 |
-Option 3 | Reason, each option cell stacking manufacturer, part # and "Lead
+(`parsePastedAlternates`: tab-separated, [Designator |] Mfr 1 | Mfr part # 1
+| Lead time 1 | … | Lead time 3 | Reason, extra columns joined into the
+reason, rows ADDED below). A first line with two or more header-looking cells
+(Designator, MFR, Lead Time…) is the header: skipped, and its first cell says
+whether a designator leads (not a manufacturer → yes). With no header, 11+
+cells means a designator, 10 or fewer means none. The whole table prints on a page of its own after the quote; a
+portrait page can't fit eleven columns, so the PDF shows Designator |
+Alternate 1 | Alternate 2 | Alternate 3 | Reason (the screen says Option 1–3), each option cell stacking manufacturer, part # and "Lead
 time: …" (`alternateSourceCell`). No rows, no page. Behind the Sent guard (it
 prints). **A value ARC can't parse is `alternatesCorrupt`**: shown as an
 error, not editable, and `updateQuoteFields` REFUSES a write over it

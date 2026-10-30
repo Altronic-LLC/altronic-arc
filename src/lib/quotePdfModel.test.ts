@@ -26,6 +26,7 @@ function quote(over: Partial<Quote> = {}): Quote {
     customerReference: "  RFQ 4471 — retrofit  ",
     alternates: [
       {
+        designator: "",
         sources: [
           { manufacturer: " TE ", partNumber: "1-1437290-3", leadTime: "22 weeks" },
           { manufacturer: "Amphenol", partNumber: "MS3106A", leadTime: "3 weeks" },
@@ -34,6 +35,7 @@ function quote(over: Partial<Quote> = {}): Quote {
         reason: " Second source ",
       },
       {
+        designator: "",
         sources: [
           { manufacturer: "", partNumber: "", leadTime: "  " },
           { manufacturer: "", partNumber: "", leadTime: "" },
@@ -182,6 +184,7 @@ describe("buildQuotePdfModel", () => {
       // Trimmed, blank rows dropped.
       alternates: [
         {
+          designator: "",
           sources: [
             { manufacturer: "TE", partNumber: "1-1437290-3", leadTime: "22 weeks" },
             { manufacturer: "Amphenol", partNumber: "MS3106A", leadTime: "3 weeks" },
@@ -411,7 +414,7 @@ describe("buildQuotePdfModel", () => {
       expect(Object.keys(model!.budgetary!).sort()).toEqual(["text", "title"]);
       expect(Object.keys(model!.preparedBy!).sort()).toEqual(["email", "name"]);
       for (const r of model!.alternates) {
-        expect(Object.keys(r).sort()).toEqual(["reason", "sources"]);
+        expect(Object.keys(r).sort()).toEqual(["designator", "reason", "sources"]);
         for (const x of r.sources) expect(Object.keys(x).sort()).toEqual(["leadTime", "manufacturer", "partNumber"]);
       }
     });

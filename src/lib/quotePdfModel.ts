@@ -148,6 +148,7 @@ export function buildQuotePdfModel(args: {
       // Field by field — the customer-facing texts, blank rows dropped.
       alternates: quote.alternates
         .map((r) => ({
+          designator: r.designator.trim(),
           sources: r.sources.map((x) => ({
             manufacturer: x.manufacturer.trim(),
             partNumber: x.partNumber.trim(),
@@ -155,7 +156,7 @@ export function buildQuotePdfModel(args: {
           })),
           reason: r.reason.trim(),
         }))
-        .filter((r) => r.reason || r.sources.some((x) => x.manufacturer || x.partNumber || x.leadTime)),
+        .filter((r) => r.designator || r.reason || r.sources.some((x) => x.manufacturer || x.partNumber || x.leadTime)),
     },
     problems,
   };

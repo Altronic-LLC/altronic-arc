@@ -28,7 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Insourcing Quotes: a Customer reference / description on the quote, printed under Prepared for on the PDF",
       "Insourcing Quotes: a customer's notes from the customer list show on every one of their quotes (never printed)",
       "Insourcing Quotes: link a quote to an Engineering or Operations task and project from the right-hand panel, with a link straight to the task",
-      "Insourcing Quotes: an Alternates table — up to three options per row, each a manufacturer, its part number and lead time, plus why the alternate was chosen — typed or pasted from Excel, printed on its own page of the PDF",
+      "Insourcing Quotes: an Alternates table — each row names the part's designator and up to three options, each a manufacturer, its part number and lead time, plus why the alternate was chosen — typed or pasted straight from your Excel sheet, header row and all, and printed on its own page of the PDF under Alternate 1, 2 and 3",
       "Insourcing Quotes: a new revision carries the reference, alternates and links forward with the lines and discussion",
     ],
   },

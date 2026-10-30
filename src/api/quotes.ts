@@ -199,7 +199,7 @@ async function postQuote(numbering: QuoteNumbering, body: QuoteRowBody): Promise
       budgetaryText: body.budgetaryText,
       quoteNotes: body.quoteNotes,
       customerReference: (body.customerReference ?? "").trim(),
-      alternates: (body.alternates ?? []).map((r) => ({ sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
+      alternates: (body.alternates ?? []).map((r) => ({ designator: r.designator, sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
       alternatesCorrupt: false,
       comments: parseCommunication(body.communication ?? ""),
       watchers: body.watchers.map((p) => ({ ...p })),

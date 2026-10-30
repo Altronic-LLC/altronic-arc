@@ -224,11 +224,11 @@ export function padSources(sources: readonly Partial<QuoteAlternateSource>[]): Q
 
 /** A row with nothing in it. */
 export function blankAlternate(): QuoteAlternate {
-  return { sources: padSources([]).map(() => ({ ...BLANK_SOURCE })), reason: "" };
+  return { designator: "", sources: padSources([]).map(() => ({ ...BLANK_SOURCE })), reason: "" };
 }
 
 function isBlankAlternate(r: QuoteAlternate): boolean {
-  return !r.reason.trim() && r.sources.every((s) => !s.manufacturer.trim() && !s.partNumber.trim() && !s.leadTime.trim());
+  return !r.designator.trim() && !r.reason.trim() && r.sources.every((s) => !s.manufacturer.trim() && !s.partNumber.trim() && !s.leadTime.trim());
 }
 
 /**
@@ -251,7 +251,11 @@ export function parseAlternates(raw: unknown): { rows: QuoteAlternate[]; corrupt
     if (!entry || typeof entry !== "object") continue;
     const e = entry as Record<string, unknown>;
     const sources = Array.isArray(e.sources) ? (e.sources as Partial<QuoteAlternateSource>[]) : [];
-    rows.push({ sources: padSources(sources.map((x) => (x && typeof x === "object" ? x : {}))), reason: text(e.reason) });
+    rows.push({
+      designator: text(e.designator),
+      sources: padSources(sources.map((x) => (x && typeof x === "object" ? x : {}))),
+      reason: text(e.reason),
+    });
   }
   return { rows, corrupt: false };
 }
@@ -260,6 +264,7 @@ export function parseAlternates(raw: unknown): { rows: QuoteAlternate[]; corrupt
 export function serializeAlternates(rows: readonly QuoteAlternate[]): string {
   const kept = rows
     .map((r) => ({
+      designator: r.designator.trim(),
       sources: padSources(r.sources).map((x) => ({
         manufacturer: x.manufacturer.trim(),
         partNumber: x.partNumber.trim(),
@@ -271,37 +276,46 @@ export function serializeAlternates(rows: readonly QuoteAlternate[]): string {
   return kept.length === 0 ? "" : JSON.stringify(kept);
 }
 
+const HEADER_CELL = /^(designator|ref|manufactur|mfr|mfg|lead\s*time|reason)/i;
+const MANUFACTURER_CELL = /^(manufactur|mfr|mfg)/i;
+
 /**
  * Rows pasted from a spreadsheet: one line per row, cells split on TABS
  * (what Excel puts on the clipboard), in the order
- * Mfr 1 | Mfr part # 1 | Lead time 1 | Mfr 2 | … | Lead time 3 | Reason.
- * Anything past the tenth column belongs to the reason, not lost. Blank lines
- * are skipped, and so is a first line that looks like a header (its first
- * cell starts "Manufacturer" or "Mfr").
+ * [Designator |] Mfr 1 | Mfr part # 1 | Lead time 1 | Mfr 2 | ... | Lead time 3 | Reason.
+ *
+ * Whether the first column is a DESIGNATOR is read off the header row when
+ * the paste has one (a first line of column names: "Designator", "MFR",
+ * "Lead Time"...): a header whose first cell isn't a manufacturer means a
+ * designator column. With no header, a row of eleven or more cells has one,
+ * ten or fewer hasn't. Anything past the reason's column is joined onto the
+ * reason, not lost. Blank lines are skipped, and so is the header itself.
  */
 export function parsePastedAlternates(textValue: string): QuoteAlternate[] {
-  const lines = textValue.replace(/\r\n?/g, "\n").split("\n");
+  const lines = textValue
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .filter((line) => line.trim());
   const perSource = 3;
-  const rows: QuoteAlternate[] = [];
-  let first = true;
-  lines.forEach((line) => {
-    if (!line.trim()) return;
-    const cells = line.split("\t").map((c) => c.trim());
-    const isHeader = first && /^(manufactur|mfr|mfg)/i.test(cells[0] ?? "");
-    first = false;
-    if (isHeader) return;
+  const plainWidth = QUOTE_ALTERNATE_SOURCES * perSource + 1;
+  const split = (line: string) => line.split("\t").map((c) => c.trim());
+  const header = lines.length > 0 ? split(lines[0]) : [];
+  const hasHeader = header.filter((c) => HEADER_CELL.test(c)).length >= 2;
+  const headerDesignator = hasHeader ? !MANUFACTURER_CELL.test(header[0] ?? "") : null;
+  return (hasHeader ? lines.slice(1) : lines).map((line) => {
+    const cells = split(line);
+    const offset = (headerDesignator ?? cells.length > plainWidth) ? 1 : 0;
     const sources = Array.from({ length: QUOTE_ALTERNATE_SOURCES }, (_, i) => ({
-      manufacturer: cells[i * perSource] ?? "",
-      partNumber: cells[i * perSource + 1] ?? "",
-      leadTime: cells[i * perSource + 2] ?? "",
+      manufacturer: cells[offset + i * perSource] ?? "",
+      partNumber: cells[offset + i * perSource + 1] ?? "",
+      leadTime: cells[offset + i * perSource + 2] ?? "",
     }));
     const reason = cells
-      .slice(QUOTE_ALTERNATE_SOURCES * perSource)
+      .slice(offset + QUOTE_ALTERNATE_SOURCES * perSource)
       .filter(Boolean)
       .join(" ");
-    rows.push({ sources, reason });
+    return { designator: offset ? (cells[0] ?? "") : "", sources, reason };
   });
-  return rows;
 }
 
 // -----------------------------------------------------------------------------
@@ -559,7 +573,11 @@ export function applyQuotePatch(quote: Quote, changes: QuotePatch): Quote {
     (next as Record<string, unknown>)[key] = changes[key];
   }
   if (changes.alternates !== undefined) {
-    next.alternates = changes.alternates.map((r) => ({ sources: padSources(r.sources), reason: r.reason }));
+    next.alternates = changes.alternates.map((r) => ({
+      designator: r.designator,
+      sources: padSources(r.sources),
+      reason: r.reason,
+    }));
   }
   return next;
 }

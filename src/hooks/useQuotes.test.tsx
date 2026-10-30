@@ -298,7 +298,7 @@ describe("revisions and links", () => {
     quoteMockDb.quotes.find((q) => q.id === 2)!.alternatesCorrupt = true;
     const { wrapper } = setup();
     const { result } = renderHook(() => useUpdateQuoteFields(), { wrapper });
-    const rows = [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }];
+    const rows = [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }];
     await act(() => expect(result.current.mutateAsync({ id: 2, patch: { alternates: rows } })).rejects.toThrow());
     expect(pushToast).toHaveBeenCalledWith(
       expect.objectContaining({ message: expect.stringMatching(/alternates table couldn't be read/), variant: "error" }),

@@ -147,6 +147,7 @@ export const MOCK_QUOTES: Quote[] = [
     quoteNotes: "Prices FOB Girard, OH. Lead time 6–8 weeks ARO.",
     alternates: [
       {
+        designator: "J3",
         sources: [
           { manufacturer: "TE Connectivity", partNumber: "1-1437290-3", leadTime: "22 weeks" },
           { manufacturer: "Amphenol", partNumber: "MS3106A-20-27S", leadTime: "3 weeks" },
@@ -155,6 +156,7 @@ export const MOCK_QUOTES: Quote[] = [
         reason: "Amphenol connector is form-fit equivalent and ships in 3 weeks instead of 22.",
       },
       {
+        designator: "C14",
         sources: [
           { manufacturer: "Murata", partNumber: "GRM31CR71H475KA12L", leadTime: "16 weeks" },
           { manufacturer: "KEMET", partNumber: "C1206C475K5RACTU", leadTime: "6 weeks" },
@@ -388,7 +390,7 @@ function cloneQuote(q: Quote): Quote {
     ...q,
     comments: q.comments.map((c) => ({ ...c })),
     watchers: q.watchers.map((p) => ({ ...p })),
-    alternates: q.alternates.map((r) => ({ sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
+    alternates: q.alternates.map((r) => ({ designator: r.designator, sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
     createdBy: q.createdBy ? { ...q.createdBy } : null,
   };
 }

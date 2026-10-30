@@ -31,9 +31,10 @@ import { ALTRONIC_WORDMARK_ASPECT, ALTRONIC_WORDMARK_BLACK_PNG } from "@/assets/
 // ALTERNATES (the 2026-10-27 review; Ray, 2026-10-29) go on a page of their
 // own after the notes — "page two" when the quote fits on one. Each row is up
 // to three manufacturer options (manufacturer, its part number, lead time)
-// and the reason the alternate was chosen. Ten narrow columns don't fit a
-// portrait page, so each option is ONE cell with its three facts stacked:
-// Option 1 | Option 2 | Option 3 | Reason. No rows, no extra page.
+// and the reason the alternate was chosen, led by the part's designator.
+// Eleven narrow columns don't fit a portrait page, so each option is ONE cell
+// with its three facts stacked, under its own tag: Designator | Alternate 1 |
+// Alternate 2 | Alternate 3 | Reason. No rows, no extra page.
 //
 // Altronic branding: monochrome black/white, greys for structure, gold
 // (#CBA052) only as a sparing accent hairline. The mark is the 12KB
@@ -659,8 +660,9 @@ function drawAlternates(doc: jsPDF, autoTable: AutoTableFn, rows: QuotePdfAltern
     margin: { left: MARGIN_X, right: MARGIN_X, top: MARGIN_TOP, bottom: MARGIN_BOTTOM },
     tableWidth: CONTENT_W,
     showHead: "everyPage",
-    head: [["Option 1", "Option 2", "Option 3", "Reason for the alternate"]],
+    head: [["Designator", "Alternate 1", "Alternate 2", "Alternate 3", "Reason for the alternate"]],
     body: rows.map((r) => [
+      r.designator,
       alternateSourceCell(r.sources[0] ?? { manufacturer: "", partNumber: "", leadTime: "" }),
       alternateSourceCell(r.sources[1] ?? { manufacturer: "", partNumber: "", leadTime: "" }),
       alternateSourceCell(r.sources[2] ?? { manufacturer: "", partNumber: "", leadTime: "" }),
@@ -678,10 +680,11 @@ function drawAlternates(doc: jsPDF, autoTable: AutoTableFn, rows: QuotePdfAltern
     },
     headStyles: { fontStyle: "bold", fontSize: 8, textColor: MID_GREY, fillColor: LIGHT_GREY },
     columnStyles: {
-      0: { cellWidth: 110 },
-      1: { cellWidth: 110 },
-      2: { cellWidth: 110 },
-      3: { cellWidth: "auto", textColor: DARK_GREY },
+      0: { cellWidth: 56, fontStyle: "bold" },
+      1: { cellWidth: 100 },
+      2: { cellWidth: 100 },
+      3: { cellWidth: 100 },
+      4: { cellWidth: "auto", textColor: DARK_GREY },
     },
     rowPageBreak: "avoid",
   });

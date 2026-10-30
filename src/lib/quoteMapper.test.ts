@@ -127,21 +127,21 @@ describe("price breaks", () => {
 describe("alternates", () => {
   const src = (manufacturer = "", partNumber = "", leadTime = "") => ({ manufacturer, partNumber, leadTime });
   const ROWS = [
-    { sources: [src("TE", "1-1437290-3", "22 weeks"), src("Amphenol", "MS3106A", "3 weeks"), src()], reason: "Faster" },
-    { sources: [src("Murata", "GRM31", "16 weeks"), src(), src()], reason: "" },
+    { designator: "", sources: [src("TE", "1-1437290-3", "22 weeks"), src("Amphenol", "MS3106A", "3 weeks"), src()], reason: "Faster" },
+    { designator: "", sources: [src("Murata", "GRM31", "16 weeks"), src(), src()], reason: "" },
   ];
 
   it("round-trips, dropping blank rows, trimming, and always THREE options a row", () => {
     const stored = serializeAlternates([
       ...ROWS,
-      { sources: [src(" "), src(), src()], reason: " " },
+      { designator: "", sources: [src(" "), src(), src()], reason: " " },
     ]);
     expect(parseAlternates(stored)).toEqual({ rows: ROWS, corrupt: false });
     expect(serializeAlternates([])).toBe("");
     expect(parseAlternates("")).toEqual({ rows: [], corrupt: false });
     expect(parseAlternates(undefined)).toEqual({ rows: [], corrupt: false });
     // A short or missing sources array is padded to three.
-    expect(parseAlternates('[{"sources":[{"manufacturer":"X"}],"reason":"r"}]').rows[0].sources).toEqual([
+    expect(parseAlternates('[{"designator":"","sources":[{"manufacturer":"X"}],"reason":"r"}]').rows[0].sources).toEqual([
       src("X"),
       src(),
       src(),
@@ -152,6 +152,33 @@ describe("alternates", () => {
     expect(parseAlternates("{broken")).toEqual({ rows: [], corrupt: true });
     expect(parseAlternates('{"reason":"x"}')).toEqual({ rows: [], corrupt: true });
     expect(toQuote(item({ Alternates: "{broken" })).alternatesCorrupt).toBe(true);
+  });
+
+  it("parses the working sheet — a Designator column, MFR / MFR NO. / Lead Time three times, then Reason", () => {
+    const pasted = [
+      "Designator\tMFR\tMFR NO.\tLead Time\tMFR\tMFR NO.\tLead Time\tMFR\tMFR NO.\tLead Time\tReason",
+      "5a\tAllied India\t12345789\t2-4 Weeks\tGrainger\t9897654\t1-2 Weeks\tEBAY\t654321\t4-6 Weeks\tGrainger has the shortest lead time.",
+      "6b\tMcMaster-Carr\t45821033\t1-2 Weeks\tDigi-Key\t7731204\t3-5 Days\tMouser\t558120\t1 Week\tDigi-Key has the shortest lead time.",
+    ].join("\r\n");
+    expect(parsePastedAlternates(pasted)).toEqual([
+      {
+        designator: "5a",
+        sources: [src("Allied India", "12345789", "2-4 Weeks"), src("Grainger", "9897654", "1-2 Weeks"), src("EBAY", "654321", "4-6 Weeks")],
+        reason: "Grainger has the shortest lead time.",
+      },
+      {
+        designator: "6b",
+        sources: [src("McMaster-Carr", "45821033", "1-2 Weeks"), src("Digi-Key", "7731204", "3-5 Days"), src("Mouser", "558120", "1 Week")],
+        reason: "Digi-Key has the shortest lead time.",
+      },
+    ]);
+  });
+
+  it("with no header row, eleven cells means a designator leads; ten means it doesn't", () => {
+    expect(parsePastedAlternates("7c\tA\t1\tw1\tB\t2\tw2\tC\t3\tw3\tWhy")).toEqual([
+      { designator: "7c", sources: [src("A", "1", "w1"), src("B", "2", "w2"), src("C", "3", "w3")], reason: "Why" },
+    ]);
+    expect(parsePastedAlternates("A\t1\tw1\tB\t2\tw2\tC\t3\tw3\tWhy")[0].designator).toBe("");
   });
 
   it("parses rows pasted from Excel — three Mfr / Mfr part # / Lead time sets, then the reason", () => {
@@ -165,13 +192,13 @@ describe("alternates", () => {
     expect(parsePastedAlternates(pasted)).toEqual([
       ROWS[0],
       ROWS[1],
-      { sources: [src("A", "B", "C"), src("D", "E", "F"), src("G", "H", "I")], reason: "cheaper and in stock" },
+      { designator: "", sources: [src("A", "B", "C"), src("D", "E", "F"), src("G", "H", "I")], reason: "cheaper and in stock" },
     ]);
   });
 
   it("keeps a first row that is data, not a header", () => {
     expect(parsePastedAlternates("Vishay\tCRCW0603\t4 wk")).toEqual([
-      { sources: [src("Vishay", "CRCW0603", "4 wk"), src(), src()], reason: "" },
+      { designator: "", sources: [src("Vishay", "CRCW0603", "4 wk"), src(), src()], reason: "" },
     ]);
   });
 });
@@ -204,7 +231,7 @@ describe("toQuote", () => {
           Communication: "10/01/2026 9:00:00 AM|||Ray White|||ray@x.com|||<p>hi</p>",
           Watchers: [{ LookupId: 22, LookupValue: "Ray White", Email: "ray@x.com" }],
           CustomerReference: " RFQ 4471 ",
-          Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
+          Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
           EngineeringTaskId: 5,
           OperationsTaskId: "12",
           EngineeringProjectRef: "0042-NGI",
@@ -225,7 +252,7 @@ describe("toQuote", () => {
       contactName: "Mark",
       budgetary: true,
       customerReference: "RFQ 4471",
-      alternates: [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
+      alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
       alternatesCorrupt: false,
       engineeringTaskId: 5,
       operationsTaskId: 12,
@@ -389,7 +416,7 @@ describe("quote field builders", () => {
       quoteNumber: "x", quoteBase: "x", rev: 2, customerId: null, status: "Draft", validityDays: 30,
       contactName: "", contactEmail: "", budgetary: false, budgetaryText: "", quoteNotes: "",
       customerReference: " RFQ 1 ",
-      alternates: [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
+      alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
       engineeringTaskId: 47,
       operationsTaskId: 9,
       engineeringProjectRef: "0042-NGI",
@@ -398,7 +425,7 @@ describe("quote field builders", () => {
     });
     expect(fields).toMatchObject({
       CustomerReference: "RFQ 1",
-      Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
+      Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
       EngineeringTaskId: 47,
       OperationsTaskId: 9,
       EngineeringProjectRef: "0042-NGI",
@@ -437,8 +464,8 @@ describe("quote field builders", () => {
       EngineeringTaskId: null,
     });
     expect(buildQuoteUpdateFields({ alternates: [] }, QUOTE)).toEqual({});
-    expect(buildQuoteUpdateFields({ alternates: [{ sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }] }, QUOTE)).toEqual({
-      Alternates: '[{"sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
+    expect(buildQuoteUpdateFields({ alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }] }, QUOTE)).toEqual({
+      Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
     });
     expect(buildQuoteUpdateFields({ customerReference: " RFQ " }, QUOTE)).toEqual({ CustomerReference: "RFQ" });
   });

@@ -359,9 +359,10 @@ describe("the quote PDF", () => {
     expect(without.text).not.toContain("REFERENCE");
   });
 
-  it("prints the alternates on a page of its own — three options and the reason — and adds no page without them", async () => {
+  it("prints the alternates on a page of its own — designator, Alternate 1–3 and the reason — and adds no page without them", async () => {
     const alternates = [
       {
+        designator: "5a",
         sources: [
           { manufacturer: "TE Connectivity", partNumber: "1-1437290-3", leadTime: "22 weeks" },
           { manufacturer: "Amphenol", partNumber: "MS3106A-20-27S", leadTime: "3 weeks" },
@@ -377,9 +378,11 @@ describe("the quote PDF", () => {
     const pageTwo = text.slice(text.indexOf("Page 1 of 2"));
     expect(text.indexOf("Alternates")).toBeGreaterThan(text.indexOf("Page 1 of 2"));
     for (const value of [
-      "Option 1",
-      "Option 2",
-      "Option 3",
+      "Designator",
+      "5a",
+      "Alternate 1",
+      "Alternate 2",
+      "Alternate 3",
       "Reason for the alternate",
       "TE Connectivity",
       "1-1437290-3",

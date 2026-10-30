@@ -7,7 +7,8 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
 // The quote's ALTERNATES table (the 2026-10-27 review; Ray, 2026-10-29). Each
-// row holds up to three manufacturer options side by side — Manufacturer,
+// row names the part (its designator, "5a") and holds up to three
+// manufacturer options side by side — Manufacturer,
 // Mfr part #, Lead time — then a free-text reason for choosing the alternate.
 // It PRINTS, on a page of its own after the quote ("page two"), so the
 // customer sees why a part was sourced the way it was instead of an ad-hoc
@@ -15,9 +16,10 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 //
 // The card is read-only; Edit opens `AlternatesEditor`, which saves the whole
 // table at once. Rows can be typed, or pasted straight from the working
-// spreadsheet: copy the ten cells in Excel (Mfr 1 | Mfr part # 1 | Lead time 1
-// | … | Lead time 3 | Reason) and paste — `parsePastedAlternates` splits on
-// the tabs Excel puts on the clipboard. Pasted rows are ADDED below what's
+// spreadsheet: copy the cells in Excel ([Designator |] Mfr 1 | Mfr part # 1 |
+// Lead time 1 | ... | Lead time 3 | Reason), header row included or not, and
+// paste - `parsePastedAlternates` splits on the tabs Excel puts on the
+// clipboard and reads the header to tell whether a designator leads. Pasted rows are ADDED below what's
 // there, never replacing it.
 //
 // A stored table ARC couldn't read (`corrupt`) is shown as an error and can't
@@ -72,8 +74,11 @@ export function QuoteAlternatesCard({ rows, corrupt, canEdit, onEdit }: QuoteAlt
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
               <tr>
+                <th rowSpan={2} className="px-2 py-1.5 align-bottom font-semibold">
+                  Designator
+                </th>
                 {OPTIONS.map((i) => (
-                  <th key={i} colSpan={3} className="border-l border-border px-2 pt-1.5 font-semibold first:border-l-0">
+                  <th key={i} colSpan={3} className="border-l border-border px-2 pt-1.5 font-semibold">
                     Option {i + 1}
                   </th>
                 ))}
@@ -87,7 +92,7 @@ export function QuoteAlternatesCard({ rows, corrupt, canEdit, onEdit }: QuoteAlt
                     {SOURCE_FIELDS.map((f, n) => (
                       <th
                         key={f.key}
-                        className={`whitespace-nowrap px-2 pb-1.5 font-semibold normal-case tracking-normal ${n === 0 && i > 0 ? "border-l border-border" : ""}`}
+                        className={`whitespace-nowrap px-2 pb-1.5 font-semibold normal-case tracking-normal ${n === 0 ? "border-l border-border" : ""}`}
                       >
                         {f.label}
                       </th>
@@ -99,12 +104,15 @@ export function QuoteAlternatesCard({ rows, corrupt, canEdit, onEdit }: QuoteAlt
             <tbody>
               {rows.map((r, n) => (
                 <tr key={n} className="border-t border-border align-top">
+                  <td className="whitespace-nowrap px-2 py-1.5 font-semibold text-fg">
+                    {r.designator || <span className="font-normal text-fg-muted">—</span>}
+                  </td>
                   {OPTIONS.map((i) => (
                     <Fragment key={i}>
                       {SOURCE_FIELDS.map((f, k) => (
                         <td
                           key={f.key}
-                          className={`px-2 py-1.5 text-fg ${k === 0 && i > 0 ? "border-l border-border" : ""} ${f.key === "partNumber" ? "whitespace-nowrap font-medium" : f.key === "leadTime" ? "whitespace-nowrap" : ""}`}
+                          className={`px-2 py-1.5 text-fg ${k === 0 ? "border-l border-border" : ""} ${f.key === "partNumber" ? "whitespace-nowrap font-medium" : f.key === "leadTime" ? "whitespace-nowrap" : ""}`}
                         >
                           {r.sources[i]?.[f.key] || <span className="text-fg-muted">—</span>}
                         </td>
@@ -130,11 +138,11 @@ interface AlternatesEditorProps {
 }
 
 function hasContent(r: QuoteAlternate): boolean {
-  return !!r.reason.trim() || r.sources.some((s) => s.manufacturer.trim() || s.partNumber.trim() || s.leadTime.trim());
+  return !!r.designator.trim() || !!r.reason.trim() || r.sources.some((s) => s.manufacturer.trim() || s.partNumber.trim() || s.leadTime.trim());
 }
 
 function cloneRow(r: QuoteAlternate): QuoteAlternate {
-  return { sources: r.sources.map((s) => ({ ...s })), reason: r.reason };
+  return { designator: r.designator, sources: r.sources.map((s) => ({ ...s })), reason: r.reason };
 }
 
 /** Edit the whole table; Save writes it in one go. */
@@ -166,6 +174,10 @@ export function AlternatesEditor({ rows: initial, busy, onSave, onClose }: Alter
 
   function setReason(row: number, value: string) {
     setRows((prev) => prev.map((r, n) => (n === row ? { ...r, reason: value } : r)));
+  }
+
+  function setDesignator(row: number, value: string) {
+    setRows((prev) => prev.map((r, n) => (n === row ? { ...r, designator: value } : r)));
   }
 
   function addPasted() {
@@ -232,7 +244,7 @@ export function AlternatesEditor({ rows: initial, busy, onSave, onClose }: Alter
                     onChange={(e) => setPasteText(e.target.value)}
                     rows={4}
                     placeholder={
-                      "Copy the cells in Excel — Manufacturer | Mfr part # | Lead time, three times across, then Reason — and paste them here."
+                      "Copy the cells in Excel — Designator (optional), then Manufacturer | Mfr part # | Lead time three times across, then Reason — and paste them here. A header row is fine."
                     }
                     className="input resize-y font-mono text-xs"
                     aria-label="Paste from Excel"
@@ -281,8 +293,20 @@ export function AlternatesEditor({ rows: initial, busy, onSave, onClose }: Alter
           <div className="flex flex-col gap-3">
             {rows.map((row, r) => (
               <div key={r} className="rounded-lg border border-border p-3" data-testid={`alternate-row-${r}`}>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Row {r + 1}</span>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                      Row {r + 1}
+                    </span>
+                    <input
+                      aria-label={`Row ${r + 1} designator`}
+                      placeholder="Designator"
+                      value={row.designator}
+                      onChange={(e) => setDesignator(r, e.target.value)}
+                      className="input w-36!"
+                      disabled={busy}
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setRows((prev) => prev.filter((_, n) => n !== r))}
