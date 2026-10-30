@@ -24,7 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-10-30",
     changes: [
       "Panels: new Panel Engineering Capacity view shows each panel engineer's task hours day by day (or week by week) against 8 hours a day, blue up to 85%, amber over 85% and red over 100%",
-      "Capacity: everyone with the Engineer role on Panel User Roles gets a row; a task assigned to anyone else waits in the backlog, saying so, until it's dragged onto an engineer",
+      "Capacity: everyone with the Engineer role on Panel User Roles gets a row, and an ARC admin can give anyone else one with the new On capacity setting there; a task assigned to anyone else waits in the backlog, saying so, until it's dragged onto someone with a row",
       "Capacity: a panel Super User or an ARC admin can change where amber starts",
       "Capacity: click a person to see their tasks as bars, or a day to see the tasks behind its hours; tasks without an assignee, dates or hours wait in a backlog that says what's missing",
       "Capacity: hover a task bar to see its hours a day, total and dates",
@@ -36,6 +36,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Panel Tasks gain the BOM and Programming task types",
       "Panel Tasks gain Work Type (Production Order, Non-Production, Improvement / Internal) and Priority (High, Medium, Low), as in Wrike: picked on the new-task form and the task page, shown on the list, and filterable there; a Panel Order's standard tasks are Production Order",
       "Creating a Panel Order can create its standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on the order's project with their usual hours, assigned to the order's engineer (or to nobody if none is picked); they wait in the Capacity backlog to be scheduled, and the engineer gets one email listing them",
+      "A Panel Order's standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req; when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email, and a waiting task's page says what it's waiting for",
+      "Putting a Panel Order On Hold puts its open tasks On Hold - Internal; taking it off hold puts each task back to the status it had",
+      "Panel Orders and Panel Tasks have a SAP # field, separate from the Sales Order; an order's standard tasks start with the order's SAP #",
       "A Panel Order's page lists its tasks, and Create standard tasks adds any it's missing; a task's page links back to its order",
       "Panel managers change the standard tasks — their names, types, hours and order — on the new Standard tasks screen, linked from Panel Orders",
       "New Panel Time Off, the panel team's own \"Where am I?\": record who is out and for how many hours a day, and Capacity lowers their hours to match",

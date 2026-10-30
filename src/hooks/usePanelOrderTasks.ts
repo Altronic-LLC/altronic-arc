@@ -9,6 +9,7 @@ import {
   missingTemplates,
   standardTaskInputs,
 } from "@/lib/panelOrderTasks";
+import { chainStartStatus } from "@/lib/panelOrderChain";
 import { autoWatchers } from "@/lib/people";
 import { pushToast } from "@/components/Toast";
 import { useCurrentUser } from "./useCurrentUser";
@@ -43,7 +44,8 @@ async function readTemplates(qc: QueryClient): Promise<PanelTaskTemplate[]> {
 /**
  * Create the order's standard tasks — all of them, or only `templates` when
  * given. Every task goes to `engineer`, or nobody; the actor and the engineer
- * start out watching.
+ * start out watching. `existing` are the order's tasks already there: a
+ * missing step raised later waits behind any of them still to do.
  */
 export async function raiseStandardTasks(
   qc: QueryClient,
@@ -51,6 +53,7 @@ export async function raiseStandardTasks(
   engineer: Person | null,
   actor: Person,
   templates?: readonly PanelTaskTemplate[],
+  existing: readonly PanelTask[] = [],
 ): Promise<RaisedTasks> {
   let use: readonly PanelTaskTemplate[];
   try {
@@ -64,12 +67,24 @@ export async function raiseStandardTasks(
   }
   const tasks: PanelTask[] = [];
   const failed: RaisedTasks["failed"] = [];
-  for (const input of standardTaskInputs(order, use, engineer)) {
+  const inputs = standardTaskInputs(order, use, engineer);
+  // The whole batch counts as "still to do" when deciding who waits, so a
+  // step whose create fails still holds the ones after it back.
+  const pending = [
+    ...existing,
+    ...inputs.map((i) => ({
+      id: 0,
+      status: PANEL_TASK_DEFAULT_STATUS,
+      chainStep: i.chainStep,
+      orderRef: { lookupId: order.id, title: "" },
+    })),
+  ];
+  for (const input of inputs) {
     try {
       tasks.push(
         await createPanelTask({
           ...input,
-          status: PANEL_TASK_DEFAULT_STATUS,
+          status: chainStartStatus(input.chainStep, order.id, pending),
           watchers: autoWatchers([], input.assigned, actor),
         }),
       );
@@ -127,7 +142,7 @@ export function useRaiseMissingStandardTasks() {
     mutationFn: async ({ order, existing }: { order: PanelOrder; existing: readonly PanelTask[] }) => {
       const missing = missingTemplates(order, await readTemplates(qc), existing);
       if (!missing.length) throw new Error("This order already has all its standard tasks.");
-      return raiseStandardTasks(qc, order, order.engineerAssigned, actor, missing);
+      return raiseStandardTasks(qc, order, order.engineerAssigned, actor, missing, existing);
     },
     onSuccess: (raised, { order }) => {
       const n = raised.tasks.length;

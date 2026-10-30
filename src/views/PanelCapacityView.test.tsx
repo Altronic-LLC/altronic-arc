@@ -63,6 +63,9 @@ function task(over: Partial<PanelTask> & { id: number }): PanelTask {
     priority: null,
     projectRef: null,
     orderRef: null,
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
     assigned: [ANA],
     description: "",
     startDate: d("2026-11-02"),
@@ -181,7 +184,7 @@ describe("PanelCapacityView", () => {
     const backlog = screen.getByRole("region", { name: /Backlog/ });
     expect(within(backlog).getByText("Write SOO")).toBeInTheDocument();
     expect(
-      within(backlog).getByText("Assigned to Bob Builder, who isn't an Engineer on Panel User Roles"),
+      within(backlog).getByText("Assigned to Bob Builder, who isn't on the capacity grid (Panel User Roles)"),
     ).toBeInTheDocument();
   });
 

@@ -2952,7 +2952,7 @@ const SECTIONS: ManualSection[] = [
       "panel team",
     ],
     searchText:
-      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
+      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
     render: () => (
       <>
         <P>
@@ -2997,7 +2997,26 @@ const SECTIONS: ManualSection[] = [
           it blank and the tasks are unassigned. Either way they have no dates
           yet, so they wait in the Panel Engineering Capacity backlog to be
           dragged onto a day. Any task can be reassigned on its own later, and
-          changing the order's engineer afterwards doesn't move them.
+          changing the order's engineer afterwards doesn't move them. Each
+          task also starts with the order's <strong>SAP #</strong>.
+        </P>
+        <P>
+          The tasks run <strong>in order</strong>, as in Wrike: Drawing
+          Creation starts as <strong>New</strong> and the others wait as{" "}
+          <strong>Awaiting Pre-Req</strong>. When a task is set to{" "}
+          <strong>Completed</strong> (or <strong>Canceled</strong>), the next
+          one becomes <strong>Ready</strong> and the people assigned to it get
+          an email saying it's ready to start. It keeps whoever it was assigned
+          to. A waiting task's page says which tasks it's waiting for. A task
+          somebody has already started isn't changed.
+        </P>
+        <P>
+          Setting the order to <strong>On Hold</strong> puts each of its open
+          tasks <strong>On Hold - Internal</strong>, and the task's page says
+          what it will go back to. Setting the order to any other status takes
+          them off hold, each back to the status it had. Completed and Canceled
+          tasks aren't touched, and a task you moved yourself while the order
+          was on hold keeps what you gave it.
         </P>
         <P>
           The order's page has a <strong>Tasks</strong> card listing them.
@@ -3012,7 +3031,7 @@ const SECTIONS: ManualSection[] = [
         <H3>The detail page</H3>
         <P>
           Everything is edited in place: the title inline, the sidebar's
-          Status / Project Reference / Engineer / order-number / customer
+          Status / Project Reference / Engineer / order-number / SAP # / customer
           fields directly, and <strong>Order Notes</strong> as an editable
           card that supports the same <code>- [ ]</code> checklists as a
           task Description — checked boxes record who and when, unchecking
@@ -3053,7 +3072,7 @@ const SECTIONS: ManualSection[] = [
       "panel work",
     ],
     searchText:
-      "Panel Tasks is the panel team's task list on the ALTRONICPANELTEAM SharePoint site — drawings, SOOs, quotes, and administrative work. Each task has a title, a status from the panel team's Panel Workflow (New, Pending Scheduling, Ready, In Progress, Revision Needed, Awaiting Pre-Req, Possible Support, Completed, On Hold - Approval, On Hold - Internal, Canceled — grouped Active, On Hold, Completed, Canceled), a Task Type (Drawings, SOO, Quote, Administrative), a single Assigned person, a project reference picked from the same Panel Project Reference list panel orders use, a Description that supports checklists, watchers, attachments, and comments with @-mentions. Reach it from the Dashboard's Panel Tasks card or the Departments dropdown's Panels group. Create with New Panel Task; new tasks start New and you're auto-added as a watcher. The Open pill counts everything not Completed or Canceled; the other pills count each group. Status changes, assignee changes, comments, and checklist toggles send email like the other departments.",
+      "Panel Tasks is the panel team's task list on the ALTRONICPANELTEAM SharePoint site — drawings, SOOs, quotes, and administrative work. Each task has a title, a status from the panel team's Panel Workflow (New, Pending Scheduling, Ready, In Progress, Revision Needed, Awaiting Pre-Req, Possible Support, Completed, On Hold - Approval, On Hold - Internal, Canceled — grouped Active, On Hold, Completed, Canceled), a Task Type (Drawings, SOO, Quote, Administrative), a single Assigned person, a project reference picked from the same Panel Project Reference list panel orders use, a Description that supports checklists, watchers, attachments, and comments with @-mentions. Reach it from the Dashboard's Panel Tasks card or the Departments dropdown's Panels group. Create with New Panel Task; new tasks start New and you're auto-added as a watcher. The Open pill counts everything not Completed or Canceled; the other pills count each group. Status changes, assignee changes, comments, and checklist toggles send email like the other departments. A task also has a SAP # field. A Panel Order's standard tasks run in order: a task waiting its turn is Awaiting Pre-Req, its page names what it waits for, and it becomes Ready when those are done.",
     render: () => (
       <>
         <P>
@@ -3136,7 +3155,7 @@ const SECTIONS: ManualSection[] = [
       "engineer",
     ],
     searchText:
-      "Panel Engineering Capacity shows each panel engineer's task hours day by day or week by week against 8 hours a day less time off. Everyone with the Engineer role on Panel User Roles gets a row; a task assigned only to people who aren't engineers waits in the backlog until it's dragged onto one. A task's estimated hours are spread evenly over the working days, Monday to Friday, between its start and due dates, and split evenly between its assignees. Blue is up to 85% of capacity, amber over 85%, red over 100%; a week is red if any day in it is. A panel Super User or an ARC admin can change where amber starts. A company holiday takes the day off everyone. Click a person to see their task bars, click a day to see the tasks behind it. Hover a bar for its hours a day and total. In Days view, plan by dragging: move a bar, drag an end to change a date, drag a bar onto another person, or drag a backlog task onto a person and a day. Nothing saves until Save changes, which is when the assignment emails go out; Discard throws the plan away. Tasks with no assignee, dates or hours wait in the backlog with the reason. Complete tasks don't count. Panel Time Off records who is out, the first and last day, and hours off each day; a whole day off moves the person's task hours to the days around it, a part day lowers that day's capacity. A panel Super User or an ARC admin can mark an entry as a company holiday, with no person; it applies to everyone. Both are for people on Panel User Roles and ARC admins; Viewers can look but not change time off.",
+      "Panel Engineering Capacity shows each panel engineer's task hours day by day or week by week against 8 hours a day less time off. Everyone with the Engineer role on Panel User Roles gets a row, and so does anyone an ARC admin sets On capacity for there; a task assigned only to people without a row waits in the backlog until it's dragged onto one. A task's estimated hours are spread evenly over the working days, Monday to Friday, between its start and due dates, and split evenly between its assignees. Blue is up to 85% of capacity, amber over 85%, red over 100%; a week is red if any day in it is. A panel Super User or an ARC admin can change where amber starts. A company holiday takes the day off everyone. Click a person to see their task bars, click a day to see the tasks behind it. Hover a bar for its hours a day and total. In Days view, plan by dragging: move a bar, drag an end to change a date, drag a bar onto another person, or drag a backlog task onto a person and a day. Nothing saves until Save changes, which is when the assignment emails go out; Discard throws the plan away. Tasks with no assignee, dates or hours wait in the backlog with the reason. Complete tasks don't count. Panel Time Off records who is out, the first and last day, and hours off each day; a whole day off moves the person's task hours to the days around it, a part day lowers that day's capacity. A panel Super User or an ARC admin can mark an entry as a company holiday, with no person; it applies to everyone. Both are for people on Panel User Roles and ARC admins; Viewers can look but not change time off.",
     render: () => (
       <>
         <P>
@@ -3166,7 +3185,9 @@ const SECTIONS: ManualSection[] = [
           Roles get a row. A task whose assignees include an engineer shows on
           that engineer's row, at their share; a task assigned only to people
           who aren't engineers waits in the backlog, saying so, until it's
-          dragged onto one.
+          dragged onto one. An ARC admin can give someone without the
+          Engineer role a row too, by setting <strong>On capacity</strong> to
+          Yes on their row in Admin → Panel User Roles.
         </P>
         <P>
           Where amber starts is shown above the grid. A panel{" "}

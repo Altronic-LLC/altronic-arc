@@ -169,7 +169,7 @@ from the ~30 real tasks of each kind in the export: Drawing 24h (median, 3–56,
 Non-Production / Improvement / Internal), Priority (High / Medium / Low), SAP#
 (text), Project/Job (text). The first export didn't request `customFields`,
 so their values weren't seen; `-Export` now asks for them, and `-Plan` maps
-Work Type and Priority (SAP# and Project/Job not yet). The account also carries ~40 Wrike template fields
+Work Type, Priority and SAP# (Project/Job not yet). The account also carries ~40 Wrike template fields
 (risk, budget, RACI…) that the panel space doesn't use.
 
 ## What maps to what
@@ -184,6 +184,7 @@ Work Type and Priority (SAP# and Project/Job not yet). The account also carries 
 | `dates.start` / `dates.due` | `StartDate` / `DueDate` | date part only, written at 12:00 UTC (ARC's date-only rule). Backlog-type dates are left blank. |
 | `effortAllocation.totalEffort` (minutes) | `EstimatedHours` | ÷ 60, two decimals. Blank when mode is `None` or absent. |
 | the "Work Type" and "Priority" custom fields (found by title) | `WorkType`, `Priority` | strict choices; a value ARC doesn't know is left blank and noted |
+| the "SAP#" custom field (found by title) | `SAPNumber` | text, trimmed; the panel team says it is NOT the Sales Order |
 | `description` (HTML) | `Description` | converted to plain text (lists become `- ` lines), plus "Imported from Wrike: `<permalink>`" |
 | comments | `Communication` | one record each, original author and time (US Eastern, like every ARC record), oldest first, tagged "— imported from Wrike" |
 | — | `TaskType` | not written: Wrike has no equivalent |
@@ -257,7 +258,10 @@ tester needs to change one, change it in Wrike instead.
 - **Custom fields**: Work Type and Priority map to Panel Tasks' `WorkType` and
   `Priority`, found by the field's title in the exported `customfields-*.json`
   (`-Export` saves them); a value ARC doesn't know is left blank and noted.
-  SAP# and Project/Job are not mapped.
+  SAP# maps to `SAPNumber` as text. Project/Job is not mapped.
+- **The chain and the order hold don't apply to imported tasks**: they have
+  no `ChainStep` and no Panel Order, so nothing opens or holds them
+  automatically. The chain starts with orders raised in ARC.
 
 ## Open questions for Tim
 

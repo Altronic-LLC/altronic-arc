@@ -31,6 +31,7 @@ export function toPanelOrder(item: GraphListItem): PanelOrder {
         ? { lookupId: toInt(f.ProjectReferenceLookupId, 0), title: "" }
         : null),
     salesOrder: (f.SalesOrder as string) ?? "",
+    sapNumber: (f.SAPNumber as string) ?? "",
     purchaseOrder: (f.PurchaseOrder as string) ?? "",
     customerReference: (f.CustomerReference as string) ?? "",
     customer: (f.Customer as string) ?? "",

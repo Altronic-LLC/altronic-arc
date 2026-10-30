@@ -51,7 +51,7 @@
 
     Fields written (Panel Tasks internal names):
       Title, Status, WorkType and Priority (the space's "Work Type" and
-      "Priority" custom fields),
+      "Priority" custom fields), SAPNumber (the "SAP#" custom field, as text),
       ProjectReferenceLookupId (single lookup, bare integer),
       AssignedLookupId and Watchers (both multi-person, the two-key
       Collection(Edm.Int32) shape - every resolved Wrike responsible is
@@ -230,6 +230,7 @@ function Get-Normal($v) {
         Status = "$($v.Status)"
         WorkType = "$($v.WorkType)"
         Priority = "$($v.Priority)"
+        SAPNumber = "$($v.SAPNumber)".Trim()
         Project = "$(if ("$($v.Project)" -like 'new:*') { $v.Project } elseif ($v.Project) { [int]$v.Project })"
         Assigned = (@($v.Assigned) | Where-Object { $_ } | ForEach-Object { [int]$_ } | Sort-Object -Unique) -join ","
         Watchers = $watchers
@@ -249,6 +250,7 @@ function Get-LiveValues($f) {
         @(@($f.AssignedLookupId) | Where-Object { $_ })
     return @{
         Title = $f.Title; Status = $f.Status; WorkType = $f.WorkType; Priority = $f.Priority
+        SAPNumber = $f.SAPNumber
         Project = $f.ProjectReferenceLookupId; Assigned = $assigned
         Watchers = $watchers; Description = $f.Description
         StartDate = Get-SpDay $f.StartDate; DueDate = Get-SpDay $f.DueDate
@@ -259,13 +261,14 @@ function Get-LiveValues($f) {
 # Mapped values -> the Graph fields to send. $only limits it to some keys.
 function Get-GraphFields($v, $only) {
     $out = [ordered]@{}
-    $keys = if ($only) { $only } else { @("Title", "Status", "WorkType", "Priority", "Project", "Assigned", "Watchers", "Description", "StartDate", "DueDate", "EstimatedHours") }
+    $keys = if ($only) { $only } else { @("Title", "Status", "WorkType", "Priority", "SAPNumber", "Project", "Assigned", "Watchers", "Description", "StartDate", "DueDate", "EstimatedHours") }
     foreach ($k in $keys) {
         switch ($k) {
             "Title"          { $out.Title = $v.Title }
             "Status"         { $out.Status = $v.Status }
             "WorkType"       { $out.WorkType = if ($v.WorkType) { $v.WorkType } else { $null } }
             "Priority"       { $out.Priority = if ($v.Priority) { $v.Priority } else { $null } }
+            "SAPNumber"      { $out.SAPNumber = if ("$($v.SAPNumber)".Trim()) { "$($v.SAPNumber)".Trim() } else { $null } }
             "Project"        { $out.ProjectReferenceLookupId = if ($v.Project) { [int]$v.Project } else { $null } }
             "Assigned"       { $out["AssignedLookupId@odata.type"] = "Collection(Edm.Int32)"; $out.AssignedLookupId = [int[]]@($v.Assigned | Where-Object { $_ }) }
             "Watchers"       { $out["WatchersLookupId@odata.type"] = "Collection(Edm.Int32)"; $out.WatchersLookupId = [int[]]@($v.Watchers | Where-Object { $_ }) }
@@ -298,7 +301,7 @@ function Get-GraphAll($uri) {
     return $all
 }
 
-$TASK_SELECT = "Title,Status,WorkType,Priority,ProjectReferenceLookupId,Assigned,AssignedLookupId,Watchers,Description,StartDate,DueDate,EstimatedHours,LegacySource,ImportHash,Communication"
+$TASK_SELECT = "Title,Status,WorkType,Priority,SAPNumber,ProjectReferenceLookupId,Assigned,AssignedLookupId,Watchers,Description,StartDate,DueDate,EstimatedHours,LegacySource,ImportHash,Communication"
 function Get-LiveTasks {
     $byLegacy = @{}
     foreach ($it in (Get-GraphAll "$graph/lists/$TASKS_LIST/items?`$expand=fields(`$select=$TASK_SELECT)&`$top=500")) {
@@ -554,6 +557,10 @@ if ($Plan) {
         $d.Field = $customFieldDefs | Where-Object { $_.title -eq $d.Title } | Select-Object -First 1
         if (-not $d.Field) { Write-Host "  no '$($d.Title)' custom field in the export - re-run -Export to bring it over" -ForegroundColor Yellow }
     }
+    # SAP#: a text custom field, copied as it is (Tim, 2026-10-30: it lives on
+    # the task AND the order; Wrike only has it on the task).
+    $sapField = $customFieldDefs | Where-Object { $_.title -eq "SAP#" } | Select-Object -First 1
+    if (-not $sapField) { Write-Host "  no 'SAP#' custom field in the export - re-run -Export to bring it over" -ForegroundColor Yellow }
 
     $statusById = @{}
     foreach ($wf in $workflows) { foreach ($s in $wf.customStatuses) { $statusById[$s.id] = $s } }
@@ -749,7 +756,11 @@ if ($Plan) {
             }
         }
 
-        $custom = @{ WorkType = ""; Priority = "" }
+        $custom = @{ WorkType = ""; Priority = ""; SAPNumber = "" }
+        if ($sapField) {
+            $sv = @($t.customFields) | Where-Object { $_.id -eq $sapField.id } | Select-Object -First 1
+            if ($sv -and "$($sv.value)".Trim()) { $custom.SAPNumber = "$($sv.value)".Trim() }
+        }
         foreach ($d in $dropdowns) {
             if (-not $d.Field) { continue }
             $cfv = @($t.customFields) | Where-Object { $_.id -eq $d.Field.id } | Select-Object -First 1
@@ -764,6 +775,7 @@ if ($Plan) {
         $desc = ("$desc`n`nImported from Wrike: $($t.permalink)").Trim()
         $mapped = @{
             Title = "$($t.title)".Trim(); Status = $statusMap[$statusName]; WorkType = $custom.WorkType; Priority = $custom.Priority
+            SAPNumber = $custom.SAPNumber
             Project = $projectId; Assigned = $assigned
             Watchers = @($resolved | ForEach-Object { $_.id })
             Description = $desc
@@ -978,7 +990,7 @@ if ($Apply) {
                 $itemId = [int]$created.id; $entry.ArcId = $itemId
                 $back = Write-ImportHash $itemId $it.srcHash
                 if ("$($back.fields.LegacySource)" -ne $it.legacySource) { throw "LegacySource did not read back" }
-                $odd = Get-StoredDifferently $it.mapped $back @("Title", "Status", "WorkType", "Priority", "Project", "Assigned", "Watchers", "Description", "StartDate", "DueDate", "EstimatedHours")
+                $odd = Get-StoredDifferently $it.mapped $back @("Title", "Status", "WorkType", "Priority", "SAPNumber", "Project", "Assigned", "Watchers", "Description", "StartDate", "DueDate", "EstimatedHours")
                 if ($odd.Count) { $entry.Warning = "stored differently: $($odd -join ', ')" }
                 $entry.Result = "created"
             } elseif ($it.action -in "update", "rehash") {

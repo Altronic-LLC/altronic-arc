@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { panelRights, panelTeamAccess } from "./panelRoles";
+import { capacityPeople, panelRights, panelTeamAccess } from "./panelRoles";
+import type { PanelRole, PanelRoleEntry } from "@/types/task";
 
 describe("panelRights", () => {
   it("no roles → no rights", () => {
@@ -97,5 +98,34 @@ describe("panelTeamAccess: capacity settings and company holidays", () => {
     expect(panelTeamAccess({ roles: ["Manager"], isArcAdmin: false, resolving: false }).capacityHint).toMatch(
       /Super User/,
     );
+  });
+});
+
+describe("capacityPeople", () => {
+  const row = (id: number, name: string, role: PanelRole, onCapacity = false): PanelRoleEntry => ({
+    id,
+    user: { displayName: name, email: `${name.toLowerCase()}@example.com`, lookupId: id },
+    role,
+    note: "",
+    onCapacity,
+  });
+
+  it("gives every Engineer a row, and anyone else only when On capacity is set", () => {
+    const people = capacityPeople([
+      row(1, "Ana", "Engineer"),
+      row(2, "Ben", "Manager", true),
+      row(3, "Cy", "Tech"),
+      row(4, "Di", "Engineer", false),
+    ]);
+    expect(people.map((p) => p.displayName)).toEqual(["Ana", "Ben", "Di"]);
+  });
+
+  it("gives a person one row however many role rows they have", () => {
+    const people = capacityPeople([row(1, "Ana", "Engineer"), { ...row(5, "Ana", "Super User", true), user: row(1, "Ana", "Engineer").user }]);
+    expect(people).toHaveLength(1);
+  });
+
+  it("skips a row with nobody on it", () => {
+    expect(capacityPeople([{ ...row(1, "Ana", "Engineer"), user: null }])).toEqual([]);
   });
 });

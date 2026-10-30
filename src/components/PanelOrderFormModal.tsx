@@ -45,6 +45,7 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [salesOrder, setSalesOrder] = useState("");
+  const [sapNumber, setSapNumber] = useState("");
   const [purchaseOrder, setPurchaseOrder] = useState("");
   const [customerReference, setCustomerReference] = useState("");
   const [customer, setCustomer] = useState("");
@@ -114,6 +115,7 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
         status: "Submitted" as PanelOrderStatus,
         projectLookupId: projectId ? parseInt(projectId, 10) : null,
         salesOrder: salesOrder.trim() || undefined,
+        sapNumber: sapNumber.trim() || undefined,
         purchaseOrder: purchaseOrder.trim() || undefined,
         customerReference: customerReference.trim() || undefined,
         customer: customer || undefined,
@@ -199,12 +201,21 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
             </FieldLabel>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FieldLabel label="Sales Order">
               <input
                 type="text"
                 value={salesOrder}
                 onChange={(e) => setSalesOrder(e.target.value)}
+                className="select"
+                disabled={busy}
+              />
+            </FieldLabel>
+            <FieldLabel label="SAP #">
+              <input
+                type="text"
+                value={sapNumber}
+                onChange={(e) => setSapNumber(e.target.value)}
                 className="select"
                 disabled={busy}
               />

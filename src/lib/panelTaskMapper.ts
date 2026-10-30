@@ -46,6 +46,9 @@ export function toPanelTask(item: GraphListItem): PanelTask {
     orderRef:
       parseLookupSingle(f.PanelOrderRef) ??
       (f.PanelOrderRefLookupId ? { lookupId: toInt(f.PanelOrderRefLookupId, 0), title: "" } : null),
+    chainStep: toNumberOrNull(f.ChainStep),
+    statusBeforeHold: statusBeforeHold(f.StatusBeforeHold),
+    sapNumber: (f.SAPNumber as string) ?? "",
     assigned: assignedPeople(f.Assigned, f.AssignedLookupId),
     description: (f.Description as string) ?? "",
     startDate: parseSpDate(f.StartDate),
@@ -96,6 +99,11 @@ function assignedPeople(expanded: unknown, lookupIds: unknown): Person[] {
   if (single) return [single];
   const ids = Array.isArray(lookupIds) ? lookupIds : lookupIds ? [lookupIds] : [];
   return ids.map((id) => toInt(id, 0)).filter((id) => id > 0).map((lookupId) => ({ lookupId, displayName: "" }));
+}
+
+/** The status a held task goes back to; blank = the order didn't hold it. */
+function statusBeforeHold(raw: unknown): PanelTask["statusBeforeHold"] {
+  return typeof raw === "string" && raw.trim() ? normalisePanelTaskStatus(raw.trim()) : null;
 }
 
 function clampWorkType(raw: string | undefined): PanelTaskWorkType | null {

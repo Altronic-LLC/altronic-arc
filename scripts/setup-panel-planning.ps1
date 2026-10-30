@@ -4,7 +4,7 @@
     Tim 2026-10-29). Idempotent; -WhatIf reports only.
 
 .DESCRIPTION
-    Six SharePoint changes. The internal names are the contract with
+    Eleven SharePoint changes. The internal names are the contract with
     src/api/panelTasks.ts, panelTaskTemplates.ts, panelSettings.ts and
     panelTimeOff.ts. RUN IT BEFORE THE DEPLOY that ships them: ARC's reads
     select the new columns, and selecting a column a list hasn't got fails the
@@ -37,6 +37,17 @@
     8. Panel Tasks gains Priority: a single choice of High / Medium / Low (the
        Wrike custom field). If a Priority column is already there, its missing
        choices are added. Strict: must match PANEL_TASK_PRIORITIES.
+    9. Panel Tasks gains three columns (Tim, 2026-10-30):
+         ChainStep        (shown "Chain Step")          number  a standard task's place in its order's chain
+         StatusBeforeHold (shown "Status Before Hold")  text    the status to go back to when its order comes off hold
+         SAPNumber        (shown "SAP #")               text    the SAP number, copied from the order
+       Checked by writing all three on a throwaway task, reading them back
+       and deleting it.
+   10. Panel Order Headers gains SAPNumber (shown "SAP #", text) - the job's
+       SAP number, which the panel team says is NOT the Sales Order.
+   11. Panel User Roles gains OnCapacity (shown "On Capacity", yes/no,
+       default No) - gives a non-Engineer a row on Panel Engineering Capacity.
+       ARC's read copes without it, but the toggle stays off until it exists.
 
     Every change is read back; a 2xx is not evidence. Prints the two new list
     ids for VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID and VITE_SP_PANEL_SETTINGS_LIST_ID.
@@ -62,6 +73,7 @@ $siteId = "coopermachineryservices.sharepoint.com,fdf31131-2076-4618-923b-a1856e
 $graph = "https://graph.microsoft.com/v1.0/sites/$siteId"
 $tasksListId = "17a33ee1-c4aa-439b-9dc0-6269a8e04767"    # Panel Tasks
 $ordersListId = "8561acf4-b583-459b-aafd-2106803a70c7"   # Panel Order Headers
+$rolesListId = "2d67d242-7419-453f-a388-7454bf3e7f4b"    # Panel User Roles
 
 # Must match PANEL_TASK_TYPES in src/types/task.ts.
 $taskTypes = @("Drawings", "BOM", "SOO", "Programming", "Quote", "Administrative")
@@ -330,6 +342,55 @@ if ($pc -and -not $pc.choice) {
     if (($back -join "`n") -ne ($priorities -join "`n")) { throw "Priority didn't read back with the three choices: $($back -join ' | ')" }
     Write-Host "  added and read back" -ForegroundColor Green
 }
+
+# Adds a plain column if it isn't there. Returns $true when it exists (or was
+# just added) - $false only under -WhatIf when it's still to come.
+function Ensure-Column($listId, $listName, $def) {
+    if (Get-Column $listId $def.name) { Write-Host "  EXISTS  $listName.$($def.name)" -ForegroundColor Yellow; return $true }
+    if ($WhatIf) { Write-Host "  WOULD ADD  $listName.$($def.name) ('$($def.displayName)')" -ForegroundColor Cyan; return $false }
+    Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$listId/columns" -ContentType "application/json" -Body ($def | ConvertTo-Json -Depth 5) | Out-Null
+    if (-not (Get-Column $listId $def.name)) { throw "$listName.$($def.name) didn't read back after it was added." }
+    Write-Host "  added    $listName.$($def.name)" -ForegroundColor Green
+    return $true
+}
+
+# --- 9. Panel Tasks: chain, hold, SAP # ---------------------------------------
+# ARC's read selects all three: RUN THIS BEFORE THE DEPLOY.
+Write-Host "`n=== Panel Tasks: ChainStep, StatusBeforeHold, SAPNumber ===" -ForegroundColor Cyan
+$taskCols = @(
+    @{ name = "ChainStep"; displayName = "Chain Step"; number = @{ decimalPlaces = "none" }
+       description = "A standard task's place in its Panel Order's chain (the template's order). Set by ARC." },
+    @{ name = "StatusBeforeHold"; displayName = "Status Before Hold"; text = @{}
+       description = "The status to go back to when this task's Panel Order comes off hold. Set by ARC." },
+    @{ name = "SAPNumber"; displayName = "SAP #"; text = @{}
+       description = "The SAP number. Copied from the Panel Order when a standard task is raised." }
+)
+$allThere = $true
+foreach ($c in $taskCols) { if (-not (Ensure-Column $tasksListId "Panel Tasks" $c)) { $allThere = $false } }
+if ($allThere -and -not $WhatIf) {
+    # A 2xx is not evidence: write all three on a throwaway task and read them back.
+    $created = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$tasksListId/items" -ContentType "application/json" `
+        -Body (@{ fields = @{ Title = "ARC setup check - delete me"; Status = "New"; ChainStep = 3; StatusBeforeHold = "In Progress"; SAPNumber = "SETUP-CHECK" } } | ConvertTo-Json -Depth 4)
+    try {
+        $back = Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$tasksListId/items/$($created.id)?`$expand=fields(`$select=ChainStep,StatusBeforeHold,SAPNumber)"
+        if ("$($back.fields.ChainStep)" -ne "3" -or "$($back.fields.StatusBeforeHold)" -ne "In Progress" -or "$($back.fields.SAPNumber)" -ne "SETUP-CHECK") {
+            throw "The new Panel Tasks columns didn't read back: ChainStep='$($back.fields.ChainStep)' StatusBeforeHold='$($back.fields.StatusBeforeHold)' SAPNumber='$($back.fields.SAPNumber)'."
+        }
+        Write-Host "  write/read-back OK" -ForegroundColor Green
+    } finally {
+        Invoke-MgGraphRequest -Method DELETE -Uri "$graph/lists/$tasksListId/items/$($created.id)" | Out-Null
+    }
+}
+
+# --- 10. Panel Order Headers: SAP # -------------------------------------------
+Write-Host "`n=== Panel Order Headers: SAPNumber ===" -ForegroundColor Cyan
+Ensure-Column $ordersListId "Panel Order Headers" @{ name = "SAPNumber"; displayName = "SAP #"; text = @{}
+    description = "The job's SAP number - not the Sales Order." } | Out-Null
+
+# --- 11. Panel User Roles: On capacity -----------------------------------------
+Write-Host "`n=== Panel User Roles: OnCapacity ===" -ForegroundColor Cyan
+Ensure-Column $rolesListId "Panel User Roles" @{ name = "OnCapacity"; displayName = "On Capacity"; boolean = @{}; defaultValue = @{ value = "0" }
+    description = "Yes = a row on Panel Engineering Capacity although the role isn't Engineer." } | Out-Null
 
 if ($WhatIf) { Write-Host "`n-WhatIf - nothing was changed.`n" -ForegroundColor Yellow; exit 0 }
 

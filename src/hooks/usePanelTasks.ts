@@ -39,6 +39,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { PANEL_PROJECTS_KEY } from "./usePanelOrders";
 import { autoWatchers, mergePeople } from "@/lib/people";
 import { useRequirePanelTeamEdit } from "./usePanelRoles";
+import { advanceChainAfter } from "./usePanelOrderChain";
+import { isPanelTaskDone, normalisePanelTaskStatus } from "@/lib/panelTaskStatus";
 
 // =============================================================================
 // Panel Tasks hooks — mirrors usePanelOrders.ts's optimistic-update infra,
@@ -135,6 +137,15 @@ export function useUpdatePanelTaskFields() {
           watchers: ctx.prevTask.watchers,
           assignees: ctx.prevTask.assigned,
         });
+        // A chained standard task just finished: open the next step.
+        const to = normalisePanelTaskStatus(String(fields.Status ?? ""));
+        if (
+          ctx.prevTask.chainStep !== null &&
+          to !== ctx.prevTask.status &&
+          isPanelTaskDone(to)
+        ) {
+          void advanceChainAfter(qc, id, actor);
+        }
       }
       if ("Description" in fields && ctx?.prevTask) {
         fireChecklistToggleAlert({
@@ -680,6 +691,7 @@ function applyFieldsLocally(t: PanelTask, fields: Record<string, unknown>): Pane
   if ("WorkType" in fields) next.workType = (fields.WorkType as PanelTask["workType"]) ?? null;
   if ("Priority" in fields) next.priority = (fields.Priority as PanelTask["priority"]) ?? null;
   if ("Description" in fields) next.description = (fields.Description as string) ?? "";
+  if ("SAPNumber" in fields) next.sapNumber = (fields.SAPNumber as string) ?? "";
   next.modifiedAt = new Date();
   return next;
 }
@@ -700,6 +712,8 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
         return "Priority updated.";
       case "Description":
         return "Description updated.";
+      case "SAPNumber":
+        return "SAP # updated.";
       default:
         return "Panel task updated.";
     }

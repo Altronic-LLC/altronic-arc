@@ -33,6 +33,8 @@ const PANEL_FIELD_SELECT = [
   "ProjectReferenceLookupId",
   "ProjectReference",
   "SalesOrder",
+  // SAP# (Tim, 2026-10-30) — added by scripts/setup-panel-planning.ps1 step 10.
+  "SAPNumber",
   "PurchaseOrder",
   "CustomerReference",
   "Customer",
@@ -59,6 +61,8 @@ function loadMockStoreFromStorage(): PanelOrder[] | null {
       ...o,
       createdAt: new Date(o.createdAt),
       modifiedAt: new Date(o.modifiedAt),
+      // Stores written before SAP# (2026-10-30) have none.
+      sapNumber: o.sapNumber ?? "",
       comments: o.comments.map((c) => ({
         ...c,
         timestamp: new Date(c.timestamp),
@@ -192,6 +196,7 @@ export async function updatePanelOrderFields(
     if ("Title" in fields) next.title = fields.Title as string;
     if ("Status" in fields) next.status = fields.Status as PanelOrder["status"];
     if ("SalesOrder" in fields) next.salesOrder = (fields.SalesOrder as string) ?? "";
+    if ("SAPNumber" in fields) next.sapNumber = (fields.SAPNumber as string) ?? "";
     if ("PurchaseOrder" in fields) next.purchaseOrder = (fields.PurchaseOrder as string) ?? "";
     if ("CustomerReference" in fields)
       next.customerReference = (fields.CustomerReference as string) ?? "";
@@ -384,6 +389,7 @@ export async function createPanelOrder(input: {
   status?: PanelOrder["status"];
   projectLookupId?: number | null;
   salesOrder?: string;
+  sapNumber?: string;
   purchaseOrder?: string;
   customerReference?: string;
   customer?: string;
@@ -406,6 +412,7 @@ export async function createPanelOrder(input: {
           }
         : null,
       salesOrder: input.salesOrder ?? "",
+      sapNumber: input.sapNumber ?? "",
       purchaseOrder: input.purchaseOrder ?? "",
       customerReference: input.customerReference ?? "",
       customer: input.customer ?? "",
@@ -430,6 +437,7 @@ export async function createPanelOrder(input: {
   };
   if (input.projectLookupId) fields.ProjectReferenceLookupId = input.projectLookupId;
   if (input.salesOrder) fields.SalesOrder = input.salesOrder;
+  if (input.sapNumber) fields.SAPNumber = input.sapNumber;
   if (input.purchaseOrder) fields.PurchaseOrder = input.purchaseOrder;
   if (input.customerReference) fields.CustomerReference = input.customerReference;
   if (input.customer) fields.Customer = input.customer;

@@ -506,7 +506,7 @@ src/
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
-│   ├── panelRoles.ts             Panel User Roles list CRUD
+│   ├── panelRoles.ts             Panel User Roles list CRUD — the OnCapacity toggle read with a fallback (a missing column must not lock the panel team out)
 │   ├── panelTimeOff.ts           Panel Time Off CRUD (panelTeam site) — the panel team's "Where am I?", person + date range, or a company holiday (nobody); delete OK
 │   ├── panelTaskTemplates.ts     Panel Task Templates CRUD — the standard tasks a new Panel Order raises; unset = the built-in four, read-only; delete OK
 │   ├── panelSettings.ts          Panel Settings (Title/Value rows) — the Capacity amber threshold; unset = 85%, read-only
@@ -630,6 +630,7 @@ src/
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded) + usePanelTeamAccess / useRequirePanelTeamEdit / …TemplateManager / …CapacityManager
 │   ├── usePanelTimeOff.ts        Panel Time Off queries + team-gated writes; a company holiday also needs a Super User / ARC admin
 │   ├── usePanelOrderTasks.ts     Raising an order's standard tasks (with the order, or the order page's button) + the ONE email to its engineer
+│   ├── usePanelOrderChain.ts     Runs the chain (a finished step opens the next) and the order's hold/release over its tasks
 │   ├── usePanelTaskTemplates.ts  Panel Task Templates query + manager-gated writes
 │   ├── usePanelSettings.ts       Panel Settings query + the Super User-gated amber threshold write
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
@@ -780,8 +781,9 @@ src/
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
-│   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays) (pure)
+│   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays) + capacityPeople (who gets a Capacity row) (pure)
 │   ├── panelOrderTasks.ts        A Panel Order's standard tasks (pure) — defaults, titles, who's assigned, what's missing, the one email
+│   ├── panelOrderChain.ts        A Panel Order's task chain + hold (pure) — start status, what a finished step opens, hold/release writes, the Ready email
 │   ├── panelSettings.ts          Panel Settings (pure) — keys, defaults, reading Title/Value rows, the amber threshold rule
 │   ├── capacity.ts               SHARED capacity engine (pure) — generic work items + time off → per-person day/week load, amber >85% / red >100%, backlog
 │   ├── panelCapacity.ts          Panels' adapter: PanelTask → CapacityWorkItem (Engineering/Operations get one beside their mappers)
@@ -6184,10 +6186,17 @@ share spread over that person's own working days and time off. A plan kept in
 the browser before this stored one `assignee`; `parsePlan` reads it as a
 one-person list. The Wrike import now assigns every resolved responsible.
 
-**Only the Engineer role gets a row** (Tim, 2026-10-29) — `onlyPeople` +
-`notOnGridReason` on the grid. An item shows on each engineer it names, at
+**Only engineers get a row** (Tim, 2026-10-29) — `onlyPeople` +
+`notOnGridReason` on the grid. "Engineer" means the Engineer role on Panel
+User Roles, OR **On capacity** ticked on any of the person's role rows (the
+`OnCapacity` yes/no column, Tim 2026-10-30, the panel team's answer to "add a
+toggle in roles"); `capacityPeople` in `lib/panelRoles.ts` is the rule, one
+row per person. That list decides who may open the panel tools at all, so
+`listPanelRoles` retries ONCE without `OnCapacity` when the column is missing
+and remembers (the MRB Watchers arrangement); the toggle then refuses to
+write, naming the setup script. An item shows on each engineer it names, at
 their share; an item naming NO engineer goes to the backlog with "Assigned to
-X, who isn't an Engineer on Panel User Roles" (never dropped), where dragging
+X, who isn't on the capacity grid (Panel User Roles)" (never dropped), where dragging
 it onto an engineer REPLACES its assignees with that engineer (a backlog carry
 assigns; a bar drag swaps one person).
 
@@ -6296,7 +6305,7 @@ button on Panel Orders). Rules:
   `useCreatePanelOrder` creates the order FIRST, then each active template in
   SortOrder as a Panel Task — one at a time, best-effort: a refused task is
   named in a toast and never fails the order. It returns `{ order, raised }`.
-- **Each task:** status New, the template's type and hours, NO dates (so it
+- **Each task:** the template's type and hours, NO dates (so it
   waits in the Capacity backlog), the order's Project Reference, and
   `PanelOrderRef` → the order (a single lookup, bare integer; a project can
   carry several orders, so the project alone can't say which). Title is
@@ -6322,7 +6331,44 @@ button on Panel Orders). Rules:
   (`canManageTemplates`, `useRequirePanelTemplateManager` in the mutationFn).
   A short ordered list with up/down arrows — deliberately not a table.
 - **Task types BOM and Programming** were added for it (setup step 1).
-- **Work Type is Production Order** on every task an order raises.
+- **Work Type is Production Order** on every task an order raises, and each
+  copies the order's **SAP #** (`SAPNumber`, on both lists — the panel team
+  said SAP# and the Sales Order are different things, 2026-10-30). Changing
+  the order's SAP # later doesn't touch its tasks, like the engineer.
+
+**The order's tasks are CHAINED, and its hold carries them** (the panel
+team's answers + Tim, 2026-10-30). Rules in `lib/panelOrderChain.ts` (pure),
+run by `hooks/usePanelOrderChain.ts`. This is Wrike's rules 1 and 6–9 (see
+the review doc's "Wrike automation rules"), minus their faults:
+
+- **Each standard task stores `ChainStep`** — its template's SortOrder.
+  Raised as **New** when nothing earlier in the order is still to do, else
+  **Awaiting Pre-Req** (`chainStartStatus`). The whole batch counts as still
+  to do, so a step whose create failed still holds the later ones back.
+  Templates sharing a SortOrder run side by side.
+- **A step becoming done (Completed OR Canceled) opens the next**: every
+  chained task of the order still Awaiting Pre-Req whose earlier steps are all
+  done becomes **Ready**, and its assignees are emailed ("Ready to start"; the
+  person who finished the step before is left off). Fired from
+  `useUpdatePanelTaskFields`' onSuccess (the only Status write), reading the
+  list FRESH. **It keeps its planned assignee** — Wrike handed it to whoever
+  finished the last step (question 8: no). A task somebody already started is
+  never reopened. A waiting task's page says what it waits for (`ChainNote`).
+- **An order going On Hold puts its open tasks On Hold - Internal** and
+  stores each one's status in `StatusBeforeHold`; coming off hold restores it
+  and clears the column (`holdWrites` / `releaseWrites`, from
+  `useUpdatePanelOrderFields`' onSuccess). Completed, Canceled and
+  already-held tasks are left alone; a task moved by hand while held keeps
+  what it was given. Coming off hold also opens any step whose turn came
+  meanwhile (`chainTasksReadyToOpen`). Wrike's rules set every task to one
+  status — finished ones too — and lost where each was.
+- **Best-effort per task, one at a time**: the order's or task's own change
+  has landed, so a task that couldn't be moved is named in a toast.
+- **Not built, by the team's answers**: no reassigning (Q8), no Pending
+  Scheduling → Ready rule (Q9), and a task waiting for approval does NOT hold
+  its order (Q11). No per-task email when a hold moves a task.
+- Imported Wrike tasks have no `ChainStep`, so the chain only applies to
+  orders raised in ARC.
 
 **Panel Tasks carry Wrike's two custom fields** (Tim, 2026-10-29): **Work
 Type** (`WorkType`: Production Order / Non-Production / Improvement /
@@ -6335,14 +6381,18 @@ the form and the task page; dot chips on the list and page header
 filters in the URL (`?workType=`, `?priority=`, `none` = not set). The
 mapper reads an unknown value as not set. The Wrike import maps both by the
 custom field's TITLE (read from the exported `/customfields`), leaving an
-unknown value blank with a note. SAP# and Project/Job are still unmapped.
+unknown value blank with a note. The **SAP#** text custom field goes to the
+task's `SAPNumber` (hashed like any other field). Project/Job is still unmapped.
 
 `scripts/setup-panel-planning.ps1` makes every SharePoint change above in one
 idempotent run (`-WhatIf` first): TaskType choices, PanelOrderRef, the
 Templates list (seeded), the Settings list, Time Off's CompanyHoliday +
-TeamMember not required, Assigned → multi, WorkType and Priority. **Run it BEFORE the deploy** —
-ARC's reads select PanelOrderRef and CompanyHoliday, and it writes Assigned in
-the multi shape. It prints the two new list ids for the repo variables.
+TeamMember not required, Assigned → multi, WorkType and Priority, then
+(2026-10-30) Panel Tasks' ChainStep / StatusBeforeHold / SAPNumber (written
+and read back on a throwaway task), Panel Order Headers' SAPNumber and Panel
+User Roles' OnCapacity. **Run it BEFORE the deploy** —
+ARC's reads select PanelOrderRef, CompanyHoliday, ChainStep, StatusBeforeHold
+and both SAPNumbers, and it writes Assigned in the multi shape. It prints the two new list ids for the repo variables.
 
 **Wrike import** — `scripts/import-wrike-panel-tasks.ps1` + `docs/WRIKE-IMPORT.md`.
 Re-runnable on purpose (Tim: pull during testing, run again before go-live):

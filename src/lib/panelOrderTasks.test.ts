@@ -15,7 +15,12 @@ const ANA: Person = { displayName: "Ana Ruiz", email: "ana.ruiz@example.com", lo
 const BEN: Person = { displayName: "Ben Okafor", email: "ben.okafor@example.com" };
 
 const TEMPLATES: PanelTaskTemplate[] = DEFAULT_PANEL_TASK_TEMPLATES.map((t, i) => ({ ...t, id: i + 1 }));
-const ORDER = { id: 12, title: "Skid panel build", projectRef: { lookupId: 3, title: "P-0001" } };
+const ORDER = {
+  id: 12,
+  title: "Skid panel build",
+  projectRef: { lookupId: 3, title: "P-0001" },
+  sapNumber: "9200-0004-00",
+};
 
 function task(id: number, title: string, orderId: number | null): PanelTask {
   return {
@@ -27,6 +32,9 @@ function task(id: number, title: string, orderId: number | null): PanelTask {
     priority: null,
     projectRef: null,
     orderRef: orderId === null ? null : { lookupId: orderId, title: "" },
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
     assigned: [],
     description: "",
     startDate: null,
@@ -88,8 +96,12 @@ describe("standardTaskInputs", () => {
       estimatedHours: 24,
       projectLookupId: 3,
       orderLookupId: 12,
+      chainStep: 1,
+      sapNumber: "9200-0004-00",
       assigned: [ANA],
     });
+    // The chain runs in template order.
+    expect(inputs.map((i) => i.chainStep)).toEqual([1, 2, 3, 4]);
   });
 
   it("leaves every task unassigned when the order has no engineer", () => {

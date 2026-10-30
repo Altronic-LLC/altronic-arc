@@ -5,6 +5,7 @@ import { usePanelTasks, useSavePanelTaskPlan } from "@/hooks/usePanelTasks";
 import { usePanelTimeOff } from "@/hooks/usePanelTimeOff";
 import { usePanelRoles, usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import type { Person } from "@/types/task";
+import { capacityPeople } from "@/lib/panelRoles";
 import { DAILY_CAPACITY_HOURS, type CapacityChange, type CapacityWorkItem } from "@/lib/capacity";
 import { panelTaskIdOf, panelTaskWorkItem } from "@/lib/panelCapacity";
 import { PanelTeamGate } from "@/components/PanelTeamGate";
@@ -20,7 +21,8 @@ import { amberPercentProblem, DEFAULT_PANEL_SETTINGS } from "@/lib/panelSettings
 //
 // This view is only the Panels-specific part: the gate, the header, and the
 // data — Panel tasks through their adapter (lib/panelCapacity.ts), Panel Time
-// Off, and everyone holding the Engineer role, who always gets a row. The
+// Off, and the people who get a row: everyone holding the Engineer role, plus
+// anyone ticked "On capacity" on Panel User Roles (Tim, 2026-10-30). The
 // grid itself is the shared components/CapacityGrid (rules: lib/capacity.ts),
 // so Engineering or Operations can show the same screen over their own tasks.
 // =============================================================================
@@ -71,13 +73,7 @@ function CapacityScreen() {
   );
   const settings = usePanelSettings();
   const amberPercent = settings.data?.amberPercent ?? DEFAULT_PANEL_SETTINGS.amberPercent;
-  const engineers = useMemo(
-    () =>
-      (rolesQuery.data ?? [])
-        .filter((e) => e.role === "Engineer" && e.user?.displayName)
-        .map((e) => e.user as Person),
-    [rolesQuery.data],
-  );
+  const engineers = useMemo(() => capacityPeople(rolesQuery.data ?? []), [rolesQuery.data]);
 
   if (tasksQuery.isLoading) return <LoadingTasks noun="panel capacity" />;
 
@@ -118,14 +114,15 @@ function CapacityScreen() {
         items={items}
         timeOff={timeOff}
         people={engineers}
-        // Only the Engineer role gets a row (Tim, 2026-10-29); anyone else's
-        // work waits in the backlog, to be dragged onto an engineer.
+        // Only engineers get a row (Tim, 2026-10-29) — the Engineer role, or
+        // On capacity ticked on Panel User Roles; anyone else's work waits in
+        // the backlog, to be dragged onto one of them.
         onlyPeople
         notOnGridReason={notAnEngineer}
         amberRatio={amberPercent / 100}
         onSave={access.canEdit ? save : undefined}
         draftKey="panels"
-        emptyHint="Nobody holds the Engineer role on Panel User Roles yet, so there are no rows. An ARC admin adds engineers under Admin → Panel User Roles."
+        emptyHint="Nobody on Panel User Roles is an Engineer or ticked On capacity yet, so there are no rows. An ARC admin sets that under Admin → Panel User Roles."
       />
     </div>
   );
@@ -134,8 +131,8 @@ function CapacityScreen() {
 function notAnEngineer(assignees: Person[]): string {
   const names = assignees.map((p) => p.displayName || "someone").join(", ");
   return assignees.length === 1
-    ? `Assigned to ${names}, who isn't an Engineer on Panel User Roles`
-    : `Assigned to ${names} — none an Engineer on Panel User Roles`;
+    ? `Assigned to ${names}, who isn't on the capacity grid (Panel User Roles)`
+    : `Assigned to ${names} — none on the capacity grid (Panel User Roles)`;
 }
 
 /**

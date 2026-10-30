@@ -71,9 +71,11 @@ describe("useCreatePanelOrder with standard tasks", () => {
     ]);
     const stored = tasksForOrder(await listPanelTasks(), order.id);
     expect(stored).toHaveLength(4);
+    // Chained in template order: the first is New, the rest wait their turn.
+    expect(stored.map((t) => t.status)).toEqual(["New", "Awaiting Pre-Req", "Awaiting Pre-Req", "Awaiting Pre-Req"]);
+    expect(stored.map((t) => t.chainStep)).toEqual([1, 2, 3, 4]);
     for (const t of stored) {
       expect(t.assigned).toEqual([ANA]);
-      expect(t.status).toBe("New");
       expect(t.workType).toBe("Production Order");
       expect(t.startDate).toBeNull();
       expect(t.projectRef?.lookupId).toBe(1);
@@ -123,6 +125,17 @@ describe("useCreatePanelOrder with standard tasks", () => {
     expect(order.id).toBeGreaterThan(0);
     expect(raised?.tasks).toHaveLength(3);
     expect(raised?.failed.map((f) => f.title)).toEqual(["New skid — BOM Creation"]);
+    // The refused step still holds back the ones after it.
+    expect(raised?.tasks.map((t) => t.status)).toEqual(["New", "Awaiting Pre-Req", "Awaiting Pre-Req"]);
+  });
+
+  it("copies the order's SAP # onto every task", async () => {
+    const { result } = renderHook(() => useCreatePanelOrder(), { wrapper: wrapper() });
+    const { order } = await act(() =>
+      result.current.mutateAsync({ title: "New skid", sapNumber: "9200-0009-00", standardTasks: true }),
+    );
+    const stored = tasksForOrder(await listPanelTasks(), order.id);
+    expect(stored.map((t) => t.sapNumber)).toEqual(Array(4).fill("9200-0009-00"));
   });
 });
 
@@ -141,6 +154,9 @@ describe("useRaiseMissingStandardTasks", () => {
     const raise = renderHook(() => useRaiseMissingStandardTasks(), { wrapper: wrapper() });
     const raised = await act(() => raise.result.current.mutateAsync({ order, existing }));
     expect(raised.tasks.map((t) => t.title)).toEqual(["New skid — BOM Creation"]);
+    // Drawing isn't done yet, so the missing BOM waits behind it.
+    expect(raised.tasks[0].status).toBe("Awaiting Pre-Req");
+    expect(raised.tasks[0].chainStep).toBe(2);
     expect(createPanelTask).toHaveBeenCalledTimes(1);
     expect(tasksForOrder(await listPanelTasks(), order.id)).toHaveLength(4);
     expect(mail.change).toHaveBeenCalledTimes(1);

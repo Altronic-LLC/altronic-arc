@@ -51,10 +51,10 @@ beforeEach(() => {
   mocks.isAdmin = true;
   mocks.email = "tech.one@altronic-llc.com";
   mocks.entries = [
-    { id: 1, user: person("Tech.One@altronic-llc.com"), role: "Tech", note: "" },
-    { id: 2, user: person("tech.one@altronic-llc.com"), role: "Engineer", note: "" },
-    { id: 3, user: person("someone.else@altronic-llc.com"), role: "Admin", note: "" },
-    { id: 4, user: person("tech.one@altronic-llc.com"), role: null, note: "blank role row" },
+    { id: 1, user: person("Tech.One@altronic-llc.com"), role: "Tech", note: "", onCapacity: false },
+    { id: 2, user: person("tech.one@altronic-llc.com"), role: "Engineer", note: "", onCapacity: false },
+    { id: 3, user: person("someone.else@altronic-llc.com"), role: "Admin", note: "", onCapacity: false },
+    { id: 4, user: person("tech.one@altronic-llc.com"), role: null, note: "blank role row", onCapacity: false },
   ];
 });
 
@@ -88,7 +88,7 @@ describe("Panel User Roles mutation guards", () => {
   it("lets an admin add, update and remove", async () => {
     const { wrapper } = makeWrapper();
     const add = renderHook(() => useAddPanelRole(), { wrapper });
-    await add.result.current.mutateAsync({ user: person("n@altronic-llc.com"), role: "Tech", note: "" });
+    await add.result.current.mutateAsync({ user: person("n@altronic-llc.com"), role: "Tech", note: "", onCapacity: false });
     const upd = renderHook(() => useUpdatePanelRole(), { wrapper });
     await upd.result.current.mutateAsync({ id: 1, role: "Manager" });
     const rem = renderHook(() => useRemovePanelRole(), { wrapper });
@@ -105,7 +105,7 @@ describe("Panel User Roles mutation guards", () => {
     const upd = renderHook(() => useUpdatePanelRole(), { wrapper });
     const rem = renderHook(() => useRemovePanelRole(), { wrapper });
     await expect(
-      add.result.current.mutateAsync({ user: person("n@altronic-llc.com"), role: "Tech", note: "" }),
+      add.result.current.mutateAsync({ user: person("n@altronic-llc.com"), role: "Tech", note: "", onCapacity: false }),
     ).rejects.toThrow(/Only admins/);
     await expect(upd.result.current.mutateAsync({ id: 1, role: "Manager" })).rejects.toThrow(/Only admins/);
     await expect(rem.result.current.mutateAsync(1)).rejects.toThrow(/Only admins/);

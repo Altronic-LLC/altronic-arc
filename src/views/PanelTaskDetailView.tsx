@@ -11,6 +11,7 @@ import {
   Flag,
   FolderOpen,
   Gauge,
+  Hash,
   ListChecks,
   Pencil,
   Tag,
@@ -38,6 +39,7 @@ import {
   PANEL_TASK_WORK_TYPES,
   PANEL_TASK_PRIORITIES,
   type Comment,
+  type PanelTask,
   type Person,
 } from "@/types/task";
 import { isPanelTaskDone, panelTaskGroupLabel, panelTaskStatusesIn } from "@/lib/panelTaskStatus";
@@ -62,6 +64,7 @@ import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import { estimatedHoursProblem, parseEstimatedHours, scheduleProblem } from "@/lib/capacity";
 import { panelTaskWorkItem } from "@/lib/panelCapacity";
 import { pushToast } from "@/components/Toast";
+import { chainWaitingOn, ORDER_HOLD_TASK_STATUS } from "@/lib/panelOrderChain";
 
 export function PanelTaskDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -306,6 +309,7 @@ export function PanelTaskDetailView() {
                     </optgroup>
                   ))}
                 </select>
+                <ChainNote task={task} allTasks={allTasks} />
               </SideField>
 
               <SideField label="Work Type" icon={<Briefcase />}>
@@ -375,6 +379,20 @@ export function PanelTaskDetailView() {
                   </Link>
                 </SideField>
               )}
+
+              <SideField label="SAP #" icon={<Hash />}>
+                <input
+                  type="text"
+                  defaultValue={task.sapNumber}
+                  key={`sap-${task.id}-${task.sapNumber}`}
+                  onBlur={(e) => {
+                    if (e.target.value !== task.sapNumber) patch({ SAPNumber: e.target.value });
+                  }}
+                  placeholder="SAP number"
+                  aria-label="SAP #"
+                  className="select"
+                />
+              </SideField>
 
               <SideField label="Assigned" icon={<User />}>
                 {/* Several people may be assigned (Tim, 2026-10-29); the Capacity
@@ -660,6 +678,42 @@ function CapacityNote({ problem }: { problem: string | null }) {
           </>
         )}
       </span>
+    </p>
+  );
+}
+
+/**
+ * Why a standard task is waiting, under its Status: the earlier steps of its
+ * order still to do, or the order's hold and the status it will go back to.
+ */
+function ChainNote({
+  task,
+  allTasks,
+}: {
+  task: PanelTask;
+  allTasks: readonly PanelTask[];
+}) {
+  const waitingOn = chainWaitingOn(task, allTasks);
+  if (task.statusBeforeHold && task.status === ORDER_HOLD_TASK_STATUS) {
+    return (
+      <p className="mt-1 text-xs text-fg-muted">
+        On hold with its order. It goes back to {task.statusBeforeHold} when the order comes off hold.
+      </p>
+    );
+  }
+  if (!waitingOn.length) return null;
+  return (
+    <p className="mt-1 text-xs text-fg-muted">
+      Opens as Ready when{" "}
+      {waitingOn.map((t, i) => (
+        <span key={t.id}>
+          {i > 0 && (i === waitingOn.length - 1 ? " and " : ", ")}
+          <Link to={`/panels/task/${t.id}`} className="text-accent hover:underline">
+            {t.title}
+          </Link>
+        </span>
+      ))}{" "}
+      {waitingOn.length === 1 ? "is" : "are"} done.
     </p>
   );
 }

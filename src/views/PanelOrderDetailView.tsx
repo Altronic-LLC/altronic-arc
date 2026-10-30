@@ -336,6 +336,20 @@ export function PanelOrderDetailView() {
                 />
               </SideField>
 
+              <SideField label="SAP #" icon={<Hash />}>
+                <input
+                  type="text"
+                  defaultValue={order.sapNumber}
+                  key={`sap-${order.id}-${order.sapNumber}`}
+                  onBlur={(e) => {
+                    if (e.target.value !== order.sapNumber) patch({ SAPNumber: e.target.value });
+                  }}
+                  placeholder="The job's SAP number"
+                  aria-label="SAP #"
+                  className="select"
+                />
+              </SideField>
+
               <SideField label="Purchase Order" icon={<Hash />}>
                 <input
                   type="text"
