@@ -62,7 +62,7 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
-import { buildRequestEmailTitle } from "@/lib/buildRequestAlerts";
+import { buildRequestEmailTitle, buildRequestPartEmailTitle } from "@/lib/buildRequestAlerts";
 import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
@@ -217,6 +217,38 @@ function invalidateItems(qc: QueryClient) {
 
 function patchItem(id: number, transform: (i: BuildRequestItem) => BuildRequestItem) {
   return (items: BuildRequestItem[]) => items.map((i) => (i.id === id ? transform(i) : i));
+}
+
+/**
+ * The parent request of a part, for its emails — from the cache, or LOADED if
+ * the requests list hasn't arrived yet. Undefined when it can't be read; the
+ * email then names the part alone rather than not going out.
+ */
+function loadParentBuildRequest(
+  qc: QueryClient,
+  item: Pick<BuildRequestItem, "buildRequestLookupId">,
+): Promise<BuildRequest | undefined> {
+  return qc
+    .ensureQueryData({ queryKey: BUILD_REQUESTS_KEY, queryFn: listBuildRequests })
+    .then((brs) => brs.find((b) => b.id === item.buildRequestLookupId))
+    .catch(() => undefined);
+}
+
+/**
+ * Who a part email is about: the part, named with its build request
+ * (BusinessIT#56) — the part number alone is the same on every request
+ * that uses that part.
+ */
+async function partEmailTarget(
+  qc: QueryClient,
+  item: Pick<BuildRequestItem, "id" | "partNumber" | "buildRequestLookupId">,
+) {
+  const parent = await loadParentBuildRequest(qc, item);
+  return {
+    kind: "buildRequestItem" as const,
+    id: item.id,
+    title: buildRequestPartEmailTitle(item, parent),
+  };
 }
 
 function errorToast(message: string) {
@@ -942,9 +974,29 @@ export function useUpdateBuildRequestItemFields() {
       if (!("Part_x0020_Status" in fields) || !prevItem) return;
       const from = prevItem.partStatus ?? "Not set";
       const to = String(fields.Part_x0020_Status ?? "Not set");
-      const generic = () =>
+      // The parent is LOADED if the cache hasn't got it: every part email
+      // names its build request (BusinessIT#56), and a part edited before the
+      // requests list arrived must still reach the engineer, not only the
+      // part's watchers.
+      void loadParentBuildRequest(qc, prevItem).then((parent) => {
+        // A part REACHING Production Complete gets its own alert (the
+        // request's engineer, watchers and requestor plus the part's
+        // watchers), replacing the generic note rather than doubling it.
+        // `to !== from` is the guard; presence of the field is not a change.
+        if (parent && to === "Production Complete" && to !== from) {
+          fireBuildRequestPartProductionCompleteAlert({
+            buildRequest: parent,
+            part: prevItem,
+            actor: actorRef.current,
+          });
+          return;
+        }
         fireFieldChangeAlert({
-          target: { kind: "buildRequestItem", id, title: prevItem.partNumber },
+          target: {
+            kind: "buildRequestItem",
+            id,
+            title: buildRequestPartEmailTitle(prevItem, parent),
+          },
           fieldLabel: "part status",
           from,
           to,
@@ -952,31 +1004,7 @@ export function useUpdateBuildRequestItemFields() {
           watchers: prevItem.watchers,
           assignees: [],
         });
-      // `to !== from` is the guard; presence of the field is not a change.
-      if (to !== "Production Complete" || to === from) {
-        generic();
-        return;
-      }
-      // A part REACHING Production Complete gets its own alert (the request's
-      // engineer, watchers and requestor plus the part's watchers), replacing
-      // the generic note rather than doubling it. The parent is LOADED if the
-      // cache hasn't got it — a part edited before the requests list arrived
-      // must still reach the engineer, not only the part's watchers.
-      void qc
-        .ensureQueryData({ queryKey: BUILD_REQUESTS_KEY, queryFn: listBuildRequests })
-        .then((brs) => brs.find((b) => b.id === prevItem.buildRequestLookupId))
-        .catch(() => undefined)
-        .then((parent) => {
-          if (parent) {
-            fireBuildRequestPartProductionCompleteAlert({
-              buildRequest: parent,
-              part: prevItem,
-              actor: actorRef.current,
-            });
-          } else {
-            generic();
-          }
-        });
+      });
     },
     onError: (err, _vars, ctx) => {
       rollbackItem(qc, ctx);
@@ -1092,13 +1120,15 @@ export function useAddBuildRequestItemComment() {
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
-        void notifyMentions({
-          recipients,
-          sender,
-          target: { kind: "buildRequestItem", id: item.id, title: item.partNumber },
-          commentExcerpt: htmlToPlainText(comment.bodyHtml),
-          attachments: [],
-        });
+        void partEmailTarget(qc, item).then((target) =>
+          notifyMentions({
+            recipients,
+            sender,
+            target,
+            commentExcerpt: htmlToPlainText(comment.bodyHtml),
+            attachments: [],
+          }),
+        );
       }
 
       // A part comment fans out BOTH ways — onto the linked task AND onto its
@@ -1169,7 +1199,7 @@ export function useEditBuildRequestItemComment() {
       const item = items?.find((i) => i.id === id);
       if (!item) return;
       const sender: Person = { displayName: prevComment.authorName, email: prevComment.authorEmail };
-      const targetRef = { kind: "buildRequestItem" as const, id: item.id, title: item.partNumber };
+      const targetRef = partEmailTarget(qc, item);
 
       if (renotify) {
         const recipients = commentRenotifyRecipients({
@@ -1181,13 +1211,15 @@ export function useEditBuildRequestItemComment() {
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {
-          void notifyMentions({
-            recipients,
-            sender,
-            target: targetRef,
-            commentExcerpt: htmlToPlainText(newBodyHtml),
-            attachments: [],
-          });
+          void targetRef.then((target) =>
+            notifyMentions({
+              recipients,
+              sender,
+              target,
+              commentExcerpt: htmlToPlainText(newBodyHtml),
+              attachments: [],
+            }),
+          );
         }
       } else {
         const prevMentions = new Set(
@@ -1197,13 +1229,15 @@ export function useEditBuildRequestItemComment() {
           (r) => !prevMentions.has(r.email.toLowerCase()),
         );
         if (newMentions.length > 0) {
-          void notifyMentions({
-            recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
-            sender,
-            target: targetRef,
-            commentExcerpt: htmlToPlainText(newBodyHtml),
-            attachments: [],
-          });
+          void targetRef.then((target) =>
+            notifyMentions({
+              recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
+              sender,
+              target,
+              commentExcerpt: htmlToPlainText(newBodyHtml),
+              attachments: [],
+            }),
+          );
         }
       }
     },

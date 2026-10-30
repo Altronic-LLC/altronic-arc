@@ -36,6 +36,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.208.1",
+    date: "2026-10-30",
+    changes: [
+      "Build Requests: every email about a part now names its build request as well as the part number — \"672255-01 on BR_2026-0081 — CPU-95 controller retrofit\" — so two open requests for the same part can be told apart in your inbox. Part emails start a new Outlook conversation from today; older ones stay where they are",
+    ],
+  },
+  {
     version: "0.208.0",
     date: "2026-10-29",
     changes: [

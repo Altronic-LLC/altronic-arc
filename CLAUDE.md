@@ -9495,7 +9495,11 @@ Five things that are load-bearing:
 - **Every call site for one kind must build the SAME title**, or its emails
   split into two conversations. An audit on 2026-10-12 found Build Requests
   with three spellings ("BR-12", "BR-12 — title", the mirror's own); they all
-  go through `buildRequestEmailTitle` now. A new email about an existing kind
+  go through `buildRequestEmailTitle` now. A build request PART goes through
+  `buildRequestPartEmailTitle` — "672255-01 on BR_2026-0081 — name", since one
+  part number can sit on several open requests (BusinessIT#56). It reads the
+  parent from the cache or `ensureQueryData`, best-effort; with no parent it
+  falls back to the part number alone. A new email about an existing kind
   reuses that kind's existing label — check its other call sites.
 - **`target.thread` overrides the default.** An `EmailThread` files the email
   under ANOTHER item's conversation: a quote component's comments go to the
