@@ -52,9 +52,9 @@ describe("QuotesView", () => {
 
   it("Total is the quote's Total at the quoted quantities", async () => {
     renderList();
-    // IQ-WAB-0002: 25 sensors at the 25+ break ($87.70) = $2,192.50, plus one
-    // spare part at $76.80 = $2,269.30.
-    await waitFor(() => expect(screen.getAllByText("$2,269.30").length).toBeGreaterThan(0));
+    // IQ-WAB-0002: 25 sensors at the 25+ break ($88.75) = $2,218.75, plus one
+    // spare part at $76.80 = $2,295.55.
+    await waitFor(() => expect(screen.getAllByText("$2,295.55").length).toBeGreaterThan(0));
   });
 
   it("filters by the status pills, with counts", async () => {
@@ -72,6 +72,48 @@ describe("QuotesView", () => {
     await waitForRows();
     expect(screen.getAllByText("IQ-INN-0003-R1").length).toBeGreaterThan(0);
     expect(screen.queryByText("IQ-WAB-0002-R1")).toBeNull();
+  });
+
+  it("shows each quote's customer reference / description in its own column, and searches it", async () => {
+    renderList();
+    await waitForRows();
+    expect(screen.getByRole("button", { name: "Sort by Reference / description" })).toBeInTheDocument();
+    const row = within(screen.getByRole("table")).getByText("IQ-COO-0001-R2").closest("tr")!;
+    expect(row).toHaveTextContent("RFQ 4471 — CPU-95 retrofit kits");
+  });
+
+  it("shows each quote's customer type, and filters by it — Not set included", async () => {
+    renderList("/sales/quotes?type=Cooper");
+    await waitForRows();
+    expect(screen.getByRole("button", { name: "Sort by Type" })).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("IQ-COO-0001-R2").closest("tr")).toHaveTextContent("Cooper");
+    expect(within(table).queryByText("IQ-WAB-0002-R1")).toBeNull();
+    expect(within(table).queryByText("IQ-INN-0003-R1")).toBeNull();
+  });
+
+  it("type=none lists the quotes with no customer type", async () => {
+    renderList("/sales/quotes?type=none");
+    await waitForRows();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("IQ-WAB-0002-R1")).toBeInTheDocument();
+    expect(within(table).queryByText("IQ-COO-0001-R2")).toBeNull();
+  });
+
+  it("picking a type in the filter narrows the list", async () => {
+    renderList();
+    await waitForRows();
+    await userEvent.click(screen.getByRole("button", { name: "Customer type" }));
+    await userEvent.click(within(await screen.findByRole("listbox")).getByText("Cooper"));
+    await waitFor(() => expect(within(screen.getByRole("table")).queryByText("IQ-WAB-0002-R1")).toBeNull());
+    expect(within(screen.getByRole("table")).getByText("IQ-COO-0001-R2")).toBeInTheDocument();
+  });
+
+  it("finds a quote by its customer reference", async () => {
+    renderList("/sales/quotes?q=NGI-2000");
+    await waitForRows();
+    expect(screen.getAllByText("IQ-INN-0003-R1").length).toBeGreaterThan(0);
+    expect(screen.queryByText("IQ-COO-0001-R2")).toBeNull();
   });
 
   it("a manager sees the GM % column and New quote", async () => {

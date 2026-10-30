@@ -3,7 +3,7 @@ import { SITES, SP_PMO_SITE_URL, SP_QUOTES_LIST_ID, USE_MOCK } from "./config";
 import { resolvePeopleLookupIds } from "./siteUsers";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem, Person } from "@/types/task";
-import type { Quote, QuoteLink, QuoteStatus } from "@/types/quote";
+import type { Quote, QuoteCustomerType, QuoteStatus } from "@/types/quote";
 import {
   QUOTE_ITEM_LEVEL_SELECT,
   QUOTE_SELECT,
@@ -41,9 +41,15 @@ import { nextMockId, quoteMockClone, quoteMockDb } from "@/data/quoteMockData";
 // is valid on one site collection only, and `useCurrentUser()` carries the
 // Engineering one.
 //
-// HYPERLINKS. EngineeringTaskLink / OperationsTaskLink never travel in the
-// create POST (a bare 400 that fails the whole create); `setQuoteLinks` writes
-// them in their OWN PATCH so a refusal costs only the link.
+// LINKS. The Engineering and Operations task a quote is linked to are NUMBER
+// columns holding the task's item id (EngineeringTaskId / OperationsTaskId),
+// and the projects are text titles — ordinary header fields, written through
+// `updateQuoteFields`. The old Hyperlink columns are left unread: Graph can't
+// write a Hyperlink column at all.
+//
+// ALTERNATES. A quote whose `Alternates` value couldn't be parsed refuses any
+// write to it (`AlternatesUnreadableError`) — replacing data we failed to read
+// is worse than an error.
 // =============================================================================
 
 const ENV_VAR = "VITE_SP_QUOTES_LIST_ID";
@@ -158,11 +164,11 @@ export interface QuoteCreateInput {
   budgetary: boolean;
   budgetaryText: string;
   quoteNotes: string;
+  customerReference?: string;
+  customerType?: QuoteCustomerType | null;
   /** The caller adds the creator; resolved against PMO here. */
   watchers: Person[];
   status?: QuoteStatus;
-  /** Phase 2 text column; normally blank on a new quote. */
-  engineeringProjectRef?: string;
 }
 
 /** Number, base and rev for a new row, computed from the list's current Titles. */
@@ -193,11 +199,17 @@ async function postQuote(numbering: QuoteNumbering, body: QuoteRowBody): Promise
       budgetary: body.budgetary,
       budgetaryText: body.budgetaryText,
       quoteNotes: body.quoteNotes,
+      customerReference: (body.customerReference ?? "").trim(),
+      customerType: body.customerType ?? null,
+      projectContext: body.projectContext ?? "",
+      alternates: (body.alternates ?? []).map((r) => ({ designator: r.designator, sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
+      alternatesCorrupt: false,
       comments: parseCommunication(body.communication ?? ""),
       watchers: body.watchers.map((p) => ({ ...p })),
-      engineeringTaskLink: null,
-      operationsTaskLink: null,
+      engineeringTaskId: body.engineeringTaskId ?? null,
+      operationsTaskId: body.operationsTaskId ?? null,
       engineeringProjectRef: (body.engineeringProjectRef ?? "").trim(),
+      operationsProjectRef: (body.operationsProjectRef ?? "").trim(),
       hasAttachments: false,
       createdBy: body.watchers[0] ? { ...body.watchers[0] } : null,
       createdAt: now,
@@ -255,7 +267,8 @@ export async function createQuote(input: QuoteCreateInput): Promise<Quote> {
       budgetary: input.budgetary,
       budgetaryText: input.budgetaryText,
       quoteNotes: input.quoteNotes,
-      engineeringProjectRef: input.engineeringProjectRef,
+      customerReference: input.customerReference,
+      customerType: input.customerType ?? null,
       watchers: input.watchers,
     },
   );
@@ -282,12 +295,24 @@ async function patchQuoteColumns(id: number, fields: Record<string, unknown>): P
   return updated;
 }
 
+/** Thrown when a quote's stored alternates table couldn't be read, so it won't be overwritten. */
+export class AlternatesUnreadableError extends Error {
+  constructor() {
+    super(
+      "This quote's alternates table couldn't be read, so ARC won't save over it. " +
+        "Check the Alternates column on the Quotes list in SharePoint.",
+    );
+    this.name = "AlternatesUnreadableError";
+  }
+}
+
 /**
  * Edit header fields, DIFFED against the row the edit started from: only
  * changed columns travel, and nothing is sent when nothing changed (the
  * previous row comes back). Number, base and rev are never edited.
  */
 export async function updateQuoteFields(id: number, changes: QuotePatch, previous: Quote): Promise<Quote> {
+  if (changes.alternates !== undefined && previous.alternatesCorrupt) throw new AlternatesUnreadableError();
   if (USE_MOCK) return mockReplace(id, (q) => applyQuotePatch(q, changes));
   const fields = buildQuoteUpdateFields(changes, previous);
   if (Object.keys(fields).length === 0) return previous;
@@ -300,38 +325,6 @@ export async function setQuoteWatchers(id: number, people: Person[]): Promise<Qu
   const resolved = await resolveQuotePeople(people);
   requireSomeResolved(people, resolved, "Watchers");
   return patchQuoteColumns(id, multiPersonField("Watchers", resolved));
-}
-
-/**
- * Set (or clear with `null`) the Phase-2 task links. A key left out is
- * untouched. Its OWN PATCH, never folded into another write — a Hyperlink
- * column is the fragile kind (the EIRReference lesson).
- */
-export async function setQuoteLinks(
-  id: number,
-  links: { engineeringTaskLink?: QuoteLink | null; operationsTaskLink?: QuoteLink | null },
-): Promise<Quote> {
-  const toColumn = (l: QuoteLink | null) => (l ? { Url: l.url, Description: l.description || l.url } : null);
-  if (USE_MOCK) {
-    return mockReplace(id, (q) => ({
-      ...q,
-      ...(links.engineeringTaskLink !== undefined && {
-        engineeringTaskLink: links.engineeringTaskLink ? { ...links.engineeringTaskLink } : null,
-      }),
-      ...(links.operationsTaskLink !== undefined && {
-        operationsTaskLink: links.operationsTaskLink ? { ...links.operationsTaskLink } : null,
-      }),
-    }));
-  }
-  const fields: Record<string, unknown> = {};
-  if (links.engineeringTaskLink !== undefined) fields.EngineeringTaskLink = toColumn(links.engineeringTaskLink);
-  if (links.operationsTaskLink !== undefined) fields.OperationsTaskLink = toColumn(links.operationsTaskLink);
-  if (Object.keys(fields).length === 0) {
-    const current = await getQuote(id);
-    if (!current) throw new Error(`Quote ${id} not found`);
-    return current;
-  }
-  return patchQuoteColumns(id, fields);
 }
 
 // -----------------------------------------------------------------------------

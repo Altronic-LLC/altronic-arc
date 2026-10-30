@@ -33,7 +33,7 @@ export const QUOTE_CUSTOMER_COLUMNS: SortColumn<QuoteCustomer>[] = [
   { key: "code", label: "Code", value: (c) => c.code },
   { key: "customerNumber", label: "Customer #", value: (c) => c.customerNumber },
   { key: "active", label: "Active", value: (c) => (c.active ? "Yes" : "No") },
-  { key: "note", label: "Note", value: (c) => c.note, noFilter: true },
+  { key: "note", label: "Customer notes", value: (c) => c.note, noFilter: true },
 ];
 
 export function QuoteCustomersView() {
@@ -197,7 +197,7 @@ function CustomersRegister({ canManage }: { canManage: boolean }) {
                       <dd className="font-mono">{c.customerNumber || "—"}</dd>
                       {c.note && (
                         <>
-                          <dt>Note</dt>
+                          <dt>Customer notes</dt>
                           <dd>{c.note}</dd>
                         </>
                       )}

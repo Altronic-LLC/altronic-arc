@@ -127,7 +127,6 @@ jobs:
           # Set all five after scripts/create-quote-lists.ps1 has run.
           VITE_SP_QUOTES_LIST_ID: ${{ vars.VITE_SP_QUOTES_LIST_ID }}
           VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ASSEMBLIES_LIST_ID }}
-          VITE_SP_QUOTE_ITEMS_LIST_ID: ${{ vars.VITE_SP_QUOTE_ITEMS_LIST_ID }}
           VITE_SP_QUOTE_CUSTOMERS_LIST_ID: ${{ vars.VITE_SP_QUOTE_CUSTOMERS_LIST_ID }}
           VITE_SP_QUOTE_ROLES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ROLES_LIST_ID }}
           VITE_SP_PRICING_ROLES_LIST_ID: ${{ vars.VITE_SP_PRICING_ROLES_LIST_ID }}

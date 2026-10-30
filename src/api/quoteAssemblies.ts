@@ -17,18 +17,16 @@ import { nextMockId, quoteMockClone, quoteMockDb } from "@/data/quoteMockData";
 import { isNotFound } from "./quotes";
 
 // =============================================================================
-// Quote Assemblies — the final assemblies on a quote (PMO site). No comment
-// thread and no attachments (decided). `QuoteRef` is a SINGLE lookup: both
-// halves selected on read, a bare integer on write.
+// Quote Assemblies — the LINES on a quote (PMO site), each carrying its final
+// material, labor and overhead. No comment thread and no attachments (the
+// quote's own Discussion and data package cover them). `QuoteRef` is a SINGLE
+// lookup: both halves selected on read, a bare integer on write.
 //
 // Fetched WHOLE and scoped to a quote in the browser — a few rows per quote,
 // and a `$filter` on a lookup needs an index past 5,000 items anyway.
 //
-// Assemblies CAN be deleted (section 13): they are the composition of a draft,
-// and a new rev preserves what was sent. **The caller deletes the assembly's
-// Quote Items FIRST** — SharePoint has no cascade on these lookups, so an
-// assembly deleted first leaves its components pointing at nothing, on no
-// screen, still counted in nothing.
+// Lines CAN be deleted (section 13): they are the composition of a draft, and
+// a new rev preserves what was sent.
 // =============================================================================
 
 const ENV_VAR = "VITE_SP_QUOTE_ASSEMBLIES_LIST_ID";
@@ -68,8 +66,8 @@ export async function createQuoteAssembly(input: QuoteAssemblyInput): Promise<Qu
       quoteId: input.quoteId,
       lineNo: input.lineNo,
       quotedQty: input.quotedQty,
-      lineType: input.lineType,
-      cost: input.cost,
+      materialCost: input.materialCost,
+      laborCost: input.laborCost,
       materialOverheadPct: input.materialOverheadPct,
       altronicPartNumber: input.altronicPartNumber.trim(),
       sapPartNumber: input.sapPartNumber.trim(),
@@ -78,6 +76,8 @@ export async function createQuoteAssembly(input: QuoteAssemblyInput): Promise<Qu
       priceBreaks: input.priceBreaks.map((b) => ({ ...b })),
       targetGM: input.targetGM,
       manualPrice: input.manualPrice,
+      targetPrice: input.targetPrice,
+      estimatedEau: input.estimatedEau,
       customerPrice: input.customerPrice,
     };
     quoteMockDb.assemblies.push(row);
@@ -111,10 +111,7 @@ export async function updateQuoteAssemblyFields(
   return readAssembly(listId, id);
 }
 
-/**
- * Delete an assembly. A 404 resolves — it's already gone, which is what was
- * asked for. Delete its Quote Items FIRST (see the header).
- */
+/** Delete a line. A 404 resolves — it's already gone, which is what was asked for. */
 export async function deleteQuoteAssembly(id: number): Promise<void> {
   if (USE_MOCK) {
     quoteMockDb.assemblies = quoteMockDb.assemblies.filter((a) => a.id !== id);

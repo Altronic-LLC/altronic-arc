@@ -293,8 +293,11 @@ export function QuoteCustomerFormModal({
           )}
 
           <label className="flex flex-col gap-1 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-fg-muted">Note (optional)</span>
-            <textarea value={note} onChange={(ev) => setNote(ev.target.value)} rows={2} className="input" />
+            <span className="font-semibold uppercase tracking-wider text-fg-muted">Customer notes (optional)</span>
+            <textarea value={note} onChange={(ev) => setNote(ev.target.value)} rows={3} className="input" />
+            <span className="mt-1 block text-fg-muted">
+              Shown on every quote for this customer — terms, who quotes go to. Never printed.
+            </span>
           </label>
 
           {error && (

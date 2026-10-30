@@ -1,10 +1,4 @@
-import {
-  MAX_QUOTE_PRICE_BREAKS,
-  type QuoteAssembly,
-  type QuoteItem,
-  type QuoteLineType,
-  type QuotePriceBreak,
-} from "@/types/quote";
+import { MAX_QUOTE_PRICE_BREAKS, type QuoteAssembly, type QuotePriceBreak } from "@/types/quote";
 
 // =============================================================================
 // Insourcing quote pricing — the ONE place the maths lives.
@@ -20,29 +14,23 @@ import {
 //
 // What differs from AQT, each deliberately (docs/INSOURCING-QUOTING-DESIGN.md §6):
 //
-//   * **The margin is set ONCE, on the FINAL ASSEMBLY** (Ray, 2026-10-09).
-//     Components carry cost, material overhead and quantity only — no target
-//     GM, no sell price. An assembly's price is
-//     roundCents(Σ component extended cost ÷ (1 − assembly target GM/100)).
-//     Pricing each component at its own GM and summing let a handful of
-//     trivial parts move the assembly's margin, and meant adjusting a dozen
-//     margins to land one price.
-//   * **A quote line may be a standalone PART** (Ray, 2026-10-09): its cost
-//     and overhead live on the line itself and it has no components. From its
-//     loaded cost on it prices exactly like an assembly.
-//   * **Material overhead is a COST.** It is applied to the unit cost before
-//     the margin, and GM is reported against that LOADED cost. Reporting GM on
-//     the raw cost would overstate the margin by exactly the overhead.
-//   * **The quote's GM is WEIGHTED, never averaged** across assemblies:
+//   * **A line is costed from its FINAL cost** (Ray, 2026-10-29): material,
+//     labor, and overhead as a percent of MATERIAL —
+//       unit cost = material × (1 + overhead/100) + labor.
+//     Labor carries no overhead: the overhead is a material burden. There is
+//     no component breakdown any more; the tool takes the cost a part has
+//     already been worked out to and turns it into a selling price.
+//   * **Overhead is a COST.** It is applied before the margin, and GM is
+//     reported against that LOADED cost. Reporting GM on the raw cost would
+//     overstate the margin by exactly the overhead.
+//   * **The margin is set ONCE, on the line** — one target GM per line.
+//   * **The quote's GM is WEIGHTED, never averaged** across lines:
 //     (Σ price − Σ cost) ÷ Σ price.
-//   * **Rounding to the cent happens ONCE, on the assembly price.** Component
-//     costs keep full precision, so nothing compounds.
-//   * **Quantity breaks live on the ASSEMBLY**, and hold cost fixed, so GM
-//     falls as the break discount rises — which is the point of showing GM per
-//     tier.
+//   * **Rounding to the cent happens ONCE, on the line price.** Costs keep
+//     full precision, so nothing compounds.
+//   * **Quantity breaks live on the LINE**, and hold cost fixed, so GM falls
+//     as the break discount rises — which is the point of showing GM per tier.
 //   * **The AQT "user price" layer (channel discount + round up) is DEFERRED.**
-//     When it arrives it applies once, to the assembly price, never per
-//     component.
 //
 // Pure: no React, no api/, no Date.now(). Display formatting is the caller's
 // job — costs and profits come back at full precision; only prices are
@@ -65,18 +53,41 @@ function isNum(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n);
 }
 
-type CostInputs = Pick<QuoteItem, "cost" | "materialOverheadPct">;
+type CostInputs = Pick<QuoteAssembly, "materialCost" | "laborCost" | "materialOverheadPct">;
+
+/** The three parts of a line's unit cost, at full precision. */
+export interface QuoteCostBreakdown {
+  material: number;
+  /** material × overhead/100. */
+  overhead: number;
+  labor: number;
+  /** material + overhead + labor. */
+  total: number;
+}
 
 /**
- * Unit cost including material overhead: cost × (1 + overhead/100).
- * Overhead null counts as 0. null when no positive cost has been entered —
- * a zero-cost component isn't "free", it's not costed yet.
+ * A line's unit cost: material × (1 + overhead/100) + labor. Blank material,
+ * labor or overhead count as 0. null when the total isn't more than 0 — a
+ * line with no cost isn't "free", it isn't costed yet — or any input is
+ * negative.
  */
-export function loadedUnitCost(item: CostInputs): number | null {
-  if (!isNum(item.cost) || item.cost <= 0) return null;
-  const overhead = isNum(item.materialOverheadPct) ? item.materialOverheadPct : 0;
-  if (overhead < 0) return null;
-  return item.cost * (1 + overhead / 100);
+export function lineCostBreakdown(line: CostInputs): QuoteCostBreakdown | null {
+  const material = isNum(line.materialCost) ? line.materialCost : 0;
+  const labor = isNum(line.laborCost) ? line.laborCost : 0;
+  const pct = isNum(line.materialOverheadPct) ? line.materialOverheadPct : 0;
+  if (material < 0 || labor < 0 || pct < 0) return null;
+  const overhead = (material * pct) / 100;
+  const total = material + overhead + labor;
+  return total > 0 ? { material, overhead, labor, total } : null;
+}
+
+/** Why a line can't be costed — the FIRST thing wrong, as a sentence. null when it can. */
+function costProblem(line: CostInputs): string | null {
+  if (isNum(line.materialCost) && line.materialCost < 0) return "The material cost can't be negative.";
+  if (isNum(line.laborCost) && line.laborCost < 0) return "The labor cost can't be negative.";
+  if (isNum(line.materialOverheadPct) && line.materialOverheadPct < 0) return "Overhead can't be negative.";
+  if (lineCostBreakdown(line) === null) return "No cost entered — enter the material and/or labor cost.";
+  return null;
 }
 
 /** A usable target GM: 0 < GM < 100. GM 100 divides by zero; ≤ 0 is at or below cost. */
@@ -86,7 +97,7 @@ export function validGM(gm: unknown): gm is number {
 
 /**
  * Price from cost at a target GM: cost ÷ (1 − GM/100). AQT's formula, applied
- * ONCE to an assembly's total loaded cost. NOT rounded — the caller rounds.
+ * ONCE to a line's total cost. NOT rounded — the caller rounds.
  * null unless cost > 0 and 0 < GM < 100.
  */
 export function priceAtGM(cost: number | null, gm: number | null): number | null {
@@ -104,43 +115,6 @@ function gmOf(sell: number | null, cost: number | null): number | null {
 function markupOf(sell: number | null, cost: number | null): number | null {
   if (sell === null || cost === null || cost <= 0) return null;
   return ((sell - cost) / cost) * 100;
-}
-
-/**
- * One component's COST. A component carries no margin and no sell price —
- * the target GM is set once, on its final assembly (Ray, 2026-10-09).
- */
-export interface QuoteItemPricing {
-  itemId: number;
-  /** cost × (1 + overhead/100). */
-  loadedUnitCost: number | null;
-  /** loadedUnitCost × quantity (per ONE assembly). */
-  extendedCost: number | null;
-  /** What stops this component being costed, in words. null when complete. */
-  problem: string | null;
-}
-
-/** Why a component can't be costed — the FIRST thing missing, as a sentence. */
-function itemProblem(item: QuoteItem): string | null {
-  if (!isNum(item.cost)) return "No cost entered";
-  if (item.cost <= 0) return "Cost must be more than 0";
-  if (isNum(item.materialOverheadPct) && item.materialOverheadPct < 0) {
-    return "Material overhead can't be negative";
-  }
-  if (!isNum(item.quantity) || item.quantity <= 0) return "Quantity must be more than 0";
-  return null;
-}
-
-/** Cost one component line: loaded unit cost and extended (× quantity in ONE assembly). */
-export function priceQuoteItem(item: QuoteItem): QuoteItemPricing {
-  const loaded = loadedUnitCost(item);
-  const qtyOk = isNum(item.quantity) && item.quantity > 0;
-  return {
-    itemId: item.id,
-    loadedUnitCost: loaded,
-    extendedCost: loaded !== null && qtyOk ? loaded * item.quantity : null,
-    problem: itemProblem(item),
-  };
 }
 
 // -----------------------------------------------------------------------------
@@ -169,7 +143,7 @@ function rangeLabel(min: number, max: number | null): string {
 }
 
 /**
- * The quantity-break table for one assembly. Base tier first (1 up to the
+ * The quantity-break table for one line. Base tier first (1 up to the
  * first break, or "1+" with no breaks), then each break in quantity order.
  *
  * A tier's price is the base price less its discount, rounded to the cent;
@@ -239,28 +213,20 @@ export function priceBreakProblems(breaks: QuotePriceBreak[]): string[] {
 
 export interface QuoteAssemblyPricing {
   assemblyId: number;
-  /** "Part" lines are costed from their own cost + overhead, not components. */
-  lineType: QuoteLineType;
-  /** This assembly's components, in line order. Always empty for a Part line. */
-  items: QuoteItemPricing[];
-  /** The assembly's target GM, as entered (null when unset). */
+  /** material / overhead / labor / total; null when the line has no cost yet. */
+  cost: QuoteCostBreakdown | null;
+  /** The line's target GM, as entered (null when unset). */
   targetGM: number | null;
-  /**
-   * roundCents(unitCost ÷ (1 − targetGM/100)). null with no components, any
-   * component incomplete, or no valid target GM.
-   */
+  /** roundCents(unitCost ÷ (1 − targetGM/100)). null with no cost or no valid target GM. */
   computedPrice: number | null;
   /** The price quoted: the manual override if set, else the computed price. */
   price: number | null;
   /** True when `price` is the manual override — never mistake one for the other. */
   isManual: boolean;
-  /**
-   * Assembly: Σ component extendedCost (loaded); null if any is unknown.
-   * Part: cost × (1 + overhead/100); null with no positive cost.
-   */
+  /** material × (1 + overhead/100) + labor; null with no cost. */
   unitCost: number | null;
   profit: number | null;
-  /** WEIGHTED: (price − unitCost) ÷ price. */
+  /** (price − unitCost) ÷ price. */
   gmPct: number | null;
   markupPct: number | null;
   tiers: QuoteTierPricing[];
@@ -288,68 +254,32 @@ export function effectiveQuotedQty(qty: unknown): number {
   return isNum(qty) && Number.isInteger(qty) && qty >= 1 ? qty : 1;
 }
 
-function lineName(item: QuoteItem): string {
-  const pn = item.altronicPartNumber.trim();
-  return pn ? `Line ${item.lineNo} (${pn})` : `Line ${item.lineNo}`;
-}
-
-/**
- * Roll one final assembly's components up to its price, cost, GM and break
- * table. Only items whose `assemblyId` is this assembly's count — the caller
- * may pass a whole quote's items.
- */
-export function priceQuoteAssembly(
-  assembly: QuoteAssembly,
-  items: QuoteItem[],
-): QuoteAssemblyPricing {
-  const isPart = assembly.lineType === "Part";
+/** Price one line: its cost, price, GM, break table and Subtotal at the quoted quantity. */
+export function priceQuoteAssembly(assembly: QuoteAssembly): QuoteAssemblyPricing {
   const problems: string[] = [];
-  let priced: QuoteItemPricing[] = [];
-  let unitCost: number | null;
-
-  if (isPart) {
-    // A standalone PART carries its own cost; components are ignored (there
-    // should be none — the hooks refuse a Part with components).
-    unitCost = loadedUnitCost(assembly);
-    if (!isNum(assembly.cost)) problems.push("No cost entered for this part.");
-    else if (assembly.cost <= 0) problems.push("The part's cost must be more than 0.");
-    else if (isNum(assembly.materialOverheadPct) && assembly.materialOverheadPct < 0) {
-      problems.push("Material overhead can't be negative.");
-    }
-  } else {
-    const own = items
-      .filter((i) => i.assemblyId === assembly.id)
-      .sort((a, b) => a.lineNo - b.lineNo);
-    priced = own.map(priceQuoteItem);
-
-    if (own.length === 0) problems.push("No components yet.");
-    own.forEach((item, i) => {
-      const problem = priced[i].problem;
-      if (problem) problems.push(`${lineName(item)}: ${problem}.`);
-    });
-
-    const costKnown = own.length > 0 && priced.every((p) => p.extendedCost !== null);
-    unitCost = costKnown ? priced.reduce((sum, p) => sum + (p.extendedCost as number), 0) : null;
-  }
+  const cost = lineCostBreakdown(assembly);
+  const unitCost = cost?.total ?? null;
+  const problem = costProblem(assembly);
+  if (problem) problems.push(problem);
 
   const targetGM = isNum(assembly.targetGM) ? assembly.targetGM : null;
   const manualOk = isNum(assembly.manualPrice) && assembly.manualPrice > 0;
   if (assembly.targetGM === null || assembly.targetGM === undefined) {
     // A manual price stands on its own; a missing GM only matters without one.
-    if (!manualOk) problems.push(`No target GM set for this ${isPart ? "part" : "assembly"}.`);
+    if (!manualOk) problems.push("No target GM set for this line.");
   } else if (!validGM(assembly.targetGM)) {
     problems.push("The target GM must be between 0 and 100.");
   }
 
-  // The margin is applied ONCE, to the assembly's total cost, and rounded
-  // HERE and only here — see the header.
+  // The margin is applied ONCE, to the line's total cost, and rounded HERE
+  // and only here — see the header.
   const raw = priceAtGM(unitCost, assembly.targetGM);
   const computedPrice = raw === null ? null : roundCents(raw);
 
   let isManual = false;
   let price = computedPrice;
   if (assembly.manualPrice !== null && assembly.manualPrice !== undefined) {
-    if (isNum(assembly.manualPrice) && assembly.manualPrice > 0) {
+    if (manualOk) {
       isManual = true;
       price = roundCents(assembly.manualPrice);
     } else {
@@ -370,8 +300,7 @@ export function priceQuoteAssembly(
 
   return {
     assemblyId: assembly.id,
-    lineType: isPart ? "Part" : "Assembly",
-    items: priced,
+    cost,
     targetGM,
     computedPrice,
     price,
@@ -418,10 +347,10 @@ function assemblyLabel(a: QuoteAssembly): string {
 }
 
 /** Price every line, the quote Total at the quoted quantities, and one of each at the base tier. */
-export function priceQuote(assemblies: QuoteAssembly[], items: QuoteItem[]): QuotePricing {
+export function priceQuote(assemblies: QuoteAssembly[]): QuotePricing {
   const priced = [...assemblies]
     .sort((a, b) => a.lineNo - b.lineNo)
-    .map((a) => priceQuoteAssembly(a, items));
+    .map((a) => priceQuoteAssembly(a));
   const any = priced.length > 0;
   const totalPrice =
     any && priced.every((p) => p.price !== null)
@@ -448,5 +377,114 @@ export function priceQuote(assemblies: QuoteAssembly[], items: QuoteItem[]): Quo
     totalPrice,
     totalCost,
     gmPct: gmOf(totalPrice, totalCost),
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Target & volume summary (Ray, 2026-10-30)
+//
+// Where our price sits against the customer's TARGET price, and what a year
+// at their ESTIMATED EAU is worth: revenue, cost, GM % and GM $.
+//
+//   * Our price is the line's unit price AT ITS QUOTED QUANTITY — the price
+//     the customer is being quoted, the same figure as the Subtotal's.
+//   * Annual revenue = that unit price × EAU; annual cost = unit cost × EAU;
+//     GM $ = revenue − cost; GM % is weighted over the totals, never averaged.
+//   * A line missing a figure contributes nothing to a total that needs it,
+//     and `linesMissingEau` says how many, so a partial total never reads as
+//     the whole quote.
+//   * "vs target" is our price minus theirs: positive means we are ABOVE
+//     their target. The quote-level comparison is made only over the lines
+//     that have a price, a target AND an EAU — weighting by volume.
+// -----------------------------------------------------------------------------
+
+export interface QuoteLineTargetSummary {
+  assemblyId: number;
+  lineNo: number;
+  partNumber: string;
+  targetPrice: number | null;
+  /** Our unit price at the quoted quantity. */
+  unitPrice: number | null;
+  /** unitPrice − targetPrice. Positive = above their target. */
+  vsTarget: number | null;
+  /** vsTarget ÷ targetPrice, as a percent. */
+  vsTargetPct: number | null;
+  estimatedEau: number | null;
+  /** roundCents(unitPrice × EAU). */
+  annualRevenue: number | null;
+  annualCost: number | null;
+  /** annualRevenue − annualCost. */
+  annualGm: number | null;
+  /** GM % at our unit price. */
+  gmPct: number | null;
+}
+
+export interface QuoteTargetSummary {
+  lines: QuoteLineTargetSummary[];
+  /** Σ annual revenue over the lines that have one; null when none does. */
+  annualRevenue: number | null;
+  /** Σ annual GM $ over the lines with both revenue and cost; null when none. */
+  annualGm: number | null;
+  /** Weighted: Σ GM $ ÷ Σ revenue, over those same lines. */
+  annualGmPct: number | null;
+  /** Σ target × EAU, over lines with a price, a target and an EAU. */
+  targetRevenue: number | null;
+  /** Our revenue over those same lines − targetRevenue. Positive = above target. */
+  vsTarget: number | null;
+  vsTargetPct: number | null;
+  /** Lines with no EAU (or no price yet) — left out of the annual totals. */
+  linesMissingEau: number;
+  /** Lines with no target price. */
+  linesMissingTarget: number;
+}
+
+export function quoteTargetSummary(assemblies: QuoteAssembly[]): QuoteTargetSummary {
+  const sorted = [...assemblies].sort((a, b) => a.lineNo - b.lineNo || a.id - b.id);
+  const lines = sorted.map((a): QuoteLineTargetSummary => {
+    const p = priceQuoteAssembly(a);
+    const unitPrice = p.quotedUnitPrice;
+    const target = isNum(a.targetPrice) && a.targetPrice > 0 ? a.targetPrice : null;
+    const eau = isNum(a.estimatedEau) && Number.isInteger(a.estimatedEau) && a.estimatedEau >= 1 ? a.estimatedEau : null;
+    const vsTarget = unitPrice !== null && target !== null ? unitPrice - target : null;
+    const annualRevenue = unitPrice !== null && eau !== null ? roundCents(unitPrice * eau) : null;
+    const annualCost = p.unitCost !== null && eau !== null ? p.unitCost * eau : null;
+    return {
+      assemblyId: a.id,
+      lineNo: a.lineNo,
+      partNumber: a.altronicPartNumber.trim(),
+      targetPrice: target,
+      unitPrice,
+      vsTarget,
+      vsTargetPct: vsTarget !== null && target !== null ? (vsTarget / target) * 100 : null,
+      estimatedEau: eau,
+      annualRevenue,
+      annualCost,
+      annualGm: annualRevenue !== null && annualCost !== null ? annualRevenue - annualCost : null,
+      gmPct: gmOf(unitPrice, p.unitCost),
+    };
+  });
+
+  const withRevenue = lines.filter((l) => l.annualRevenue !== null);
+  const withGm = lines.filter((l) => l.annualGm !== null);
+  const compared = lines.filter((l) => l.annualRevenue !== null && l.targetPrice !== null);
+  const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
+
+  const gmRevenue = sum(withGm.map((l) => l.annualRevenue as number));
+  const annualGm = withGm.length > 0 ? sum(withGm.map((l) => l.annualGm as number)) : null;
+  const targetRevenue =
+    compared.length > 0 ? roundCents(sum(compared.map((l) => (l.targetPrice as number) * (l.estimatedEau as number)))) : null;
+  const ourCompared = sum(compared.map((l) => l.annualRevenue as number));
+  const vsTarget = targetRevenue !== null ? ourCompared - targetRevenue : null;
+
+  return {
+    lines,
+    annualRevenue: withRevenue.length > 0 ? roundCents(sum(withRevenue.map((l) => l.annualRevenue as number))) : null,
+    annualGm,
+    annualGmPct: annualGm !== null && gmRevenue > 0 ? (annualGm / gmRevenue) * 100 : null,
+    targetRevenue,
+    vsTarget,
+    vsTargetPct: vsTarget !== null && targetRevenue !== null && targetRevenue > 0 ? (vsTarget / targetRevenue) * 100 : null,
+    linesMissingEau: lines.length - withRevenue.length,
+    linesMissingTarget: lines.filter((l) => l.targetPrice === null).length,
   };
 }

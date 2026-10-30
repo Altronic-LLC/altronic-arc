@@ -22,7 +22,6 @@ import {
   SP_CUSTOMER_QUOTES_LIST_ID,
   SP_NP_SUBASSEMBLIES_LIST_ID,
   SP_QUOTES_LIST_ID,
-  SP_QUOTE_ITEMS_LIST_ID,
   SP_SALESTEAM_SITE_URL,
   SP_SCNS_LIST_ID,
   SP_MCNS_LIST_ID,
@@ -84,7 +83,6 @@ export type AttachmentParent =
   | "scn"
   | "equipment"
   | "quote"
-  | "quoteItem"
   | "pricingRequest"
   | "newProductPricing"
   | "npSubAssembly"
@@ -222,18 +220,13 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_ALTRONIC_EQUIPMENT_LIST_ID",
   },
-  // Insourcing Quotes — the customer's data package (drawings, specs, BOMs)
-  // hangs off the quote header; a component's datasheet or vendor quote off
-  // the Quote Item. Assemblies deliberately have no attachments. All on PMO.
+  // Insourcing Quotes — the customer's data package (drawings, specs) and
+  // supplier quotes hang off the quote header. Lines deliberately have no
+  // attachments. On PMO.
   quote: {
     listId: SP_QUOTES_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_QUOTES_LIST_ID",
-  },
-  quoteItem: {
-    listId: SP_QUOTE_ITEMS_LIST_ID,
-    siteUrl: SP_PMO_SITE_URL,
-    listIdEnvVar: "VITE_SP_QUOTE_ITEMS_LIST_ID",
   },
   // Sales Pricing — the customer's drawing or spec on a request, and the
   // supplier quotes behind a new product's estimates. Both on the Sales site.

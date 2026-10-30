@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { carriedQuoteCommunication, createQuoteRevision } from "./quoteRevisions";
 import { listQuoteAssemblies } from "./quoteAssemblies";
-import { listQuoteItems } from "./quoteItems";
 import { getQuote, listQuotes, updateQuoteFields } from "./quotes";
 import { listAttachments, uploadAttachment } from "./attachments";
-import { __resetQuoteMockStores } from "@/data/quoteMockData";
+import { __resetQuoteMockStores, quoteMockDb } from "@/data/quoteMockData";
 import { parseCommunication } from "@/lib/communicationParser";
 
 beforeEach(() => {
@@ -57,47 +56,58 @@ describe("createQuoteRevision (mock mode)", () => {
     expect((await listQuotes()).filter((q) => q.quoteBase === "IQ-COO-0001")).toHaveLength(3);
   });
 
-  it("copies assemblies and components as NEW rows, re-parented old → new", async () => {
+  it("copies the lines as NEW rows, with their material, labor, overhead and GM", async () => {
     const { quote } = await createQuoteRevision(2);
-    const assemblies = (await listQuoteAssemblies()).filter((a) => a.quoteId === quote.id);
-    expect(assemblies.map((a) => a.altronicPartNumber)).toEqual(["791950-08", "693005-1"]);
-    expect(assemblies[1].manualPrice).toBe(115);
-    // Each assembly's target GM comes across with it.
-    const sources = (await listQuoteAssemblies()).filter((a) => a.quoteId === 2);
-    expect(assemblies.map((a) => a.targetGM)).toEqual(sources.map((a) => a.targetGM));
-    expect(assemblies.map((a) => a.quotedQty)).toEqual(sources.map((a) => a.quotedQty));
-    expect(assemblies[0].targetGM).not.toBeNull();
-    expect(assemblies[0].priceBreaks).toHaveLength(3);
-
-    const items = (await listQuoteItems()).filter((i) => i.quoteId === quote.id);
-    expect(items).toHaveLength(6);
-    const ids = new Set(assemblies.map((a) => a.id));
-    expect(items.every((i) => i.assemblyId !== null && ids.has(i.assemblyId))).toBe(true);
-    const board = items.find((i) => i.altronicPartNumber === "791950-PCB")!;
-    expect(board.assemblyId).toBe(assemblies[0].id);
-    expect(board.watchers.map((w) => w.displayName)).toEqual(["Brandon Mirto"]);
-    // Already tagged from R1 — not tagged again from R2.
-    expect(board.comments[0].bodyHtml.match(/carried over/g)).toHaveLength(1);
-
-    // The R2 originals are still there.
-    expect((await listQuoteItems()).filter((i) => i.quoteId === 2)).toHaveLength(6);
-  });
-
-  it("copies a standalone Part line with its type, cost and overhead", async () => {
-    const { quote } = await createQuoteRevision(3);
     const lines = (await listQuoteAssemblies()).filter((a) => a.quoteId === quote.id);
-    const part = lines.find((a) => a.lineType === "Part")!;
-    expect(part).toMatchObject({ lineType: "Part", cost: 38.4, materialOverheadPct: 10, targetGM: 45 });
-    expect(lines.find((a) => a.lineType === "Assembly")).toBeDefined();
+    const sources = (await listQuoteAssemblies()).filter((a) => a.quoteId === 2);
+    expect(lines.map((a) => a.altronicPartNumber)).toEqual(["791950-08", "693005-1"]);
+    expect(lines[1].manualPrice).toBe(115);
+    for (const key of ["materialCost", "laborCost", "materialOverheadPct", "targetGM", "quotedQty", "targetPrice", "estimatedEau"] as const) {
+      expect(lines.map((a) => a[key])).toEqual(sources.map((a) => a[key]));
+    }
+    expect(lines[0]).toMatchObject({ materialCost: 520, laborCost: 85, materialOverheadPct: 18, targetPrice: 1050, estimatedEau: 120 });
+    expect(lines[0].priceBreaks).toHaveLength(3);
+    expect(new Set(lines.map((a) => a.id)).has(sources[0].id)).toBe(false);
+    // The R2 originals are still there.
+    expect(sources).toHaveLength(2);
   });
 
-  it("copies attachments on the header and the components", async () => {
+  it("copies the reference, customer type, project context, alternates and task / project links", async () => {
+    const source = (await getQuote(2))!;
+    await updateQuoteFields(
+      2,
+      { engineeringTaskId: 47, operationsTaskId: 3, operationsProjectRef: "0007-Line 3", engineeringProjectRef: "0042-NGI" },
+      source,
+    );
+    const { quote } = await createQuoteRevision(2);
+    expect(quote).toMatchObject({
+      customerReference: "RFQ 4471 — CPU-95 retrofit kits",
+      customerType: "Cooper",
+      projectContext: source.projectContext,
+      engineeringTaskId: 47,
+      operationsTaskId: 3,
+      engineeringProjectRef: "0042-NGI",
+      operationsProjectRef: "0007-Line 3",
+    });
+    expect(quote.alternates).toEqual(source.alternates);
+    expect(quote.alternates.length).toBeGreaterThan(0);
+  });
+
+  it("starts with an EMPTY alternates table, and says so, when the source's couldn't be read", async () => {
+    const row = quoteMockDb.quotes.find((q) => q.id === 2)!;
+    row.alternatesCorrupt = true;
+    row.alternates = [];
+    const { quote, warnings } = await createQuoteRevision(2);
+    expect(quote.alternates).toEqual([]);
+    expect(warnings).toEqual([
+      "IQ-COO-0001-R2's alternates table couldn't be read, so R3 starts with an empty one.",
+    ]);
+  });
+
+  it("copies attachments on the header", async () => {
     await uploadAttachment("quote", 2, new File(["x"], "data-package.pdf"));
-    await uploadAttachment("quoteItem", 12, new File(["y"], "connector-quote.pdf"));
     const { quote } = await createQuoteRevision(2);
     expect((await listAttachments("quote", quote.id)).map((a) => a.fileName)).toEqual(["data-package.pdf"]);
-    const conn = (await listQuoteItems()).find((i) => i.quoteId === quote.id && i.altronicPartNumber === "693005-CONN")!;
-    expect((await listAttachments("quoteItem", conn.id)).map((a) => a.fileName)).toEqual(["connector-quote.pdf"]);
   });
 
   it("throws when the source quote doesn't exist", async () => {

@@ -1,9 +1,14 @@
 // =============================================================================
 // Insourcing Quotes — domain types and constants (BusinessIT #37).
 //
-// Design: docs/INSOURCING-QUOTING-DESIGN.md. Five lists on the PMO site:
-// Quotes (header) → Quote Assemblies (final assemblies) → Quote Items
-// (components), plus Quote Customers and Quote Roles.
+// Design: docs/INSOURCING-QUOTING-DESIGN.md. Four lists on the PMO site:
+// Quotes (header) → Quote Assemblies (the quote LINES), plus Quote Customers
+// and Quote Roles.
+//
+// A line carries the part's FINAL cost — material, labor, and overhead as a
+// percent of material — and the tool turns it into a selling price (Ray,
+// 2026-10-29). There is no component breakdown: the Quote Items list still
+// exists in SharePoint but ARC no longer reads or writes it.
 //
 // Kept in its own file rather than the (very large) types/task.ts: this is a
 // self-contained department bundle, and nothing outside it should need these.
@@ -18,6 +23,13 @@ import type { Comment, Person } from "./task";
 export const QUOTE_STATUSES = ["Draft", "Sent", "Won", "Lost", "Expired"] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
+/**
+ * Who the customer is (Ray, 2026-10-30). Choice column `CustomerType` on
+ * Quotes — set on the header, internal, never printed.
+ */
+export const QUOTE_CUSTOMER_TYPES = ["Cooper", "Arcline", "External"] as const;
+export type QuoteCustomerType = (typeof QUOTE_CUSTOMER_TYPES)[number];
+
 /** The statuses only a `manager` may set — the OUTCOMES of a quote. */
 export const QUOTE_OUTCOME_STATUSES: readonly QuoteStatus[] = ["Won", "Lost", "Expired"];
 
@@ -26,8 +38,9 @@ export const QUOTE_OUTCOME_STATUSES: readonly QuoteStatus[] = ["Won", "Lost", "E
  *
  * - `viewer`  — sees quotes and sell prices, comments and attaches; edits no
  *               field and NEVER sees cost or margin.
- * - `quoter`  — creates and edits quotes, assemblies and components, enters
- *               cost, sets an assembly's target GM and price, generates the PDF, makes revs.
+ * - `quoter`  — creates and edits quotes and their lines, enters material,
+ *               labor and overhead, sets a line's target GM and price, links
+ *               tasks and projects, generates the PDF, makes revs.
  * - `manager` — everything a quoter can, plus customers, roles, and the
  *               outcome statuses (Won / Lost / Expired).
  *
@@ -53,13 +66,45 @@ export const DEFAULT_BUDGETARY_TEXT =
   "availability are subject to change without notice. This document does not constitute a " +
   "firm offer or binding commitment of any kind.";
 
-/** Maximum quantity breaks on one final assembly (AQT's limit). */
+/** Maximum quantity breaks on one line (AQT's limit). */
 export const MAX_QUOTE_PRICE_BREAKS = 3;
 
-/** SharePoint Hyperlink column value. */
-export interface QuoteLink {
-  url: string;
-  description: string;
+/**
+ * Overhead a NEW line starts with, as a percent of its material cost (the
+ * 2026-10-27 review: "maintain overhead at 18% unless specified otherwise").
+ * A form default only — a stored blank still reads as 0.
+ */
+export const DEFAULT_QUOTE_OVERHEAD_PCT = 18;
+
+/** How many manufacturer options one Alternates row holds. */
+export const QUOTE_ALTERNATE_SOURCES = 3;
+
+/**
+ * One manufacturer option on an Alternates row. Free text throughout —
+ * "12–14 weeks", "Stock" — because that is how a lead time is quoted.
+ */
+export interface QuoteAlternateSource {
+  manufacturer: string;
+  /** The manufacturer's part number. */
+  partNumber: string;
+  leadTime: string;
+}
+
+/**
+ * One row of the quote's ALTERNATES table (Ray, 2026-10-29): up to three
+ * manufacturer options side by side, and a free-text reason for choosing the
+ * alternate. Stored as JSON in the quote's `Alternates` column and printed on
+ * page two of the customer PDF.
+ */
+export interface QuoteAlternate {
+  /**
+   * Which part the row is about - the reference designator ("5a", "R12"),
+   * free text. "" when none. First column of the working spreadsheet.
+   */
+  designator: string;
+  /** ALWAYS `QUOTE_ALTERNATE_SOURCES` long; a blank option is all "". */
+  sources: QuoteAlternateSource[];
+  reason: string;
 }
 
 /** A row on Quote Customers. Only a `manager` creates or edits one. */
@@ -73,6 +118,10 @@ export interface QuoteCustomer {
   customerNumber: string;
   /** `Active` — retired customers leave the picker; quotes keep showing them. */
   active: boolean;
+  /**
+   * `Note` — customer-specific notes (terms, who quotes go to, …). Shown on
+   * every quote for this customer, internal only — never printed.
+   */
   note: string;
 }
 
@@ -96,46 +145,60 @@ export interface Quote {
   budgetaryText: string;
   /** General notes, printed at the bottom of the customer quote. */
   quoteNotes: string;
+  /**
+   * `CustomerReference` — the customer's own reference or a short description
+   * of what is being quoted ("RFQ 4471 — HUB V4 retrofit"). Printed.
+   */
+  customerReference: string;
+  /** `CustomerType` — Cooper / Arcline / External; null when unset. Internal. */
+  customerType: QuoteCustomerType | null;
+  /**
+   * `ProjectContext` — free text giving the project's background, shown in
+   * the Target & volume summary. Internal, never printed.
+   */
+  projectContext: string;
+  /** `Alternates` JSON — the page-two alternates table. */
+  alternates: QuoteAlternate[];
+  /**
+   * True when `Alternates` holds something ARC couldn't parse. The table is
+   * then shown empty and EVERY write to it is refused — replacing data we
+   * failed to read is worse than an error (the ECN checklist rule).
+   */
+  alternatesCorrupt: boolean;
   /** `Communication` — the INTERNAL thread. Never printed. Newest first. */
   comments: Comment[];
   watchers: Person[];
-  /** Phase 2 — `EngineeringTaskLink` (Hyperlink; the task list is on another site collection). */
-  engineeringTaskLink: QuoteLink | null;
-  /** Phase 2 — `OperationsTaskLink` (Hyperlink). */
-  operationsTaskLink: QuoteLink | null;
-  /** Phase 2 — `EngineeringProjectRef` (text: an Engineering Projects title, the SCN pattern). */
+  /**
+   * `EngineeringTaskId` (number) — an Engineering task's item id. Not a
+   * lookup: the Project Task List is in another site collection. Not the old
+   * `EngineeringTaskLink` Hyperlink column either — Graph can't write one.
+   */
+  engineeringTaskId: number | null;
+  /** `OperationsTaskId` (number) — an Operations task's item id. */
+  operationsTaskId: number | null;
+  /** `EngineeringProjectRef` (text: an Engineering Projects title, the SCN pattern). */
   engineeringProjectRef: string;
+  /** `OperationsProjectRef` (text: an Operations Projects title). */
+  operationsProjectRef: string;
   hasAttachments: boolean;
   createdBy: Person | null;
   createdAt: string | null;
   modifiedAt: string | null;
 }
 
-/** One quantity break on a final assembly, as stored in `PriceBreaks` JSON. */
+/** One quantity break on a line, as stored in `PriceBreaks` JSON. */
 export interface QuotePriceBreak {
   /** The quantity this break starts at (≥ 2; the base tier is 1 – qty−1). */
   qty: number;
-  /** Percent off the base assembly price, 0–99. */
+  /** Percent off the line's base price, 0–99. */
   discountPct: number;
   note: string;
 }
 
 /**
- * What a quote LINE is. Choice column `LineType` on Quote Assemblies; a
- * missing or unknown value reads as "Assembly".
- *
- * - `Assembly` — a final assembly, costed from its components.
- * - `Part`     — a standalone part quoted on its own: its cost and overhead
- *                are entered on the line itself, and it has no components
- *                (Ray, 2026-10-09).
- */
-export const QUOTE_LINE_TYPES = ["Assembly", "Part"] as const;
-export type QuoteLineType = (typeof QUOTE_LINE_TYPES)[number];
-
-/**
- * A quote LINE — what the customer is actually buying: a final assembly, or
- * a standalone part (`lineType`). Kept under the original name (and list,
- * "Quote Assemblies") to avoid churn; every row is a line of either type.
+ * A quote LINE — what the customer is buying, costed from its FINAL material,
+ * labor and overhead. Kept under its original name (and list, "Quote
+ * Assemblies") to avoid churn.
  */
 export interface QuoteAssembly {
   id: number;
@@ -149,11 +212,11 @@ export interface QuoteAssembly {
    * the quantity-break tier it falls in.
    */
   quotedQty: number;
-  /** `LineType` — "Assembly" (costed from components) or "Part" (costed here). */
-  lineType: QuoteLineType;
-  /** `Cost` — unit cost. Used ONLY on a Part line; null = not entered. */
-  cost: number | null;
-  /** `MaterialOverheadPct` — used ONLY on a Part line; null is treated as 0. */
+  /** `Cost` — material cost of ONE, final. null = not entered. */
+  materialCost: number | null;
+  /** `LaborCost` — labor cost of ONE, final. null = not entered (counts as 0). */
+  laborCost: number | null;
+  /** `MaterialOverheadPct` — overhead as a percent of material; null counts as 0. */
   materialOverheadPct: number | null;
   /** `Title` — the line's Altronic part number. */
   altronicPartNumber: string;
@@ -162,43 +225,24 @@ export interface QuoteAssembly {
   description: string;
   priceBreaks: QuotePriceBreak[];
   /**
-   * `TargetGM` — target gross margin, percent (0 < GM < 100). The ONE margin
-   * on an assembly: price = Σ component cost ÷ (1 − GM/100). Components carry
-   * cost, overhead and quantity only (Ray, 2026-10-09).
+   * `TargetGM` — target gross margin, percent (0 < GM < 100):
+   * price = total cost ÷ (1 − GM/100).
    */
   targetGM: number | null;
   /** Optional manual override of the computed price. */
   manualPrice: number | null;
+  /**
+   * `TargetPrice` — the price the customer is aiming for, per unit. Internal,
+   * never printed. null = not given.
+   */
+  targetPrice: number | null;
+  /**
+   * `EstimatedEAU` — the customer's estimated annual usage, units a year.
+   * Whole number ≥ 1, or null. Drives the summary's annual revenue and GM.
+   */
+  estimatedEau: number | null;
   /** Stored result (recomputed on every write by lib/quotePricing.ts). */
   customerPrice: number | null;
-}
-
-/**
- * A component under a final assembly. Cost lives here; margin does NOT —
- * the target GM is set once, on the assembly.
- */
-export interface QuoteItem {
-  // NO customerPartNumber: a component has none (Ray, 2026-10-09) — the
-  // customer's part number belongs to the LINE they buy.
-  id: number;
-  /** `QuoteRef` — single lookup to Quotes. */
-  quoteId: number | null;
-  /** `AssemblyRef` — single lookup to Quote Assemblies. */
-  assemblyId: number | null;
-  lineNo: number;
-  /** `Title` — the component's Altronic part number. */
-  altronicPartNumber: string;
-  sapPartNumber: string;
-  description: string;
-  /** Units of this component in ONE assembly. */
-  quantity: number;
-  /** Unit cost. null = not entered yet. */
-  cost: number | null;
-  /** Optional; null is treated as 0. */
-  materialOverheadPct: number | null;
-  comments: Comment[];
-  watchers: Person[];
-  hasAttachments: boolean;
 }
 
 /** A row on Quote Roles. */
@@ -216,7 +260,7 @@ export interface QuoteRoleEntry {
 //
 // The PDF renderer accepts ONLY this type. It deliberately has no field that
 // could carry cost, margin, markup, profit, target GM, discount reasoning,
-// component lines, comments or attachments — a future edit cannot print cost
+// labor, overhead, comments or attachments — a future edit cannot print cost
 // because the field does not exist where the printer can reach it.
 // -----------------------------------------------------------------------------
 
@@ -243,6 +287,13 @@ export interface QuotePdfAssembly {
   lineTotal: number;
 }
 
+/** An Alternates row as printed — the same customer-facing texts. */
+export interface QuotePdfAlternate {
+  designator: string;
+  sources: { manufacturer: string; partNumber: string; leadTime: string }[];
+  reason: string;
+}
+
 export interface QuotePdfModel {
   /** Includes the rev, e.g. `IQ-COO-0042-R2`. */
   quoteNumber: string;
@@ -255,6 +306,8 @@ export interface QuotePdfModel {
   customerNumber: string;
   contactName: string;
   contactEmail: string;
+  /** The customer's reference / description of the quote; "" when none. */
+  customerReference: string;
   /**
    * Whoever GENERATED the PDF — the signed-in user's name and mailbox — so
    * the customer knows who to contact. null when both are blank.
@@ -263,8 +316,10 @@ export interface QuotePdfModel {
   assemblies: QuotePdfAssembly[];
   /** null when the quote is not budgetary. */
   budgetary: { title: string; text: string } | null;
-  /** Printed at the bottom; "" when none. */
   /** Σ every line's subtotal — printed as "Total". */
   quoteTotal: number;
+  /** Printed at the bottom; "" when none. */
   quoteNotes: string;
+  /** The page-two alternates table; empty = no page two. */
+  alternates: QuotePdfAlternate[];
 }
