@@ -50,6 +50,7 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [hours, setHours] = useState("");
+  const [sapNumber, setSapNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -126,6 +127,7 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
         startDate: fromDateInputValue(startDate),
         dueDate: fromDateInputValue(dueDate),
         estimatedHours: parseEstimatedHours(hours),
+        sapNumber: sapNumber.trim() || undefined,
       });
       onClose();
       navigate(`/panels/task/${created.id}`);
@@ -274,6 +276,16 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
               }))}
               selected={projectId}
               onChange={setProjectId}
+            />
+          </FieldLabel>
+
+          <FieldLabel label="SAP #">
+            <input
+              type="text"
+              value={sapNumber}
+              onChange={(e) => setSapNumber(e.target.value)}
+              className="select"
+              disabled={busy}
             />
           </FieldLabel>
 

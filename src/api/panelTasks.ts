@@ -37,6 +37,11 @@ const PANEL_TASK_FIELD_SELECT = [
   // before this ships, or the whole read 400s.
   "PanelOrderRefLookupId",
   "PanelOrderRef",
+  // The order chain, the order hold and SAP# (Tim, 2026-10-30) — also added
+  // by scripts/setup-panel-planning.ps1 (steps 9-10), before the deploy.
+  "ChainStep",
+  "StatusBeforeHold",
+  "SAPNumber",
   "AssignedLookupId",
   "Assigned",
   "Description",
@@ -67,6 +72,9 @@ function loadMockStoreFromStorage(): PanelTask[] | null {
       dueDate: parseSpDate(t.dueDate),
       estimatedHours: t.estimatedHours ?? null,
       orderRef: t.orderRef ?? null,
+      chainStep: t.chainStep ?? null,
+      statusBeforeHold: t.statusBeforeHold ?? null,
+      sapNumber: t.sapNumber ?? "",
       workType: t.workType ?? null,
       priority: t.priority ?? null,
       // Stores written before several assignees (2026-10-29) hold one person
@@ -150,6 +158,11 @@ export async function updatePanelTaskFields(
     if ("WorkType" in fields) next.workType = (fields.WorkType as PanelTask["workType"]) ?? null;
     if ("Priority" in fields) next.priority = (fields.Priority as PanelTask["priority"]) ?? null;
     if ("Description" in fields) next.description = (fields.Description as string) ?? "";
+    if ("SAPNumber" in fields) next.sapNumber = (fields.SAPNumber as string) ?? "";
+    if ("ChainStep" in fields) next.chainStep = (fields.ChainStep as number | null) ?? null;
+    if ("StatusBeforeHold" in fields) {
+      next.statusBeforeHold = (fields.StatusBeforeHold as PanelTask["status"] | null) || null;
+    }
     if ("StartDate" in fields) next.startDate = parseSpDate(fields.StartDate);
     if ("DueDate" in fields) next.dueDate = parseSpDate(fields.DueDate);
     if ("EstimatedHours" in fields) {
@@ -399,6 +412,9 @@ export async function createPanelTask(input: {
   estimatedHours?: number | null;
   /** The Panel Order this task was raised for (its standard tasks). */
   orderLookupId?: number | null;
+  /** Its place in the order's chain (standard tasks only). */
+  chainStep?: number | null;
+  sapNumber?: string;
 }): Promise<PanelTask> {
   if (USE_MOCK) {
     const nextId = Math.max(0, ...mockStore.map((t) => t.id)) + 1;
@@ -417,6 +433,9 @@ export async function createPanelTask(input: {
           }
         : null,
       orderRef: input.orderLookupId ? { lookupId: input.orderLookupId, title: "" } : null,
+      chainStep: input.chainStep ?? null,
+      statusBeforeHold: null,
+      sapNumber: input.sapNumber ?? "",
       assigned: input.assigned ?? [],
       description: input.description ?? "",
       startDate: input.startDate ?? null,
@@ -444,6 +463,8 @@ export async function createPanelTask(input: {
   if (input.projectLookupId) fields.ProjectReferenceLookupId = input.projectLookupId;
   // A single lookup: a bare integer, never the Collection(Edm.Int32) shape.
   if (input.orderLookupId) fields.PanelOrderRefLookupId = input.orderLookupId;
+  if (input.chainStep !== undefined && input.chainStep !== null) fields.ChainStep = input.chainStep;
+  if (input.sapNumber?.trim()) fields.SAPNumber = input.sapNumber.trim();
   if (input.description) fields.Description = input.description;
   // Blank schedule fields are left out of the create, like every other blank.
   Object.assign(

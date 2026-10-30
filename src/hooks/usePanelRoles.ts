@@ -50,6 +50,7 @@ export function useAddPanelRole() {
         user: input.user,
         role: input.role,
         note: input.note ?? "",
+        onCapacity: input.onCapacity ?? false,
       };
       qc.setQueryData<PanelRoleEntry[]>(PANEL_ROLES_KEY, (old) => (old ? [...old, temp] : [temp]));
       return { previous };
@@ -80,6 +81,7 @@ export function useUpdatePanelRole() {
                 ...e,
                 ...(input.role !== undefined && { role: input.role }),
                 ...(input.note !== undefined && { note: input.note }),
+                ...(input.onCapacity !== undefined && { onCapacity: input.onCapacity }),
               }
             : e,
         ),

@@ -37,6 +37,8 @@ import {
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { autoWatchers } from "@/lib/people";
+import { orderHoldChange } from "@/lib/panelOrderChain";
+import { applyOrderHold } from "./usePanelOrderChain";
 import {
   emailEngineer,
   raiseStandardTasks,
@@ -187,6 +189,9 @@ export function useUpdatePanelOrderFields() {
           watchers: ctx.prevOrder.watchers,
           assignees: ctx.prevOrder.engineerAssigned ? [ctx.prevOrder.engineerAssigned] : [],
         });
+        // On Hold carries the order's tasks with it, and back.
+        const change = orderHoldChange(ctx.prevOrder.status, fields.Status as PanelOrder["status"]);
+        if (change) void applyOrderHold(qc, { id, title: orderTitle(ctx.prevOrder) }, change, actor);
       }
       // Order Notes checklist toggles alert too (same audience as Status).
       if ("OrderNotes" in fields && ctx?.prevOrder) {
@@ -696,6 +701,7 @@ function applyFieldsLocally(o: PanelOrder, fields: Record<string, unknown>): Pan
   if ("Title" in fields) next.title = fields.Title as string;
   if ("Status" in fields) next.status = fields.Status as PanelOrder["status"];
   if ("SalesOrder" in fields) next.salesOrder = (fields.SalesOrder as string) ?? "";
+  if ("SAPNumber" in fields) next.sapNumber = (fields.SAPNumber as string) ?? "";
   if ("PurchaseOrder" in fields) next.purchaseOrder = (fields.PurchaseOrder as string) ?? "";
   if ("CustomerReference" in fields)
     next.customerReference = (fields.CustomerReference as string) ?? "";
@@ -717,6 +723,8 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
         return "Status updated.";
       case "SalesOrder":
         return "Sales order updated.";
+      case "SAPNumber":
+        return "SAP # updated.";
       case "PurchaseOrder":
         return "Purchase order updated.";
       case "CustomerReference":

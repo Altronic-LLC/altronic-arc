@@ -1,4 +1,4 @@
-import type { PanelRole } from "@/types/task";
+import type { PanelRole, PanelRoleEntry, Person } from "@/types/task";
 
 // =============================================================================
 // Panel role → editing-rights mapping (pure, testable).
@@ -114,4 +114,26 @@ export function panelTeamAccess(input: {
     resolving,
     hint,
   };
+}
+
+// =============================================================================
+// Who gets a row on Panel Engineering Capacity (Tim, 2026-10-29/30).
+// =============================================================================
+
+/**
+ * Who gets a row: everyone holding the Engineer role, and anyone with On
+ * capacity ticked on any of their role rows. One row per person, however many
+ * role rows they have.
+ */
+export function capacityPeople(entries: readonly PanelRoleEntry[]): Person[] {
+  const out: Person[] = [];
+  const seen = new Set<string>();
+  for (const e of entries) {
+    if (!e.user?.displayName || !(e.role === "Engineer" || e.onCapacity)) continue;
+    const key = (e.user.email ?? "").toLowerCase() || `id:${e.user.lookupId ?? e.user.displayName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e.user);
+  }
+  return out;
 }

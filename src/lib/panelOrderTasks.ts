@@ -19,8 +19,11 @@ import { formatHours } from "./capacity";
 //
 //   - The tasks come from the Panel Task Templates list (the panel managers
 //     edit it in ARC), in SortOrder, active ones only.
-//   - Each is New, carries its template's type and hours, and sits on the
-//     order's Project Reference AND points at the order itself.
+//   - Each carries its template's type and hours, sits on the order's
+//     Project Reference AND points at the order itself, and copies the
+//     order's SAP #.
+//   - They are CHAINED in template order (2026-10-30): the first is New, the
+//     rest wait as Awaiting Pre-Req — lib/panelOrderChain.ts.
 //   - If the order has an Engineer Assigned, every task is assigned to them;
 //     blank means every task is unassigned. Any one can be reassigned later.
 //   - No dates: the tasks land in the Capacity backlog to be scheduled.
@@ -71,6 +74,9 @@ export interface StandardTaskInput {
   estimatedHours: number | null;
   projectLookupId: number | null;
   orderLookupId: number;
+  /** The template's SortOrder: its place in the order's chain. */
+  chainStep: number;
+  sapNumber: string;
   assigned: Person[];
 }
 
@@ -79,7 +85,7 @@ export interface StandardTaskInput {
  * every task gets them, or nobody.
  */
 export function standardTaskInputs(
-  order: Pick<PanelOrder, "id" | "title" | "projectRef">,
+  order: Pick<PanelOrder, "id" | "title" | "projectRef" | "sapNumber">,
   templates: readonly PanelTaskTemplate[],
   engineer: Person | null,
 ): StandardTaskInput[] {
@@ -90,6 +96,8 @@ export function standardTaskInputs(
     estimatedHours: t.estimatedHours,
     projectLookupId: order.projectRef?.lookupId ?? null,
     orderLookupId: order.id,
+    chainStep: t.sortOrder,
+    sapNumber: order.sapNumber ?? "",
     assigned: engineer ? [engineer] : [],
   }));
 }

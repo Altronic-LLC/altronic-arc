@@ -909,6 +909,12 @@ export interface PanelOrder {
   /** Single lookup into the Panel Project Reference list. */
   projectRef: ProjectReference | null;
   salesOrder: string;
+  /**
+   * `SAPNumber` — the job's SAP number (Wrike's SAP# custom field). NOT the
+   * Sales Order: the panel team confirmed they're different things
+   * (2026-10-30). A standard task copies it when it's raised.
+   */
+  sapNumber: string;
   purchaseOrder: string;
   customerReference: string;
   /** Choice column — values discovered at runtime (mirrors the reference list's customer choices). */
@@ -952,6 +958,12 @@ export interface PanelRoleEntry {
   role: PanelRole | null;
   /** The Title column — free-text note/label. */
   note: string;
+  /**
+   * `OnCapacity` — give this person a row on Panel Engineering Capacity
+   * although the row's role isn't Engineer (Tim, 2026-10-30). An Engineer row
+   * always counts; this is for anyone else who does engineering work.
+   */
+  onCapacity: boolean;
 }
 
 /**
@@ -1114,6 +1126,21 @@ export interface PanelTask {
    * orders, so the project alone can't say which. Title "" until joined.
    */
   orderRef: ProjectReference | null;
+  /**
+   * `ChainStep` — where a standard task sits in its order's chain (the
+   * template's SortOrder when it was raised). Null for any other task. A
+   * chained task waits as Awaiting Pre-Req until every earlier step of the
+   * same order is done — lib/panelOrderChain.ts.
+   */
+  chainStep: number | null;
+  /**
+   * `StatusBeforeHold` — the status this task had when its Panel Order went
+   * On Hold; restored when the order comes off hold, then cleared. Null when
+   * the order didn't put it on hold.
+   */
+  statusBeforeHold: PanelTaskStatus | null;
+  /** `SAPNumber` — copied from the order when raised, editable on the task. */
+  sapNumber: string;
   /**
    * Everyone assigned — a MULTI-person column since 2026-10-29 (Tim); the
    * Capacity view splits the hours evenly between them. Read either shape:

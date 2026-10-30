@@ -14,6 +14,12 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { PANEL_ROLE_CHOICES, type PanelRole, type Person } from "@/types/task";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
+import { ChoicePills } from "@/components/ChoicePills";
+import { panelRolesOnCapacityAvailable } from "@/api/panelRoles";
+
+const ON_CAPACITY_HINT =
+  "Gives this person a row on Panel Engineering Capacity. Engineers always have one; " +
+  "this is for anyone else who does engineering work.";
 
 /**
  * Admin → Panel User Roles page. One row per user PER role (the SharePoint
@@ -74,7 +80,9 @@ export function AdminPanelRolesView() {
             Tag panel team members with a role. One row per user per role — a
             user can hold several. Roles don't lock any panel order fields yet;
             they're recorded now so field-level permissions can be switched on
-            later without a data migration.
+            later without a data migration. Engineers get a row on Panel
+            Engineering Capacity; set <strong>On capacity</strong> to give
+            anyone else one too.
           </p>
         </div>
         <nav className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 sm:flex-col sm:items-end">
@@ -112,6 +120,7 @@ export function AdminPanelRolesView() {
               <tr className="border-b border-border bg-surface-2 text-left text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                 <th className="px-3 py-2">User</th>
                 <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2" title={ON_CAPACITY_HINT}>On capacity</th>
                 <th className="px-3 py-2">Note</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
@@ -156,6 +165,22 @@ export function AdminPanelRolesView() {
                           </option>
                         ))}
                       </select>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {e.role === "Engineer" ? (
+                        <span className="text-fg-muted" title="Engineers always get a row.">
+                          Always
+                        </span>
+                      ) : (
+                        <ChoicePills
+                          label={`On capacity — ${name}`}
+                          name={`on-capacity-${e.id}`}
+                          options={["Yes", "No"]}
+                          value={e.onCapacity ? "Yes" : "No"}
+                          disabled={update.isPending || !panelRolesOnCapacityAvailable()}
+                          onChange={(v) => update.mutate({ id: e.id, onCapacity: v === "Yes" })}
+                        />
+                      )}
                     </td>
                     <td className="px-3 py-2 text-xs text-fg-muted">
                       {e.note || <span className="opacity-50">—</span>}
@@ -223,7 +248,7 @@ function NewPanelRoleModal({
   error,
 }: {
   onClose: () => void;
-  onSubmit: (input: { user: Person; role: PanelRole; note?: string }) => void;
+  onSubmit: (input: { user: Person; role: PanelRole; note?: string; onCapacity?: boolean }) => void;
   submitting: boolean;
   error: string | null;
 }) {
@@ -231,6 +256,7 @@ function NewPanelRoleModal({
   const [userKey, setUserKey] = useState<string | null>(null);
   const [role, setRole] = useState<PanelRole | "">("");
   const [note, setNote] = useState("");
+  const [onCapacity, setOnCapacity] = useState(false);
 
   const selectedUser = userKey
     ? siteUsers.find((p) => String(p.lookupId ?? p.email ?? p.displayName) === userKey) ?? null
@@ -254,7 +280,12 @@ function NewPanelRoleModal({
           onSubmit={(ev) => {
             ev.preventDefault();
             if (!selectedUser || !role) return;
-            onSubmit({ user: selectedUser, role, note: note.trim() || undefined });
+            onSubmit({
+              user: selectedUser,
+              role,
+              note: note.trim() || undefined,
+              ...(role !== "Engineer" && onCapacity && { onCapacity: true }),
+            });
           }}
           className="flex flex-col gap-3"
         >
@@ -287,6 +318,19 @@ function NewPanelRoleModal({
               ))}
             </select>
           </label>
+          {role && role !== "Engineer" && panelRolesOnCapacityAvailable() && (
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="font-semibold uppercase tracking-wider text-fg-muted">On capacity</span>
+              <ChoicePills
+                label="On capacity"
+                name="new-role-on-capacity"
+                options={["Yes", "No"]}
+                value={onCapacity ? "Yes" : "No"}
+                onChange={(v) => setOnCapacity(v === "Yes")}
+              />
+              <span className="text-fg-muted">{ON_CAPACITY_HINT}</span>
+            </div>
+          )}
           <label className="flex flex-col gap-1 text-xs">
             <span className="font-semibold uppercase tracking-wider text-fg-muted">
               Note (optional)
