@@ -75,6 +75,7 @@ import {
   buildBrProductionCompleteReviewEmails,
   buildBrReadyForProductionEmails,
   buildRequestEmailTitle,
+  buildRequestPartEmailTitle,
 } from "@/lib/buildRequestAlerts";
 import {
   buildFeatureRequestStatusEmails,
@@ -1265,11 +1266,12 @@ export function fireBuildRequestPartProductionCompleteAlert(args: {
   const target: ChangeTarget = {
     kind: "buildRequestItem",
     id: args.part.id,
-    title: args.part.partNumber,
+    title: buildRequestPartEmailTitle(args.part, br),
   };
   const emails = buildBrPartProductionCompleteEmails({
     target,
-    buildRequestTitle: br.brNo || br.title,
+    partNumber: args.part.partNumber,
+    buildRequestTitle: buildRequestEmailTitle(br),
     partWatchers: args.part.watchers,
     actor: args.actor,
     engineer: br.engineerAssigned,

@@ -117,6 +117,19 @@ describe("fireBuildRequestPartProductionCompleteAlert", () => {
     ]);
     expect(sent()[0].html).toContain("/build-request-item/41");
   });
+
+  it("is subjected with the part AND its build request (BusinessIT#56)", async () => {
+    email.fireBuildRequestPartProductionCompleteAlert({
+      buildRequest: BR,
+      part: { id: 41, partNumber: "791950-16", watchers: [] },
+      actor: ACTOR,
+    });
+    await settle(1);
+    expect(sent()[0].subject).toBe("791950-16 on BR_2026-0070 — Panel build");
+    expect(sent()[0].html).toContain(
+      ">Part production complete: 791950-16 on BR_2026-0070 — Panel build</div>",
+    );
+  });
 });
 
 describe("fireBuildRequestProductionCompleteAlert", () => {
