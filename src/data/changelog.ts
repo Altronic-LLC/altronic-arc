@@ -27,7 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Insourcing Quotes: a line's Altronic part # is now labelled Part Number",
       "Insourcing Quotes: a Customer reference / description on the quote, printed under Prepared for on the PDF",
       "Insourcing Quotes: a customer's notes from the customer list show on every one of their quotes (never printed)",
-      "Insourcing Quotes: a Customer type on the quote — Cooper, Arcline or External (never printed)",
+      "Insourcing Quotes: a Customer type on the quote — Cooper, Arcline or External (never printed) — shown as a column in the quotes list, with a filter by type",
       "Insourcing Quotes: each line takes the customer's target price and estimated EAU, and a Target & volume card shows where our price sits against their target, a year's revenue at the EAU, its GM and GM in dollars, and a Project context note (none of it printed)",
       "Insourcing Quotes: the quotes list shows each quote's customer reference / description, and the search finds it",
       "Insourcing Quotes: link a quote to an Engineering or Operations task and project from the right-hand panel, with a link straight to the task",

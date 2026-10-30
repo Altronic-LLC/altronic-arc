@@ -4648,7 +4648,9 @@ covers too.
 
 **Customer type** (Ray, 2026-10-30) — `CustomerType`, a strict choice
 (`QUOTE_CUSTOMER_TYPES`: Cooper / Arcline / External) on Quotes; pills with
-Not set on the header form, shown on the Quote card. `toCustomerType` reads
+Not set on the header form, shown on the Quote card, and a Type column in
+the quotes list with a Customer type filter (`?type=Cooper`, `?type=none`
+for quotes with none set). `toCustomerType` reads
 anything else as null; null clears. Internal, never printed. Change the
 const and the script's choice list together — SharePoint refuses a value the
 column doesn't declare.

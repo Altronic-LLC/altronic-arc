@@ -5459,7 +5459,10 @@ const SECTIONS: ManualSection[] = [
           RFQ number, or a few words on what is being quoted. It prints on the
           quote under the customer, and shows in the quotes list, where the
           search finds it too. Pick the <strong>Customer type</strong> —
-          Cooper, Arcline or External; it is internal and never prints. ARC
+          Cooper, Arcline or External; it is internal and never prints. The
+          quotes list shows it in its own column, and the{" "}
+          <strong>Customer type</strong> filter narrows the list to one type
+          (or to quotes with none set). ARC
           numbers it for you —{" "}
           <code>IQ-COO-0042-R1</code> is customer code COO, quote 42, rev 1.
           The running number is shared by every customer, so two quotes can

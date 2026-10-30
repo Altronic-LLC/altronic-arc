@@ -8,7 +8,7 @@ import { listQuoteAssemblies } from "@/api/quoteAssemblies";
 import { QUOTE_ASSEMBLIES_KEY, useQuotes } from "@/hooks/useQuotes";
 import { useQuoteCustomers } from "@/hooks/useQuoteCustomers";
 import { useMyQuoteAccess, type MyQuoteAccess } from "@/hooks/useQuoteRoles";
-import { QUOTE_STATUSES, type Quote, type QuoteCustomer, type QuoteStatus } from "@/types/quote";
+import { QUOTE_CUSTOMER_TYPES, QUOTE_STATUSES, type Quote, type QuoteCustomer, type QuoteStatus } from "@/types/quote";
 import { isLatestRevision, latestRevisions } from "@/lib/quoteNumber";
 import { priceQuote } from "@/lib/quotePricing";
 import { quoteExpiryDate } from "@/lib/quotePdfModel";
@@ -156,10 +156,19 @@ interface QuoteRow {
   latest: boolean;
 }
 
+/** The `type=` value for quotes with no customer type set. */
+const TYPE_NOT_SET = "none";
+const TYPE_OPTIONS = [
+  ...QUOTE_CUSTOMER_TYPES.map((t) => ({ value: t, label: t })),
+  { value: TYPE_NOT_SET, label: "Not set" },
+];
+
 function buildColumns(canSeeCost: boolean): SortColumn<QuoteRow>[] {
   const cols: SortColumn<QuoteRow>[] = [
     { key: "quoteNumber", label: "Quote #", value: (r) => r.quote.quoteNumber },
     { key: "customer", label: "Customer", value: (r) => r.customer?.name ?? "" },
+    // Cooper / Arcline / External — a short choice, so it filters by value too.
+    { key: "customerType", label: "Type", value: (r) => r.quote.customerType ?? "" },
     // The header's Customer reference / description (Ray, 2026-10-30) — free
     // text, so it sorts but offers no value filter; the search covers it.
     {
@@ -235,10 +244,12 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
 
   const q = params.get("q") ?? "";
   const customerFilter = params.get("customer") ?? "";
+  // `type=` — one of the three customer types, or `none` for quotes with no type set.
+  const typeFilter = params.get("type") ?? "";
   const status = params.get("status") || ALL;
   const showEarlier = params.get("revs") === "all";
 
-  const activeFilterCount = [q, customerFilter].filter(Boolean).length;
+  const activeFilterCount = [q, customerFilter, typeFilter].filter(Boolean).length;
   const filtersOpen = filtersExpanded || activeFilterCount > 0;
 
   function setParam(key: string, value: string) {
@@ -281,6 +292,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
     const tokens = tokenizeQuery(q);
     return rows.filter((r) => {
       if (customerFilter && String(r.quote.customerId ?? "") !== customerFilter) return false;
+      if (typeFilter && (r.quote.customerType ?? TYPE_NOT_SET) !== typeFilter) return false;
       if (tokens.length === 0) return true;
       const hay = [
         r.quote.quoteNumber,
@@ -294,7 +306,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
         .toLowerCase();
       return tokens.every((t) => hay.includes(t));
     });
-  }, [rows, q, customerFilter]);
+  }, [rows, q, customerFilter, typeFilter]);
 
   const counts = useMemo(() => {
     const out: Record<string, number> = { [ALL]: byOtherAxes.length };
@@ -320,7 +332,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
 
   useEffect(() => {
     setShowAll(false);
-  }, [q, customerFilter, status, showEarlier]);
+  }, [q, customerFilter, typeFilter, status, showEarlier]);
 
   const shown = showAll ? table.rows : table.rows.slice(0, INITIAL_ROWS);
   const pills = [ALL, ...QUOTE_STATUSES];
@@ -404,7 +416,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
         role="search"
         aria-label="Quote filters"
         className={cn(
-          "grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid sm:grid-cols-2",
+          "grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid sm:grid-cols-2 lg:grid-cols-3",
           filtersOpen ? "grid" : "hidden",
         )}
       >
@@ -418,6 +430,15 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
             options={customerOptions}
             emptyLabel="Any customer"
             searchPlaceholder="Search customers…"
+          />
+        </Filter>
+        <Filter label="Customer type">
+          <ChoiceSelect
+            value={typeFilter}
+            onChange={(v) => setParam("type", v)}
+            options={TYPE_OPTIONS}
+            emptyLabel="Any type"
+            searchPlaceholder="Search types…"
           />
         </Filter>
       </div>
@@ -531,6 +552,7 @@ function QuoteCard({ row, canSeeCost, onOpen }: { row: QuoteRow; canSeeCost: boo
         </span>
       </div>
       <p className="truncate text-sm text-fg">{row.customer?.name ?? "No customer"}</p>
+      {row.quote.customerType && <p className="text-xs text-fg-muted">{row.quote.customerType}</p>}
       {row.quote.customerReference && (
         <p className="truncate text-xs text-fg-muted">{row.quote.customerReference}</p>
       )}
@@ -572,7 +594,8 @@ function Row({ row, canSeeCost, onOpen }: { row: QuoteRow; canSeeCost: boolean; 
         </span>
       </td>
       <td className="max-w-[18rem] truncate px-4 py-2 text-fg">{row.customer?.name ?? "—"}</td>
-      <td className="max-w-[14rem] truncate px-4 py-2 text-fg-muted" title={quote.customerReference || undefined}>
+      <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{quote.customerType ?? "—"}</td>
+      <td className="max-w-[11rem] truncate px-4 py-2 text-fg-muted" title={quote.customerReference || undefined}>
         {quote.customerReference || "—"}
       </td>
       <td className="px-4 py-2">
