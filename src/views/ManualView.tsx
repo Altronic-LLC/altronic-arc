@@ -5514,7 +5514,7 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Target &amp; volume</H3>
         <P>
-          The <strong>Target &amp; volume</strong> card, under the quote total,
+          The <strong>Target &amp; volume</strong> card, right under the quote details,
           shows each line's price against the customer's target — how much
           above or below, in dollars and percent — and what a year at their
           EAU is worth in revenue. Our price is the line's unit price at its

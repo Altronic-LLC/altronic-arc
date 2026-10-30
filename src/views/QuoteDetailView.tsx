@@ -520,6 +520,18 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             {customer?.note.trim() && <CustomerNotes note={customer.note} />}
           </Card>
 
+          {/* Second, right under the header (Ray, 2026-10-30). */}
+          <QuoteTargetSummaryCard
+            quote={q}
+            assemblies={assemblies}
+            canSeeCost={canSeeCost}
+            canEdit={canEdit}
+            busy={update.isPending}
+            onSaveContext={async (projectContext) => {
+              await update.mutateAsync({ id: q.id, patch: { projectContext } });
+            }}
+          />
+
           {/* Lines */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
@@ -574,17 +586,6 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
               </ul>
             )}
           </Card>
-
-          <QuoteTargetSummaryCard
-            quote={q}
-            assemblies={assemblies}
-            canSeeCost={canSeeCost}
-            canEdit={canEdit}
-            busy={update.isPending}
-            onSaveContext={async (projectContext) => {
-              await update.mutateAsync({ id: q.id, patch: { projectContext } });
-            }}
-          />
 
           <QuoteAlternatesCard
             rows={q.alternates}
