@@ -515,3 +515,57 @@ describe("QuoteDetailView — layout", () => {
     for (const child of [...grid.children]) expect(child.className).toMatch(/\bmin-w-0\b/);
   });
 });
+
+describe("QuoteDetailView — target & volume summary, project context, customer type", () => {
+  it("a QUOTER sees each line's price against the target, a year's revenue at the EAU, and its GM", async () => {
+    who.email = QUOTER;
+    renderQuote(2);
+    await waitForWorksheet();
+    const card = screen.getByRole("region", { name: "Target and volume" });
+    // Line 1: 30 off at the 10-off break — $1,106.11 against $1,050.00, 120 a year.
+    // Line 2: manual $115.00 against $120.00, 600 a year.
+    const rows = within(within(card).getByRole("table")).getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("$1,050.00");
+    expect(rows[1]).toHaveTextContent("$1,106.11");
+    expect(rows[1]).toHaveTextContent(/\$56\.11.*above/);
+    expect(rows[1]).toHaveTextContent("$132,733.20");
+    expect(rows[2]).toHaveTextContent(/\$5\.00.*below/);
+    expect(rows[2]).toHaveTextContent("$69,000.00");
+    expect(within(card).getByText("$201,733.20")).toBeInTheDocument();
+    expect(within(card).getAllByText("GM $ a year").length).toBeGreaterThan(0);
+    expect(within(card).getByTestId("project-context")).toHaveTextContent(/fleet refresh/);
+  });
+
+  it("a VIEWER sees price vs target and revenue, but no GM", async () => {
+    who.email = VIEWER;
+    renderQuote(2);
+    await waitForWorksheet();
+    const card = screen.getByRole("region", { name: "Target and volume" });
+    expect(within(card).getByText("$201,733.20")).toBeInTheDocument();
+    expect(card).not.toHaveTextContent("GM");
+    expect(within(card).queryByRole("button", { name: "Edit project context" })).toBeNull();
+  });
+
+  it("a QUOTER edits the project context, saved to the quote", async () => {
+    who.email = QUOTER;
+    const user = userEvent.setup();
+    renderQuote(2);
+    await waitForWorksheet();
+    await user.click(screen.getByRole("button", { name: "Edit project context" }));
+    const box = screen.getByRole("textbox", { name: /Project context/ });
+    await user.clear(box);
+    await user.type(box, "Second source for the 2027 refresh");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(quoteMockDb.quotes.find((q) => q.id === 2)?.projectContext).toBe("Second source for the 2027 refresh"),
+    );
+    expect(await screen.findByText("Second source for the 2027 refresh")).toBeInTheDocument();
+  });
+
+  it("shows the customer type on the Quote card", async () => {
+    renderQuote(2);
+    await waitForWorksheet();
+    expect(screen.getByText("Customer type")).toBeInTheDocument();
+    expect(screen.getByText("Cooper")).toBeInTheDocument();
+  });
+});

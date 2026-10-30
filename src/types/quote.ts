@@ -23,6 +23,13 @@ import type { Comment, Person } from "./task";
 export const QUOTE_STATUSES = ["Draft", "Sent", "Won", "Lost", "Expired"] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
+/**
+ * Who the customer is (Ray, 2026-10-30). Choice column `CustomerType` on
+ * Quotes — set on the header, internal, never printed.
+ */
+export const QUOTE_CUSTOMER_TYPES = ["Cooper", "Arcline", "External"] as const;
+export type QuoteCustomerType = (typeof QUOTE_CUSTOMER_TYPES)[number];
+
 /** The statuses only a `manager` may set — the OUTCOMES of a quote. */
 export const QUOTE_OUTCOME_STATUSES: readonly QuoteStatus[] = ["Won", "Lost", "Expired"];
 
@@ -143,6 +150,13 @@ export interface Quote {
    * of what is being quoted ("RFQ 4471 — HUB V4 retrofit"). Printed.
    */
   customerReference: string;
+  /** `CustomerType` — Cooper / Arcline / External; null when unset. Internal. */
+  customerType: QuoteCustomerType | null;
+  /**
+   * `ProjectContext` — free text giving the project's background, shown in
+   * the Target & volume summary. Internal, never printed.
+   */
+  projectContext: string;
   /** `Alternates` JSON — the page-two alternates table. */
   alternates: QuoteAlternate[];
   /**
@@ -217,6 +231,16 @@ export interface QuoteAssembly {
   targetGM: number | null;
   /** Optional manual override of the computed price. */
   manualPrice: number | null;
+  /**
+   * `TargetPrice` — the price the customer is aiming for, per unit. Internal,
+   * never printed. null = not given.
+   */
+  targetPrice: number | null;
+  /**
+   * `EstimatedEAU` — the customer's estimated annual usage, units a year.
+   * Whole number ≥ 1, or null. Drives the summary's annual revenue and GM.
+   */
+  estimatedEau: number | null;
   /** Stored result (recomputed on every write by lib/quotePricing.ts). */
   customerPrice: number | null;
 }

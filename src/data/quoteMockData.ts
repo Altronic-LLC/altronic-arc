@@ -97,6 +97,8 @@ function quote(partial: Partial<Quote> & Pick<Quote, "id" | "quoteNumber" | "quo
     budgetaryText: "",
     quoteNotes: "",
     customerReference: "",
+    customerType: null,
+    projectContext: "",
     alternates: [],
     alternatesCorrupt: false,
     comments: [],
@@ -143,6 +145,9 @@ export const MOCK_QUOTES: Quote[] = [
     status: "Draft",
     contactName: "Mark Balent",
     contactEmail: "mark.balent@example.com",
+    customerType: "Cooper",
+    projectContext:
+      "Cooper is moving the CPU-95 retrofit kits off its current supplier for the 2027 fleet refresh. Volumes are their estimate for the first full year; the target came from the buyer on the 9/24 call.",
     customerReference: "RFQ 4471 — CPU-95 retrofit kits",
     quoteNotes: "Prices FOB Girard, OH. Lead time 6–8 weeks ARO.",
     alternates: [
@@ -241,6 +246,8 @@ function line(
     priceBreaks: [],
     targetGM: null,
     manualPrice: null,
+    targetPrice: null,
+    estimatedEau: null,
     customerPrice: null,
     ...partial,
   };
@@ -299,6 +306,8 @@ export const MOCK_QUOTE_ASSEMBLIES: QuoteAssembly[] = [
     ],
     targetGM: 40,
     customerPrice: 1164.33,
+    targetPrice: 1050,
+    estimatedEau: 120,
   }),
   line({
     id: 4,
@@ -312,6 +321,8 @@ export const MOCK_QUOTE_ASSEMBLIES: QuoteAssembly[] = [
     targetGM: 35,
     manualPrice: 115,
     customerPrice: 115,
+    targetPrice: 120,
+    estimatedEau: 600,
   }),
   // IQ-WAB-0002-R1. 41 × 1.18 + 9.50 = 57.88 at 40% → 96.47.
   line({

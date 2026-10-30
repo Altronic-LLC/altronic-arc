@@ -3,7 +3,7 @@ import { SITES, SP_PMO_SITE_URL, SP_QUOTES_LIST_ID, USE_MOCK } from "./config";
 import { resolvePeopleLookupIds } from "./siteUsers";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem, Person } from "@/types/task";
-import type { Quote, QuoteStatus } from "@/types/quote";
+import type { Quote, QuoteCustomerType, QuoteStatus } from "@/types/quote";
 import {
   QUOTE_ITEM_LEVEL_SELECT,
   QUOTE_SELECT,
@@ -165,6 +165,7 @@ export interface QuoteCreateInput {
   budgetaryText: string;
   quoteNotes: string;
   customerReference?: string;
+  customerType?: QuoteCustomerType | null;
   /** The caller adds the creator; resolved against PMO here. */
   watchers: Person[];
   status?: QuoteStatus;
@@ -199,6 +200,8 @@ async function postQuote(numbering: QuoteNumbering, body: QuoteRowBody): Promise
       budgetaryText: body.budgetaryText,
       quoteNotes: body.quoteNotes,
       customerReference: (body.customerReference ?? "").trim(),
+      customerType: body.customerType ?? null,
+      projectContext: body.projectContext ?? "",
       alternates: (body.alternates ?? []).map((r) => ({ designator: r.designator, sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
       alternatesCorrupt: false,
       comments: parseCommunication(body.communication ?? ""),
@@ -265,6 +268,7 @@ export async function createQuote(input: QuoteCreateInput): Promise<Quote> {
       budgetaryText: input.budgetaryText,
       quoteNotes: input.quoteNotes,
       customerReference: input.customerReference,
+      customerType: input.customerType ?? null,
       watchers: input.watchers,
     },
   );

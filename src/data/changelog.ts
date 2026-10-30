@@ -21,15 +21,18 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.209.0",
-    date: "2026-10-29",
+    date: "2026-10-30",
     changes: [
       "Insourcing Quotes: each line now takes the part's final Material, Labor and Overhead (a percent of material, 18% unless changed) and turns them into the selling price at the line's target GM — component rows and the Final assembly / Part choice are gone",
       "Insourcing Quotes: a line's Altronic part # is now labelled Part Number",
       "Insourcing Quotes: a Customer reference / description on the quote, printed under Prepared for on the PDF",
       "Insourcing Quotes: a customer's notes from the customer list show on every one of their quotes (never printed)",
+      "Insourcing Quotes: a Customer type on the quote — Cooper, Arcline or External (never printed)",
+      "Insourcing Quotes: each line takes the customer's target price and estimated EAU, and a Target & volume card shows where our price sits against their target, a year's revenue at the EAU, its GM and GM in dollars, and a Project context note (none of it printed)",
+      "Insourcing Quotes: the quotes list shows each quote's customer reference / description, and the search finds it",
       "Insourcing Quotes: link a quote to an Engineering or Operations task and project from the right-hand panel, with a link straight to the task",
       "Insourcing Quotes: an Alternates table — each row names the part's designator and up to three options, each a manufacturer, its part number and lead time, plus why the alternate was chosen — typed or pasted straight from your Excel sheet, header row and all, and printed on its own page of the PDF under Alternate 1, 2 and 3",
-      "Insourcing Quotes: a new revision carries the reference, alternates and links forward with the lines and discussion",
+      "Insourcing Quotes: a new revision carries the reference, customer type, project context, alternates and links forward with the lines (target price and EAU included) and discussion",
     ],
   },
   {

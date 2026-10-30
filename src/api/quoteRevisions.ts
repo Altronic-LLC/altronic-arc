@@ -87,6 +87,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
       budgetaryText: source.budgetaryText,
       quoteNotes: source.quoteNotes,
       customerReference: source.customerReference,
+      customerType: source.customerType,
+      projectContext: source.projectContext,
       alternates: source.alternates,
       engineeringTaskId: source.engineeringTaskId,
       operationsTaskId: source.operationsTaskId,
@@ -125,6 +127,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
         priceBreaks: a.priceBreaks,
         targetGM: a.targetGM,
         manualPrice: a.manualPrice,
+        targetPrice: a.targetPrice,
+        estimatedEau: a.estimatedEau,
         customerPrice: a.customerPrice,
       });
     } catch (err) {

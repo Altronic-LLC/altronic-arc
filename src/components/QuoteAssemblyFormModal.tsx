@@ -34,7 +34,11 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // the target GM may be left blank. Otherwise it is required, 0 < GM < 100.
 //
 // Quantity breaks: up to three rows of quantity / % off / note, validated by
-// `priceBreakProblems`, with a live preview of each tier's unit price. Every
+// `priceBreakProblems`, with a live preview of each tier's unit price.
+//
+// The customer's TARGET PRICE and ESTIMATED EAU (Ray, 2026-10-30) are
+// internal — never printed — and feed the worksheet's Target & volume
+// summary. Both optional; EAU is a whole number of units a year. Every
 // cost / margin figure shows only when `canSeeCost` — though only editors open
 // this form, and every editor can see cost. The SAP # formats as ####-####-##.
 // =============================================================================
@@ -115,6 +119,8 @@ export function QuoteAssemblyFormModal({
   );
   const [targetGM, setTargetGM] = useState(numStr(assembly?.targetGM));
   const [manualPrice, setManualPrice] = useState(numStr(assembly?.manualPrice));
+  const [targetPrice, setTargetPrice] = useState(numStr(assembly?.targetPrice));
+  const [eau, setEau] = useState(numStr(assembly?.estimatedEau));
   const [rows, setRows] = useState<BreakRow[]>(toRows(assembly?.priceBreaks ?? []));
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -142,6 +148,8 @@ export function QuoteAssemblyFormModal({
   const overheadPct = parseNum(overhead);
   const qty = parseNum(quotedQty);
   const qtyOk = qty !== null && Number.isInteger(qty) && qty >= 1;
+  const target = parseNum(targetPrice);
+  const eauNum = parseNum(eau);
 
   const preview = useMemo(() => {
     const draft: QuoteAssembly = {
@@ -159,6 +167,8 @@ export function QuoteAssemblyFormModal({
       description,
       priceBreaks: breakProblems.length === 0 ? breaks : [],
       manualPrice: manual !== null && Number.isFinite(manual) && manual > 0 ? manual : null,
+      targetPrice: null,
+      estimatedEau: null,
       customerPrice: null,
     };
     return priceQuoteAssembly(draft);
@@ -214,6 +224,12 @@ export function QuoteAssemblyFormModal({
       }
     }
     if (breakProblems.length > 0) return setError(breakProblems[0]);
+    if (target !== null && (!Number.isFinite(target) || target <= 0)) {
+      return setError("The customer's target price must be more than 0, or left blank.");
+    }
+    if (eauNum !== null && (!Number.isInteger(eauNum) || eauNum < 1)) {
+      return setError("Estimated EAU must be a whole number, 1 or more, or left blank.");
+    }
     setError(null);
 
     // Without cost access (never the case for an editor today) the stored
@@ -231,6 +247,8 @@ export function QuoteAssemblyFormModal({
       description,
       priceBreaks: breaks,
       manualPrice: manual,
+      targetPrice: target,
+      estimatedEau: eauNum,
     };
     try {
       if (assembly) {
@@ -248,6 +266,8 @@ export function QuoteAssemblyFormModal({
         if (values.customerPartNumber !== assembly.customerPartNumber) patch.customerPartNumber = values.customerPartNumber;
         if (values.description !== assembly.description) patch.description = values.description;
         if (values.manualPrice !== assembly.manualPrice) patch.manualPrice = values.manualPrice;
+        if (values.targetPrice !== assembly.targetPrice) patch.targetPrice = values.targetPrice;
+        if (values.estimatedEau !== assembly.estimatedEau) patch.estimatedEau = values.estimatedEau;
         if (JSON.stringify(values.priceBreaks) !== JSON.stringify(assembly.priceBreaks)) {
           patch.priceBreaks = values.priceBreaks;
         }
@@ -369,6 +389,37 @@ export function QuoteAssemblyFormModal({
                 disabled={busy}
               />
             </Field>
+            <fieldset className="sm:col-span-2" data-testid="line-target-inputs">
+              <legend className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                Customer target and volume — internal, not printed
+              </legend>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Customer target price ($)" hint="What the customer wants to pay for one.">
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="decimal"
+                    value={targetPrice}
+                    onChange={(e) => setTargetPrice(e.target.value)}
+                    className="input"
+                    disabled={busy}
+                  />
+                </Field>
+                <Field label="Estimated EAU" hint="Estimated annual usage — units a year.">
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    value={eau}
+                    onChange={(e) => setEau(e.target.value)}
+                    className="input"
+                    disabled={busy}
+                  />
+                </Field>
+              </div>
+            </fieldset>
             {canSeeCost && (
               <fieldset className="sm:col-span-2" data-testid="line-cost-inputs">
                 <legend className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">

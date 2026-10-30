@@ -4,7 +4,9 @@ import { FileText, Loader2, X } from "lucide-react";
 import {
   DEFAULT_BUDGETARY_TEXT,
   DEFAULT_QUOTE_VALIDITY_DAYS,
+  QUOTE_CUSTOMER_TYPES,
   type Quote,
+  type QuoteCustomerType,
 } from "@/types/quote";
 import type { QuotePatch } from "@/lib/quoteMapper";
 import { manageCustomersGate } from "@/lib/quoteRoles";
@@ -32,7 +34,8 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // The customer's NOTES (Quote Customers' Note column) are shown under the
 // picker as soon as a customer is chosen — the terms and habits worth knowing
 // before quoting them. They are internal and never printed. The Customer
-// reference / description IS printed.
+// reference / description IS printed. Customer type (Cooper / Arcline /
+// External, Ray 2026-10-30) is internal — three pills, with Not set.
 //
 // Budgetary: every new-product quote is budgetary unless unticked, so it
 // defaults to Yes on create. Ticking it with an EMPTY text seeds the default
@@ -89,6 +92,7 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
     quote?.customerId !== null && quote?.customerId !== undefined ? String(quote.customerId) : null,
   );
   const [budgetary, setBudgetary] = useState<boolean>(quote ? quote.budgetary : true);
+  const [customerType, setCustomerType] = useState<QuoteCustomerType | null>(quote?.customerType ?? null);
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
@@ -148,6 +152,7 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
           Pick<
             QuotePatch,
             | "customerReference"
+            | "customerType"
             | "contactName"
             | "contactEmail"
             | "validityDays"
@@ -157,6 +162,7 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
           >
         > = {
           customerReference: text.customerReference.trim(),
+          customerType,
           contactName: text.contactName.trim(),
           contactEmail: email,
           validityDays: validity,
@@ -179,6 +185,7 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
         customerId: customer.id,
         customerCode: customer.code,
         customerReference: text.customerReference.trim(),
+        customerType,
         contactName: text.contactName.trim(),
         contactEmail: email,
         validityDays: validity,
@@ -286,6 +293,18 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
                 onChange={(e) => setField("customerReference", e.target.value)}
                 placeholder="e.g. RFQ 4471 — HUB V4 retrofit"
                 className="input"
+                disabled={busy}
+              />
+            </Field>
+
+            <Field label="Customer type" plain className="sm:col-span-2" hint="Internal — not printed.">
+              <ChoicePills
+                label="Customer type"
+                name="quote-customer-type"
+                options={QUOTE_CUSTOMER_TYPES}
+                value={customerType ?? ""}
+                onChange={(v) => setCustomerType((v || null) as QuoteCustomerType | null)}
+                allowUnset
                 disabled={busy}
               />
             </Field>

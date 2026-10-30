@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { QuoteAssembly } from "@/types/quote";
 import {
+  quoteTargetSummary,
   lineCostBreakdown,
   priceAtGM,
   priceBreakProblems,
@@ -26,6 +27,8 @@ function assembly(over: Partial<QuoteAssembly> = {}): QuoteAssembly {
     priceBreaks: [],
     targetGM: 50,
     manualPrice: null,
+    targetPrice: null,
+    estimatedEau: null,
     customerPrice: null,
     ...over,
   };
@@ -402,5 +405,72 @@ describe("priceQuote", () => {
     const q = priceQuote([assembly({ id: 10 }), assembly({ id: 20, materialCost: null })]);
     expect(q.totalPrice).toBeNull();
     expect(q.totalCost).toBeNull();
+  });
+});
+
+describe("quoteTargetSummary — price vs target, revenue and GM at the EAU", () => {
+  it("compares each line's price at its quoted quantity with the target, and totals a year at the EAU", () => {
+    const s = quoteTargetSummary([
+      // 100 at 50% → $200; target $180 → $20 (11.1%) above. 100 a year.
+      assembly({ id: 1, lineNo: 1, targetPrice: 180, estimatedEau: 100 }),
+      // 50 at 50% → $100; target $120 → $20 below. 200 a year.
+      assembly({ id: 2, lineNo: 2, materialCost: 50, targetPrice: 120, estimatedEau: 200 }),
+      // No EAU — compared per line, left out of the annual totals.
+      assembly({ id: 3, lineNo: 3, materialCost: 25, targetPrice: 50 }),
+      // No target — in the revenue, out of the target comparison.
+      assembly({ id: 4, lineNo: 4, materialCost: 10, estimatedEau: 10 }),
+    ]);
+    const [a, b, c, d] = s.lines;
+    expect(a).toMatchObject({ unitPrice: 200, vsTarget: 20, annualRevenue: 20000, annualCost: 10000, annualGm: 10000, gmPct: 50 });
+    expect(a.vsTargetPct).toBeCloseTo(11.11, 2);
+    expect(b).toMatchObject({ unitPrice: 100, vsTarget: -20, annualRevenue: 20000 });
+    expect(c).toMatchObject({ unitPrice: 50, vsTarget: 0, annualRevenue: null, annualGm: null });
+    expect(d).toMatchObject({ unitPrice: 20, vsTarget: null, annualRevenue: 200, annualGm: 100 });
+
+    expect(s.annualRevenue).toBe(40200);
+    expect(s.annualGm).toBe(20100);
+    expect(s.annualGmPct).toBe(50);
+    // Only lines 1 and 2 have a price, a target AND an EAU: 180×100 + 120×200.
+    expect(s.targetRevenue).toBe(42000);
+    expect(s.vsTarget).toBe(-2000);
+    expect(s.vsTargetPct).toBeCloseTo(-4.76, 2);
+    expect(s.linesMissingEau).toBe(1);
+    expect(s.linesMissingTarget).toBe(1);
+  });
+
+  it("uses the break price at the QUOTED quantity, not the base price", () => {
+    const s = quoteTargetSummary([
+      assembly({ quotedQty: 10, priceBreaks: [{ qty: 10, discountPct: 10, note: "" }], targetPrice: 175, estimatedEau: 50 }),
+    ]);
+    expect(s.lines[0].unitPrice).toBe(180);
+    expect(s.lines[0].vsTarget).toBe(5);
+    expect(s.annualRevenue).toBe(9000);
+    // Cost is fixed per unit: (180 − 100) ÷ 180.
+    expect(s.annualGmPct).toBeCloseTo(44.44, 2);
+  });
+
+  it("a line with a manual price and no cost counts in revenue but never in GM", () => {
+    const s = quoteTargetSummary([
+      assembly({ id: 1, materialCost: null, targetGM: null, manualPrice: 90, estimatedEau: 10 }),
+      assembly({ id: 2, lineNo: 2, estimatedEau: 10 }),
+    ]);
+    expect(s.annualRevenue).toBe(2900);
+    // GM over line 2 only: 2,000 revenue, 1,000 GM.
+    expect(s.annualGm).toBe(1000);
+    expect(s.annualGmPct).toBe(50);
+  });
+
+  it("is all nulls, not zeros, when nothing has been entered", () => {
+    const s = quoteTargetSummary([assembly()]);
+    expect(s).toMatchObject({
+      annualRevenue: null,
+      annualGm: null,
+      annualGmPct: null,
+      targetRevenue: null,
+      vsTarget: null,
+      linesMissingEau: 1,
+      linesMissingTarget: 1,
+    });
+    expect(quoteTargetSummary([]).lines).toEqual([]);
   });
 });

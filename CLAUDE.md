@@ -805,7 +805,7 @@ src/
 │   ├── scnNumber.ts              nextScnNumber() — YYYY-NNNN, a GLOBAL 4-digit sequence since 2024 (legacy 3-digit titles ignored)
 │   ├── scnProjects.ts            SCN Project Reference ⇄ Engineering's Projects — matched by title (it's a text column on another site collection)
 │   ├── scnTasks.ts               SCN Task List hyperlink ⇄ an Engineering task — writes ARC's task URL, recognises it on read
-│   ├── quotePricing.ts           Quote pricing (pure) — a line's material × (1 + overhead%) + labor, its ONE target GM, breaks, WEIGHTED quote GM
+│   ├── quotePricing.ts           Quote pricing (pure) — a line's material × (1 + overhead%) + labor, its ONE target GM, breaks, WEIGHTED quote GM, the Target & volume summary
 │   ├── quoteMoney.ts             Quote money display — derived values 2 decimals, a typed unit cost up to 4 (pure)
 │   ├── sapPartNumber.ts          SAP part # ####-####-## — format as typed, validate (pure; not the sold-to)
 │   ├── quoteRoles.ts             Quote Roles tags → rights + every gate (pure) — no role = no access
@@ -966,6 +966,7 @@ src/
 │   ├── QuoteFormModal.tsx            New quote — customer (+ its notes), customer reference, contact, validity, budgetary text, notes (number shown as "will be …")
 │   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE — part numbers, material / labor / overhead (18% default), target GM, breaks, manual price
 │   ├── QuoteLinksPanel.tsx           A quote's Linked work — Engineering / Operations task (item id) and project (title) pickers, saved on pick
+│   ├── QuoteTargetSummaryCard.tsx    A quote's Target & volume card — price vs the customer's target, a year's revenue at the EAU, GM % / GM $ (cost-gated), Project context
 │   ├── QuoteAlternatesCard.tsx       A quote's Alternates table (designator, 3 × manufacturer / part # / lead time, reason) + its editor (typed, or pasted from Excel) — printed on its own PDF page
 │   ├── QuoteCustomerFormModal.tsx    New/edit a quote customer — proposed code, clash candidates, similar-name warning (manager)
 │   ├── pricingAtoms.tsx              Sales Pricing status chip, sub-nav (Requests / New Products / Customer Quotes / Roles), access gate, card shells
@@ -4594,7 +4595,7 @@ Four lists on **`SITES.pmo`**, created by `scripts/create-quote-lists.ps1`
 | List | env | Shape |
 |---|---|---|
 | Quotes | `VITE_SP_QUOTES_LIST_ID` | the header; attachments ON (the customer's data package, supplier quotes) |
-| Quote Assemblies | `VITE_SP_QUOTE_ASSEMBLIES_LIST_ID` | quote LINES; `QuoteRef` single lookup; `Cost` (material), `LaborCost`, `MaterialOverheadPct`, `TargetGM`; attachments OFF |
+| Quote Assemblies | `VITE_SP_QUOTE_ASSEMBLIES_LIST_ID` | quote LINES; `QuoteRef` single lookup; `Cost` (material), `LaborCost`, `MaterialOverheadPct`, `TargetGM`, `TargetPrice`, `EstimatedEAU`; attachments OFF |
 | Quote Customers | `VITE_SP_QUOTE_CUSTOMERS_LIST_ID` | `CustomerCode` unique; `Note` = the customer notes |
 | Quote Roles | `VITE_SP_QUOTE_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles`, `Note` |
 
@@ -4641,7 +4642,41 @@ printed. Displayed live, never copied into the quote, so editing a
 customer's notes reaches every quote at once.
 
 **Customer reference / description** — `CustomerReference` (text) on Quotes,
-on the header form, printed under PREPARED FOR on the PDF.
+on the header form, printed under PREPARED FOR on the PDF, and a sortable
+column (no value filter — free text) in the quotes list, which the search
+covers too.
+
+**Customer type** (Ray, 2026-10-30) — `CustomerType`, a strict choice
+(`QUOTE_CUSTOMER_TYPES`: Cooper / Arcline / External) on Quotes; pills with
+Not set on the header form, shown on the Quote card. `toCustomerType` reads
+anything else as null; null clears. Internal, never printed. Change the
+const and the script's choice list together — SharePoint refuses a value the
+column doesn't declare.
+
+**Target & volume** (`QuoteTargetSummaryCard`, Ray, 2026-10-30) — each LINE
+carries the customer's `TargetPrice` (currency) and `EstimatedEAU` (number,
+whole ≥ 1 — `parseEau` reads anything else as null), both optional, entered
+on the line form. Per line, not per quote: a quote is several parts, each
+with its own target and volume. `quoteTargetSummary` (lib/quotePricing.ts)
+is the maths:
+- **Our price is the unit price at the line's QUOTED quantity** (the
+  Subtotal's tier), not the base price.
+- Annual revenue = that price × EAU; annual cost = unit cost × EAU; GM $ =
+  the difference; GM % is weighted over the totals, never averaged.
+- A total includes only the lines that HAVE the figure, and the card says how
+  many have no EAU, so a partial total never reads as the whole quote. A line
+  with a price but no cost counts in revenue, never in GM.
+- The quote-level "vs target" compares only lines with a price, a target AND
+  an EAU, weighted by volume. Positive = ABOVE their target; the chip says
+  "above" / "below" in words, colour only as a tint.
+- GM % and GM $ are cost — `canSeeCost` only. Price vs target and revenue
+  are sell-side and show to viewers.
+
+The card also holds **Project context** — `ProjectContext` (plain multi-line
+note) on Quotes, edited through the card's Edit button (`FieldEditModal`).
+NOT behind the Sent guard: it is internal collaboration, like the links.
+None of the card is printed, and `QuotePdfModel` has no field for any of it.
+A new rev copies all four.
 
 **Linked work** (`QuoteLinksPanel`, the right panel) — `EngineeringTaskId` /
 `OperationsTaskId` are **NUMBER columns** holding the task's item id, and
@@ -4677,8 +4712,9 @@ Description | Lead time | Reason) on the branch and never reached
 SharePoint.
 
 **These columns must exist before v0.209.0 deploys** — `CustomerReference`,
-`Alternates`, `EngineeringTaskId`, `OperationsTaskId`, `OperationsProjectRef`
-(Quotes) and `LaborCost` (Quote Assemblies) are `$select`ed, and selecting a
+`CustomerType`, `ProjectContext`, `Alternates`, `EngineeringTaskId`,
+`OperationsTaskId`, `OperationsProjectRef` (Quotes), `LaborCost`,
+`TargetPrice` and `EstimatedEAU` (Quote Assemblies) are `$select`ed, and selecting a
 missing column 400s the WHOLE read. Re-run `create-quote-lists.ps1` against
 the live lists first; it only adds what's missing.
 

@@ -308,6 +308,8 @@ describe("lines", () => {
       .mockResolvedValueOnce({ id: "3", fields: { Title: "A", QuoteRefLookupId: "12" } });
     await createQuoteAssembly({
       quoteId: 12, lineNo: 1, altronicPartNumber: "A", sapPartNumber: "", customerPartNumber: "",
+      targetPrice: null,
+      estimatedEau: null,
       description: "", priceBreaks: [], targetGM: 35, manualPrice: null, customerPrice: null,
       materialCost: 12.5, laborCost: 4, materialOverheadPct: 18, quotedQty: 3,
     });

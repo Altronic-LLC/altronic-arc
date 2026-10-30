@@ -60,6 +60,8 @@ const NEW = {
   priceBreaks: [],
   targetGM: 35,
   manualPrice: null,
+  targetPrice: null,
+  estimatedEau: null,
   customerPrice: null,
 };
 

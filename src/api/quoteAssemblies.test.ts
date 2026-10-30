@@ -34,6 +34,8 @@ describe("quote assemblies API (mock mode)", () => {
       priceBreaks: [{ qty: 10, discountPct: 4, note: "" }],
       targetGM: 35,
       manualPrice: null,
+      targetPrice: null,
+      estimatedEau: null,
       customerPrice: 300,
     });
     expect(created).toMatchObject({

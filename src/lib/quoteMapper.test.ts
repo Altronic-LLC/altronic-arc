@@ -34,12 +34,12 @@ import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 const CONTRACT = {
   quotes: [
     "Title", "QuoteBase", "Rev", "CustomerRef", "Status", "ValidityDays", "ContactName", "ContactEmail",
-    "Budgetary", "BudgetaryText", "QuoteNotes", "CustomerReference", "Alternates", "Communication", "Watchers",
+    "Budgetary", "BudgetaryText", "QuoteNotes", "CustomerReference", "CustomerType", "ProjectContext", "Alternates", "Communication", "Watchers",
     "EngineeringTaskId", "OperationsTaskId", "EngineeringProjectRef", "OperationsProjectRef",
   ],
   assemblies: [
     "Title", "QuoteRef", "LineNo", "QuotedQty", "Cost", "LaborCost", "MaterialOverheadPct", "SapPartNumber",
-    "CustomerPartNumber", "Description", "PriceBreaks", "TargetGM", "ManualPrice", "CustomerPrice",
+    "CustomerPartNumber", "Description", "PriceBreaks", "TargetGM", "ManualPrice", "TargetPrice", "EstimatedEAU", "CustomerPrice",
   ],
   customers: ["Title", "CustomerCode", "CustomerNumber", "Active", "Note"],
   roles: ["Title", "PersonName", "Roles", "Note"],
@@ -231,6 +231,8 @@ describe("toQuote", () => {
           Communication: "10/01/2026 9:00:00 AM|||Ray White|||ray@x.com|||<p>hi</p>",
           Watchers: [{ LookupId: 22, LookupValue: "Ray White", Email: "ray@x.com" }],
           CustomerReference: " RFQ 4471 ",
+          CustomerType: "Arcline",
+          ProjectContext: "Fleet refresh, 2027",
           Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
           EngineeringTaskId: 5,
           OperationsTaskId: "12",
@@ -252,6 +254,8 @@ describe("toQuote", () => {
       contactName: "Mark",
       budgetary: true,
       customerReference: "RFQ 4471",
+      customerType: "Arcline",
+      projectContext: "Fleet refresh, 2027",
       alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
       alternatesCorrupt: false,
       engineeringTaskId: 5,
@@ -279,6 +283,8 @@ describe("toQuote", () => {
     expect(q.engineeringTaskId).toBeNull();
     expect(q.operationsTaskId).toBeNull();
     expect(q.customerReference).toBe("");
+    expect(q.customerType).toBeNull();
+    expect(q.projectContext).toBe("");
     expect(q.alternates).toEqual([]);
     expect(toQuote(item({ CustomerRefLookupId: "" })).customerId).toBeNull();
   });
@@ -301,6 +307,8 @@ describe("toQuoteAssembly / toQuoteCustomer / toQuoteRoleEntry", () => {
         PriceBreaks: '[{"qty":10,"discountPct":5,"note":""}]',
         TargetGM: 40,
         ManualPrice: null,
+        TargetPrice: 1050,
+        EstimatedEAU: "120",
         CustomerPrice: 1070.26,
       }),
     );
@@ -319,8 +327,41 @@ describe("toQuoteAssembly / toQuoteCustomer / toQuoteRoleEntry", () => {
       priceBreaks: [{ qty: 10, discountPct: 5, note: "" }],
       targetGM: 40,
       manualPrice: null,
+      targetPrice: 1050,
+      estimatedEau: 120,
       customerPrice: 1070.26,
     });
+  });
+
+  it("Customer type reads only the three choices; EAU only a whole number ≥ 1", () => {
+    expect(toQuote(item({ CustomerType: "Cooper" })).customerType).toBe("Cooper");
+    expect(toQuote(item({ CustomerType: "Someone else" })).customerType).toBeNull();
+    for (const raw of [undefined, null, "", 0, -3, 2.5, "x"]) {
+      expect(toQuoteAssembly(item({ Title: "A", EstimatedEAU: raw })).estimatedEau, String(raw)).toBeNull();
+    }
+    expect(toQuoteAssembly(item({ Title: "A" })).targetPrice).toBeNull();
+  });
+
+  it("writes the new columns: Customer type and Project context on the header, target and EAU on a line", () => {
+    const prev = toQuote(item({ Title: "IQ-COO-0001-R1" }));
+    expect(buildQuoteUpdateFields({ customerType: "External", projectContext: "Why" }, prev)).toEqual({
+      CustomerType: "External",
+      ProjectContext: "Why",
+    });
+    // Clearing the choice writes null; an unchanged value sends nothing.
+    expect(buildQuoteUpdateFields({ customerType: null }, { ...prev, customerType: "Cooper" })).toEqual({ CustomerType: null });
+    expect(buildQuoteUpdateFields({ customerType: "Cooper" }, { ...prev, customerType: "Cooper" })).toEqual({});
+    const line = toQuoteAssembly(item({ Title: "A" }));
+    expect(buildQuoteAssemblyUpdateFields({ targetPrice: 99.5, estimatedEau: 400 }, line)).toEqual({
+      TargetPrice: 99.5,
+      EstimatedEAU: 400,
+    });
+    const created = buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 1, targetPrice: 12, estimatedEau: 300 });
+    expect(created.TargetPrice).toBe(12);
+    expect(created.EstimatedEAU).toBe(300);
+    const blank = buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 1, targetPrice: null, estimatedEau: null });
+    expect(blank).not.toHaveProperty("TargetPrice");
+    expect(blank).not.toHaveProperty("EstimatedEAU");
   });
 
   it("the quoted quantity is NEVER blank: missing, blank, zero, negative or fractional reads as 1", () => {
@@ -365,6 +406,8 @@ const QUOTE: Quote = {
   budgetaryText: "",
   quoteNotes: "",
   customerReference: "",
+  customerType: null,
+  projectContext: "",
   alternates: [],
   alternatesCorrupt: false,
   comments: [],
@@ -492,6 +535,8 @@ const ASSEMBLY: QuoteAssembly = {
   priceBreaks: [{ qty: 10, discountPct: 5, note: "" }],
   targetGM: 35,
   manualPrice: null,
+  targetPrice: null,
+  estimatedEau: null,
   customerPrice: 100,
 };
 

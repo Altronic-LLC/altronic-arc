@@ -62,17 +62,17 @@ describe("createQuoteRevision (mock mode)", () => {
     const sources = (await listQuoteAssemblies()).filter((a) => a.quoteId === 2);
     expect(lines.map((a) => a.altronicPartNumber)).toEqual(["791950-08", "693005-1"]);
     expect(lines[1].manualPrice).toBe(115);
-    for (const key of ["materialCost", "laborCost", "materialOverheadPct", "targetGM", "quotedQty"] as const) {
+    for (const key of ["materialCost", "laborCost", "materialOverheadPct", "targetGM", "quotedQty", "targetPrice", "estimatedEau"] as const) {
       expect(lines.map((a) => a[key])).toEqual(sources.map((a) => a[key]));
     }
-    expect(lines[0]).toMatchObject({ materialCost: 520, laborCost: 85, materialOverheadPct: 18 });
+    expect(lines[0]).toMatchObject({ materialCost: 520, laborCost: 85, materialOverheadPct: 18, targetPrice: 1050, estimatedEau: 120 });
     expect(lines[0].priceBreaks).toHaveLength(3);
     expect(new Set(lines.map((a) => a.id)).has(sources[0].id)).toBe(false);
     // The R2 originals are still there.
     expect(sources).toHaveLength(2);
   });
 
-  it("copies the reference, alternates and task / project links", async () => {
+  it("copies the reference, customer type, project context, alternates and task / project links", async () => {
     const source = (await getQuote(2))!;
     await updateQuoteFields(
       2,
@@ -82,6 +82,8 @@ describe("createQuoteRevision (mock mode)", () => {
     const { quote } = await createQuoteRevision(2);
     expect(quote).toMatchObject({
       customerReference: "RFQ 4471 — CPU-95 retrofit kits",
+      customerType: "Cooper",
+      projectContext: source.projectContext,
       engineeringTaskId: 47,
       operationsTaskId: 3,
       engineeringProjectRef: "0042-NGI",

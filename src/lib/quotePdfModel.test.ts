@@ -24,6 +24,8 @@ function quote(over: Partial<Quote> = {}): Quote {
     budgetaryText: "",
     quoteNotes: "  Lead time 6 weeks ARO.  ",
     customerReference: "  RFQ 4471 — retrofit  ",
+    customerType: null,
+    projectContext: "",
     alternates: [
       {
         designator: "",
@@ -94,6 +96,8 @@ function assembly(over: Partial<QuoteAssembly> = {}): QuoteAssembly {
     ],
     targetGM: 37.77,
     manualPrice: null,
+    targetPrice: null,
+    estimatedEau: null,
     customerPrice: 999.01,
     ...over,
   };

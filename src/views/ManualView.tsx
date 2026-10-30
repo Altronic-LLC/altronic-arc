@@ -5380,7 +5380,7 @@ const SECTIONS: ManualSection[] = [
       "manager",
     ],
     searchText:
-      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. An Alternates table — a designator per row, up to three options, each a manufacturer, its part number and lead time, plus the reason for choosing the alternate — typed or pasted from Excel, prints on its own page of the PDF under Alternate 1, 2 and 3. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the Alternates table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
+      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote and shows in the quotes list. A Customer type (Cooper, Arcline or External) is set on the quote and never prints. Each line can carry the customer's target price and estimated EAU; the Target & volume card shows our price against their target, a year's revenue at the EAU, its GM and GM in dollars (quoters and managers), and a free-text Project context — none of it prints. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. An Alternates table — a designator per row, up to three options, each a manufacturer, its part number and lead time, plus the reason for choosing the alternate — typed or pasted from Excel, prints on its own page of the PDF under Alternate 1, 2 and 3. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the Alternates table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
     render: () => (
       <>
         <P>
@@ -5457,7 +5457,10 @@ const SECTIONS: ManualSection[] = [
           whether it is <strong>budgetary</strong>. Add a{" "}
           <strong>Customer reference / description</strong> — the customer's
           RFQ number, or a few words on what is being quoted. It prints on the
-          quote under the customer. ARC numbers it for you —{" "}
+          quote under the customer, and shows in the quotes list, where the
+          search finds it too. Pick the <strong>Customer type</strong> —
+          Cooper, Arcline or External; it is internal and never prints. ARC
+          numbers it for you —{" "}
           <code>IQ-COO-0042-R1</code> is customer code COO, quote 42, rev 1.
           The running number is shared by every customer, so two quotes can
           never get the same number. A new quote starts as{" "}
@@ -5503,6 +5506,28 @@ const SECTIONS: ManualSection[] = [
           removed while you build the quote. Discuss a line in the
           quote's <strong>Discussion</strong>, and keep supplier quotes and
           drawings in the quote's attachments.
+        </P>
+        <P>
+          Each line also takes the customer's <strong>target price</strong> for
+          one and their <strong>estimated EAU</strong> (estimated annual usage,
+          units a year). Both are optional and internal — they never print.
+        </P>
+        <H3>Target &amp; volume</H3>
+        <P>
+          The <strong>Target &amp; volume</strong> card, under the quote total,
+          shows each line's price against the customer's target — how much
+          above or below, in dollars and percent — and what a year at their
+          EAU is worth in revenue. Our price is the line's unit price at its
+          quoted quantity, the same price as its Subtotal. Quoters and
+          managers also see the GM % and the GM in dollars a year. The totals
+          add up only the lines that have an EAU, and the card says how many
+          are left out.
+        </P>
+        <P>
+          The <strong>Project context</strong> at the bottom of the card is a
+          free-text note on the project — who it's for, why, the timing. A
+          quoter or manager writes it with <strong>Edit</strong>. Everyone can
+          read it; it never prints.
         </P>
         <Tip>
           Quotes built before 29 October 2026 broke a final assembly into
@@ -5624,8 +5649,9 @@ const SECTIONS: ManualSection[] = [
           non-binding wording when you tick Budgetary, and editable) and the{" "}
           <strong>quote notes</strong>, the customer reference and the
           Alternates table print on the customer's quote, word for word — the form says so
-          beside each. Comments, attachments and customer notes are internal
-          and never print.
+          beside each. Comments, attachments, customer notes, the customer
+          type, target prices, EAU and the project context are internal and
+          never print.
         </Tip>
       </>
     ),

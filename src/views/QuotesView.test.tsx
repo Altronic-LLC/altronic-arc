@@ -74,6 +74,21 @@ describe("QuotesView", () => {
     expect(screen.queryByText("IQ-WAB-0002-R1")).toBeNull();
   });
 
+  it("shows each quote's customer reference / description in its own column, and searches it", async () => {
+    renderList();
+    await waitForRows();
+    expect(screen.getByRole("button", { name: "Sort by Reference / description" })).toBeInTheDocument();
+    const row = within(screen.getByRole("table")).getByText("IQ-COO-0001-R2").closest("tr")!;
+    expect(row).toHaveTextContent("RFQ 4471 — CPU-95 retrofit kits");
+  });
+
+  it("finds a quote by its customer reference", async () => {
+    renderList("/sales/quotes?q=NGI-2000");
+    await waitForRows();
+    expect(screen.getAllByText("IQ-INN-0003-R1").length).toBeGreaterThan(0);
+    expect(screen.queryByText("IQ-COO-0001-R2")).toBeNull();
+  });
+
   it("a manager sees the GM % column and New quote", async () => {
     renderList();
     await waitForRows();

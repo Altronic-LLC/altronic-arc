@@ -379,3 +379,112 @@ export function priceQuote(assemblies: QuoteAssembly[]): QuotePricing {
     gmPct: gmOf(totalPrice, totalCost),
   };
 }
+
+// -----------------------------------------------------------------------------
+// Target & volume summary (Ray, 2026-10-30)
+//
+// Where our price sits against the customer's TARGET price, and what a year
+// at their ESTIMATED EAU is worth: revenue, cost, GM % and GM $.
+//
+//   * Our price is the line's unit price AT ITS QUOTED QUANTITY — the price
+//     the customer is being quoted, the same figure as the Subtotal's.
+//   * Annual revenue = that unit price × EAU; annual cost = unit cost × EAU;
+//     GM $ = revenue − cost; GM % is weighted over the totals, never averaged.
+//   * A line missing a figure contributes nothing to a total that needs it,
+//     and `linesMissingEau` says how many, so a partial total never reads as
+//     the whole quote.
+//   * "vs target" is our price minus theirs: positive means we are ABOVE
+//     their target. The quote-level comparison is made only over the lines
+//     that have a price, a target AND an EAU — weighting by volume.
+// -----------------------------------------------------------------------------
+
+export interface QuoteLineTargetSummary {
+  assemblyId: number;
+  lineNo: number;
+  partNumber: string;
+  targetPrice: number | null;
+  /** Our unit price at the quoted quantity. */
+  unitPrice: number | null;
+  /** unitPrice − targetPrice. Positive = above their target. */
+  vsTarget: number | null;
+  /** vsTarget ÷ targetPrice, as a percent. */
+  vsTargetPct: number | null;
+  estimatedEau: number | null;
+  /** roundCents(unitPrice × EAU). */
+  annualRevenue: number | null;
+  annualCost: number | null;
+  /** annualRevenue − annualCost. */
+  annualGm: number | null;
+  /** GM % at our unit price. */
+  gmPct: number | null;
+}
+
+export interface QuoteTargetSummary {
+  lines: QuoteLineTargetSummary[];
+  /** Σ annual revenue over the lines that have one; null when none does. */
+  annualRevenue: number | null;
+  /** Σ annual GM $ over the lines with both revenue and cost; null when none. */
+  annualGm: number | null;
+  /** Weighted: Σ GM $ ÷ Σ revenue, over those same lines. */
+  annualGmPct: number | null;
+  /** Σ target × EAU, over lines with a price, a target and an EAU. */
+  targetRevenue: number | null;
+  /** Our revenue over those same lines − targetRevenue. Positive = above target. */
+  vsTarget: number | null;
+  vsTargetPct: number | null;
+  /** Lines with no EAU (or no price yet) — left out of the annual totals. */
+  linesMissingEau: number;
+  /** Lines with no target price. */
+  linesMissingTarget: number;
+}
+
+export function quoteTargetSummary(assemblies: QuoteAssembly[]): QuoteTargetSummary {
+  const sorted = [...assemblies].sort((a, b) => a.lineNo - b.lineNo || a.id - b.id);
+  const lines = sorted.map((a): QuoteLineTargetSummary => {
+    const p = priceQuoteAssembly(a);
+    const unitPrice = p.quotedUnitPrice;
+    const target = isNum(a.targetPrice) && a.targetPrice > 0 ? a.targetPrice : null;
+    const eau = isNum(a.estimatedEau) && Number.isInteger(a.estimatedEau) && a.estimatedEau >= 1 ? a.estimatedEau : null;
+    const vsTarget = unitPrice !== null && target !== null ? unitPrice - target : null;
+    const annualRevenue = unitPrice !== null && eau !== null ? roundCents(unitPrice * eau) : null;
+    const annualCost = p.unitCost !== null && eau !== null ? p.unitCost * eau : null;
+    return {
+      assemblyId: a.id,
+      lineNo: a.lineNo,
+      partNumber: a.altronicPartNumber.trim(),
+      targetPrice: target,
+      unitPrice,
+      vsTarget,
+      vsTargetPct: vsTarget !== null && target !== null ? (vsTarget / target) * 100 : null,
+      estimatedEau: eau,
+      annualRevenue,
+      annualCost,
+      annualGm: annualRevenue !== null && annualCost !== null ? annualRevenue - annualCost : null,
+      gmPct: gmOf(unitPrice, p.unitCost),
+    };
+  });
+
+  const withRevenue = lines.filter((l) => l.annualRevenue !== null);
+  const withGm = lines.filter((l) => l.annualGm !== null);
+  const compared = lines.filter((l) => l.annualRevenue !== null && l.targetPrice !== null);
+  const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
+
+  const gmRevenue = sum(withGm.map((l) => l.annualRevenue as number));
+  const annualGm = withGm.length > 0 ? sum(withGm.map((l) => l.annualGm as number)) : null;
+  const targetRevenue =
+    compared.length > 0 ? roundCents(sum(compared.map((l) => (l.targetPrice as number) * (l.estimatedEau as number)))) : null;
+  const ourCompared = sum(compared.map((l) => l.annualRevenue as number));
+  const vsTarget = targetRevenue !== null ? ourCompared - targetRevenue : null;
+
+  return {
+    lines,
+    annualRevenue: withRevenue.length > 0 ? roundCents(sum(withRevenue.map((l) => l.annualRevenue as number))) : null,
+    annualGm,
+    annualGmPct: annualGm !== null && gmRevenue > 0 ? (annualGm / gmRevenue) * 100 : null,
+    targetRevenue,
+    vsTarget,
+    vsTargetPct: vsTarget !== null && targetRevenue !== null && targetRevenue > 0 ? (vsTarget / targetRevenue) * 100 : null,
+    linesMissingEau: lines.length - withRevenue.length,
+    linesMissingTarget: lines.filter((l) => l.targetPrice === null).length,
+  };
+}

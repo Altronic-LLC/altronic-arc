@@ -126,3 +126,32 @@ describe("QuoteFormModal — edit", () => {
     await waitFor(() => expect(quoteMockDb.quotes.find((q) => q.id === 2)?.quoteNotes).toBe("New notes"));
   });
 });
+
+describe("QuoteFormModal — customer type", () => {
+  it("offers Cooper / Arcline / External as pills, Not set by default, and saves the pick on create", async () => {
+    const onSaved = vi.fn();
+    renderWithProviders(<QuoteFormModal onClose={vi.fn()} onSaved={onSaved} />);
+    const group = screen.getByRole("radiogroup", { name: "Customer type" });
+    for (const name of ["Cooper", "Arcline", "External"]) {
+      expect(within(group).getByRole("radio", { name })).not.toBeChecked();
+    }
+    expect(within(group).getByRole("radio", { name: "Not set" })).toBeChecked();
+    await pickCustomer(/Wabtec/);
+    await userEvent.click(within(group).getByRole("radio", { name: "Arcline" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create quote" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(quoteMockDb.quotes.find((q) => q.id === onSaved.mock.calls[0][0])?.customerType).toBe("Arcline");
+  });
+
+  it("changes it on edit, and can clear it back to Not set", async () => {
+    const quote = quoteMockDb.quotes.find((q) => q.id === 2)!;
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteFormModal quote={quote} onClose={onClose} />);
+    const group = screen.getByRole("radiogroup", { name: "Customer type" });
+    expect(within(group).getByRole("radio", { name: "Cooper" })).toBeChecked();
+    await userEvent.click(within(group).getByRole("radio", { name: "Not set" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    await waitFor(() => expect(quoteMockDb.quotes.find((q) => q.id === 2)?.customerType).toBeNull());
+  });
+});

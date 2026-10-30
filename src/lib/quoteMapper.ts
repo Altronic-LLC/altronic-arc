@@ -1,9 +1,11 @@
 import type { GraphListItem, Person } from "@/types/task";
 import {
+  QUOTE_CUSTOMER_TYPES,
   QUOTE_STATUSES,
   type Quote,
   type QuoteAssembly,
   type QuoteCustomer,
+  type QuoteCustomerType,
   QUOTE_ALTERNATE_SOURCES,
   type QuoteAlternate,
   type QuoteAlternateSource,
@@ -31,7 +33,8 @@ import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
 //  - **A column added after the lists were created must exist before a
 //    build that selects it ships** — selecting a missing column 400s the
 //    WHOLE read. `CustomerReference`, `Alternates`, `EngineeringTaskId`,
-//    `OperationsTaskId`, `OperationsProjectRef` (Quotes) and `LaborCost`
+//    `OperationsTaskId`, `OperationsProjectRef`, `CustomerType`,
+//    `ProjectContext` (Quotes), `LaborCost`, `TargetPrice` and `EstimatedEAU`
 //    (Quote Assemblies) came with v0.209.0; re-run create-quote-lists.ps1
 //    first.
 //
@@ -68,6 +71,8 @@ export const QUOTE_SELECT = [
   "BudgetaryText",
   "QuoteNotes",
   "CustomerReference",
+  "CustomerType",
+  "ProjectContext",
   "Alternates",
   "Communication",
   "Watchers",
@@ -93,6 +98,8 @@ export const QUOTE_ASSEMBLY_SELECT = [
   "PriceBreaks",
   "TargetGM",
   "ManualPrice",
+  "TargetPrice",
+  "EstimatedEAU",
   "CustomerPrice",
 ].join(",");
 
@@ -163,6 +170,17 @@ function parseCreatedBy(item: GraphListItem): Person | null {
  * still being worked on. Because edits are DIFFED, the stored value is never
  * overwritten unless somebody actually picks a different status.
  */
+/** A stored Customer Type, or null when blank or not one of the three. */
+export function toCustomerType(value: unknown): QuoteCustomerType | null {
+  return (QUOTE_CUSTOMER_TYPES as readonly unknown[]).includes(value) ? (value as QuoteCustomerType) : null;
+}
+
+/** A stored EAU: a whole number ≥ 1, else null (never a guess). */
+export function parseEau(value: unknown): number | null {
+  const n = num(value);
+  return n !== null && Number.isInteger(n) && n >= 1 ? n : null;
+}
+
 function toStatus(value: unknown): QuoteStatus {
   const v = text(value).trim();
   return (QUOTE_STATUSES as readonly string[]).includes(v) ? (v as QuoteStatus) : "Draft";
@@ -339,6 +357,8 @@ export function toQuote(item: GraphListItem): Quote {
     budgetaryText: text(f.BudgetaryText),
     quoteNotes: text(f.QuoteNotes),
     customerReference: text(f.CustomerReference).trim(),
+    customerType: toCustomerType(f.CustomerType),
+    projectContext: text(f.ProjectContext),
     alternates: alternates.rows,
     alternatesCorrupt: alternates.corrupt,
     comments: parseCommunication(text(f.Communication)),
@@ -380,6 +400,8 @@ export function toQuoteAssembly(item: GraphListItem): QuoteAssembly {
     priceBreaks: parsePriceBreaks(f.PriceBreaks),
     targetGM: num(f.TargetGM),
     manualPrice: num(f.ManualPrice),
+    targetPrice: num(f.TargetPrice),
+    estimatedEau: parseEau(f.EstimatedEAU),
     customerPrice: num(f.CustomerPrice),
   };
 }
@@ -479,6 +501,8 @@ export interface QuoteCreateFieldsInput {
   budgetaryText: string;
   quoteNotes: string;
   customerReference?: string;
+  customerType?: QuoteCustomerType | null;
+  projectContext?: string;
   alternates?: QuoteAlternate[];
   engineeringTaskId?: number | null;
   operationsTaskId?: number | null;
@@ -510,6 +534,8 @@ export function buildQuoteCreateFields(input: QuoteCreateFieldsInput): Record<st
   if (input.budgetaryText) fields.BudgetaryText = input.budgetaryText;
   if (input.quoteNotes) fields.QuoteNotes = input.quoteNotes;
   if (input.customerReference?.trim()) fields.CustomerReference = input.customerReference.trim();
+  if (input.customerType) fields.CustomerType = input.customerType;
+  if (input.projectContext?.trim()) fields.ProjectContext = input.projectContext;
   const alternates = serializeAlternates(input.alternates ?? []);
   if (alternates) fields.Alternates = alternates;
   if (input.engineeringTaskId) fields.EngineeringTaskId = input.engineeringTaskId;
@@ -534,6 +560,8 @@ export type QuotePatch = Partial<
     | "budgetaryText"
     | "quoteNotes"
     | "customerReference"
+    | "customerType"
+    | "projectContext"
     | "alternates"
     | "engineeringTaskId"
     | "operationsTaskId"
@@ -552,6 +580,9 @@ const QUOTE_COLUMNS: ColumnSpec<Required<QuotePatch>> = {
   budgetaryText: { column: "BudgetaryText", write: str },
   quoteNotes: { column: "QuoteNotes", write: str },
   customerReference: { column: "CustomerReference", write: trimmed },
+  // A strict choice column: one of the three, or null to clear.
+  customerType: { column: "CustomerType", write: (v) => toCustomerType(v) },
+  projectContext: { column: "ProjectContext", write: str },
   alternates: { column: "Alternates", write: (v) => serializeAlternates(Array.isArray(v) ? v : []) },
   // A positive id, or null — the same rule as a bare lookup.
   engineeringTaskId: { column: "EngineeringTaskId", write: bareLookup },
@@ -603,6 +634,10 @@ export interface QuoteAssemblyInput {
   /** The ONE margin on the line (percent). */
   targetGM: number | null;
   manualPrice: number | null;
+  /** The customer's target price per unit. */
+  targetPrice: number | null;
+  /** Estimated annual usage — whole number ≥ 1, or null. */
+  estimatedEau: number | null;
   customerPrice: number | null;
 }
 
@@ -626,6 +661,9 @@ export function buildQuoteAssemblyCreateFields(input: QuoteAssemblyInput): Recor
   if (breaks) fields.PriceBreaks = breaks;
   if (input.targetGM !== null) fields.TargetGM = input.targetGM;
   if (input.manualPrice !== null) fields.ManualPrice = input.manualPrice;
+  if (input.targetPrice !== null) fields.TargetPrice = input.targetPrice;
+  const eau = parseEau(input.estimatedEau);
+  if (eau !== null) fields.EstimatedEAU = eau;
   if (input.customerPrice !== null) fields.CustomerPrice = input.customerPrice;
   return fields;
 }
@@ -643,6 +681,8 @@ const ASSEMBLY_COLUMNS: ColumnSpec<Required<QuoteAssemblyPatch>> = {
   priceBreaks: { column: "PriceBreaks", write: (v) => serializePriceBreaks(Array.isArray(v) ? v : []) },
   targetGM: { column: "TargetGM", write: nullableNum },
   manualPrice: { column: "ManualPrice", write: nullableNum },
+  targetPrice: { column: "TargetPrice", write: nullableNum },
+  estimatedEau: { column: "EstimatedEAU", write: (v) => parseEau(v) },
   customerPrice: { column: "CustomerPrice", write: nullableNum },
 };
 

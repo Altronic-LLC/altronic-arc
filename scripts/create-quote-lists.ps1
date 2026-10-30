@@ -16,7 +16,9 @@
                            unique); QuoteBase (indexed), Rev, CustomerRef,
                            Status, ValidityDays, ContactName, ContactEmail,
                            Budgetary, BudgetaryText, QuoteNotes,
-                           CustomerReference, Alternates (JSON), Communication,
+                           CustomerReference, CustomerType (Cooper /
+                           Arcline / External), ProjectContext, Alternates
+                           (JSON), Communication,
                            Watchers, EngineeringTaskId, OperationsTaskId
                            (numbers — a task's item id), EngineeringProjectRef,
                            OperationsProjectRef (project titles)
@@ -26,12 +28,14 @@
                            MaterialOverheadPct (overhead as % of material),
                            SapPartNumber, CustomerPartNumber, Description,
                            PriceBreaks (JSON), TargetGM (the ONE margin on the
-                           line), ManualPrice, CustomerPrice
+                           line), ManualPrice, TargetPrice (the customer's
+                           target), EstimatedEAU, CustomerPrice
 
-    COLUMNS ADDED IN v0.209.0 (Ray, 2026-10-29) — CustomerReference,
-    Alternates, EngineeringTaskId, OperationsTaskId and OperationsProjectRef on
-    Quotes, and LaborCost on Quote Assemblies. ARC selects them, and selecting
-    a column a list hasn't got 400s the WHOLE read, so re-run this script
+    COLUMNS ADDED IN v0.209.0 (Ray, 2026-10-29/30) — CustomerReference,
+    CustomerType, ProjectContext, Alternates, EngineeringTaskId,
+    OperationsTaskId and OperationsProjectRef on Quotes; LaborCost, TargetPrice
+    and EstimatedEAU on Quote Assemblies. ARC selects them, and selecting a
+    column a list hasn't got 400s the WHOLE read, so re-run this script
     against the live lists BEFORE that version deploys.
 
     RETIRED, never deleted: Quotes' EngineeringTaskLink / OperationsTaskLink
@@ -202,6 +206,14 @@ $Lists = @(
             (Note "QuoteNotes" "Quote Notes"),
             # Printed on the customer's quote.
             (Text "CustomerReference" "Customer Reference"),
+            # Internal: who the customer is. A strict choice, Not set allowed.
+            @{
+                name = "CustomerType"; displayName = "Customer Type"
+                choice = @{ choices = @("Cooper", "Arcline", "External"); displayAs = "dropDownMenu"; allowTextEntry = $false }
+            },
+            # Internal: background on the project, shown in the Target &
+            # volume summary. Plain text, never rich.
+            (Note "ProjectContext" "Project Context"),
             # JSON: the page-two Alternates table (three manufacturer options
             # + a reason per row). Plain text, never rich.
             (Note "Alternates" "Alternates"),
@@ -242,6 +254,10 @@ $Lists = @(
             # The ONE margin on the line (Ray, 2026-10-09) — never per component.
             (Number "TargetGM" "Target GM %"),
             (Currency "ManualPrice" "Manual Price"),
+            # Internal (never printed): the customer's target price for one,
+            # and their estimated annual usage — the Target & volume summary.
+            (Currency "TargetPrice" "Target Price"),
+            (Number "EstimatedEAU" "Estimated EAU" "none"),
             (Currency "CustomerPrice" "Customer Price")
         )
         retired      = @("LineType")
@@ -528,7 +544,7 @@ Write-Host "  the second must REPLACE the stored value, not double the thread." 
 
 Write-Host "`nWRITE / READ-BACK CHECK: a 2xx from a write is not proof a value landed (the DisplayName trap)." -ForegroundColor Yellow
 Write-Host "  Before building on these lists, write one value into each column through Graph and read it back" -ForegroundColor Yellow
-Write-Host "  — at minimum PersonName on Quote Roles, the lookups (bare integers), LaborCost, Alternates and the task ids." -ForegroundColor Yellow
+Write-Host "  — at minimum PersonName on Quote Roles, the lookups (bare integers), LaborCost, Alternates, the task ids, CustomerType, TargetPrice and EstimatedEAU." -ForegroundColor Yellow
 
 Write-Host "`nList ids — add to .env.local, to the GitHub repo variables, and to deploy.yml's named list:" -ForegroundColor Cyan
 foreach ($spec in $Lists) { Write-Host "  $($spec.envVar)=$($listIds[$spec.name])" -ForegroundColor Green }

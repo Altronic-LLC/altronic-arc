@@ -52,6 +52,7 @@ import { CustomerNotes, PRINTED_NOTE, QuoteFormModal } from "@/components/QuoteF
 import { QuoteAssemblyFormModal } from "@/components/QuoteAssemblyFormModal";
 import { AlternatesEditor, QuoteAlternatesCard } from "@/components/QuoteAlternatesCard";
 import { QuoteLinksPanel } from "@/components/QuoteLinksPanel";
+import { QuoteTargetSummaryCard } from "@/components/QuoteTargetSummaryCard";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { cn } from "@/lib/cn";
 import { QuoteAccessGate, QuoteStatusChip, quoteExpiry } from "./QuotesView";
@@ -501,6 +502,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
               <ReadField label="Customer reference / description" wide note={PRINTED_NOTE}>
                 {q.customerReference || null}
               </ReadField>
+              <ReadField label="Customer type" note="Internal — not printed.">{q.customerType}</ReadField>
               <ReadField label="Contact">{q.contactName || null}</ReadField>
               <ReadField label="Contact email">{q.contactEmail || null}</ReadField>
               <ReadField label="Validity">{`${q.validityDays} days`}</ReadField>
@@ -572,6 +574,17 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
               </ul>
             )}
           </Card>
+
+          <QuoteTargetSummaryCard
+            quote={q}
+            assemblies={assemblies}
+            canSeeCost={canSeeCost}
+            canEdit={canEdit}
+            busy={update.isPending}
+            onSaveContext={async (projectContext) => {
+              await update.mutateAsync({ id: q.id, patch: { projectContext } });
+            }}
+          />
 
           <QuoteAlternatesCard
             rows={q.alternates}

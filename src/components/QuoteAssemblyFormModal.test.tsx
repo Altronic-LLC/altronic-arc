@@ -239,3 +239,49 @@ describe("QuoteAssemblyFormModal", () => {
     expect(screen.queryByText("Total cost")).toBeNull();
   });
 });
+
+describe("QuoteAssemblyFormModal — customer target price and estimated EAU", () => {
+  it("saves both on a new line, marked as internal", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    expect(screen.getByTestId("line-target-inputs")).toHaveTextContent(/internal, not printed/i);
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.type(screen.getByLabelText(/Customer target price/), "88.5");
+    await userEvent.type(screen.getByLabelText(/Estimated EAU/), "1200");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const created = quoteMockDb.assemblies.find((a) => a.altronicPartNumber === "NEW-1");
+    expect(created?.targetPrice).toBe(88.5);
+    expect(created?.estimatedEau).toBe(1200);
+  });
+
+  it("refuses a fractional EAU and a target price of 0", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.type(screen.getByLabelText(/Customer target price/), "0");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("target price must be more than 0");
+    await userEvent.clear(screen.getByLabelText(/Customer target price/));
+    await userEvent.type(screen.getByLabelText(/Estimated EAU/), "12.5");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Estimated EAU must be a whole number");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("an edit shows the stored figures and clears one back to blank", async () => {
+    const asm = quoteMockDb.assemblies.find((a) => a.id === 3)!; // target 1,050, EAU 120
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={2} assembly={asm} nextLineNo={3} canSeeCost onClose={onClose} />);
+    expect(screen.getByLabelText(/Customer target price/)).toHaveValue(1050);
+    expect(screen.getByLabelText(/Estimated EAU/)).toHaveValue(120);
+    await userEvent.clear(screen.getByLabelText(/Estimated EAU/));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const after = quoteMockDb.assemblies.find((a) => a.id === 3)!;
+    expect(after.estimatedEau).toBeNull();
+    expect(after.targetPrice).toBe(1050);
+  });
+});

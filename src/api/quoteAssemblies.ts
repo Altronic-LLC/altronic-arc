@@ -76,6 +76,8 @@ export async function createQuoteAssembly(input: QuoteAssemblyInput): Promise<Qu
       priceBreaks: input.priceBreaks.map((b) => ({ ...b })),
       targetGM: input.targetGM,
       manualPrice: input.manualPrice,
+      targetPrice: input.targetPrice,
+      estimatedEau: input.estimatedEau,
       customerPrice: input.customerPrice,
     };
     quoteMockDb.assemblies.push(row);

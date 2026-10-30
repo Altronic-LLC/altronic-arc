@@ -160,6 +160,14 @@ function buildColumns(canSeeCost: boolean): SortColumn<QuoteRow>[] {
   const cols: SortColumn<QuoteRow>[] = [
     { key: "quoteNumber", label: "Quote #", value: (r) => r.quote.quoteNumber },
     { key: "customer", label: "Customer", value: (r) => r.customer?.name ?? "" },
+    // The header's Customer reference / description (Ray, 2026-10-30) — free
+    // text, so it sorts but offers no value filter; the search covers it.
+    {
+      key: "reference",
+      label: "Reference / description",
+      value: (r) => r.quote.customerReference,
+      noFilter: true,
+    },
     { key: "status", label: "Status", value: (r) => r.quote.status },
     {
       key: "assemblies",
@@ -280,6 +288,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
         r.customer?.code ?? "",
         r.quote.contactName,
         r.quote.contactEmail,
+        r.quote.customerReference,
       ]
         .join(" ")
         .toLowerCase();
@@ -400,7 +409,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
         )}
       >
         <Filter label="Search">
-          <SearchInput value={q} onChange={(v) => setParam("q", v)} placeholder="Quote #, customer, contact…" />
+          <SearchInput value={q} onChange={(v) => setParam("q", v)} placeholder="Quote #, customer, reference, contact…" />
         </Filter>
         <Filter label="Customer">
           <ChoiceSelect
@@ -522,6 +531,9 @@ function QuoteCard({ row, canSeeCost, onOpen }: { row: QuoteRow; canSeeCost: boo
         </span>
       </div>
       <p className="truncate text-sm text-fg">{row.customer?.name ?? "No customer"}</p>
+      {row.quote.customerReference && (
+        <p className="truncate text-xs text-fg-muted">{row.quote.customerReference}</p>
+      )}
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
         {lines.map(([label, value]) => (
           <div key={label} className="contents">
@@ -560,6 +572,9 @@ function Row({ row, canSeeCost, onOpen }: { row: QuoteRow; canSeeCost: boolean; 
         </span>
       </td>
       <td className="max-w-[18rem] truncate px-4 py-2 text-fg">{row.customer?.name ?? "—"}</td>
+      <td className="max-w-[14rem] truncate px-4 py-2 text-fg-muted" title={quote.customerReference || undefined}>
+        {quote.customerReference || "—"}
+      </td>
       <td className="px-4 py-2">
         <QuoteStatusChip status={quote.status} />
       </td>
