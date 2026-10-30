@@ -38,6 +38,22 @@ export function buildRequestEmailTitle(br: { id: number; brNo: string; title: st
   return [br.brNo, br.title].filter(Boolean).join(" — ") || `Build request #${br.id}`;
 }
 
+/**
+ * A build request PART's name on every email about it — "672123-01 on
+ * BR_2026-0012 — Widget rebuild". The part number alone isn't enough: one
+ * part number can sit on several open build requests, and their emails read
+ * identically (BusinessIT#56, Brandon Mirto). Like the request's own title it
+ * is the subject Outlook groups on, so every part email goes through here.
+ * No parent (not loaded, or gone) falls back to the part number alone.
+ */
+export function buildRequestPartEmailTitle(
+  part: { id: number; partNumber: string },
+  br: { id: number; brNo: string; title: string } | null | undefined,
+): string {
+  const partName = part.partNumber.trim() || `Part #${part.id}`;
+  return br ? `${partName} on ${buildRequestEmailTitle(br)}` : partName;
+}
+
 function emailKey(p: Person | null | undefined): string {
   return (p?.email ?? "").trim().toLowerCase();
 }
@@ -140,7 +156,9 @@ export function buildBrPartProductionCompleteEmails(
   args: {
     /** The PART — the email links to it, the way other part emails do. */
     target: ChangeTarget;
-    /** The parent request's label (BR No. or title), for the subject. */
+    /** The part number alone, for the headline (the target's title names the request too). */
+    partNumber: string;
+    /** The parent request's email title (BR No. and name), for the headline. */
     buildRequestTitle: string;
     /** The part's own watchers. */
     partWatchers?: Person[];
@@ -156,12 +174,12 @@ export function buildBrPartProductionCompleteEmails(
     ],
     actor: args.actor,
   });
-  const part = escapeHtml(args.target.title || "A part");
+  const part = escapeHtml(args.partNumber || "A part");
   const br = escapeHtml(args.buildRequestTitle);
-  const subject = `Part production complete: ${args.target.title} (${args.buildRequestTitle})`;
+  const subject = `Part production complete: ${args.target.title}`;
   const headline =
     `<strong>${actorName(args.actor)}</strong> marked part <strong>${part}</strong> ` +
-    `on build request <strong>${br}</strong> <strong>Production Complete</strong>.`;
+    `<strong>Production Complete</strong> on build request <strong>${br}</strong>.`;
   const detail = para(
     "When every part is Production Complete, the assigned engineer can mark the whole " +
       "build request Production Complete.",

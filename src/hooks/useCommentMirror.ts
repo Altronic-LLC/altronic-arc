@@ -7,7 +7,7 @@ import {
   type CommentOriginKind,
 } from "@/lib/commentMirror";
 import { buildRequestForTask, taskLabel } from "@/lib/buildRequestFromTask";
-import { buildRequestEmailTitle } from "@/lib/buildRequestAlerts";
+import { buildRequestEmailTitle, buildRequestPartEmailTitle } from "@/lib/buildRequestAlerts";
 import { commentNotifyRecipients } from "@/lib/mentions";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { notifyMentions } from "@/api/email";
@@ -183,7 +183,12 @@ function audienceFor(
     .getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY)
     ?.find((i) => i.id === id);
   if (!item) return null;
-  return { watchers: item.watchers, assignees: [], title: itemLabel(item) };
+  const parent = qc
+    .getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY)
+    ?.find((b) => b.id === item.buildRequestLookupId);
+  // The part's own email title, naming its request (BusinessIT#56), so the
+  // copy joins the part's conversation.
+  return { watchers: item.watchers, assignees: [], title: buildRequestPartEmailTitle(item, parent) };
 }
 
 /**
