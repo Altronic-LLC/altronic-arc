@@ -53,6 +53,7 @@ import { OperationsStatusBadge } from "@/components/operationsAtoms";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { FromQuoteLink } from "@/components/FromQuoteLink";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
@@ -327,6 +328,7 @@ export function OperationsDetailView() {
               </button>
             </div>
 
+            <FromQuoteLink comments={task.comments} />
             {task.taskNumber && (
               <div className="mb-1 inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 font-mono text-xs font-semibold text-fg-muted">
                 {task.taskNumber}

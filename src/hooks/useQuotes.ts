@@ -37,6 +37,7 @@ import {
 } from "./mentionAutoWatch";
 import { useCurrentUser } from "./useCurrentUser";
 import { requireQuoteGate, useResolveQuoteAccess } from "./useQuoteRoles";
+import { fanOutComment } from "./useCommentMirror";
 
 // =============================================================================
 // Quotes — the header hooks (one row per quote REVISION).
@@ -253,6 +254,9 @@ export function useAddQuoteComment() {
         assignees: [],
         authorEmail: comment.authorEmail,
       });
+      // A won quote and the tasks created from it share one conversation —
+      // see lib/quoteToTask.ts. Best-effort; the comment is already posted.
+      void fanOutComment({ qc, source: { kind: "quote", id }, comment, alreadyNotified: recipients });
       if (recipients.length === 0) return;
       void notifyMentions({
         recipients,

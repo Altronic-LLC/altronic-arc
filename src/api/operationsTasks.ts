@@ -4,7 +4,7 @@ import { spFetch } from "./sharepoint";
 import { ensureLookupIds, ensurePersonLookupId, ensureSiteUserLookupId } from "./siteUsers";
 import type { GraphListItem, OperationsTask, Person, ProjectReference } from "@/types/task";
 import { toOperationsTask } from "@/lib/operationsTaskMapper";
-import { appendComment, replaceComment } from "@/lib/communicationParser";
+import { appendComment, parseCommunication, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { listOperationsProjects } from "./operationsProjects";
 import { listOperationsEquipment } from "./operationsEquipment";
@@ -266,6 +266,7 @@ export async function updateOperationsTaskFields(
       const v = fields.AltronicEquipmentLookupId;
       next.equipment = v ? { lookupId: Number(v), title: next.equipment?.title ?? "" } : null;
     }
+    if ("Communication" in fields) next.comments = parseCommunication(String(fields.Communication ?? ""));
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();

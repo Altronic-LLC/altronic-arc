@@ -16,10 +16,17 @@ import { BUILD_REQUESTS_KEY, BUILD_REQUEST_ITEMS_KEY } from "@/hooks/useBuildReq
 import { TASK_LIST_KEY } from "@/hooks/useTasks";
 import { EIRS_KEY, eirTargetTitle } from "@/hooks/useEirs";
 import { linkedEirForTask, linkedTaskForEir } from "@/lib/eirTaskReference";
+import { QUOTES_KEY } from "@/hooks/useQuotes";
+import { OPERATIONS_TASK_LIST_KEY } from "@/hooks/useOperationsTasks";
+import { listQuotes } from "@/api/quotes";
+import { QUOTES_CONFIGURED } from "@/api/config";
+import { linkedQuoteForTask, linkedTaskForQuote, quoteOriginOfTask } from "@/lib/quoteToTask";
+import type { Quote } from "@/types/quote";
 import type {
   BuildRequest,
   BuildRequestItem,
   Eir,
+  OperationsTask,
   Person,
   Task,
 } from "@/types/task";
@@ -48,7 +55,34 @@ interface Linkage {
   taskId: number | null;
   buildRequestId: number | null;
   eirId: number | null;
+  /** The quote a task was created from (latest rev) — see lib/quoteToTask.ts. */
+  quoteId?: number | null;
+  /** A quote's Operations task. */
+  operationsTaskId?: number | null;
   origin: CommentOrigin;
+}
+
+/** How an Operations task is named in a banner and an email. */
+function opsTaskLabel(t: OperationsTask): string {
+  return t.taskNumber || t.title || `Operations task #${t.id}`;
+}
+
+/**
+ * The quotes list, for a task that was CREATED from a quote. A task page
+ * doesn't load quotes, so this reads them — but only for a task whose thread
+ * carries the quote marker, so an ordinary task comment costs nothing. A
+ * refused or failed read mirrors nothing; the comment itself has posted.
+ */
+async function quotesFor(qc: QueryClient, comments: Task["comments"]): Promise<Quote[]> {
+  if (!QUOTES_CONFIGURED || !quoteOriginOfTask(comments)) return [];
+  const cached = qc.getQueryData<Quote[]>(QUOTES_KEY);
+  if (cached) return cached;
+  try {
+    return await qc.ensureQueryData({ queryKey: QUOTES_KEY, queryFn: listQuotes, staleTime: 60_000 });
+  } catch (err) {
+    console.error("Comment mirror: couldn't read the quotes list", err);
+    return [];
+  }
 }
 
 /** How an EIR is named in a banner on another record. */
@@ -74,20 +108,48 @@ function itemLabel(item: BuildRequestItem): string {
  * nothing to name the banner after, and guessing would produce a comment
  * whose origin line reads "#0".
  */
-function resolveLinkage(
+async function resolveLinkage(
   qc: QueryClient,
   kind: CommentOriginKind,
   id: number,
-): Linkage | null {
+): Promise<Linkage | null> {
   const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY) ?? [];
   const tasks = qc.getQueryData<Task[]>(TASK_LIST_KEY) ?? [];
   const eirs = qc.getQueryData<Eir[]>(EIRS_KEY) ?? [];
+  const opsTasks = qc.getQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY) ?? [];
+
+  if (kind === "quote") {
+    const quote = qc.getQueryData<Quote[]>(QUOTES_KEY)?.find((q) => q.id === id);
+    if (!quote) return null;
+    return {
+      taskId: linkedTaskForQuote(quote, "engineering", tasks)?.id ?? null,
+      operationsTaskId: linkedTaskForQuote(quote, "operations", opsTasks)?.id ?? null,
+      buildRequestId: null,
+      eirId: null,
+      origin: { kind: "quote", id, label: quote.quoteNumber },
+    };
+  }
+
+  if (kind === "operationsTask") {
+    const task = opsTasks.find((t) => t.id === id);
+    if (!task) return null;
+    const quotes = await quotesFor(qc, task.comments);
+    return {
+      taskId: null,
+      buildRequestId: null,
+      eirId: null,
+      quoteId: linkedQuoteForTask(task, "operations", quotes)?.id ?? null,
+      origin: { kind: "operationsTask", id, label: opsTaskLabel(task) },
+    };
+  }
 
   if (kind === "task") {
     const task = tasks.find((t) => t.id === id);
     if (!task) return null;
     const br = buildRequestForTask(brs, id);
+    const quotes = await quotesFor(qc, task.comments);
     return {
+      quoteId: linkedQuoteForTask(task, "engineering", quotes)?.id ?? null,
       taskId: id,
       buildRequestId: br?.id ?? null,
       // Only when the task and the EIR agree they belong together — see
@@ -149,6 +211,18 @@ function audienceFor(
   kind: CommentOriginKind,
   id: number,
 ): { watchers: Person[]; assignees: Person[]; title: string } | null {
+  if (kind === "quote") {
+    const quote = qc.getQueryData<Quote[]>(QUOTES_KEY)?.find((q) => q.id === id);
+    if (!quote) return null;
+    // No assignee column: a quote is worked by its watchers. The quote
+    // number is its emails' title (useAddQuoteComment).
+    return { watchers: quote.watchers, assignees: [], title: quote.quoteNumber };
+  }
+  if (kind === "operationsTask") {
+    const task = qc.getQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY)?.find((t) => t.id === id);
+    if (!task) return null;
+    return { watchers: task.watchers, assignees: task.assigned ? [task.assigned] : [], title: opsTaskLabel(task) };
+  }
   if (kind === "eir") {
     const eir = qc.getQueryData<Eir[]>(EIRS_KEY)?.find((e) => e.id === id);
     if (!eir) return null;
@@ -211,7 +285,7 @@ export async function fanOutComment(args: {
 }): Promise<void> {
   const { qc, source, comment, alreadyNotified } = args;
 
-  const linkage = resolveLinkage(qc, source.kind, source.id);
+  const linkage = await resolveLinkage(qc, source.kind, source.id);
   if (!linkage) return;
 
   const targets = mirrorTargetsFor({
@@ -220,6 +294,8 @@ export async function fanOutComment(args: {
     taskId: linkage.taskId,
     buildRequestId: linkage.buildRequestId,
     eirId: linkage.eirId,
+    quoteId: linkage.quoteId ?? null,
+    operationsTaskId: linkage.operationsTaskId ?? null,
   });
   if (targets.length === 0) return;
 
@@ -257,6 +333,12 @@ export async function fanOutComment(args: {
   }
   if (written.some((t) => t.kind === "eir")) {
     void qc.invalidateQueries({ queryKey: EIRS_KEY });
+  }
+  if (written.some((t) => t.kind === "quote")) {
+    void qc.invalidateQueries({ queryKey: QUOTES_KEY });
+  }
+  if (written.some((t) => t.kind === "operationsTask")) {
+    void qc.invalidateQueries({ queryKey: OPERATIONS_TASK_LIST_KEY });
   }
 
   // Notify each side's own audience, minus anyone the original already told.

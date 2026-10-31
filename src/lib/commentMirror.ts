@@ -30,7 +30,15 @@ import { escapeHtml } from "./mentions";
 // =============================================================================
 
 /** Where a mirrored comment was originally posted. */
-export type CommentOriginKind = "task" | "buildRequest" | "buildRequestItem" | "eir";
+export type CommentOriginKind =
+  | "task"
+  | "buildRequest"
+  | "buildRequestItem"
+  | "eir"
+  // A won Insourcing Quote and the Engineering / Operations task created from
+  // it (2026-10-30) — see lib/quoteToTask.ts.
+  | "quote"
+  | "operationsTask";
 
 export interface CommentOrigin {
   kind: CommentOriginKind;
@@ -67,6 +75,10 @@ export function originSentence(origin: CommentOrigin): string {
         : `Posted on part ${origin.label}`;
     case "eir":
       return `Posted on EIR ${origin.label}`;
+    case "quote":
+      return `Posted on quote ${origin.label}`;
+    case "operationsTask":
+      return `Posted on Operations task ${origin.label}`;
   }
 }
 
@@ -81,6 +93,10 @@ export function originLinkText(origin: CommentOrigin): string {
       return "Open the part to reply";
     case "eir":
       return "Open the EIR to reply";
+    case "quote":
+      return "Open the quote to reply";
+    case "operationsTask":
+      return "Open the task to reply";
   }
 }
 
@@ -143,9 +159,31 @@ export function mirrorTargetsFor(source: {
   buildRequestItemId?: number | null;
   /** The EIR the task was promoted from (task side) — or the source EIR's own id. */
   eirId?: number | null;
+  /**
+   * The quote the task was CREATED from (task side: its latest rev), or the
+   * Operations task a quote created (quote side). See lib/quoteToTask.ts.
+   */
+  quoteId?: number | null;
+  operationsTaskId?: number | null;
 }): MirrorTarget[] {
-  const { kind, origin, taskId, buildRequestId, eirId = null } = source;
+  const { kind, origin, taskId, buildRequestId, eirId = null, quoteId = null, operationsTaskId = null } = source;
   const out: MirrorTarget[] = [];
+
+  // A won quote and the tasks created from it share one conversation (Ray,
+  // 2026-10-30). Direct links only, like the EIR: a quote comment reaches its
+  // tasks, never the task's build request or EIR.
+  if (kind === "quote") {
+    if (taskId != null) out.push({ kind: "task", id: taskId, origin });
+    if (operationsTaskId != null) out.push({ kind: "operationsTask", id: operationsTaskId, origin });
+    return out;
+  }
+  if (kind === "operationsTask") {
+    if (quoteId != null) out.push({ kind: "quote", id: quoteId, origin });
+    return out;
+  }
+  if (kind === "task" && quoteId != null) {
+    out.push({ kind: "quote", id: quoteId, origin });
+  }
 
   // A part comment is the one case that fans out TWO ways.
   if (kind === "buildRequestItem") {
