@@ -649,6 +649,7 @@ src/
 │   ├── useQuoteCustomers.ts      Quote Customers queries + manager-gated mutations
 │   ├── useQuoteRoles.ts          Quote Roles CRUD + useMyQuoteAccess / useResolveQuoteAccess (awaited in every mutationFn)
 │   ├── useQuotePdf.ts            Generate the customer PDF (local download) + the explicit Save to folder
+│   ├── useQuoteToTask.ts         A Won quote → an Engineering / Operations task: carries the discussion, links it back, emails the watchers
 │   ├── usePricingRoles.ts        Pricing Roles CRUD + useMyPricingAccess / useResolvePricingAccess — the preview switch sits in front of both
 │   ├── usePricingLookup.ts       SAP facts as queries — each answers `notConnected` so a screen falls back to typed entry
 │   ├── usePricingRequests.ts     Pricing request queries + the workflow (submit routing, Added to SAP, In Review, Price → History first, reopen, cancel), comments, watchers
@@ -750,7 +751,7 @@ src/
 │   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
 │   ├── buildRequestPartProduction.ts A PART's production buttons — readiness, who presses which step, the write guard (pure)
 │   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
-│   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
+│   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part, task ⇄ EIR, quote ⇄ its Eng/Ops task: the origin banner + fan-out routing (pure)
 │   ├── commentReplies.ts        Threaded replies — the reply marker in the body, and grouping a thread one level deep (pure)
 │   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
@@ -813,6 +814,7 @@ src/
 │   ├── quoteCustomerCode.ts      Propose a 2–5 letter customer code, next candidates on a clash, similar-name check (pure)
 │   ├── quotePdfModel.ts          Record → QuotePdfModel, the customer-facing shape that CANNOT carry cost or margin
 │   ├── quotePdf.ts               QuotePdfModel → real-text PDF (jsPDF + AutoTable, dynamically imported)
+│   ├── quoteToTask.ts            Won quote → task (pure): refusal, the created-from marker, who shares a thread (latest rev), description, Communication, emails
 │   ├── quoteMapper.ts            Graph item ⇄ all five quote lists; field builders, PriceBreaks JSON, unique-value refusal
 │   ├── priceCalculator.ts        The Pricing tool's quick calculator (pure) — customer price from COGS + GM or a manual price, the round-5 GM ladder, copy text
 │   ├── pricingMath.ts            Sales Pricing maths (pure) — list from target GM ÷ distributor discount (whole dollar), base GM, customer price, comparables, BOM cost, breaks
@@ -965,6 +967,8 @@ src/
 │   ├── QuotesNav.tsx                 Insourcing Quotes sub-nav — Quotes / Customers / Roles (Roles only for whoever can manage it)
 │   ├── QuoteFormModal.tsx            New quote — customer (+ its notes), customer reference, contact, validity, budgetary text, notes (number shown as "will be …")
 │   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE — part numbers, material / labor / overhead (18% default), target GM, breaks, manual price
+│   ├── QuoteToTaskModal.tsx          Create task from a Won quote — Engineering / Operations, title, project (sets the number)
+│   ├── FromQuoteLink.tsx             "From quote: IQ-…" on a task created from a quote, read off its own thread
 │   ├── QuoteLinksPanel.tsx           A quote's Linked work — Engineering / Operations task (item id) and project (title) pickers, saved on pick
 │   ├── QuoteTargetSummaryCard.tsx    A quote's Target & volume card — price vs the customer's target, a year's revenue at the EAU, GM % / GM $ (cost-gated), Project context
 │   ├── QuoteAlternatesCard.tsx       A quote's Alternates table (designator, 3 × manufacturer / part # / lead time, reason) + its editor (typed, or pasted from Excel) — printed on its own PDF page
@@ -4915,6 +4919,56 @@ Six more things that are load-bearing:
   customer and part (Ray: not this round — the Pricing tool's Fabric lookups
   are the place to start); an automated monthly component CSV for the Claude
   project (the Parts Book's Export components button is the manual one).
+
+#### A won quote becomes an Engineering or Operations task
+
+Ray, 2026-10-30: the EIR → Task promotion, for quotes. A **Create task**
+button on a **Won** quote (quoter or manager — `editQuoteGate`, asked again
+in the mutationFn against a FRESH read of the quote) opens
+`QuoteToTaskModal`: Engineering or Operations, title, parent project
+(required: it sets the number; defaulted from the quote's Linked work
+project, matched by title). Pieces: `lib/quoteToTask.ts` (pure),
+`hooks/useQuoteToTask.ts`, `components/QuoteToTaskModal.tsx`,
+`components/FromQuoteLink.tsx`.
+
+- **What carries**: the quote's discussion (original author and time,
+  oldest-first, tagged "carried over from quote …"), its watchers plus the
+  creator, its attachments (`copyAttachments`), and a plain-text description
+  (quote, customer, reference, project context, lines). An Operations task is
+  numbered from a FRESH list and retried once on a refused create (the form's
+  rule); its Communication is a separate PATCH after the create.
+- **What the quote records**: `EngineeringTaskId` / `OperationsTaskId` and
+  the project title in `EngineeringProjectRef` / `OperationsProjectRef` —
+  the existing Linked work columns, no new ones — plus a note in its own
+  discussion naming the task number, and an email to its watchers threaded
+  into the quote's conversation. One task per department per quote.
+- **Only the task create is fatal.** Everything after it is collected into
+  one warning toast, the promotion's rule. A failed link-back says to pick the
+  task under Linked work, because without it nothing is shared.
+- **Only a task CREATED from the quote shares its conversation** (Ray: "only
+  button links"). A task picked by hand under Linked work is a reference. The
+  pair is proven from BOTH sides: the task's thread holds the header ARC
+  wrote at creation — an origin banner carrying `data-created-from-quote`,
+  `data-quote-base` and `data-quote-number` (`quoteOriginOfTask`) — and the
+  quote's link column names the task. No column anywhere stores the marker;
+  don't "simplify" it into the link alone, or every hand link starts
+  copying comments.
+- **Task → quote goes to the LATEST revision of the base** (Ray), and only
+  while that rev still names the task (`linkedQuoteForTask`). A new revision
+  copies the links forward, so R1 and R2 can both name it.
+- **The mirror** is the task ⇄ build request one (`fanOutComment`), with
+  `quote` and `operationsTask` as new kinds — Operations task comments fan
+  out for the first time. Direct links only: a quote comment reaches its
+  tasks, never their build request or EIR. A task page doesn't load quotes,
+  so a task comment reads the Quotes list — ONLY when its thread carries the
+  marker, and a refused read mirrors nothing.
+- **From quote** on both task pages is read off the same marker, so it costs
+  no request; it opens the revision the task was created from.
+
+Pinned in `lib/quoteToTask.test.ts`, `hooks/useQuoteToTask.test.tsx` (mock
+mode, end to end, both mirror directions and the hand-linked case — the gate
+and the marker rule each verified by removing them) and
+`views/QuoteDetailView.toTask.test.tsx`.
 
 ### Sales Pricing (Customer Service / Sales, ALTRONICSALESTEAM site)
 

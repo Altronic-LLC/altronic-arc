@@ -5546,6 +5546,32 @@ const SECTIONS: ManualSection[] = [
           an <strong>Open</strong> link straight to it. Only a quoter or
           manager can change a link; everyone can see them. Links never print.
         </P>
+        <H3>Turning a won quote into a task</H3>
+        <P>
+          Once a quote is <strong>Won</strong>, a quoter or manager sees{" "}
+          <strong>Create task</strong> at the top of the quote. Pick{" "}
+          <strong>Engineering</strong> or <strong>Operations</strong>, the
+          task's title and its parent project (it starts on the project
+          already under Linked work, and sets the task's number), then press{" "}
+          <strong>Create task</strong>. ARC opens the new task.
+        </P>
+        <P>
+          The task gets the quote's whole discussion, with each comment's
+          original author and time, its watchers, its attachments, and a
+          description naming the quote, the customer, the project context and
+          the lines. The quote records the task and project under Linked work
+          and posts a note naming the new task number, and the quote's
+          watchers are emailed. A quote can have one Engineering task and one
+          Operations task.
+        </P>
+        <P>
+          From then on the quote and the task share one conversation: a
+          comment on either is copied to the other, with a line saying where it
+          was posted and a link to reply there. A comment on a task always goes
+          to the quote's latest revision. The task shows a{" "}
+          <strong>From quote</strong> link back to the quote. A task picked by
+          hand under Linked work is only a link — its comments are not shared.
+        </P>
         <H3>Alternates</H3>
         <P>
           The <strong>Alternates</strong> card holds a table for the customer.
