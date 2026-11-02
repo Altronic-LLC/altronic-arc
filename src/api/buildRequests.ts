@@ -268,6 +268,9 @@ export async function updateBuildRequestFields(
     if ("Watchers" in fields && Array.isArray(fields.Watchers)) {
       next.watchers = fields.Watchers as Person[];
     }
+    if ("TaskReferenceLookupId" in fields) {
+      next.taskReferenceLookupId = (fields.TaskReferenceLookupId as number | null) ?? null;
+    }
     if ("ProjectReferenceLookupId" in fields && Array.isArray(fields.ProjectReferenceLookupId)) {
       next.parentProjects = (fields.ProjectReferenceLookupId as number[]).map((lookupId) => ({
         lookupId,
@@ -343,6 +346,20 @@ export async function setBuildRequestProjects(
     return updateBuildRequestFields(id, { ProjectReferenceLookupId: lookupIds });
   }
   return updateBuildRequestFields(id, multiLookupField("ProjectReference", lookupIds));
+}
+
+/**
+ * Link a header to an Engineering task, or move it to another one
+ * (BusinessIT#58). `TaskReference` is a SINGLE lookup into the Task List, so
+ * it is written as a bare integer — `multiLookupField`'s
+ * `Collection(Edm.Int32)` shape 400s here. `null` clears it — used only by
+ * Undo, to take back a first link.
+ */
+export async function setBuildRequestTask(
+  id: number,
+  taskId: number | null,
+): Promise<BuildRequest> {
+  return updateBuildRequestFields(id, { TaskReferenceLookupId: taskId });
 }
 
 /** Replace the Watchers list on a header. */

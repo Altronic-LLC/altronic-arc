@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.210.0",
+    date: "2026-11-02",
+    changes: [
+      "Build Requests: a new build request names its task — pick one (the request's project's tasks come first), or pick Create a task for this, which creates the task in the request's project and links the two",
+      "Build Requests: a request with no task says so on its page and can be linked to a task, or have a new task created for it; a linked request's task can be changed, after you confirm the move",
+      "Build Requests: a Not linked to a task box on the list shows only the requests with no task, each marked No task",
+      "Build Requests and tasks: comments made before the two were linked stay where they were posted, and each page shows the other's earlier comments in a collapsed Earlier discussion panel",
+      "Engineering tasks, EIRs and Operations tasks remember whether you last picked List or Kanban, so the Dashboard and the Departments menu open the view you use",
+    ],
+  },
+  {
     version: "0.209.0",
     date: "2026-10-30",
     changes: [

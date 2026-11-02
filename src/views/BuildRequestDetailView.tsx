@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
@@ -42,6 +42,10 @@ import { BuildRequestItemCard } from "@/components/BuildRequestItemCard";
 import { BuildRequestItemFormModal } from "@/components/BuildRequestItemFormModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
+import { LinkedDiscussion } from "@/components/LinkedDiscussion";
+import { BuildRequestTaskField } from "@/components/BuildRequestTaskField";
+import { earlierLinkedComments } from "@/lib/buildRequestTaskLink";
+import { taskLabel } from "@/lib/buildRequestFromTask";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { PersonMultiField } from "@/components/PersonMultiField";
@@ -83,7 +87,7 @@ export function BuildRequestDetailView() {
   const { data: allBrs = [] } = useBuildRequests();
   const { data: allItems = [] } = useBuildRequestItems();
   const { data: projects = [] } = useProjects();
-  const { data: tasks = [] } = useTasks();
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const { data: admins = [] } = useAdmins();
 
   const updateFields = useUpdateBuildRequestFields();
@@ -148,6 +152,11 @@ export function BuildRequestDetailView() {
         ? tasks.find((t) => t.id === br.taskReferenceLookupId) ?? null
         : null,
     [br, tasks],
+  );
+  // The task's comments from before the link — shown, not copied (#58).
+  const earlierTaskComments = useMemo(
+    () => (linkedTask && br ? earlierLinkedComments(linkedTask.comments, br.comments) : []),
+    [linkedTask, br],
   );
 
   useEffect(() => {
@@ -323,6 +332,15 @@ export function BuildRequestDetailView() {
                 draftKey={`buildRequest:${brId}`}
               />
             </div>
+            {linkedTask && (
+              <LinkedDiscussion
+                recordLabel={taskLabel(linkedTask)}
+                to={`/task/${linkedTask.id}`}
+                comments={earlierTaskComments}
+                currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
+              />
+            )}
           </div>
         </div>
 
@@ -460,16 +478,9 @@ export function BuildRequestDetailView() {
                 />
               </SideField>
 
-              {br.taskReferenceLookupId != null && (
-                <SideField label="Task Reference" icon={<Link2 />}>
-                  <Link
-                    to={`/task/${br.taskReferenceLookupId}`}
-                    className="text-sm text-accent underline-offset-2 hover:underline"
-                  >
-                    {linkedTask ? linkedTask.numberedTitle || linkedTask.title : `Task #${br.taskReferenceLookupId}`}
-                  </Link>
-                </SideField>
-              )}
+              <SideField label="Task Reference" icon={<Link2 />}>
+                <BuildRequestTaskField br={br} tasks={tasks} tasksLoading={tasksLoading} />
+              </SideField>
 
               <SideField label="Customer" icon={<Building2 />}>
                 <input

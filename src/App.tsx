@@ -44,6 +44,9 @@ import { PsrNotificationView } from "@/views/PsrNotificationView";
 import { AboutView } from "@/views/AboutView";
 import { ManualView } from "@/views/ManualView";
 import { useMentionScanner } from "@/hooks/useUnseenMentions";
+import { RememberedViewRoute } from "@/hooks/useRememberedView";
+import { filterSearch } from "@/hooks/useFilters";
+import { eirFilterSearch } from "@/hooks/useEirFilters";
 
 // Operations is the first non-Engineering department — its views are code-
 // split into their own lazy-loaded chunk (rather than eagerly bundled with
@@ -456,7 +459,16 @@ export function App() {
         <RouteErrorBoundary resetKey={location.pathname}>
           <Routes>
             <Route path="/" element={<DashboardView />} />
-            <Route path="/list" element={<ListView />} />
+            {/* List routes open on the board when that was the last pick
+                in the switcher (BusinessIT#51). */}
+            <Route
+              path="/list"
+              element={
+                <RememberedViewRoute pair="tasks" boardPath="/kanban" carrySearch={filterSearch}>
+                  <ListView />
+                </RememberedViewRoute>
+              }
+            />
             <Route path="/kanban" element={<KanbanView />} />
             <Route path="/task/:id" element={<DetailView />} />
             <Route path="/task/:id/print" element={<PrintTaskView />} />
@@ -844,15 +856,28 @@ export function App() {
             <Route path="/engineering/where-am-i" element={<WhereAmIView />} />
             <Route path="/engineering/ecns" element={<EcnsView />} />
             <Route path="/engineering/ecn/:id" element={<EcnDetailView />} />
-            <Route path="/eirs" element={<EirsView />} />
+            <Route
+              path="/eirs"
+              element={
+                <RememberedViewRoute pair="eirs" boardPath="/eirs/kanban" carrySearch={eirFilterSearch}>
+                  <EirsView />
+                </RememberedViewRoute>
+              }
+            />
             <Route path="/eirs/kanban" element={<EirKanbanView />} />
             <Route path="/eir/:id" element={<EirDetailView />} />
             <Route
               path="/operations/tasks"
               element={
-                <Suspense fallback={<LoadingTasks />}>
-                  <OperationsListView />
-                </Suspense>
+                <RememberedViewRoute
+                  pair="operationsTasks"
+                  boardPath="/operations/tasks/kanban"
+                  carrySearch={filterSearch}
+                >
+                  <Suspense fallback={<LoadingTasks />}>
+                    <OperationsListView />
+                  </Suspense>
+                </RememberedViewRoute>
               }
             />
             <Route

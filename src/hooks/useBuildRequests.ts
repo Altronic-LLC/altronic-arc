@@ -9,6 +9,7 @@ import {
   setBuildRequestEngineer,
   setBuildRequestProjects,
   setBuildRequestRequestor,
+  setBuildRequestTask,
   setBuildRequestWatchers,
   updateBuildRequestFields,
 } from "@/api/buildRequests";
@@ -520,6 +521,43 @@ export function useSetBuildRequestProjects() {
     onError: (_err, _vars, ctx) => {
       rollbackBr(qc, ctx);
       errorToast("Couldn't update project references — reverted.");
+    },
+    onSettled: () => invalidateBrs(qc),
+  });
+}
+
+/**
+ * Link a build request to an Engineering task, or move it to another one
+ * (BusinessIT#58). Open to anyone signed in; the detail page asks before a
+ * RE-link. Once linked, the comment mirror, the task page's build request
+ * list and the task's completion gate all follow the new task.
+ */
+export function useSetBuildRequestTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, taskId }: { id: number; taskId: number }) => setBuildRequestTask(id, taskId),
+    onMutate: ({ id, taskId }) =>
+      snapshotAndPatchBr(
+        qc,
+        id,
+        patchBr(id, (b) => ({ ...b, taskReferenceLookupId: taskId, modifiedAt: new Date() })),
+      ),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevBr?.taskReferenceLookupId ?? null;
+      pushToast({
+        message: prev == null ? "Linked to the task." : "Moved to the other task.",
+        undo: buildUndoBr(qc, ctx?.previous, () => setBuildRequestTask(id, prev)),
+      });
+    },
+    onError: (err, _vars, ctx) => {
+      rollbackBr(qc, ctx);
+      errorToast(
+        describeListWriteFailure(err, {
+          action: "link this build request to the task",
+          site: "Altronic_Engineering",
+          permission: "editing",
+        }),
+      );
     },
     onSettled: () => invalidateBrs(qc),
   });

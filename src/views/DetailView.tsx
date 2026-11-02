@@ -59,6 +59,8 @@ import { canCompleteTask, wouldCreateCycle } from "@/lib/taskGraph";
 import { toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { DescriptionView } from "@/components/DescriptionView";
 import { CommentThread } from "@/components/CommentThread";
+import { LinkedDiscussion } from "@/components/LinkedDiscussion";
+import { earlierLinkedComments } from "@/lib/buildRequestTaskLink";
 import { CommentComposer } from "@/components/CommentComposer";
 import { useUploadTaskFile } from "@/hooks/useTaskFiles";
 import { TaskFormModal } from "@/components/TaskFormModal";
@@ -521,7 +523,7 @@ export function DetailView() {
                 key={br.id}
                 onClick={() => navigate(`/build-request/${br.id}`)}
                 className="mb-3 ml-0 inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-fg-muted hover:text-fg sm:ml-2"
-                title="Open the build request raised from this task"
+                title="Open the linked build request"
               >
                 <Hammer className="h-3 w-3" />
                 <span className="text-fg-muted">Build Request:</span>
@@ -803,6 +805,18 @@ export function DetailView() {
                 }}
               />
             </div>
+            {/* Each linked build request's comments from before the link —
+                shown, not copied (BusinessIT#58). */}
+            {linkedBuildRequests.map((br) => (
+              <LinkedDiscussion
+                key={br.id}
+                recordLabel={br.brNo || br.title}
+                to={`/build-request/${br.id}`}
+                comments={earlierLinkedComments(br.comments, task.comments)}
+                currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
+              />
+            ))}
           </div>
         </div>
 
