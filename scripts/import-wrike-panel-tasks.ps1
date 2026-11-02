@@ -82,7 +82,9 @@
     Project Reference (by projectMap, or by the same title) is PROPOSED as a
     new one in new-projects.csv: Title "<TYPE>-<Wrike title>" (the existing
     PRD-1234-ABC12-V1-001 shape), ProjectType guessed from the name, DWG No
-    from a leading drawing number. Copy the CSV, correct it (set Create to No
+    from a leading drawing number. AssignedEngineer beside each project is
+    its current Wrike owner, for review (always re-read from Wrike, never
+    from -ProjectsFile, and not written anywhere). Copy the CSV, correct it (set Create to No
     to leave a project off), and pass it back with -ProjectsFile on the next
     -Plan. -Apply creates them FIRST, add-only: a Title that exists by then is
     reused, never renamed. A task whose project couldn't be created is refused.
@@ -645,6 +647,23 @@ if ($Plan) {
         if ($clean -match '(?i)standards|base updates|configuration|autocad') { return "IS-Internal Support" }
         return "MSC-Misc"
     }
+    # The project's assigned engineer is its Wrike OWNER (project.ownerIds on
+    # the folder) - on the 2026-10-28 export the owner was the person on the
+    # project's tasks every time. Names, "; "-joined; a project title used
+    # twice gets both projects' owners. Read from Wrike on every plan, never
+    # from -ProjectsFile, so it's always the CURRENT owner. For review only:
+    # nothing is written from it.
+    function Get-ProjectEngineers($wrikeTitle) {
+        $names = @()
+        foreach ($f in ($folders | Where-Object { $_.project -and $_.title -eq $wrikeTitle })) {
+            foreach ($oid in @($f.project.ownerIds)) {
+                if (-not $oid) { continue }
+                $c = $contactById[$oid]
+                $names += if ($c -and $c.name) { $c.name } else { "Wrike contact $oid" }
+            }
+        }
+        return (@($names | Select-Object -Unique) -join "; ")
+    }
     function New-ProjectProposal($wrikeTitle) {
         $clean = ("$wrikeTitle" -replace '^\s*DWG#\s*', '').Trim()
         $m = [regex]::Match($clean, '^(\d{4}-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)')
@@ -652,7 +671,8 @@ if ($Plan) {
         $type = Get-ProjectTypeGuess $clean $dwg
         $desc = if ($dwg) { ($clean.Substring($dwg.Length) -replace '^[\s\-\u2013+]+', '').Trim() } else { $clean }
         return [ordered]@{
-            WrikeProject = "$wrikeTitle"; Create = "Yes"; Title = "$(($type -split '-')[0])-$clean"
+            WrikeProject = "$wrikeTitle"; AssignedEngineer = Get-ProjectEngineers $wrikeTitle
+            Create = "Yes"; Title = "$(($type -split '-')[0])-$clean"
             ProjectType = $type; DwgNo = $dwg; Description = $desc; Tasks = 0
         }
     }

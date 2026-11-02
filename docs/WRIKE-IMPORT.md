@@ -113,6 +113,11 @@ one per unmatched Wrike project:
   **A guess — check every row.**
 - **DwgNo** the leading drawing number (`1234-ABC12-V1-002`, `1000-111`); an
   SAP number later in the title isn't one. **Description** is the rest.
+- **AssignedEngineer**, beside the project: its current Wrike owner
+  (`project.ownerIds`), which on the 2026-10-28 export was the person on the
+  project's tasks every time. For review only: it is re-read from Wrike on
+  every plan (a value typed into `-ProjectsFile` is ignored) and nothing is
+  written from it.
 
 To change any of it, copy `new-projects.csv` (outside the repo), edit it in
 Excel (Create = No leaves a project off, and its tasks import with no
