@@ -74,6 +74,12 @@ export function BuildRequestRow({ br, itemCount, hasItemMention, onOpen }: Build
             <Package className="h-3 w-3" />
             {itemCount} {itemCount === 1 ? "part" : "parts"}
           </span>
+          {/* BusinessIT#58: a request with no task shows on no task's page. */}
+          {br.taskReferenceLookupId == null && (
+            <span className="inline-flex items-center rounded-sm border border-ajax-yellow/50 bg-ajax-yellow/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ajax-yellow-fg">
+              No task
+            </span>
+          )}
         </div>
       </div>
 
