@@ -521,7 +521,7 @@ const SECTIONS: ManualSection[] = [
       "change status",
     ],
     searchText:
-      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. Kanban is only available on tablets larger than an iPad mini and on desktop — on phones the Kanban option is hidden and links open the List view instead.",
+      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. Kanban is only available on tablets larger than an iPad mini and on desktop — on phones the Kanban option is hidden and links open the List view instead. ARC remembers whether you last picked List or Kanban, like the theme: pick Kanban once and the Dashboard card and the Departments menu open the board for you from then on, until you pick List again. The same goes for EIRs (List or Board) and Operations tasks. It is remembered per browser.",
     render: () => (
       <>
         <P>
@@ -541,6 +541,13 @@ const SECTIONS: ManualSection[] = [
             <strong>Click a card</strong> to open the task detail page.
           </LI>
           <LI>The same filter bar from the List view applies here too.</LI>
+          <LI>
+            <strong>ARC remembers your pick</strong>, like the theme. Press
+            Kanban once and the Dashboard card and the Departments menu open
+            the board for you from then on, until you press List again. EIRs
+            (List or Board) and Operations tasks remember theirs the same way.
+            It is remembered per browser, and a phone always opens the list.
+          </LI>
         </UL>
       </>
     ),
@@ -7132,7 +7139,7 @@ const SECTIONS: ManualSection[] = [
       "flowchart",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. A workflow diagram shows the whole process: the requestor raises the request, which starts as Pending Submission while it is worked on; the engineer adds parts, prepares each one and presses Mark as Ready for Production on it; once every part is ready a note says Ready for Production needs pressing now, and the assigned engineer presses it on the request to submit it to production; Amanda Hoagland moves each part to In Production and then Production Complete, presses Build Request Production Complete, and Sheila Horn reviews the request and presses Mark Build Request Complete. There is no Status dropdown: these buttons move the request along. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review the request; she (or an admin) then presses Mark Build Request Complete, available while every part is still Production Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. A task the request was raised from can't be marked Complete until the request is Complete. The list opens on Open requests and its search covers open requests; tick Search all build requests beside the search box to search every request whatever its status, Complete included.",
+      "Build Requests ask manufacturing to build parts. A workflow diagram shows the whole process: the requestor raises the request, which starts as Pending Submission while it is worked on; the engineer adds parts, prepares each one and presses Mark as Ready for Production on it; once every part is ready a note says Ready for Production needs pressing now, and the assigned engineer presses it on the request to submit it to production; Amanda Hoagland moves each part to In Production and then Production Complete, presses Build Request Production Complete, and Sheila Horn reviews the request and presses Mark Build Request Complete. There is no Status dropdown: these buttons move the request along. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part. A request raised from the Build Requests list must name its task too: pick one (the request's project's tasks are listed first), or pick Create a task for this, which creates the task in the request's project and links them. A request with no task says so on its page and offers Link to a task, where you can pick a task or Create a task for this; a linked one has Change, which asks you to confirm before moving it to another task, a new one included. Anyone signed in can link or move one. The list's Not linked to a task box shows only the requests with no task, each marked No task. Comments made on the task or the request before they were linked are not copied: each page shows the other's earlier comments in a collapsed Earlier discussion panel, read-only, with a link to reply where they were posted.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review the request; she (or an admin) then presses Mark Build Request Complete, available while every part is still Production Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. A task the request was raised from can't be marked Complete until the request is Complete. The list opens on Open requests and its search covers open requests; tick Search all build requests beside the search box to search every request whatever its status, Complete included.",
     render: () => (
       <>
         <P>
@@ -7163,6 +7170,15 @@ const SECTIONS: ManualSection[] = [
           automatically. The request opens ready for parts.
         </P>
         <P>
+          Every new request names its <strong>Task</strong>, so the people
+          working from tasks see it. Pick the task from the list (tasks in the
+          request&apos;s project come first), or pick{" "}
+          <strong>Create a task for this</strong>: ARC creates a task with the
+          request&apos;s name in its first project reference, assigned to the
+          engineer if you picked one, and links the two. Pick a project
+          reference first — the new task is numbered within its project.
+        </P>
+        <P>
           You can also raise one <strong>from a task</strong>: the{" "}
           <strong>Create Build Request</strong> button on a task&apos;s detail
           page opens this same form with the task&apos;s name and project
@@ -7181,6 +7197,27 @@ const SECTIONS: ManualSection[] = [
           in the original thread. Each side emails its own watchers, so
           watching both the task and the request still means one email per
           comment.
+        </P>
+        <H3>Linking a request to a task later</H3>
+        <P>
+          A request with no task says <em>Not linked to a task</em> under Task
+          Reference on its page, with a picker to link it — pick a task, or{" "}
+          <strong>Create a task for this</strong> to make one in the
+          request&apos;s first project reference and link it. Tick{" "}
+          <strong>Not linked to a task</strong> on the Build Requests list to
+          see only those requests; each is marked <strong>No task</strong>. A
+          linked request has a <strong>Change</strong> button, and moving it
+          to another task asks you to confirm first: new comments will be
+          copied to the new task, and that task can&apos;t be marked Complete
+          until the request is. Anyone signed in can link or move a request.
+        </P>
+        <P>
+          Comments made <strong>before</strong> the two were linked stay where
+          they were posted — nothing is copied. Instead each page has a
+          collapsed <strong>Earlier discussion</strong> panel under its
+          comments showing the other one&apos;s earlier comments, read-only,
+          with a link to reply where they were posted. From the moment they are
+          linked, new comments are shared as usual.
         </P>
         <H3>Adding and editing parts</H3>
         <P>

@@ -612,6 +612,7 @@ src/
 │   ├── useCrimpChecks.ts         Crimp checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
 │   ├── useHarnessAlertRecipients.ts Who's notified CRUD (ARC admins) + readHarnessRecipients (fresh) + the part number request
 │   ├── useRequireArcAdmin.ts     "Only ARC admins can…" asked INSIDE a mutationFn, awaiting the Admins list (Harness + Crimp)
+│   ├── useRememberedView.tsx     List or Kanban remembered per browser (#51) — saved in the switcher, applied by a list route wrapper
 │   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
@@ -748,6 +749,7 @@ src/
 │   ├── buildRequestNumber.ts     Next BR No for a new Build Request
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
+│   ├── buildRequestTaskLink.ts   Linking a BR to a task (#58) — picker order, "Create a task for this", earlier comments to SHOW, not copy (pure)
 │   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
 │   ├── buildRequestPartProduction.ts A PART's production buttons — readiness, who presses which step, the write guard (pure)
 │   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
@@ -931,6 +933,8 @@ src/
 │   ├── PanelOrderRow.tsx         One panel order row
 │   ├── PanelTaskRow.tsx          One panel task row
 │   ├── BuildRequestRow.tsx       One build request row
+│   ├── BuildRequestTaskField.tsx A BR's Task Reference — link when empty, Change (with a confirm) when linked (#58)
+│   ├── LinkedDiscussion.tsx      The linked task's / BR's EARLIER comments, read-only and collapsed (#58)
 │   ├── BuildRequestItemCard.tsx  One part on a build request
 │   ├── WorkflowDiagram.tsx       The User Manual's shared workflow diagram — numbered steps, gates, branches/loops, tracks; each department passes DATA + its own status badge
 │   ├── BuildRequestWorkflowDiagram.tsx  The build request process (User Manual), on WorkflowDiagram
@@ -11110,6 +11114,54 @@ Seven things that are load-bearing:
   — `mentions.ts` imports it, and `commentMirror.ts` imports `mentions.ts`.
   That's why it has its own `escapeHtml` and an `ORIGIN_BANNER_CLASS` copy
   (a test pins it equal to `ORIGIN_MARKER_CLASS`).
+
+### Every build request names a task — BusinessIT#58
+
+Build requests raised from the Build Requests list had no `TaskReference`,
+so people working from tasks never saw them (Matthew Traina / Ray White).
+Tim's decisions, 2026-11-02. Rules in `lib/buildRequestTaskLink.ts`; the
+form, `BuildRequestTaskField` on the detail page, and `LinkedDiscussion` on
+both pages use them.
+
+- **A new build request must name a task** (`BuildRequestFormModal` without
+  `fromTask`): a task picker, the request's project's open tasks first, or
+  **Create a task for this**. That makes the task FIRST (in the request's
+  FIRST project — no project, no task, since the number would read as 0000),
+  then the request with `TaskReference` in the create POST. A task made for a
+  request that then failed is kept and reused on the retry, never made twice.
+- **Engineering tasks only.** Operations needs a new Number column on the BR
+  Tracker (the Ops list is on another site collection), so it waits.
+- **"Create a task for this" is on the detail page's picker too** (Tim asked
+  after first seeing it), when linking and under Change: task first, then the
+  link, so a failed create links nothing; no project reference says so
+  before any confirm.
+- **Anyone signed in may link or re-link**, like creating either record. A
+  RE-link asks first (the warning dialog); a first link doesn't, since
+  nothing moves. `RichTextWarningDialog` gained `confirmLabel` / `cancelLabel`
+  for this — reuse it for the next confirm rather than writing another.
+- **The link is still stored ONCE**, as a bare-integer single lookup
+  (`setBuildRequestTask`, pinned in real mode). There is no "unlink" — a
+  request must name a task; Undo of a first link is the only `null` write.
+- **Earlier comments are SHOWN, not copied** (Tim: "keep them where they are
+  but display them in the other area"). `earlierLinkedComments` is the other
+  record's comments minus copies (mirror banner), minus ARC's "Raised from
+  task" note, minus anything already here by `commentKey` (author + words) —
+  so after the link, the live mirror's copies drop out and only pre-link
+  comments remain. Read-only `CommentThread` (no `onEdit`, no `onReply`);
+  nothing written, nobody emailed. Part comments from before the link are
+  NOT shown — the panel covers the request's own thread only.
+
+### List or Kanban is remembered — BusinessIT#51
+
+Thomas Terhune: "It remembers my dark mode." `hooks/useRememberedView.tsx`.
+The pick is saved ONLY when List / Kanban (Board) is pressed in the header
+switcher, never by which screen loaded — so a shared board link changes
+nobody's default. `RememberedViewRoute` wraps the three LIST routes in
+`App.tsx` (`/list`, `/eirs`, `/operations/tasks`) and redirects to the board,
+filters carried, when that was the last pick and the screen is big enough
+for a board. Per browser, localStorage key `arc-view-prefs`, every access
+wrapped. Pressing List writes the pick BEFORE the navigation (the Link's
+`onClick`), which is what stops it bouncing back to the board.
 
 ### Description checklists: sub-tasks and attribution
 

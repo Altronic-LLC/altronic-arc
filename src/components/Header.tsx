@@ -59,6 +59,7 @@ import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { useAgendaAttentionCount } from "@/hooks/useAgenda";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
+import { rememberView } from "@/hooks/useRememberedView";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
 import { MCNS_CONFIGURED, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
@@ -530,13 +531,19 @@ export function Header() {
         </nav>
         {showTaskViews && (
           <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
-            <NavLink to={`/list${filterQuery}`} active={isList} icon={<List className="h-4 w-4" />}>
+            <NavLink
+              to={`/list${filterQuery}`}
+              active={isList}
+              icon={<List className="h-4 w-4" />}
+              onClick={() => rememberView("tasks", "list")}
+            >
               List
             </NavLink>
             {kanbanAvailable && (
               <NavLink
                 to={`/kanban${filterQuery}`}
                 active={isKanban}
+                onClick={() => rememberView("tasks", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Kanban
@@ -549,6 +556,7 @@ export function Header() {
             <NavLink
               to={`/eirs${eirFilterQuery}`}
               active={isEirList}
+              onClick={() => rememberView("eirs", "list")}
               icon={<List className="h-4 w-4" />}
             >
               List
@@ -557,6 +565,7 @@ export function Header() {
               <NavLink
                 to={`/eirs/kanban${eirFilterQuery}`}
                 active={isEirKanban}
+                onClick={() => rememberView("eirs", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Board
@@ -591,6 +600,7 @@ export function Header() {
             <NavLink
               to={`/operations/tasks${filterQuery}`}
               active={isOpsList}
+              onClick={() => rememberView("operationsTasks", "list")}
               icon={<List className="h-4 w-4" />}
             >
               List
@@ -599,6 +609,7 @@ export function Header() {
               <NavLink
                 to={`/operations/tasks/kanban${filterQuery}`}
                 active={isOpsKanban}
+                onClick={() => rememberView("operationsTasks", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Kanban
@@ -738,6 +749,7 @@ function NavLink({
   dimmed,
   icon,
   title,
+  onClick,
   children,
 }: {
   to: string;
@@ -745,12 +757,15 @@ function NavLink({
   dimmed?: boolean;
   icon: React.ReactNode;
   title?: string;
+  /** Runs before the navigation — the List / Kanban switcher saves the pick here. */
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Link
       to={to}
       title={title}
+      onClick={onClick}
       className={cn(
         "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:flex-initial",
         active ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
