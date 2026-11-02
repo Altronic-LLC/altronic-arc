@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.210.0",
+    date: "2026-10-30",
+    changes: [
+      "Insourcing Quotes: a Won quote has a Create task button that turns it into an Engineering or Operations task — the quote's discussion, watchers and attachments carry over, and the quote records the task and its project under Linked work",
+      "Insourcing Quotes: from then on, a comment on the quote is copied to its task and a comment on the task is copied to the quote, each marked with where it was posted",
+      "Engineering and Operations tasks created from a quote show a From quote link back to it",
+    ],
+  },
+  {
     version: "0.209.0",
     date: "2026-10-30",
     changes: [

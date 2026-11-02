@@ -69,6 +69,7 @@ import { TaskAttachmentsSection } from "@/components/TaskAttachmentsSection";
 import { PcbChecklistCard } from "@/components/PcbChecklistCard";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { FromQuoteLink } from "@/components/FromQuoteLink";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
@@ -491,6 +492,9 @@ export function DetailView() {
                 </span>
               </button>
             )}
+
+            {/* The won quote this task was created from (lib/quoteToTask.ts). */}
+            <FromQuoteLink comments={task.comments} />
 
             {/* Source-EIR pill when this task was promoted from an EIR. */}
             {fromEir && (

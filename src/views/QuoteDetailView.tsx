@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
+  ClipboardList,
   Download,
   ExternalLink,
   FileText,
@@ -53,6 +54,8 @@ import { QuoteAssemblyFormModal } from "@/components/QuoteAssemblyFormModal";
 import { AlternatesEditor, QuoteAlternatesCard } from "@/components/QuoteAlternatesCard";
 import { QuoteLinksPanel } from "@/components/QuoteLinksPanel";
 import { QuoteTargetSummaryCard } from "@/components/QuoteTargetSummaryCard";
+import { QuoteToTaskModal } from "@/components/QuoteToTaskModal";
+import { quoteTaskRefusal } from "@/lib/quoteToTask";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { cn } from "@/lib/cn";
 import { QuoteAccessGate, QuoteStatusChip, quoteExpiry } from "./QuotesView";
@@ -159,6 +162,7 @@ type ModalState =
   | { kind: "header" }
   | { kind: "assembly"; assembly?: QuoteAssembly }
   | { kind: "alternates" }
+  | { kind: "task" }
   | null;
 
 type ConfirmState =
@@ -412,6 +416,15 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* A WON quote becomes Engineering / Operations work (lib/quoteToTask.ts).
+              Hidden once both departments have a task. */}
+          {canEdit &&
+            q.status === "Won" &&
+            (quoteTaskRefusal(q, "engineering") === null || quoteTaskRefusal(q, "operations") === null) && (
+              <ActionButton onClick={() => setModal({ kind: "task" })} icon={<ClipboardList className="h-4 w-4" />}>
+                Create task
+              </ActionButton>
+            )}
           {createGate.allowed && (
             <ActionButton onClick={() => setConfirm({ kind: "newRev" })} icon={<Plus className="h-4 w-4" />}>
               New revision
@@ -659,6 +672,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
       </div>
 
       {modal?.kind === "header" && <QuoteFormModal quote={q} onClose={() => setModal(null)} />}
+      {modal?.kind === "task" && <QuoteToTaskModal quote={q} onClose={() => setModal(null)} />}
       {modal?.kind === "assembly" && (
         <QuoteAssemblyFormModal
           quoteId={q.id}
