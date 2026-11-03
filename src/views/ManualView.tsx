@@ -5015,7 +5015,9 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             <strong>Assigned Buyer</strong>, <strong>Point of Contact</strong>{" "}
-            and <strong>Watchers</strong> — also save immediately.
+            and <strong>Watchers</strong> — also save immediately. Whoever
+            you make the Assigned Buyer is added to Watchers too; removing the
+            buyer leaves them watching until they press Unwatch.
           </LI>
           <LI>
             <strong>Primary Supply Focus</strong> and a{" "}
