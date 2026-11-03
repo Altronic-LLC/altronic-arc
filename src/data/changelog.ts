@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.211.1",
+    date: "2026-11-03",
+    changes: [
+      "Suppliers: setting a supplier's Assigned Buyer now saves and stays set, instead of snapping back to No buyer assigned",
+      "Suppliers: if a buyer can't be saved, the page now says why instead of quietly clearing the field",
+      "Suppliers: the Assigned Buyer is now added to the supplier's watchers, so they hear about its comments",
+    ],
+  },
+  {
     version: "0.211.0",
     date: "2026-11-02",
     changes: [

@@ -1,9 +1,16 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PMO_SITE_URL, SP_SUPPLIERS_LIST_ID, USE_MOCK } from "./config";
-import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
+import {
+  ensureLookupIds,
+  listSiteUserDirectory,
+  resolvePeopleLookupIds,
+  resolvePersonLookupId,
+} from "./siteUsers";
+import { autoWatchers } from "@/lib/people";
 import { deleteAttachment, uploadAttachment } from "./attachments";
 import type { GraphListItem, Person, Supplier, SupplierInput } from "@/types/task";
 import {
+  attachSupplierPeople,
   buildSupplierCreateFields,
   compareSuppliers,
   parseSupplierLogo,
@@ -71,10 +78,18 @@ export async function listSuppliers(): Promise<Supplier[]> {
     return mockDelay([...mockStore].sort(compareSuppliers).map((s) => ({ ...s })));
   }
   const listId = requireListId("load suppliers");
-  const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.pmo}/lists/${listId}/items?$expand=fields($select=${SELECT})&$top=999`,
-  );
-  return items.map(toSupplier).sort(compareSuppliers);
+  // The PMO site directory names an Assigned Buyer that arrives as a bare
+  // lookupId. Read in parallel and BEST-EFFORT: a refused directory read
+  // degrades a buyer to "User #n", never loses the whole list.
+  const [items, siteUsers] = await Promise.all([
+    graphFetchAll<GraphListItem>(
+      `/sites/${SITES.pmo}/lists/${listId}/items?$expand=fields($select=${SELECT})&$top=999`,
+    ),
+    listSiteUserDirectory(SITES.pmo).catch(() => new Map<number, Person>()),
+  ]);
+  const suppliers = items.map(toSupplier);
+  attachSupplierPeople(suppliers, siteUsers);
+  return suppliers.sort(compareSuppliers);
 }
 
 export async function getSupplier(id: number): Promise<Supplier | null> {
@@ -82,17 +97,50 @@ export async function getSupplier(id: number): Promise<Supplier | null> {
     const found = mockStore.find((s) => s.id === id);
     return mockDelay(found ? { ...found } : null);
   }
-  try {
-    const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
-    return toSupplier(item);
-  } catch {
-    return null;
-  }
+  // A 404 is a real answer; anything else must propagate. Swallowing every
+  // failure into null made a refused or throttled re-read AFTER a successful
+  // write report "disappeared after update" and roll the change off screen.
+  const [item, siteUsers] = await Promise.all([
+    graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`).catch(
+      (err: unknown) => {
+        if (isNotFound(err)) return null;
+        throw err;
+      },
+    ),
+    listSiteUserDirectory(SITES.pmo).catch(() => new Map<number, Person>()),
+  ]);
+  if (!item) return null;
+  const supplier = toSupplier(item);
+  attachSupplierPeople([supplier], siteUsers);
+  return supplier;
+}
+
+function isNotFound(err: unknown): boolean {
+  const status = (err as { status?: number } | null)?.status;
+  if (status === 404) return true;
+  return /\b404\b|itemNotFound/i.test(err instanceof Error ? err.message : String(err));
+}
+
+/**
+ * The Assigned Buyer's PMO-site lookupId — Graph first, `ensureuser` second —
+ * or a refusal. Sending `null` for a buyer somebody picked is what this used
+ * to do (`ensurePersonLookupId(...)?.lookupId ?? null`): SharePoint accepts
+ * it, so the column was cleared with no error anywhere.
+ */
+async function resolveAssignedBuyer(person: Person | null): Promise<Person | null> {
+  if (!person) return null;
+  const resolved = await resolvePersonLookupId(SITES.pmo, SP_PMO_SITE_URL, person);
+  if (resolved?.lookupId) return resolved;
+  throw new Error(
+    `Couldn't set Assigned Buyer to ${person.displayName || person.email || "that person"}: ` +
+      `SharePoint has no user record for them on the PMO site, and one couldn't be created. ` +
+      `Ask an admin to check your SharePoint access, then try again.`,
+  );
 }
 
 export async function createSupplier(input: SupplierInput): Promise<Supplier> {
   const [assignedBuyer, watchers] = await Promise.all([
-    ensurePersonLookupId(SP_PMO_SITE_URL, input.assignedBuyer),
+    resolveAssignedBuyer(input.assignedBuyer),
     ensureLookupIds(SP_PMO_SITE_URL, input.watchers),
   ]);
 
@@ -151,13 +199,32 @@ export async function updateSupplierDetails(
   return updateSupplierFields(current.id, supplierDetailsPatch(current, changed));
 }
 
-/** Patch the Assigned Buyer, resolving a newly-picked person's lookupId. */
+/**
+ * Patch the Assigned Buyer. A newly assigned buyer also becomes a WATCHER, in
+ * the SAME PATCH, so the two columns can't disagree — the house rule for every
+ * assign path (see "Creators and assignees watch what they're involved in").
+ * The watchers are re-read from SharePoint first, so one added elsewhere since
+ * the page loaded isn't clobbered. Clearing the buyer removes nobody.
+ */
 export async function updateSupplierAssignedBuyer(
   id: number,
   person: Person | null,
 ): Promise<Supplier> {
-  const ensured = await ensurePersonLookupId(SP_PMO_SITE_URL, person);
-  return updateSupplierFields(id, { AssignedBuyerLookupId: ensured?.lookupId ?? null });
+  const resolved = await resolveAssignedBuyer(person);
+  if (!resolved) {
+    if (USE_MOCK) return updateSupplierFields(id, { AssignedBuyer: null });
+    return updateSupplierFields(id, { AssignedBuyerLookupId: null });
+  }
+  const current = await getSupplier(id);
+  const watchers = autoWatchers(current?.watchers, resolved);
+  // Mock mode keeps the whole person, so the picker can match it back by
+  // email; a bare lookupId there rendered as "No buyer assigned".
+  if (USE_MOCK) return updateSupplierFields(id, { AssignedBuyer: resolved, Watchers: watchers });
+  const resolvedWatchers = await resolvePeopleLookupIds(SITES.pmo, SP_PMO_SITE_URL, watchers);
+  return updateSupplierFields(id, {
+    AssignedBuyerLookupId: resolved.lookupId,
+    ...multiPersonField("Watchers", resolvedWatchers),
+  });
 }
 
 /** Patch the Point of Contact — a single lookup into Supplier Contacts. */
@@ -300,6 +367,7 @@ function applyMockFields(next: Supplier, fields: Record<string, unknown>) {
   if ("QualityPeformance" in fields)
     next.logisticalPerformance = toMockNumber(fields.QualityPeformance);
   if ("AllDeliveries" in fields) next.allDeliveries = toMockNumber(fields.AllDeliveries);
+  if ("AssignedBuyer" in fields) next.assignedBuyer = (fields.AssignedBuyer as Person | null) ?? null;
   if ("AssignedBuyerLookupId" in fields) {
     const lookupId = fields.AssignedBuyerLookupId;
     next.assignedBuyer = typeof lookupId === "number" ? { displayName: "", lookupId } : null;

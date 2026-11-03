@@ -4032,6 +4032,22 @@ it on `AssignedBuyer` and `PointofContact`, both fixed in the same pass.
 Graph also hands the id back as a **string** (`"353"`), which is why the
 mappers go through `toInt`.
 
+**That pass fixed only the `$select` for `AssignedBuyer`, not the mapper —
+so Assigned Buyer still "didn't save" until 2026-11-03.** `toSupplier` read
+`parseSinglePersonField(f.AssignedBuyer)` alone, so a buyer that saved read
+back as nobody. The write was also broken: `ensurePersonLookupId(...)
+?.lookupId ?? null` cleared the column whenever `ensureuser` couldn't answer.
+The fix is the full three-step for a single-person column: a local
+`personOrLookup` in `supplierMapper.ts` that reads either shape;
+`attachSupplierPeople` naming the buyer from the PMO User Information List
+(best-effort, `User #n` otherwise); and `resolveAssignedBuyer` in
+`api/suppliers.ts` (Graph-first `resolvePersonLookupId`, REFUSES rather than
+writing `null`). A newly assigned buyer is also folded into Watchers in the
+SAME PATCH (watchers re-read first; clearing the buyer removes nobody), the
+house assign-path rule. `getSupplier` now returns null only on a 404. Pinned in
+`api/suppliers.assignedBuyer.test.ts` (real mode), each half checked by
+removing it and watching the test fail.
+
 **None of it is visible from mock mode**, which is why `supplierContacts.test.ts`
 passed throughout. `api/srm.bpReference.test.ts` forces `USE_MOCK: false` and
 asserts the request shape; each case was verified by reintroducing the bug and
