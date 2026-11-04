@@ -128,6 +128,18 @@ export function AdminAdminsView() {
             Harness — Crimp Specs →
           </Link>
           <Link
+            to="/operations/alert-recipients"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Operations — Who's notified →
+          </Link>
+          <Link
+            to="/operations/coating-checks/specs"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Operations — Coating Specs →
+          </Link>
+          <Link
             to="/harness/production-log/part-numbers"
             className="text-xs text-accent underline-offset-2 hover:underline"
           >

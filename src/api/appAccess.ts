@@ -28,6 +28,8 @@ import {
   SP_CAD_DRAWINGS_LIST_ID,
   SP_CCC_DRAWINGS_LIST_ID,
   SP_CEC_DRAWINGS_LIST_ID,
+  SP_COATING_CHECKS_LIST_ID,
+  SP_COATING_SPECS_LIST_ID,
   SP_COST_IMPACT_NOTICES_LIST_ID,
   SP_CRIMP_CHECKS_LIST_ID,
   SP_CRIMP_SPECS_LIST_ID,
@@ -46,6 +48,7 @@ import {
   SP_MCNS_LIST_ID,
   SP_MRB_LIST_ID,
   SP_OPEN_ORDERS_CUSTOMERS_LIST_ID,
+  SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
   SP_PANEL_QC_ISSUES_LIST_ID,
@@ -218,6 +221,9 @@ export const APPS: AppSpec[] = [
   { path: "/operations/maintenance/schedules", label: "Maintenance Schedules", site: "pmo", lists: ids(SP_SCHEDULED_MAINTENANCE_LIST_ID) },
   { path: "/operations/maintenance/assets", label: "Equipment Register", site: "pmo", lists: ids(SP_ALTRONIC_EQUIPMENT_LIST_ID) },
   { path: "/operations/maintenance", label: "Work Orders", site: "pmo", lists: ids(SP_MAINTENANCE_TASKS_LIST_ID) },
+  { path: "/operations/coating-checks/specs", label: "Coating Specs", site: "pmo", lists: ids(SP_COATING_SPECS_LIST_ID) },
+  { path: "/operations/coating-checks", label: "Conformal Coating Checks", site: "pmo", lists: ids(SP_COATING_CHECKS_LIST_ID) },
+  { path: "/operations/alert-recipients", label: "Operations — Who's notified", site: "pmo", lists: ids(SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID) },
 
   // Harness ------------------------------------------------------------
   { path: "/harness/production-log", label: "Harness Production Log", site: "pmo", lists: ids(SP_HARNESS_PRODUCTION_LOG_LIST_ID) },

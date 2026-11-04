@@ -28,6 +28,7 @@ import {
   Hammer,
   HardHat,
   LayoutDashboard,
+  Layers,
   ListChecks,
   Lock,
   MapPin,
@@ -1012,6 +1013,16 @@ export function DashboardView() {
           }
           to={"/operations/maintenance/calendar"}
           onClick={() => navigate("/operations/maintenance/calendar")}
+        />
+        <TypeCard
+          name="Conformal Coating Checks"
+          icon={<Layers className="h-5 w-5" />}
+          // cooper-green: the one tone the Operations section hadn't used.
+          tone="cooper-green"
+          description="Coating thickness at the start of each shift, in mm or inches, judged against the spec — out-of-spec boards are emailed."
+          // No count, like the other logs.
+          to={"/operations/coating-checks"}
+          onClick={() => navigate("/operations/coating-checks")}
         />
         {/* MCNs — a real card once live (or for the pilot team), "Coming soon"
             for everyone else, so the pilot stays private. */}

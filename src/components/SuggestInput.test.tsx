@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -53,12 +54,24 @@ describe("SuggestInput", () => {
   });
 
   it("filters the suggestions as you type", async () => {
-    render(
-      <SuggestInput value="solid" onChange={vi.fn()} options={options} ariaLabel="Software" />,
-    );
-    await userEvent.click(screen.getByRole("button", { name: /show existing values/i }));
+    function Typed() {
+      const [value, setValue] = useState("");
+      return <SuggestInput value={value} onChange={setValue} options={options} ariaLabel="Software" />;
+    }
+    render(<Typed />);
+    await userEvent.type(screen.getByLabelText("Software"), "solid");
     expect(screen.getByRole("option", { name: "SolidWorks" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "AutoCAD" })).not.toBeInTheDocument();
+  });
+
+  it("shows EVERY suggestion when opened on a value it didn't type — a prefilled name, an edit", async () => {
+    // Filtering on the starting value left the list empty and the box looked dead.
+    render(<SuggestInput value="Somebody Else" onChange={vi.fn()} options={options} ariaLabel="Software" />);
+    await userEvent.click(screen.getByLabelText("Software"));
+    for (const option of options) expect(screen.getByRole("option", { name: option })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /show existing values/i }));
+    await userEvent.click(screen.getByRole("button", { name: /show existing values/i }));
+    expect(screen.getAllByRole("option")).toHaveLength(options.length);
   });
 
   it("keeps the whole list available once the value matches one exactly", async () => {
@@ -89,6 +102,29 @@ describe("SuggestInput", () => {
     render(
       <SuggestInput value="AutoCAD" onChange={vi.fn()} options={options} ariaLabel="Software" />,
     );
+    expect(screen.queryByText(/new value/i)).not.toBeInTheDocument();
+  });
+
+  it("searches a bigger list only once you type, without showing it on open", async () => {
+    function Box() {
+      const [value, setValue] = useState("");
+      return (
+        <SuggestInput
+          value={value}
+          onChange={setValue}
+          options={["SPRAY-1"]}
+          searchOptions={["SPRAY-1", "OVEN 3", "OVEN 4"]}
+          ariaLabel="Machine"
+        />
+      );
+    }
+    render(<Box />);
+    await userEvent.click(screen.getByLabelText("Machine"));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["SPRAY-1"]);
+    await userEvent.type(screen.getByLabelText("Machine"), "oven");
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["OVEN 3", "OVEN 4"]);
+    await userEvent.click(screen.getByRole("option", { name: "OVEN 3" }));
+    // On the bigger list, so not flagged as a new value.
     expect(screen.queryByText(/new value/i)).not.toBeInTheDocument();
   });
 

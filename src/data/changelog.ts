@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.213.0",
+    date: "2026-11-04",
+    changes: [
+      "Operations: new Conformal Coating Checks log for the start-of-shift coating thickness check — measure an uncoated board three times and a coated board three times, in millimetres or inches",
+      "Conformal Coating Checks: ARC averages each board, works out the coating thickness, shows it in mm, inches and mils, and says straight away whether it's in spec",
+      "Conformal Coating Checks: a spec can be entered in millimetres or inches (inches to three decimals, like 0.001), and a check measured in either unit is judged against it in the unit the spec was entered in",
+      "Conformal Coating Checks: each entry records the machine, the operator and the date and time it was measured",
+      "Conformal Coating Checks: the Machine list shows the machines already used on checks, and typing searches the whole equipment list for a new one; Operator works the same way with the staff directory",
+      "Conformal Coating Checks: a check outside the spec's minimum or maximum emails the people chosen for it, and says how many were told",
+      "Conformal Coating Checks: ARC admins set the coating specs (a minimum and maximum, and whether one side or both sides are coated), shown in mm and inches, and choose who is emailed, with no wait for a new version",
+      "Conformal Coating Checks: anyone signed in can record and correct a check; only ARC admins can delete one",
+      "Boxes that suggest earlier values (machine, clock numbers, CAD initials and others) now show every suggestion when opened, instead of an empty list when the box already holds a value",
+    ],
+  },
+  {
     version: "0.212.0",
     date: "2026-11-04",
     changes: [

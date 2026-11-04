@@ -79,6 +79,7 @@ export interface ChangeTarget {
     | "pricingRequest"
     | "mcn"
     | "crimpCheck"
+    | "coatingCheck"
     | "harnessPartNumber";
   id: number;
   title: string;
@@ -105,6 +106,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   pricingRequest: "pricing request",
   mcn: "MCN",
   crimpCheck: "crimp height check",
+  coatingCheck: "conformal coating check",
   harnessPartNumber: "harness part number",
 };
 

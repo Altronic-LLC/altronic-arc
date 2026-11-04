@@ -546,3 +546,32 @@ describe("the sort indicator says what is happening", () => {
     ).toBe("descending");
   });
 });
+
+describe("Conformal Coating Checks", () => {
+  it("renders its sort buttons", async () => {
+    const { CoatingChecksView } = await import("./CoatingChecksView");
+    renderWithProviders(<CoatingChecksView />, { route: "/operations/coating-checks" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Machine" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Coating (mm)" })).toBeInTheDocument();
+  });
+
+  it("re-orders its rows by coating thickness, then reverses", async () => {
+    const { CoatingChecksView } = await import("./CoatingChecksView");
+    renderWithProviders(<CoatingChecksView />, { route: "/operations/coating-checks" });
+    await waitForTable();
+    const thickness = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => Number(r.querySelectorAll("td")[5]?.textContent?.trim()));
+
+    await sortBy("Coating (mm)");
+    const ascending = thickness();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a - b));
+
+    await sortBy("Coating (mm)");
+    expect(thickness()).toEqual([...ascending].reverse());
+  });
+});

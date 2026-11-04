@@ -215,6 +215,10 @@ export function AdminNotificationRecipientsView() {
           <Link to="/harness/alert-recipients" className="font-medium text-accent underline-offset-2 hover:underline">
             Harness — Who's notified
           </Link>
+          , and out-of-spec conformal coating checks on{" "}
+          <Link to="/operations/alert-recipients" className="font-medium text-accent underline-offset-2 hover:underline">
+            Operations — Who's notified
+          </Link>
           , with no redeploy.
         </p>
       </header>
