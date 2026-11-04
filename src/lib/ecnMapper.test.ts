@@ -5,7 +5,10 @@ import {
   compareEcns,
   ecnFieldPatch,
   ecnLabel,
+  ecnStockNeedsSerialNumbers,
   isEcnOnHold,
+  isEcnSerialNumbersMissing,
+  isEcnWaitingForSerialNumbers,
   parseCreatedBy,
   parseEcnLogNo,
   projectPatch,
@@ -236,5 +239,87 @@ describe("isEcnOnHold", () => {
     expect(isEcnOnHold(ecn("1", 1, { onHold: "yes" }))).toBe(true);
     expect(isEcnOnHold(ecn("1", 1, { onHold: "No" }))).toBe(false);
     expect(isEcnOnHold(ecn("1", 1, {}))).toBe(false);
+  });
+});
+
+// BusinessIT#61. Every spelling below is one the live list holds (2026-11-04).
+describe("isEcnSerialNumbersMissing", () => {
+  const serials = (value: string | undefined) =>
+    isEcnSerialNumbersMissing(ecn("1", 1, value === undefined ? {} : { serialNumbers: value }));
+
+  it("is waiting when the field is blank, missing, or only empty rich text", () => {
+    expect(serials(undefined)).toBe(true);
+    expect(serials("")).toBe(true);
+    expect(serials('<div class="ExternalClass1"><br></div>')).toBe(true);
+    expect(serials("<p>&#160;</p>")).toBe(true);
+  });
+
+  it("is waiting while the field only asks for serial numbers, however it's spelled", () => {
+    expect(serials('<div class="ExternalClassA">Please provide serial numbers</div>')).toBe(true);
+    expect(serials("PLEASE INCLUDE SERIAL NUMBER.")).toBe(true);
+    expect(serials("Please provide starting serial number.")).toBe(true);
+    expect(serials("PLEASE PROVIDE SERIAL NUMBERS STARTING WITH SERIAL NO. 507")).toBe(true);
+    expect(serials("Please provide serial numbers for the ground strap and for the masking.")).toBe(true);
+    expect(serials("enter serial numbers")).toBe(true);
+  });
+
+  it("counts a request that was answered in the same field as recorded", () => {
+    expect(
+      serials("Please provide serial numbers starting with 3250. Response: please see ECN 160055R1"),
+    ).toBe(false);
+    expect(serials("Please include serial number.DE-300+ s/n 1000 &amp; 1100<br>691171-1-s/n 4419")).toBe(false);
+    // One line, but the s/n is written in after the request.
+    expect(serials("Please include serial number. s/n 4419")).toBe(false);
+  });
+
+  it("counts real serial numbers, and anything that isn't a request, as recorded", () => {
+    expect(serials("S/N 628")).toBe(false);
+    expect(serials("SERIAL NUMBER 2797")).toBe(false);
+    expect(serials("N/A")).toBe(false);
+    expect(serials("Not a serialized product")).toBe(false);
+    expect(serials("See R1")).toBe(false);
+    expect(serials("Next shipped serial number from today&#39;s date is the next serial number")).toBe(false);
+  });
+});
+
+// Tim, 2026-11-04: only an ECN that modifies stock needs serial numbers logged.
+describe("ecnStockNeedsSerialNumbers", () => {
+  const stock = (value: string | undefined) =>
+    ecnStockNeedsSerialNumbers(ecn("1", 1, value === undefined ? {} : { inHouseStock: value }));
+
+  it("is true for the dispositions that modify stock", () => {
+    expect(stock("Engineering - Modify stock (see pg 2 of ECN)")).toBe(true);
+    expect(stock("Operations - Stock modified")).toBe(true);
+  });
+
+  it("is false for a blank disposition and for Do NOT modify, however it is typed", () => {
+    expect(stock(undefined)).toBe(false);
+    expect(stock("")).toBe(false);
+    expect(stock("   ")).toBe(false);
+    expect(stock("Engineering - Do NOT modify stock")).toBe(false);
+    expect(stock("engineering - do not modify stock")).toBe(false);
+    expect(stock("Don't modify stock")).toBe(false);
+  });
+});
+
+describe("isEcnWaitingForSerialNumbers", () => {
+  const waiting = (values: Record<string, string>) => isEcnWaitingForSerialNumbers(ecn("1", 1, values));
+  const MODIFY = "Engineering - Modify stock (see pg 2 of ECN)";
+
+  it("is waiting when the stock is modified and no serial numbers are recorded", () => {
+    expect(waiting({ inHouseStock: MODIFY })).toBe(true);
+    expect(waiting({ inHouseStock: MODIFY, serialNumbers: "Please provide serial numbers" })).toBe(true);
+  });
+
+  it("is not waiting once serial numbers are recorded", () => {
+    expect(waiting({ inHouseStock: MODIFY, serialNumbers: "S/N 628" })).toBe(false);
+  });
+
+  it("is not waiting when the ECN doesn't modify stock, even with nothing recorded", () => {
+    expect(waiting({})).toBe(false);
+    expect(waiting({ inHouseStock: "Engineering - Do NOT modify stock" })).toBe(false);
+    expect(
+      waiting({ inHouseStock: "Engineering - Do NOT modify stock", serialNumbers: "Please provide serial numbers" }),
+    ).toBe(false);
   });
 });

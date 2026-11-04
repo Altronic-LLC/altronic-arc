@@ -132,7 +132,9 @@ export const MOCK_ECNS: Ecn[] = [
       detailedDescription:
         '<div class="ExternalClass11">Revision 4: Corrected 709144 drawing to released revision 4 dated 07/02/2019.<br></div>',
       serialNumbers: '<div class="ExternalClass12">Please provide serial numbers</div>',
-      inHouseStock: "Engineering - Do NOT modify stock",
+      // Modify stock + a request for serial numbers: the demo's one ECN under
+      // the list's "Waiting" serial-numbers filter (BusinessIT#61).
+      inHouseStock: "Engineering - Modify stock (see pg 2 of ECN)",
       fieldReturnsImpacted: "",
       drawingsComplete: "Yes",
       onHold: "",

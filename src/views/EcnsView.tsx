@@ -5,7 +5,11 @@ import { useEcns } from "@/hooks/useEcns";
 import { useProjects } from "@/hooks/useTasks";
 import type { Ecn } from "@/types/task";
 import { stockDispositions } from "@/lib/ecnFields";
-import { isEcnOnHold } from "@/lib/ecnMapper";
+import {
+  isEcnOnHold,
+  isEcnSerialNumbersMissing,
+  isEcnWaitingForSerialNumbers,
+} from "@/lib/ecnMapper";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { SortableHeader } from "@/components/SortableTableHeader";
@@ -35,6 +39,7 @@ import { cn } from "@/lib/cn";
 const INITIAL_ROWS = 150;
 
 type HoldFilter = "" | "On hold" | "Not on hold";
+type SerialsFilter = "" | "Waiting" | "Recorded";
 
 export function EcnsView() {
   const navigate = useNavigate();
@@ -49,6 +54,11 @@ export function EcnsView() {
   const stock = params.get("stock") ?? "";
   const hold = (params.get("hold") as HoldFilter) || "";
   const drawings = params.get("drawings") ?? "";
+  // BusinessIT#61 — "Waiting" is an ECN whose stock disposition needs serial
+  // numbers and has none recorded (isEcnWaitingForSerialNumbers); "Recorded"
+  // is one with serial numbers on file. An ECN that needs none and has none
+  // is in neither — it only shows under Any.
+  const serials = (params.get("serials") as SerialsFilter) || "";
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -82,11 +92,13 @@ export function EcnsView() {
       if (stock && (ecn.values.inHouseStock ?? "") !== stock) return false;
       if (hold === "On hold" && !isEcnOnHold(ecn)) return false;
       if (hold === "Not on hold" && isEcnOnHold(ecn)) return false;
+      if (serials === "Waiting" && !isEcnWaitingForSerialNumbers(ecn)) return false;
+      if (serials === "Recorded" && isEcnSerialNumbersMissing(ecn)) return false;
       if (drawings === "Complete" && ecn.values.drawingsComplete !== "Yes") return false;
       if (drawings === "Outstanding" && ecn.values.drawingsComplete === "Yes") return false;
       return matchesSearch(ecn, tokens);
     });
-  }, [ecns, q, project, stock, hold, drawings]);
+  }, [ecns, q, project, stock, hold, drawings, serials]);
 
   /**
    * Sortable columns, as DATA. Built INSIDE the component because the Project
@@ -164,7 +176,7 @@ export function EcnsView() {
       <div
         role="search"
         aria-label="ECN filters"
-        className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-5"
+        className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
       >
         <Filter label="Search">
           <SearchInput
@@ -204,6 +216,14 @@ export function EcnsView() {
             value={hold}
             onChange={(v) => setParam("hold", v)}
             options={["On hold", "Not on hold"]}
+            emptyLabel="Any"
+          />
+        </Filter>
+        <Filter label="Serial numbers">
+          <ChoiceSelect
+            value={serials}
+            onChange={(v) => setParam("serials", v)}
+            options={["Waiting", "Recorded"]}
             emptyLabel="Any"
           />
         </Filter>
