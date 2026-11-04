@@ -1723,6 +1723,24 @@ similar-looking lists match.
 Note `CADNumber` is NOT a duplicate of `Title`: e.g. Title `"501 505"` vs
 CADNumber `"501505"`. Both are shown.
 
+**Sorting, and the Sketch No. auto-number** (Tim, 2026-11-04). Every
+register's table sorts through the shared `useSortableTable`, with columns
+built from the descriptors (`drawingLogSortColumns` in `DrawingLogsView`):
+numbers and dates sort as values, and the value filter is offered only on
+short text columns that aren't the row's identifier — a menu of 2,000 sketch
+numbers or titles helps nobody. The table is a child keyed by register, so a
+tab switch resets sort, filters and the row cap. Two descriptor flags:
+
+- **`defaultSort`** — the column a register opens on. Only Sketches sets it
+  (Sketch No., descending). Without it `initialKey` is `""`, an unknown key,
+  so the rows keep the API's most-recent-date order until a header is clicked.
+- **`autoNumberKey`** — the Add form fills that number field with
+  `nextDrawingNumber` (highest + 1, never count + 1), once the register has
+  loaded and only until the person types in it. It stays editable, and a
+  number already in use is WARNED about (`entriesWithNumber`), never refused —
+  the register has never been unique. Computed from the cached list, so two
+  people adding at once can pick the same number (rule 7's accepted risk).
+
 **`By`, `EnteredBy` and `Software` are CAD-ONLY text columns that behave like
 choice fields.** Declared `suggest: true`, which makes the form offer the values
 already stored in that register (`suggestionsFor()` → `distinctValues()`, ordered

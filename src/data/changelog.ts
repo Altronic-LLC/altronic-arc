@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.214.0",
+    date: "2026-11-04",
+    changes: [
+      "Drawing File Logs: every register's columns can now be sorted, and short columns such as Size, Rev and Ventura can be filtered",
+      "Engineering Sketches opens with the newest sketch number at the top",
+      "Adding a sketch fills in the next free sketch number, which you can change before saving — and the form tells you if the number is already used",
+    ],
+  },
+  {
     version: "0.213.0",
     date: "2026-11-04",
     changes: [
