@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.212.0",
+    date: "2026-11-04",
+    changes: [
+      "ECNs: a new Serial numbers filter shows the ECNs still waiting for their first serial numbers to be recorded, or the ones that have them",
+      "ECNs: an ECN counts as waiting when its In House Stock is set to modify stock and its Serial Numbers field is empty or only asks for them, such as \"Please provide serial numbers\"",
+    ],
+  },
+  {
     version: "0.211.1",
     date: "2026-11-03",
     changes: [

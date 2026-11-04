@@ -106,6 +106,27 @@ describe("EcnsView", () => {
     expect(screen.getByText("260059")).toBeInTheDocument();
   });
 
+  // BusinessIT#61 — which ECNs still need their first serial numbers recorded.
+  it("filters to the ECNs still waiting for serial numbers", async () => {
+    await renderList();
+    await userEvent.click(filterTrigger("Serial numbers"));
+    await userEvent.click(await screen.findByRole("option", { name: "Waiting" }));
+    await waitFor(() => expect(screen.queryByText("260059R1")).not.toBeInTheDocument());
+    // Modifies stock and only asks for serial numbers.
+    expect(screen.getByText("250107R4")).toBeInTheDocument();
+    // Also only asks — but its stock is Do NOT modify, so none are needed.
+    expect(screen.queryByText("260062")).not.toBeInTheDocument();
+    // "Not a serialized product" and "See R0" are answers, not gaps.
+    expect(screen.queryByText("260059")).not.toBeInTheDocument();
+    expect(screen.queryByText("260058")).not.toBeInTheDocument();
+  });
+
+  it("keeps the serial-number filter in the URL", async () => {
+    await renderList("?serials=Recorded");
+    expect(screen.getByText("260059R1")).toBeInTheDocument();
+    expect(screen.queryByText("260062")).not.toBeInTheDocument();
+  });
+
   it("keeps the filters in the URL so a view can be shared", async () => {
     await renderList("?hold=On+hold");
     expect(screen.getByText("260059R1")).toBeInTheDocument();

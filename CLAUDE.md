@@ -3218,6 +3218,27 @@ a "show all"; the filters and the count always run over everything.
 
 Attachments are enabled on the list (kind `ecn` in `api/attachments.ts`).
 
+**"Waiting for serial numbers" is a filter, not a column** (BusinessIT#61,
+David Bulkley; Tim, 2026-11-04). The rules are in `lib/ecnMapper.ts`, and
+the ECN list's Serial numbers filter (`?serials=Waiting` / `Recorded`) reads
+them. Waiting = BOTH halves (`isEcnWaitingForSerialNumbers`):
+
+- **The stock disposition needs them** (`ecnStockNeedsSerialNumbers`): In
+  House Stock (`field_7`) is set, and not "Do NOT modify". Blank or Do NOT
+  modify means no serial numbers are ever logged. Tim added this half after
+  the first cut listed 1,409 of 1,829 ECNs; with it, live, 65 (2020–2026).
+- **None are recorded** (`isEcnSerialNumbersMissing`): `field_6` is blank, OR
+  it is ONE line asking for them ("Please provide serial numbers", "enter
+  serial numbers") with no answer after the request (`Response`, an `s/n`,
+  `see ECN`). Live, 90 rows held such a request; counting blanks alone
+  misses them.
+
+Recorded = serial numbers on file, whatever the stock. An ECN that needs
+none and has none is in neither — only Any shows it. **There is no "closed" ECN**: the list has no status
+column, and Sign-off status (`field_12`) was blank on all 1,829 rows. Tim
+parked hiding closed ECNs until that is decided, so don't build it on
+`field_12` or on Log# age unasked.
+
 ### ECN Checklist — the Cross-Functional ECN Checklist (Form# MFGFRM-038)
 
 `VITE_SP_ECN_CHECKLISTS_LIST_ID` on `SITES.engineering`, created by
