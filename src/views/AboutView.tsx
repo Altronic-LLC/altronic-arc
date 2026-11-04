@@ -93,7 +93,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView · CoatingChecksView · CoatingSpecsView · OperationsAlertRecipientsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles · useCoatingChecks · useOperationsAlertRecipients — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles · coatingChecks · coatingSpecs · operationsAlertRecipients — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts · coatingCheck (coating thickness from three uncoated + three coated readings in mm or in, ÷ coated sides, judged in the spec's own unit; mm, in and mils shown) · coatingAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
         palette: "ui",
       },
       {
@@ -201,6 +201,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
       { label: "Manufacturing Change Notices", hint: "Altronic_PMO site — one row per MCN (MFGFRM-021 as fields), with MCN Roles (who raises, approves, manages) and MCN Distribution Groups (who an approved MCN goes to) beside it", palette: "list" },
+      { label: "Coating Specs", hint: "Altronic_PMO site — conformal coating min / max thickness, stored in mm with the unit it was entered in (mm or in), and coated sides (1 or 2); ARC admins manage, delete only when unused", palette: "list" },
+      { label: "Coating Checks", hint: "Altronic_PMO site — three uncoated + three coated readings per check (mm or in), the thickness judged in the spec's unit and stored in mm, in and mils, the spec's figures copied on; read a year at a time on the indexed MeasuredAt", palette: "list" },
+      { label: "Operations Alert Recipients", hint: "Altronic_PMO site — who each Operations email goes to (out-of-spec coating checks); ARC admins pick people in ARC, no redeploy", palette: "list" },
       { label: "Harness Production Log", hint: "Altronic_PMO site — one row per harness built, imported from the old Access database; read a year at a time on the indexed ProductionDate", palette: "list" },
       { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
       { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge; ARC admins manage, delete only when unused", palette: "list" },
@@ -274,6 +277,7 @@ export const ER_GROUPS: ErGroup[] = [
   { id: "parts", label: "Parts List" },
   { id: "operations", label: "Operations & maintenance" },
   { id: "teradyne", label: "Teradyne" },
+  { id: "coating", label: "Conformal Coating (Operations)" },
   { id: "harness", label: "Harness" },
   { id: "panels", label: "Panels" },
   { id: "qc", label: "Quality Control" },
@@ -1103,6 +1107,58 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "description", type: "text", kind: "field" },
       { name: "active", type: "bool", kind: "field" },
       { name: "note", type: "text", kind: "field" },
+    ],
+  },
+
+  // ---- Conformal Coating Checks (Operations, Altronic_PMO site) ----------------
+  // BusinessIT#60 — the start-of-shift coating thickness check. Like crimp, a
+  // check COPIES its spec's figures as well as pointing at it.
+  {
+    name: "CoatingCheck",
+    source: "Coating Checks (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "measuredAt (indexed)", type: "date", kind: "field" },
+      { name: "machine / operator", type: "text", kind: "field" },
+      { name: "unit (mm / in)", type: "choice", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "CoatingSpec.id" },
+      { name: "specName / minMm / maxMm / specUnit / coatedSides (copied)", type: "number", kind: "field" },
+      { name: "uncoated1–3 / coated1–3 / averages", type: "number", kind: "field" },
+      { name: "thicknessMm / thicknessIn / thicknessMils", type: "number", kind: "field" },
+      { name: "outOfSpec", type: "bool", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "CoatingSpec",
+    source: "Coating Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Spec)", type: "text", kind: "field" },
+      { name: "minMm / maxMm (stored in mm)", type: "number", kind: "field" },
+      { name: "specUnit (entered in: mm / in)", type: "choice", kind: "field" },
+      { name: "coatedSides (1 or 2)", type: "number", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // Who the Operations emails go to — one row per person per alert. Email is
+    // text picked from the directory, not a Person column, so no FK.
+    name: "OperationsAlertRecipient",
+    source: "Operations Alert Recipients (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (name)", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "alert", type: "choice", kind: "field" },
     ],
   },
 
@@ -1998,6 +2054,8 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
   // Crimp Height Checks — one single lookup into the admin-managed specs.
   { fromTable: "CrimpCheck", fromColumn: "specId (SpecRef)", toTable: "CrimpSpec", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Conformal Coating Checks — one single lookup into the admin-managed specs.
+  { fromTable: "CoatingCheck", fromColumn: "specId (SpecRef)", toTable: "CoatingSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
   // CRM tool — CustomerNote is the hub; the other three all point INTO it.

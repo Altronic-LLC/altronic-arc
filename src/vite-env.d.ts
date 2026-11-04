@@ -51,6 +51,10 @@ interface ImportMetaEnv {
   readonly VITE_SP_CRIMP_CHECKS_LIST_ID: string;
   /** Harness Alert Recipients list (who the Harness emails go to). No default. */
   readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;
+  /** Conformal Coating Checks (BusinessIT#60, Operations) on the PMO site. No defaults. */
+  readonly VITE_SP_COATING_SPECS_LIST_ID: string;
+  readonly VITE_SP_COATING_CHECKS_LIST_ID: string;
+  readonly VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID: string;
   /** GET-1 (GE Transportation Log Sheet) on the PMO site. No default. */
   readonly VITE_SP_QC_GET1_LIST_ID: string;
   /** QCFRM-035 (Series X Controller log sheet) on the PMO site. No default. */

@@ -501,6 +501,9 @@ src/
 │   ├── crimpSpecs.ts             Crimp Specs (Harness, PMO site) — per terminal + applicator + gauge; admin writes, delete only when unused
 │   ├── crimpChecks.ts            Crimp Height Checks CRUD, year-scoped on the indexed CheckedAt — spec figures copied on, admin-gated delete
 │   ├── harnessAlertRecipients.ts Harness Alert Recipients — who each Harness email goes to; admin-managed list, read fresh at send
+│   ├── coatingSpecs.ts           Coating Specs (Operations, PMO site) — min / max stored in mm + the unit entered in + coated sides; admin writes, delete only when unused
+│   ├── coatingChecks.ts          Conformal Coating Checks CRUD, year-scoped on the indexed MeasuredAt — spec figures copied on, admin-gated delete
+│   ├── operationsAlertRecipients.ts Operations Alert Recipients — who each Operations email goes to; admin-managed list, read fresh at send
 │   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
@@ -568,6 +571,7 @@ src/
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── harnessMockData.ts        Sample harness log rows (this year + last) + part numbers, one retired
 │   ├── crimpMockData.ts          Sample crimp specs + checks — INVENTED terminals/applicators, one out of spec, one spec with no height
+│   ├── coatingMockData.ts        Sample coating specs + checks — INVENTED machines, mm and inch checks, one out of spec, one retired spec
 │   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
@@ -611,6 +615,8 @@ src/
 │   ├── useHarnessProductionLog.ts Harness log + part-number queries/mutations; delete and every part write are ARC-admin only
 │   ├── useCrimpChecks.ts         Crimp checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
 │   ├── useHarnessAlertRecipients.ts Who's notified CRUD (ARC admins) + readHarnessRecipients (fresh) + the part number request
+│   ├── useCoatingChecks.ts       Coating checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
+│   ├── useOperationsAlertRecipients.ts Operations Who's notified CRUD (ARC admins) + readOperationsRecipients (fresh)
 │   ├── useRequireArcAdmin.ts     "Only ARC admins can…" asked INSIDE a mutationFn, awaiting the Admins list (Harness + Crimp)
 │   ├── useRememberedView.tsx     List or Kanban remembered per browser (#51) — saved in the switcher, applied by a list route wrapper
 │   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
@@ -857,6 +863,9 @@ src/
 │   ├── crimpCheck.ts             Crimp height rules (pure) — limits inclusive, any reading out = out of spec, mm detection, when to email, labels
 │   ├── crimpMapper.ts            Graph item ⇄ Crimp Spec / Crimp Check; Average, OutOfSpec and Title derived on write
 │   ├── crimpAlerts.ts            The out-of-spec crimp email (pure)
+│   ├── coatingCheck.ts           Conformal coating rules (pure) — averages, thickness ÷ coated sides, judged in the SPEC'S unit (mm or in), limits inclusive, labels
+│   ├── coatingMapper.ts          Graph item ⇄ Coating Spec / Coating Check; averages, both thicknesses, OutOfSpec and Title derived on write
+│   ├── coatingAlerts.ts          The out-of-spec conformal coating email (pure)
 │   ├── harnessPartRequest.ts     A harness part number request — new / retired / already listed, and its email (pure)
 │   ├── mcnFields.ts              MCN columns as DATA — the 10 Requires…/Incorporate lines, $select, scope JSON, people-as-lines
 │   ├── mcnMapper.ts              Graph item ⇄ Mcn; diffed update payload; refuses to write over an unreadable scope
@@ -890,6 +899,8 @@ src/
 │   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
 │   ├── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
 │   ├── crimp.ts                  Crimp Height Checks types + constants (CrimpSpec, CrimpCheck, check points)
+│   ├── coating.ts                Conformal Coating Checks types + constants (units — mm first, coated sides, spec, check)
+│   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
 │   └── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
 │
@@ -1022,6 +1033,8 @@ src/
 │   ├── HarnessLogFormModal.tsx   Create/edit a harness log entry — part picked from the list, never typed
 │   ├── CrimpCheckFormModal.tsx   Record/correct a crimp check — spec picked, readings judged live, Enter-as-Tab for the micrometer, mm refused
 │   ├── CrimpSpecFormModal.tsx    Add/edit a crimp spec (ARC admins)
+│   ├── CoatingCheckFormModal.tsx Record/correct a coating check — spec picked, mm/in, six readings, thickness judged live in the spec's unit, Enter-as-Tab
+│   ├── CoatingSpecFormModal.tsx  Add/edit a coating spec in mm or inches, with coated sides (ARC admins)
 │   ├── HarnessPartRequestDialog.tsx  Request a new or retired harness part number — portalled, emails the part-request recipients
 │   ├── mcnAtoms.tsx              MCN status / priority chips, the Register / Settings nav, McnAccessGate (configured? pilot?)
 │   ├── McnFields.tsx             MCN dialog shell, scope-line editor, single-person picker, distribution ticks
@@ -1101,6 +1114,9 @@ src/
 │   ├── CrimpChecksView.tsx       Crimp Height Checks (/harness/crimp-checks, /:id opens one) — year picker, out-of-spec filter, cards on a phone
 │   ├── CrimpSpecsView.tsx        Crimp Specs — readable by all, ARC admins add/edit/retire, delete only when unused
 │   ├── HarnessAlertRecipientsView.tsx  Harness → Who's notified (/harness/alert-recipients) — people per alert, picked from the directory, ARC admins edit
+│   ├── CoatingChecksView.tsx     Conformal Coating Checks (/operations/coating-checks, /:id opens one) — year picker, machine + out-of-spec filters, cards on a phone
+│   ├── CoatingSpecsView.tsx      Coating Specs — readable by all, ARC admins add/edit/retire, delete only when unused; cards on a phone
+│   ├── OperationsAlertRecipientsView.tsx  Operations → Who's notified (/operations/alert-recipients) — people per alert, ARC admins edit
 │   ├── McnsView.tsx              MCN register (/operations/mcns) — opens on open MCNs, sortable, cards on a phone
 │   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
 │   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
@@ -7753,6 +7769,117 @@ numbers screen. `HarnessPartRequestDialog` is **portalled to `<body>`** — it
 opens inside the entry form, and a form in a form is invalid. Escape is
 handled on the document (after a send the focused button is gone), and the
 entry form ignores Escape while it's open — pinned, verified by removing it.
+
+### Conformal Coating Checks (Operations, PMO site)
+
+BusinessIT#60 (David Bulkley via Feature Request #34; built with Tim,
+2026-11-04). The start-of-shift conformal coating thickness check. Built on
+the Crimp Height Checks pattern, as an OPERATIONS feature, so it imports
+nothing from Harness. Pieces: `types/coating.ts`, `lib/coatingCheck.ts` (the
+rules), `lib/coatingMapper.ts`, `lib/coatingAlerts.ts`,
+`api/coatingSpecs.ts`, `api/coatingChecks.ts`,
+`api/operationsAlertRecipients.ts`, `hooks/useCoatingChecks.ts`,
+`hooks/useOperationsAlertRecipients.ts`, the two `Coating*FormModal`s, and
+three views: `/operations/coating-checks` (`/:id` opens one check),
+`/operations/coating-checks/specs` and `/operations/alert-recipients`.
+
+Three lists on `SITES.pmo`, created by `scripts/create-coating-lists.ps1`
+(idempotent, `-WhatIf`, write/read-back check; **its internal names are the
+contract** with `lib/coatingMapper.ts`). **No defaults**. An unset id shows
+"not set up yet":
+
+| List | env | Holds |
+|---|---|---|
+| Coating Specs | `VITE_SP_COATING_SPECS_LIST_ID` | Title = spec name; `MinMm`, `MaxMm` (always mm), `SpecUnit` (mm/in, as entered), `CoatedSides` (1/2), Notes, Active |
+| Coating Checks | `VITE_SP_COATING_CHECKS_LIST_ID` | one row per check; `MeasuredAt` indexed; six readings; the spec's figures copied on |
+| Operations Alert Recipients | `VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID` | Title = name, Email, Alert (`Coating out of spec`) |
+
+Tim's decisions, 2026-11-04:
+- **Three readings off an uncoated board, three off a coated one.** Each
+  side is averaged and the averages are subtracted. All six are required: an
+  average of two is not this check.
+- **A check is JUDGED IN THE SPEC'S UNIT.** A spec is entered in mm or
+  inches (Tim, 2026-11-04), and a check measured in either unit is compared
+  against it. The thickness is worked out in mm (`coatingThicknessMm`, 6
+  decimals), then `thicknessStatus` converts it to the limits' unit and
+  rounds it to `JUDGE_PLACES` (0.0001 mm / 0.00001 in) before comparing. That
+  is why an inch limit is not judged in mm: 0.0013 in is 0.03302 mm, which a
+  4-decimal mm comparison reads as 0.0330 and calls low. Mils are reference
+  only. The history: the first build judged in mils, then in mm, then (the
+  same day) in the spec's unit. Don't flip it back.
+- **A spec's limits are STORED in mm** (`MinMm` / `MaxMm`, full precision
+  via `toMm`) with `SpecUnit` beside them, so `mmTo` gives back exactly what
+  was typed. A missing `SpecUnit` reads as mm. **Inch limits are X.XXX**
+  (Tim, 2026-11-04): typed to at most three decimals (the form refuses more)
+  and always shown to three (`formatInLimit`). A measured thickness in inches
+  keeps `formatIn`'s finer figure. Every screen shows a spec in mm
+  AND inches, with mils for reference; the form and email lead with the
+  spec's unit (`thicknessText`, `coatingSpecRefText`). Each check copies
+  `SpecUnit` with the limits, and stores `ThicknessMm`, `ThicknessIn` and
+  `ThicknessMils`.
+- **Coated sides is per spec**, 1 or 2. A micrometer across a board picks up
+  both coats, so a both-sides spec halves the difference. Each check copies
+  the setting it was divided by.
+- **Readings are in mm (the DEFAULT) or inches**, chosen per check
+  (`COATING_UNITS` lists mm first). The last unit a browser saved with is
+  remembered in localStorage (`arc-coating-unit`, try/catch); a missing or
+  unknown stored `Unit` reads as mm.
+- **Specs are a list**, and a new check picks the only active spec for you.
+- **Each entry has machine, operator and date + time.** Machine and Operator
+  are free text with suggestions from earlier checks. Operator is filled in
+  with the signed-in user, since the floor may share a login. Date is a
+  `DateField`, time a native time box, and both default to now.
+- **The permissions are the crimp log's.** Anyone signed in records and
+  corrects a check. ARC admins delete checks, manage specs and pick who's
+  notified. Each admin write asks `useRequireArcAdmin` inside its mutationFn.
+
+Five things that are load-bearing:
+- **A reading that looks like the other unit is refused** (`looksLikeOtherUnit`):
+  under 0.2 in mm mode is inches, and 0.5 or more in inch mode is mm. A board
+  is 0.8–3.2 mm.
+- **The limits are IN spec**, with a 1e-9 slack in the spec's unit.
+- **A check copies its spec's figures** (name, min, max, coated sides) as
+  well as `SpecRef` (a SINGLE lookup, bare integer), so an edited spec never
+  re-judges an old check. A spec is deleted only while NO check uses it,
+  asked fresh in `useDeleteCoatingSpec`; otherwise it is retired.
+- **The averages, both thicknesses, OutOfSpec and Title are derived on every
+  write** (`deriveCoatingFigures`, used by the mock AND the Graph branch).
+- **The email goes when a check BECOMES out of spec** (the crimp rule), to the
+  `Coating out of spec` people on Operations Alert Recipients, read fresh. The
+  actor is dropped only if somebody else is left, and the outcome is toasted.
+
+**Machine and Operator keep a SHORT list** (Tim, 2026-11-04,
+`shortListSuggestions`). Before any check uses a value, opening the box shows
+the whole source: the Altronic Equipment List (`useOperationsEquipment`) for
+Machine, the staff directory for Operator. Once checks exist, opening shows
+ONLY what they used, most-used first, and typing ALSO searches the whole
+source (`SuggestInput`'s `searchOptions`). So a new machine can be picked,
+and once it's saved on a check it joins the short list. Don't merge the
+register into the open list; "it should just be a small list". Both stay
+free text.
+`SuggestInput` now filters ONLY after the person types since opening — before
+that it shows every option. It used to filter on whatever the box started
+with, so a prefilled name (or an edit) showed an empty list and the box looked
+dead. That is a change to the shared component; the crimp, CAD log and QC
+forms get it too.
+
+**The form opens on the Spec picker** (a button), never the Machine box: a
+`SuggestInput` opens its suggestions on focus, so autofocusing it opened a
+dropdown over the form on every new check and edit (Tim, 2026-11-04). The
+Specs screen is cards on a phone, rendered INSTEAD of the table (`useIsPhone`,
+the Parts List way) so each admin button exists once.
+
+**Operations Alert Recipients is its own list**, a copy of Harness Alert
+Recipients' shape and screen. Sharing the Harness one would be a cross-department
+import. A new Operations email gets an `Alert` choice here, and the
+`OPERATIONS_ALERTS` const and the script's choice list change together.
+
+**Run `create-coating-lists.ps1` before the deploy that ships this**, then
+set the three repo variables. Tim created the lists and set the variables on
+2026-11-04, BEFORE `SpecUnit` / `ThicknessIn` were added, so the script must
+be RE-RUN before this deploys. It adds only what's missing, and ARC selects
+those columns, so a missing one fails the whole read. Not built: a reminder when a shift's check
+is missed, which needs Power Automate, since ARC has no scheduler.
 
 ### Manufacturing Change Notices (Operations, PMO site)
 

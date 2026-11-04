@@ -69,6 +69,8 @@ import {
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
 import { buildCrimpOutOfSpecEmails } from "@/lib/crimpAlerts";
 import type { CrimpCheck } from "@/types/crimp";
+import { buildCoatingOutOfSpecEmails } from "@/lib/coatingAlerts";
+import type { CoatingCheck } from "@/types/coating";
 import {
   buildBrCompleteEmails,
   buildBrPartProductionCompleteEmails,
@@ -142,6 +144,7 @@ export interface MentionTarget {
     | "customerQuote"
     | "mcn"
     | "crimpCheck"
+    | "coatingCheck"
     | "harnessPartNumber";
   id: number;
   title: string;
@@ -272,6 +275,11 @@ const KIND_COPY: Record<
   crimpCheck: {
     phrase: "a crimp height check",
     calloutLabel: "Crimp Check",
+    buttonText: "Open this check",
+  },
+  coatingCheck: {
+    phrase: "a conformal coating check",
+    calloutLabel: "Coating Check",
     buttonText: "Open this check",
   },
   harnessPartNumber: {
@@ -932,6 +940,24 @@ export async function sendCrimpOutOfSpecAlert(args: {
   if (emails.length === 0) return NOTHING_SENT;
   return notifyChangeEmails({
     target: { kind: "crimpCheck", id: args.check.id, title: args.check.title },
+    emails,
+  });
+}
+
+/**
+ * A conformal coating check out of spec (BusinessIT#60) — the "Coating out of
+ * spec" people on Operations Alert Recipients, read fresh by the caller.
+ * Returns what was sent, so the save can say whether anyone heard.
+ */
+export async function sendCoatingOutOfSpecAlert(args: {
+  check: CoatingCheck;
+  actor: Person;
+  recipients: Person[];
+}): Promise<MailSendResult> {
+  const emails = buildCoatingOutOfSpecEmails(args);
+  if (emails.length === 0) return NOTHING_SENT;
+  return notifyChangeEmails({
+    target: { kind: "coatingCheck", id: args.check.id, title: args.check.title },
     emails,
   });
 }

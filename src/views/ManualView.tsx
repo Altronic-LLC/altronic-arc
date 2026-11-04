@@ -2725,6 +2725,126 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "conformal-coating-checks",
+    title: "Conformal Coating Checks",
+    group: "Operations",
+    keywords: [
+      "conformal coating",
+      "coating",
+      "coating thickness",
+      "coating check",
+      "thickness",
+      "micrometer",
+      "mils",
+      "millimetres",
+      "mm",
+      "inches",
+      "uncoated",
+      "coated",
+      "shift",
+      "machine",
+      "operator",
+      "coating spec",
+      "coating specs",
+      "coated sides",
+      "out of spec",
+      "who's notified",
+      "alert recipients",
+    ],
+    searchText:
+      "Conformal Coating Checks log the coating thickness measured at the start of each shift. Reach it from the Conformal Coating Checks card on the Dashboard or the Departments menu under Operations. Click New check, pick the spec (if there is only one it is picked for you), enter the machine, the operator (your name is filled in), and the date and time it was measured (now, unless you change it). The Machine list shows the machines already used on checks; type to search the whole equipment list for one that hasn't been used yet, and once it's saved it joins the list. Operator works the same way with the staff directory. Choose whether you measured in Millimetres, the default, or Inches; ARC remembers your choice on that computer. Measure an uncoated board three times and a coated board three times. ARC averages each board, subtracts the uncoated average from the coated one, and divides by two when the spec says both sides are coated. A spec is entered in millimetres or inches, and the thickness is judged against its minimum and maximum in that unit, whichever unit the readings were taken in; the limits count as in spec. The thickness is shown in the spec's unit first, then the other unit and mils for reference. A reading that looks like the other unit is refused, so pick the right unit and save again. Enter moves to the next box, so a micrometer that types each reading and presses Enter works. If the coating is out of spec, saving emails the people chosen for out-of-spec coating checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins and listed on the Admin page, shows who is emailed; ARC admins add people from the staff directory or remove them, with no wait for a new version. Every check keeps the spec figures it was judged by, so changing a spec later never changes an old result. The log opens on the current year; filter by machine, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log and the Specs screen are cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec, its limits in mm and in inches with mils for reference, the unit it was entered in, whether one side or both are coated, and how many checks used it; anyone can see it, and ARC admins add, edit, retire or delete specs, entering the limits in mm or inches; inch limits are three decimal places, like 0.001. A spec that has been used can't be deleted: retire it instead.",
+    render: () => (
+      <>
+        <P>
+          <strong>Conformal Coating Checks</strong> log the coating thickness
+          measured at the start of each shift. Reach it from the{" "}
+          <strong>Conformal Coating Checks</strong> card on the Dashboard or the
+          Departments menu under <strong>Operations</strong>.
+        </P>
+        <H3>Recording a check</H3>
+        <UL>
+          <LI>
+            Click <strong>New check</strong> and pick the <strong>spec</strong>. If
+            there is only one, it's picked for you.
+          </LI>
+          <LI>
+            Enter the <strong>machine</strong> and the <strong>operator</strong> (your
+            name is filled in), and check the <strong>date and time</strong>. They
+            start at now. The Machine list shows the machines already used on
+            checks. To use one that hasn't been, <strong>type</strong> to search the
+            whole equipment list; once it's saved it joins the list. Operator works
+            the same way, with the staff directory.
+          </LI>
+          <LI>
+            Choose <strong>Millimetres</strong> (the default) or{" "}
+            <strong>Inches</strong>. ARC remembers your choice on that computer.
+          </LI>
+          <LI>
+            Measure an <strong>uncoated board three times</strong> and a{" "}
+            <strong>coated board three times</strong>. Enter moves to the next box,
+            so a micrometer that types each reading and presses Enter works.
+          </LI>
+        </UL>
+        <H3>How the thickness is worked out</H3>
+        <P>
+          ARC averages each board and subtracts the uncoated average from the
+          coated one. When the spec says <strong>both sides</strong> are coated, it
+          halves the difference, because a micrometer across the board picks up
+          both coats. A spec is entered in <strong>millimetres or inches</strong>,
+          and the thickness is judged against its minimum and maximum{" "}
+          <strong>in that unit</strong>, whichever unit you measured in. The
+          limits themselves count as in spec. The thickness is shown in the
+          spec's unit first, then the other unit and{" "}
+          <strong>mils for reference</strong>.
+        </P>
+        <P>
+          A reading that looks like the other unit is refused: pick the right unit
+          and save again. If the coated board measures thinner than the uncoated
+          one, the form says so, so you can check the readings went in the right
+          boxes.
+        </P>
+        <H3>When it's out of spec</H3>
+        <P>
+          Saving an out-of-spec check emails the people chosen for out-of-spec
+          coating checks and tells you how many were emailed. If nobody is set up,
+          it asks you to tell your supervisor. The <strong>Who's notified</strong>{" "}
+          button, shown to ARC admins and listed on the Admin page, shows who is
+          emailed. ARC admins add people from the staff directory or remove them,
+          with no wait for a new version.
+        </P>
+        <H3>The log</H3>
+        <P>
+          The log opens on the current year. Filter by machine, show out-of-spec
+          checks only, or search; filters live in the URL. Columns sort and filter
+          from their headers, and on a phone the log is cards.{" "}
+          <strong>Anyone can record and correct a check</strong>; only{" "}
+          <strong>ARC admins can delete</strong> one.
+        </P>
+        <H3>Coating specs</H3>
+        <P>
+          The <strong>Specs</strong> button lists every spec: its limits in mm and
+          in inches (with mils for reference), the unit it was entered in, whether
+          one side or both sides are coated, and how many checks used it. Anyone
+          can see it, and on a phone it's a card per spec. <strong>ARC admins</strong>{" "}
+          add, edit, retire or delete specs,
+          entering the limits in mm or inches. Inch limits are three decimal
+          places, like 0.001.
+        </P>
+        <UL>
+          <LI>
+            <strong>Every check keeps the figures it was judged by</strong>, so
+            changing a spec never changes an old result.
+          </LI>
+          <LI>
+            A spec that has been used <strong>can't be deleted</strong>.{" "}
+            <strong>Retire</strong> it instead: it leaves the New check list, and the
+            checks already taken keep it.
+          </LI>
+        </UL>
+      </>
+    ),
+  },
+  {
     id: "mcns",
     title: "MCNs (Manufacturing Change Notices)",
     group: "Operations",

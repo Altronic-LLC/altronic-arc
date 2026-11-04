@@ -29,6 +29,7 @@ import {
   HardHat,
   LayoutDashboard,
   LayoutGrid,
+  Layers,
   Library,
   Lightbulb,
   List,
@@ -238,6 +239,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         mcnAccess: "with",
       },
       { ...soon("MCNs", <Factory className="h-4 w-4" />), mcnAccess: "without" },
+      {
+        to: "/operations/coating-checks",
+        label: "Conformal Coating Checks",
+        icon: <Layers className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/coating-checks") || p.startsWith("/operations/alert-recipients"),
+      },
       // CMMS. Four entries rather than one, because these are four different
       // jobs: raise/track a work order, see what's due, manage the recurring
       // rules, and look at the numbers. `matchesPath` is exact-ish per entry —

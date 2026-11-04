@@ -898,6 +898,27 @@ export const SP_CRIMP_CHECKS_LIST_ID = import.meta.env.VITE_SP_CRIMP_CHECKS_LIST
 export const SP_HARNESS_ALERT_RECIPIENTS_LIST_ID = import.meta.env.VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID || "";
 
 // =============================================================================
+// Conformal Coating Thickness Checks (BusinessIT#60) — Operations, THREE lists
+// on the PMO site, created by scripts/create-coating-lists.ps1. The crimp
+// log's arrangement: NO DEFAULTS (an unset id shows "not set up yet"), nothing
+// gates on them, and `||` never `??` — deploy.yml passes an unset var as "".
+// =============================================================================
+
+/** "Coating Specs" — the min / max coating thickness in mils, and coated sides. ARC admins manage it. */
+export const SP_COATING_SPECS_LIST_ID = import.meta.env.VITE_SP_COATING_SPECS_LIST_ID || "";
+
+/** "Coating Checks" — one row per check of six readings. */
+export const SP_COATING_CHECKS_LIST_ID = import.meta.env.VITE_SP_COATING_CHECKS_LIST_ID || "";
+
+/**
+ * "Operations Alert Recipients" — who the Operations department's emails go
+ * to (an out-of-spec coating check), one row per person per alert. ARC admins
+ * manage it at /operations/alert-recipients, no redeploy. Unset = nobody is
+ * told, and the screens say so.
+ */
+export const SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID = import.meta.env.VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID || "";
+
+// =============================================================================
 // Coils — Potting Sample Log, THREE lists on the PMO site (SITES.pmo). The
 // sample log is operator-entered (any signed-in user); the limit + PSR
 // notification lists are editable by any signed-in user (same pattern as

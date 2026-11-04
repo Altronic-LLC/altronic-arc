@@ -197,6 +197,9 @@ jobs:
           VITE_SP_CRIMP_SPECS_LIST_ID: ${{ vars.VITE_SP_CRIMP_SPECS_LIST_ID }}
           VITE_SP_CRIMP_CHECKS_LIST_ID: ${{ vars.VITE_SP_CRIMP_CHECKS_LIST_ID }}
           VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: ${{ vars.VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID }}
+          VITE_SP_COATING_SPECS_LIST_ID: ${{ vars.VITE_SP_COATING_SPECS_LIST_ID }}
+          VITE_SP_COATING_CHECKS_LIST_ID: ${{ vars.VITE_SP_COATING_CHECKS_LIST_ID }}
+          VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID: ${{ vars.VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID }}
           # Maintenance Roles (Admin -> Maintenance Roles). No default in
           # config.ts — setting this switches CMMS role gating ON, so populate
           # the list first. Until it is set, everyone signed in keeps the

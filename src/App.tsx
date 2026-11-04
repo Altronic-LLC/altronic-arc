@@ -239,6 +239,18 @@ const HarnessAlertRecipientsView = lazy(() =>
   import("@/views/HarnessAlertRecipientsView").then((m) => ({ default: m.HarnessAlertRecipientsView })),
 );
 
+// Conformal Coating Checks — Operations (BusinessIT#60): the start-of-shift
+// coating thickness log, its admin-managed specs, and who Operations emails.
+const CoatingChecksView = lazy(() =>
+  import("@/views/CoatingChecksView").then((m) => ({ default: m.CoatingChecksView })),
+);
+const CoatingSpecsView = lazy(() =>
+  import("@/views/CoatingSpecsView").then((m) => ({ default: m.CoatingSpecsView })),
+);
+const OperationsAlertRecipientsView = lazy(() =>
+  import("@/views/OperationsAlertRecipientsView").then((m) => ({ default: m.OperationsAlertRecipientsView })),
+);
+
 // Manufacturing Change Notices — Operations (BusinessIT#38), one lazy chunk each.
 const McnsView = lazy(() => import("@/views/McnsView").then((m) => ({ default: m.McnsView })));
 const McnDetailView = lazy(() => import("@/views/McnDetailView").then((m) => ({ default: m.McnDetailView })));
@@ -1115,6 +1127,39 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the crimp height checks" />}>
                   <CrimpChecksView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/coating-checks"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the coating checks" />}>
+                  <CoatingChecksView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/coating-checks/specs"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the coating specs" />}>
+                  <CoatingSpecsView />
+                </Suspense>
+              }
+            />
+            {/* One check — the link in an out-of-spec email (lib/appUrl.ts coatingCheck). */}
+            <Route
+              path="/operations/coating-checks/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the coating checks" />}>
+                  <CoatingChecksView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/alert-recipients"
+              element={
+                <Suspense fallback={<LoadingTasks noun="who's notified" />}>
+                  <OperationsAlertRecipientsView />
                 </Suspense>
               }
             />
