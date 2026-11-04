@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { DRAWING_LOGS } from "@/api/drawingLogs";
-import { writableFields } from "@/lib/drawingLogFields";
+import { DRAWING_LOG_FIELDS, writableFields } from "@/lib/drawingLogFields";
+import { drawingLogLabel, entriesWithNumber, nextDrawingNumber } from "@/lib/drawingLogMapper";
 import { useCreateDrawingLogEntry, useDrawingLog } from "@/hooks/useDrawingLogs";
 import type { DrawingLogKind } from "@/types/task";
 import { FieldInputs, draftToInput, emptyDraft, suggestionsFor } from "./DrawingLogFields";
@@ -25,10 +26,32 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
   const editable = writableFields(kind);
   const createEntry = useCreateDrawingLogEntry(kind);
   // Same cached query the table uses, so this costs nothing extra.
-  const { data: entries = [] } = useDrawingLog(kind);
+  const { data: entries = [], isSuccess: entriesLoaded } = useDrawingLog(kind);
   const suggestions = suggestionsFor(kind, entries);
+  const autoKey = DRAWING_LOG_FIELDS[kind].autoNumberKey;
+  const autoField = autoKey ? editable.find((f) => f.key === autoKey) : undefined;
 
   const [draft, setDraft] = useState<Record<string, string>>(() => emptyDraft(editable));
+  // Once the person types in the auto-numbered field it's theirs: a refetch
+  // landing afterwards must not overwrite it.
+  const [autoTouched, setAutoTouched] = useState(false);
+
+  // The next free number (highest + 1), filled in once the register is loaded —
+  // usually at once, since the table has already read it. Still editable.
+  const suggestedNumber =
+    autoKey && entriesLoaded ? String(nextDrawingNumber(entries, autoKey)) : null;
+  useEffect(() => {
+    if (!autoKey || suggestedNumber === null || autoTouched) return;
+    setDraft((d) => (d[autoKey] === suggestedNumber ? d : { ...d, [autoKey]: suggestedNumber }));
+  }, [autoKey, suggestedNumber, autoTouched]);
+
+  // A number somebody else already holds is WARNED about, not refused — people
+  // may genuinely need to re-enter one, and the register has never been unique.
+  const typedNumber = autoKey ? Number((draft[autoKey] ?? "").trim()) : NaN;
+  const clashes =
+    autoKey && (draft[autoKey] ?? "").trim() && Number.isFinite(typedNumber)
+      ? entriesWithNumber(entries, autoKey, typedNumber)
+      : [];
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -101,11 +124,36 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
           <FieldInputs
             fields={editable}
             draft={draft}
-            onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
+            onChange={(key, value) => {
+              if (key === autoKey) setAutoTouched(true);
+              setDraft((d) => ({ ...d, [key]: value }));
+            }}
             disabled={busy}
             autoFocusFirst
             suggestions={suggestions}
           />
+
+          {autoField && (
+            <p className="text-[11px] text-fg-muted">
+              {suggestedNumber === null
+                ? `${autoField.label} fills in with the next free number once the register has loaded.`
+                : `${autoField.label} is filled in with the next free number (${suggestedNumber}). You can change it before saving.`}
+            </p>
+          )}
+
+          {autoField && clashes.length > 0 && (
+            <div
+              role="status"
+              className="rounded-md border border-ajax-yellow/40 bg-ajax-yellow/10 px-3 py-2 text-xs text-fg"
+            >
+              {autoField.label} {draft[autoKey!]} is already used by{" "}
+              {clashes
+                .slice(0, 3)
+                .map((e) => drawingLogLabel(e))
+                .join(", ")}
+              {clashes.length > 3 ? ` and ${clashes.length - 3} more` : ""}.
+            </div>
+          )}
 
           {spec.hasChangeLog && (
             <p className="text-[11px] text-fg-muted">

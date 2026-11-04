@@ -356,3 +356,89 @@ describe("DrawingLogsView — the detail panel on a long change log", () => {
     expect(within(panel).queryByRole("link", { name: /work sheet/i })).not.toBeInTheDocument();
   });
 });
+
+describe("DrawingLogsView — sorting", () => {
+  /** The table's body rows, top to bottom, by their aria-label. */
+  function rowLabels() {
+    return within(screen.getByRole("table"))
+      .getAllByRole("row")
+      .map((r) => r.getAttribute("aria-label"))
+      .filter((l): l is string => !!l);
+  }
+
+  it("opens Engineering Sketches newest sketch number first, whatever the dates say", async () => {
+    await renderView("/drawing-logs?log=sketches");
+    const header = screen.getByRole("columnheader", { name: /sketch no\./i });
+    expect(header).toHaveAttribute("aria-sort", "descending");
+    // 2291 is the oldest-dated sketch, so a date order would put it last.
+    expect(rowLabels()).toEqual([
+      "Open SAVES DETECTOR BRACKET",
+      "Open GGT0065C + PLENUM ASSEMBLY 2 OUTLET",
+      "Open WARTSILLA RUBBER ELEMENT (DAMPER)",
+    ]);
+  });
+
+  it("flips to oldest number first when the Sketch No. sort is clicked", async () => {
+    await renderView("/drawing-logs?log=sketches");
+    const header = screen.getByRole("columnheader", { name: /sketch no\./i });
+    await userEvent.click(within(header).getByRole("button", { name: /sort/i }));
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    expect(rowLabels()[0]).toBe("Open WARTSILLA RUBBER ELEMENT (DAMPER)");
+  });
+
+  it("sorts the other registers too, keeping their own date order until a header is clicked", async () => {
+    await renderView("/drawing-logs?log=ccc");
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers.every((h) => h.getAttribute("aria-sort") !== "ascending")).toBe(true);
+    expect(headers.some((h) => h.getAttribute("aria-sort") === "descending")).toBe(false);
+    const drawingNo = screen.getByRole("columnheader", { name: /drawing no\./i });
+    await userEvent.click(within(drawingNo).getByRole("button", { name: /sort/i }));
+    expect(drawingNo).toHaveAttribute("aria-sort", "ascending");
+  });
+});
+
+describe("DrawingLogsView — new sketch numbering", () => {
+  async function openNewSketch() {
+    await renderView("/drawing-logs?log=sketches");
+    await userEvent.click(screen.getByRole("button", { name: /new drawing/i }));
+    return screen.findByRole("dialog", { name: /new drawing/i });
+  }
+
+  it("fills in the next free sketch number — the highest plus one", async () => {
+    const form = await openNewSketch();
+    await waitFor(() => expect(within(form).getByLabelText("Sketch No.")).toHaveValue(2292));
+    expect(within(form).getByText(/next free number \(2292\)/i)).toBeInTheDocument();
+  });
+
+  it("warns, without refusing, when the number typed is already used", async () => {
+    const form = await openNewSketch();
+    const input = within(form).getByLabelText("Sketch No.");
+    await waitFor(() => expect(input).toHaveValue(2292));
+    await userEvent.clear(input);
+    await userEvent.type(input, "2274");
+    expect(within(form).getByRole("status")).toHaveTextContent(
+      /2274 is already used by WARTSILLA RUBBER ELEMENT/,
+    );
+    expect(within(form).getByRole("button", { name: /add drawing/i })).toBeEnabled();
+  });
+
+  it("saves the number the person changed it to", async () => {
+    const form = await openNewSketch();
+    const input = within(form).getByLabelText("Sketch No.");
+    await waitFor(() => expect(input).toHaveValue(2292));
+    await userEvent.type(within(form).getByLabelText("Title"), "NEW BRACKET");
+    await userEvent.clear(input);
+    await userEvent.type(input, "2400");
+    await userEvent.click(within(form).getByRole("button", { name: /add drawing/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /new drawing/i })).not.toBeInTheDocument(),
+    );
+    // Newest number first, so the new sketch tops the register.
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("table")).getAllByRole("row")[1],
+      ).toHaveAttribute("aria-label", "Open NEW BRACKET"),
+    );
+    expect(within(screen.getByRole("table")).getByText("2400")).toBeInTheDocument();
+  });
+});
