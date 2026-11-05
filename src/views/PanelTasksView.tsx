@@ -8,21 +8,40 @@ import { MultiSelect } from "@/components/SearchableSelect";
 import { SearchInput } from "@/components/SearchInput";
 import { PanelTaskFormModal } from "@/components/PanelTaskFormModal";
 import { PanelTaskRow } from "@/components/PanelTaskRow";
-import { PANEL_TASK_STATUSES, type PanelTask, type Person } from "@/types/task";
+import {
+  PANEL_TASK_PRIORITIES,
+  PANEL_TASK_WORK_TYPES,
+  PANEL_TASK_STATUS_GROUPS,
+  type PanelTask,
+  type PanelTaskStatusGroup,
+  type Person,
+} from "@/types/task";
+import { isPanelTaskOpen, panelTaskGroupLabel, panelTaskStatusGroup } from "@/lib/panelTaskStatus";
 import { cn } from "@/lib/cn";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { withPerson } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // =============================================================================
-// Panel Tasks list view — modelled on PanelOrdersView. Status pills (Open =
-// not Complete) + Project / Assignee / Search filters, all URL-backed.
+// Panel Tasks list view — modelled on PanelOrdersView. Status pills by Wrike's
+// groups (Open = Active + On Hold; then Active, On Hold, Completed, Canceled)
+// + Project / Assignee / Search filters, all URL-backed.
 // =============================================================================
 
-type StatusFilter = PanelTask["status"] | "ALL_OPEN" | null;
+// ?status= is "ALL_OPEN", one of Wrike's groups (the pills), or an exact
+// Panel Workflow status (a shared link can still narrow to one).
+/** The filter value for "Work Type / Priority not set". */
+const NOT_SET = "none";
 
-function isOpen(status: PanelTask["status"]): boolean {
-  return status !== "Complete";
+type StatusFilter = PanelTask["status"] | PanelTaskStatusGroup | "ALL_OPEN" | null;
+
+function matchesStatus(status: PanelTask["status"], filter: StatusFilter): boolean {
+  if (!filter) return true;
+  if (filter === "ALL_OPEN") return isPanelTaskOpen(status);
+  if ((PANEL_TASK_STATUS_GROUPS as readonly string[]).includes(filter)) {
+    return panelTaskStatusGroup(status) === filter;
+  }
+  return status === filter;
 }
 
 export function PanelTasksView() {
@@ -54,6 +73,15 @@ export function PanelTasksView() {
     else sp.delete("project");
     setSearchParams(sp, { replace: true });
   };
+  // Work Type and Priority filters (the Wrike custom fields); "none" = not set.
+  const workTypes = parseStringList(searchParams.get("workType"));
+  const priorities = parseStringList(searchParams.get("priority"));
+  const setList = (key: string, values: string[]) => {
+    const sp = new URLSearchParams(searchParams);
+    if (values.length > 0) sp.set(key, values.join(","));
+    else sp.delete(key);
+    setSearchParams(sp, { replace: true });
+  };
   const assigneeEmails = parseStringList(searchParams.get("assigned"));
   const setAssignees = (emails: string[]) => {
     const sp = new URLSearchParams(searchParams);
@@ -79,7 +107,7 @@ export function PanelTasksView() {
     return tasks.filter((t) => {
       if (mineKey) {
         const isMine =
-          (t.assigned?.email ?? "").toLowerCase() === mineKey ||
+          t.assigned.some((a) => (a.email ?? "").toLowerCase() === mineKey) ||
           t.watchers.some((w) => (w.email ?? "").toLowerCase() === mineKey);
         if (!isMine) return false;
       }
@@ -87,35 +115,38 @@ export function PanelTasksView() {
         if (!t.projectRef || !projectIds.includes(t.projectRef.lookupId)) return false;
       }
       if (assigneeEmails.length > 0) {
-        const key = (t.assigned?.email ?? t.assigned?.displayName ?? "").toLowerCase();
-        if (!assigneeEmails.map((s) => s.toLowerCase()).includes(key)) return false;
+        const wanted = assigneeEmails.map((s) => s.toLowerCase());
+        const keys = t.assigned.map((a) => (a.email ?? a.displayName).toLowerCase());
+        if (!keys.some((k) => wanted.includes(k))) return false;
       }
+      if (workTypes.length > 0 && !workTypes.includes(t.workType ?? NOT_SET)) return false;
+      if (priorities.length > 0 && !priorities.includes(t.priority ?? NOT_SET)) return false;
       if (searchTokens.length > 0 && !matchesSearch(t, searchTokens)) return false;
       return true;
     });
-  }, [tasks, mineEmail, projectIds, assigneeEmails, query]);
+    // The two lists are new strings from the URL each render; key on their text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, mineEmail, projectIds, assigneeEmails, query, workTypes.join(","), priorities.join(",")]);
 
   const filtered = useMemo(
     () =>
       filteredByBar
         .filter((t) => {
-          if (statusFilter === "ALL_OPEN") return isOpen(t.status);
-          if (statusFilter) return t.status === statusFilter;
-          return true;
+          return matchesStatus(t.status, statusFilter);
         })
         .sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime()),
     [filteredByBar, statusFilter],
   );
 
-  const countByStatus = useMemo(() => {
-    const counts = Object.fromEntries(PANEL_TASK_STATUSES.map((s) => [s, 0])) as Record<
-      PanelTask["status"],
+  const countByGroup = useMemo(() => {
+    const counts = Object.fromEntries(PANEL_TASK_STATUS_GROUPS.map((g) => [g, 0])) as Record<
+      PanelTaskStatusGroup,
       number
     >;
-    for (const t of filteredByBar) counts[t.status]++;
+    for (const t of filteredByBar) counts[panelTaskStatusGroup(t.status)]++;
     return counts;
   }, [filteredByBar]);
-  const openCount = filteredByBar.filter((t) => isOpen(t.status)).length;
+  const openCount = filteredByBar.filter((t) => isPanelTaskOpen(t.status)).length;
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
@@ -155,13 +186,13 @@ export function PanelTasksView() {
             onClick={() => setStatus(statusFilter === "ALL_OPEN" ? null : "ALL_OPEN")}
             emphasized
           />
-          {PANEL_TASK_STATUSES.map((s) => (
+          {PANEL_TASK_STATUS_GROUPS.map((g) => (
             <Pill
-              key={s}
-              label={s}
-              count={countByStatus[s]}
-              active={statusFilter === s}
-              onClick={() => setStatus(statusFilter === s ? null : s)}
+              key={g}
+              label={panelTaskGroupLabel(g)}
+              count={countByGroup[g]}
+              active={statusFilter === g}
+              onClick={() => setStatus(statusFilter === g ? null : g)}
             />
           ))}
         </div>
@@ -175,7 +206,7 @@ export function PanelTasksView() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Field label="Project Reference">
           <MultiSelect
             allLabel="All projects"
@@ -200,6 +231,30 @@ export function PanelTasksView() {
             }))}
             selected={assigneeEmails}
             onChange={setAssignees}
+          />
+        </Field>
+        <Field label="Work Type">
+          <MultiSelect
+            allLabel="Any"
+            searchPlaceholder="Search work types…"
+            options={[
+              ...PANEL_TASK_WORK_TYPES.map((w) => ({ value: w, label: w })),
+              { value: NOT_SET, label: "Not set" },
+            ]}
+            selected={workTypes}
+            onChange={(next) => setList("workType", next)}
+          />
+        </Field>
+        <Field label="Priority">
+          <MultiSelect
+            allLabel="Any"
+            searchPlaceholder="Search priorities…"
+            options={[
+              ...PANEL_TASK_PRIORITIES.map((p) => ({ value: p, label: p })),
+              { value: NOT_SET, label: "Not set" },
+            ]}
+            selected={priorities}
+            onChange={(next) => setList("priority", next)}
           />
         </Field>
         <Field label="Search">
@@ -300,7 +355,7 @@ function collectPeople(tasks: PanelTask[]): Person[] {
     if (!map.has(k)) map.set(k, p);
   };
   for (const t of tasks) {
-    note(t.assigned);
+    t.assigned.forEach(note);
     t.watchers.forEach((w) => note(w));
   }
   return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));

@@ -1,4 +1,10 @@
-import type { PanelOrder, PanelProject, PanelRoleEntry, PanelTask } from "@/types/task";
+import type {
+  PanelOrder,
+  PanelProject,
+  PanelRoleEntry,
+  PanelTask,
+  PanelTimeOff,
+} from "@/types/task";
 
 // =============================================================================
 // Mock data for the Panels department — modelled on the real Panel Order
@@ -11,6 +17,17 @@ const DAVID = { displayName: "David Bulkley", email: "david.bulkley@altronic-llc
 const SARAH = { displayName: "Sarah Shaffer", email: "sarah.shaffer@altronic-llc.com", lookupId: 46 };
 const ERIC = { displayName: "Eric Gilkinson", email: "eric.gilkinson@altronic-llc.com", lookupId: 65 };
 const AMANDA = { displayName: "Amanda Hoagland", email: "amanda.hoagland@altronic-llc.com", lookupId: 25 };
+
+/**
+ * A date-only value `offset` days from today, stored the way ARC writes one
+ * (midday UTC) — so the Capacity demo always has work this week and next.
+ */
+function fromToday(offset: number): Date {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12),
+  );
+}
 
 export const MOCK_PANEL_PROJECTS: PanelProject[] = [
   {
@@ -72,6 +89,7 @@ export const MOCK_PANEL_ORDERS: PanelOrder[] = [
     status: "In Production",
     projectRef: projectRefByTitle("P-0001"),
     salesOrder: "12345678910",
+    sapNumber: "9200-0001-00",
     purchaseOrder: "987654321A",
     customerReference: "Odessa Field Unit B100",
     customer: "Archrock",
@@ -100,6 +118,7 @@ export const MOCK_PANEL_ORDERS: PanelOrder[] = [
     status: "In Engineering",
     projectRef: projectRefByTitle("P-0002"),
     salesOrder: "",
+    sapNumber: "",
     purchaseOrder: "",
     customerReference: "Internal prototype",
     customer: "Altronic",
@@ -119,6 +138,7 @@ export const MOCK_PANEL_ORDERS: PanelOrder[] = [
     status: "Testing",
     projectRef: projectRefByTitle("P-0003"),
     salesOrder: "22334455",
+    sapNumber: "9200-0002-00",
     purchaseOrder: "KG-2026-118",
     customerReference: "Permian units 12–15",
     customer: "Kodiak Gas",
@@ -146,6 +166,7 @@ export const MOCK_PANEL_ORDERS: PanelOrder[] = [
     status: "Submitted",
     projectRef: projectRefByTitle("P-0004"),
     salesOrder: "99887766",
+    sapNumber: "9200-0003-00",
     purchaseOrder: "",
     customerReference: "",
     customer: "UE Compression",
@@ -165,6 +186,7 @@ export const MOCK_PANEL_ORDERS: PanelOrder[] = [
     status: "Shipped",
     projectRef: projectRefByTitle("P-0005"),
     salesOrder: "11224488",
+    sapNumber: "",
     purchaseOrder: "INT-0042",
     customerReference: "Bench 3",
     customer: "Altronic",
@@ -181,23 +203,32 @@ export const MOCK_PANEL_ORDERS: PanelOrder[] = [
 ];
 
 export const MOCK_PANEL_ROLES: PanelRoleEntry[] = [
-  { id: 1, user: RAY, role: "Super User", note: "App manager" },
-  { id: 2, user: SARAH, role: "Engineer", note: "" },
-  { id: 3, user: ERIC, role: "Tech", note: "Panel shop lead" },
-  { id: 4, user: DAVID, role: "Manager", note: "" },
-  { id: 5, user: AMANDA, role: "Viewer", note: "Scheduling visibility" },
+  { id: 1, user: RAY, role: "Super User", note: "App manager", onCapacity: false },
+  { id: 2, user: SARAH, role: "Engineer", note: "", onCapacity: false },
+  { id: 3, user: ERIC, role: "Tech", note: "Panel shop lead", onCapacity: false },
+  { id: 4, user: DAVID, role: "Manager", note: "", onCapacity: true },
+  { id: 5, user: AMANDA, role: "Viewer", note: "Scheduling visibility", onCapacity: false },
 ];
 
 export const MOCK_PANEL_TASKS: PanelTask[] = [
   {
     id: 1,
     title: "Draw up enclosure layout for Archrock skids",
-    status: "In Process",
+    status: "In Progress",
     taskType: "Drawings",
+    workType: "Production Order",
+    priority: "High",
     projectRef: projectRefByTitle("P-0001"),
-    assigned: SARAH,
+    orderRef: { lookupId: 1, title: "Archrock skid panel build — June release" },
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
+    assigned: [SARAH],
     description:
       "Panel enclosure GA drawing for the June release.\n- [x] Rough layout ✓[Sarah Shaffer · 7/11/2026, 8:30 AM]\n- [ ] Dimension callouts\n- [ ] Send to customer for approval",
+    startDate: fromToday(-2),
+    dueDate: fromToday(5),
+    estimatedHours: 40,
     watchers: [SARAH, RAY],
     comments: [
       {
@@ -216,11 +247,20 @@ export const MOCK_PANEL_TASKS: PanelTask[] = [
   {
     id: 2,
     title: "Write sequence of operations for annunciator prototype",
-    status: "Pending",
+    status: "Ready",
     taskType: "SOO",
+    workType: "Production Order",
+    priority: "Medium",
     projectRef: projectRefByTitle("P-0002"),
-    assigned: ERIC,
+    orderRef: null,
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
+    assigned: [ERIC],
     description: "Draft SOO for the bench prototype ahead of programming.",
+    startDate: fromToday(0),
+    dueDate: fromToday(9),
+    estimatedHours: 24,
     watchers: [ERIC],
     comments: [],
     hasAttachments: false,
@@ -231,11 +271,20 @@ export const MOCK_PANEL_TASKS: PanelTask[] = [
   {
     id: 3,
     title: "Quote panel rebuild for Kodiak retrofit",
-    status: "On Hold",
+    status: "On Hold - Approval",
     taskType: "Quote",
+    workType: "Non-Production",
+    priority: null,
     projectRef: projectRefByTitle("P-0003"),
-    assigned: DAVID,
+    orderRef: null,
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
+    assigned: [DAVID],
     description: "Waiting on updated BOM from engineering before quoting.",
+    startDate: null,
+    dueDate: null,
+    estimatedHours: 6,
     watchers: [DAVID, AMANDA],
     comments: [],
     hasAttachments: false,
@@ -246,16 +295,104 @@ export const MOCK_PANEL_TASKS: PanelTask[] = [
   {
     id: 4,
     title: "File closeout paperwork for test-bench refresh",
-    status: "Complete",
+    status: "Completed",
     taskType: "Administrative",
+    workType: "Improvement / Internal",
+    priority: "Low",
     projectRef: projectRefByTitle("P-0005"),
-    assigned: AMANDA,
+    orderRef: null,
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
+    assigned: [AMANDA],
     description: "",
+    startDate: fromToday(-40),
+    dueDate: fromToday(-35),
+    estimatedHours: 4,
     watchers: [AMANDA],
     comments: [],
     hasAttachments: false,
     createdAt: new Date("2026-05-06T10:00:00Z"),
     modifiedAt: new Date("2026-06-11T15:00:00Z"),
     author: AMANDA,
+  },
+  {
+    id: 5,
+    title: "Program PLC logic for UE Compression order",
+    status: "In Progress",
+    taskType: "Programming",
+    workType: "Production Order",
+    priority: "High",
+    projectRef: projectRefByTitle("P-0004"),
+    orderRef: { lookupId: 4, title: "UE Compression PLC reprogram" },
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
+    assigned: [SARAH],
+    description: "Ladder logic changes for the three UE units.",
+    startDate: fromToday(1),
+    dueDate: fromToday(3),
+    estimatedHours: 18,
+    watchers: [SARAH],
+    comments: [],
+    hasAttachments: false,
+    createdAt: new Date("2026-07-15T09:00:00Z"),
+    modifiedAt: new Date("2026-07-15T09:00:00Z"),
+    author: SARAH,
+  },
+  {
+    id: 6,
+    title: "Create drawings for test-bench panel",
+    status: "Ready",
+    taskType: "Drawings",
+    workType: "Production Order",
+    priority: null,
+    projectRef: projectRefByTitle("P-0005"),
+    orderRef: { lookupId: 5, title: "Test-bench panel refresh" },
+    chainStep: null,
+    statusBeforeHold: null,
+    sapNumber: "",
+    assigned: [],
+    description: "Not yet assigned — sits in the backlog until somebody picks it up.",
+    startDate: fromToday(7),
+    dueDate: fromToday(11),
+    estimatedHours: 16,
+    watchers: [RAY],
+    comments: [],
+    hasAttachments: false,
+    createdAt: new Date("2026-07-16T09:00:00Z"),
+    modifiedAt: new Date("2026-07-16T09:00:00Z"),
+    author: RAY,
+  },
+];
+
+/** Panel Time Off — dated from today so the Capacity demo always shows one. */
+export const MOCK_PANEL_TIME_OFF: PanelTimeOff[] = [
+  {
+    id: 1,
+    person: ERIC,
+    reason: "Vacation",
+    startDate: fromToday(5),
+    endDate: fromToday(6),
+    hoursPerDay: null,
+    companyHoliday: false,
+  },
+  {
+    id: 2,
+    person: SARAH,
+    reason: "Doctor's appointment",
+    startDate: fromToday(8),
+    endDate: fromToday(8),
+    hoursPerDay: 4,
+    companyHoliday: false,
+  },
+  {
+    id: 3,
+    person: null,
+    reason: "Plant shutdown",
+    startDate: fromToday(12),
+    endDate: fromToday(12),
+    hoursPerDay: null,
+    companyHoliday: true,
   },
 ];
