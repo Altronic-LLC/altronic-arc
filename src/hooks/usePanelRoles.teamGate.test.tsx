@@ -30,6 +30,7 @@ vi.mock("./useIsAdmin", () => ({
 }));
 
 import {
+  useRequirePanelBomManager,
   useRequirePanelCapacityManager,
   useRequirePanelTeamEdit,
   useRequirePanelTemplateManager,
@@ -103,3 +104,23 @@ describe("useRequirePanelTemplateManager (standard tasks)", () => {
   });
 });
 
+
+describe("useRequirePanelBomManager (BOM Builder parts and kits, BusinessIT#59)", () => {
+  it("refuses an Engineer or a Manager — building a BOM isn't changing the parts list", async () => {
+    for (const role of ["Engineer", "Manager"]) {
+      roles.rows = [{ id: 1, user: ME, role, note: "" }];
+      const { result } = renderHook(() => useRequirePanelBomManager(), { wrapper });
+      await act(() => expect(result.current()).rejects.toThrow(/Super User/));
+    }
+  });
+
+  it("allows a Super User, or an ARC admin", async () => {
+    roles.rows = [{ id: 1, user: ME, role: "Super User", note: "" }];
+    const a = renderHook(() => useRequirePanelBomManager(), { wrapper });
+    await act(() => expect(a.result.current()).resolves.toBeUndefined());
+    roles.rows = [];
+    admins.rows = [{ id: 1, email: "me@example.com", displayName: "Me" }];
+    const b = renderHook(() => useRequirePanelBomManager(), { wrapper });
+    await act(() => expect(b.result.current()).resolves.toBeUndefined());
+  });
+});

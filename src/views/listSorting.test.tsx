@@ -575,3 +575,25 @@ describe("Conformal Coating Checks", () => {
     expect(thickness()).toEqual([...ascending].reverse());
   });
 });
+
+describe("Panel SAP BOM Builder tables (BusinessIT#59)", () => {
+  it("Saved BOMs renders its sort buttons", async () => {
+    const { PanelBomsView } = await import("./PanelBomsView");
+    renderWithProviders(<PanelBomsView />, { route: "/panels/boms" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Panel System #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Last saved" })).toBeInTheDocument();
+  });
+
+  it("BOM parts re-order by SAP #, then reverse", async () => {
+    const { PanelBomPartsView } = await import("./PanelBomPartsView");
+    renderWithProviders(<PanelBomPartsView />, { route: "/panels/bom-parts" });
+    await waitForTable();
+    await sortBy("SAP #");
+    const ascending = firstColumnValues();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+    await sortBy("SAP #");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+});

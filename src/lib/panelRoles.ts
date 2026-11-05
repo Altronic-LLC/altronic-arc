@@ -70,6 +70,27 @@ export interface PanelTeamAccess {
   canManageCapacity: boolean;
   /** Why not, for those; empty when allowed. */
   capacityHint: string;
+  /**
+   * May change the Panel SAP BOM Builder's parts and kits (BusinessIT#59,
+   * Tim, 2026-11-05): a panel Super User, or an ARC admin. Building and
+   * saving a BOM needs only `canEdit`.
+   */
+  canManageBomParts: boolean;
+  /** Why not, for the parts and kits; empty when allowed. */
+  bomPartsHint: string;
+  /**
+   * May open the Panel SAP BOM Builder. While its limited live demo runs
+   * (`bomLive` false — PANEL_BOM_LIVE), only a panel Super User: not an ARC
+   * admin, not the rest of the team (Tim, 2026-11-05). Once live, the panel
+   * team — `canOpen`.
+   */
+  canOpenBom: boolean;
+  /** May save a BOM: `canOpenBom` and not a Viewer. */
+  canBuildBom: boolean;
+  /** Still loading the lists, and not yet a yes for the builder. */
+  bomResolving: boolean;
+  /** Why not, for the builder; empty when allowed. */
+  bomHint: string;
   /** Still loading the roles or Admins list — neither yes nor no yet. */
   resolving: boolean;
   /** Why not, in words; empty when allowed. */
@@ -80,12 +101,20 @@ export function panelTeamAccess(input: {
   roles: readonly PanelRole[];
   isArcAdmin: boolean;
   resolving: boolean;
+  /** PANEL_BOM_LIVE — false while the BOM Builder's limited demo runs. Default: live. */
+  bomLive?: boolean;
 }): PanelTeamAccess {
   const { roles, isArcAdmin } = input;
+  const bomLive = input.bomLive ?? true;
   const canOpen = isArcAdmin || roles.length > 0;
   const canEdit = isArcAdmin || roles.some((r) => r !== "Viewer");
   const canManageTemplates = isArcAdmin || roles.some((r) => TEMPLATE_MANAGER_ROLES.includes(r));
   const canManageCapacity = isArcAdmin || roles.includes("Super User");
+  const isSuperUser = roles.includes("Super User");
+  const canOpenBom = bomLive ? canOpen : isSuperUser;
+  const canBuildBom = canOpenBom && canEdit;
+  const canManageBomParts = canOpenBom && (isArcAdmin || isSuperUser);
+  const bomResolving = input.resolving && !canOpenBom;
   // A yes is final; a no waits until the lists have loaded.
   const resolving = input.resolving && !canEdit;
   let hint = "";
@@ -105,6 +134,20 @@ export function panelTeamAccess(input: {
     : input.resolving
       ? "Checking your panel team access…"
       : "Only a panel Super User (or an ARC admin) can change this.";
+  const bomPartsHint = canManageBomParts
+    ? ""
+    : input.resolving
+      ? "Checking your panel team access…"
+      : bomLive
+        ? "Only a panel Super User (or an ARC admin) can change the BOM parts and kits."
+        : "Only a panel Super User can change the BOM parts and kits during the preview.";
+  let bomHint = "";
+  if (bomResolving) bomHint = "Checking your panel team access…";
+  else if (!canOpenBom) {
+    bomHint = bomLive
+      ? hint
+      : "The Panel SAP BOM Builder is in a limited preview for panel Super Users. It's coming soon for everyone else.";
+  } else if (!canBuildBom) bomHint = hint;
   return {
     canOpen,
     canEdit,
@@ -112,6 +155,12 @@ export function panelTeamAccess(input: {
     templatesHint,
     canManageCapacity,
     capacityHint,
+    canManageBomParts,
+    bomPartsHint,
+    canOpenBom,
+    canBuildBom,
+    bomResolving,
+    bomHint,
     resolving,
     hint,
   };

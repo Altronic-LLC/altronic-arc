@@ -391,6 +391,16 @@ const PanelCapacityView = lazy(() =>
 const PanelTaskTemplatesView = lazy(() =>
   import("@/views/PanelTaskTemplatesView").then((m) => ({ default: m.PanelTaskTemplatesView })),
 );
+// Panel SAP BOM Builder (BusinessIT#59) — builder, saved BOMs, parts & kits.
+const PanelBomBuilderView = lazy(() =>
+  import("@/views/PanelBomBuilderView").then((m) => ({ default: m.PanelBomBuilderView })),
+);
+const PanelBomsView = lazy(() =>
+  import("@/views/PanelBomsView").then((m) => ({ default: m.PanelBomsView })),
+);
+const PanelBomPartsView = lazy(() =>
+  import("@/views/PanelBomPartsView").then((m) => ({ default: m.PanelBomPartsView })),
+);
 const PanelTimeOffView = lazy(() =>
   import("@/views/PanelTimeOffView").then((m) => ({ default: m.PanelTimeOffView })),
 );
@@ -1339,6 +1349,38 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the standard tasks" />}>
                   <PanelTaskTemplatesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/bom-builder"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the BOM builder" />}>
+                  <PanelBomBuilderView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/bom-builder/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this BOM" />}>
+                  <PanelBomBuilderView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/boms"
+              element={
+                <Suspense fallback={<LoadingTasks noun="saved BOMs" />}>
+                  <PanelBomsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/bom-parts"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the BOM parts and kits" />}>
+                  <PanelBomPartsView />
                 </Suspense>
               }
             />

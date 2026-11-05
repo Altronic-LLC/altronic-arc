@@ -48,6 +48,7 @@ import {
   Timer,
   Users,
   CalendarOff,
+  Package,
   Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -65,7 +66,7 @@ import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { rememberView } from "@/hooks/useRememberedView";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { MCNS_CONFIGURED, USE_MOCK } from "@/api/config";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -109,6 +110,14 @@ interface DepartmentItem {
    * the "Coming soon" row — to everyone else.
    */
   mcnAccess?: "with" | "without";
+  /**
+   * Panel SAP BOM Builder (BusinessIT#59): `"with"` shown to whoever can open
+   * it (panel Super Users during the limited demo, the panel team once live);
+   * `"without"` — the "Coming soon" row — to everyone else, during the demo
+   * only. After go-live the builder is simply hidden from non-team people,
+   * like Capacity.
+   */
+  panelBomAccess?: "with" | "without";
   /** Panel planning tools (BusinessIT#42): shown only to the panel team and ARC admins. */
   requiresPanelTeam?: boolean;
 }
@@ -220,6 +229,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         matchesPath: (p) => p.startsWith("/panels/time-off"),
         requiresPanelTeam: true,
       },
+      {
+        to: "/panels/bom-builder",
+        label: "Panel SAP BOM Builder",
+        icon: <Package className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/bom"),
+        panelBomAccess: "with",
+      },
+      { ...soon("Panel SAP BOM Builder", <Package className="h-4 w-4" />), panelBomAccess: "without" },
       {
         to: "/panels/qc-time-tracking",
         label: "QC Time Tracking",
@@ -886,6 +903,15 @@ function DepartmentsMenu({
                       !item.mcnAccess ||
                       // Neither row while the roles list answers — no flash of "Coming soon".
                       (!mcnAccess.resolving && (item.mcnAccess === "with" ? canSeeMcns : !canSeeMcns)),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.panelBomAccess ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!panelTeam.bomResolving &&
+                        (item.panelBomAccess === "with"
+                          ? panelTeam.canOpenBom
+                          : !PANEL_BOM_LIVE && !panelTeam.canOpenBom)),
                   )
                   .map((item) => {
                   const itemActive = item.matchesPath(pathname);

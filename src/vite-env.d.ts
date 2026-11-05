@@ -52,6 +52,10 @@ interface ImportMetaEnv {
   readonly VITE_SP_PANEL_TIME_OFF_LIST_ID: string;
   readonly VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID: string;
   readonly VITE_SP_PANEL_SETTINGS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOM_PARTS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOM_KITS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOMS_LIST_ID: string;
+  readonly VITE_PANEL_BOM_LIVE: string;
   readonly VITE_SP_CRIMP_CHECKS_LIST_ID: string;
   /** Harness Alert Recipients list (who the Harness emails go to). No default. */
   readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;

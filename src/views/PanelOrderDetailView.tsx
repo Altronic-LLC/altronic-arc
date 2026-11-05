@@ -35,6 +35,7 @@ import { PanelOrderStatusBadge, PanelTaskStatusBadge } from "@/components/panelA
 import { usePanelTasks } from "@/hooks/usePanelTasks";
 import { usePanelTaskTemplates } from "@/hooks/usePanelTaskTemplates";
 import { useRaiseMissingStandardTasks } from "@/hooks/usePanelOrderTasks";
+import { PanelOrderBomsCard } from "@/components/PanelOrderBomsCard";
 import { missingTemplates, tasksForOrder } from "@/lib/panelOrderTasks";
 import { formatHours } from "@/lib/capacity";
 import { CommentComposer } from "@/components/CommentComposer";
@@ -232,6 +233,8 @@ export function PanelOrderDetailView() {
           </div>
 
           <OrderTasksCard order={order} />
+
+          <PanelOrderBomsCard orderId={order.id} />
 
           {/* Order Notes — supports `- [ ]` checklists (stamps + confirm on uncheck). */}
           <OrderNotesCard

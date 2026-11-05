@@ -3398,6 +3398,106 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "panel-bom-builder",
+    title: "Panel SAP BOM Builder",
+    group: "Panels",
+    keywords: [
+      "bom",
+      "bill of materials",
+      "sap bom",
+      "bom builder",
+      "kit",
+      "kits",
+      "parts list",
+      "panel parts database",
+      "cluster",
+      "item number",
+      "copy for sap",
+      "cogs",
+      "cost",
+      "do not quote",
+      "dnq",
+    ],
+    searchText:
+      "The Panel SAP BOM Builder picks parts and kits from the panel parts list and turns them into SAP-ready BOM lines — Item, L, Qty and SAP # — to copy into SAP. Reach it from the Dashboard card or the Departments menu's Panels group; it's for people on Panel User Roles and ARC admins. It starts as a limited preview: until it opens to the panel team, only panel Super Users can use it and everyone else sees Coming soon. Parts are grouped by cluster and category; search covers SAP #, MFG #, description and category, and the Preferred only, Standard only and Hide Do-Not-Quote chips narrow the list. Click a Qty if used figure to use it. Picking a kit adds every component at its per-kit quantity; picking one of its parts as well adds extras on top. Quantities of the same SAP # are added together onto one line. Item numbers band by cluster: cluster 0 runs 10, 20, 30, and cluster 1 starts at 1000, cluster 2 at 2000, stepping by 10. A kit component with no SAP # is listed in red to enter in SAP by hand, as is an SAP # that isn't on the parts list. Copy for SAP copies the lines; SAP takes about 28 rows per paste, so a longer BOM is copied in numbered blocks, each ticked once copied. CSV downloads the BOM named after the Panel System #. Cost is SAP's current cost, read from SAP for you; if your account can't read SAP costs, cost is hidden. Save BOM keeps a BOM with its Panel System #, notes and, optionally, its Panel Order — which can be added later; saved BOMs are listed under Saved BOMs and on the Panel Order's page. Changes you haven't saved are kept in this browser and come back with a notice. A panel Super User or an ARC admin keeps the parts and kits up to date on Parts & kits; a part or kit that's no longer used is retired rather than deleted.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Panel SAP BOM Builder</strong> builds the SAP bill of
+          materials for a control panel. Pick parts and kits from the panel
+          parts list, set the quantities, and copy SAP-ready lines —{" "}
+          <strong>Item, L, Qty, SAP #</strong> — straight into SAP. Reach it
+          from the Dashboard card or the Departments menu's Panels group. It's
+          for the panel team: anyone on Panel User Roles, and ARC admins.
+        </P>
+        <Tip>
+          <strong>It starts as a limited preview.</strong> Until it opens to
+          the panel team, only panel <strong>Super Users</strong> can use it;
+          everyone else sees it as <strong>Coming soon</strong> on the
+          Dashboard and in the Departments menu.
+        </Tip>
+        <H3>Picking parts and kits</H3>
+        <P>
+          The left column lists the ten clusters; the middle column shows
+          their parts and kits by category. Search covers SAP #, MFG #,
+          description and category, and the <strong>Preferred only</strong>,{" "}
+          <strong>Standard only</strong> and <strong>Hide Do-Not-Quote</strong>{" "}
+          chips narrow the list (Do Not Quote parts are hidden until you ask,
+          unless one is already on the BOM). Use − and + or type a quantity;
+          click a <strong>Qty if used</strong> figure to use it.
+        </P>
+        <P>
+          Picking a <strong>kit</strong> adds every component at its per-kit
+          quantity. Picking one of its parts as well adds extras on top — the
+          two are added together onto one line.
+        </P>
+        <H3>The SAP BOM</H3>
+        <P>
+          The right column is the BOM as SAP will take it: one line per SAP #,
+          in parts-list order. Item numbers band by cluster — cluster 0 runs
+          10, 20, 30…, cluster 1 starts at 1000, cluster 2 at 2000, and so on,
+          stepping by 10. Anything that can't be pasted is listed in red to{" "}
+          <strong>enter in SAP by hand</strong>: a kit component with no SAP #,
+          or an SAP # that isn't on the parts list.
+        </P>
+        <P>
+          <strong>Copy for SAP</strong> copies the lines. SAP takes about 28
+          rows per paste, so a longer BOM is copied in numbered blocks — paste
+          each in order; each is ticked once copied, and the ticks clear if the
+          BOM changes. <strong>CSV</strong> downloads the BOM, named after the
+          Panel System #.
+        </P>
+        <Tip>
+          <strong>Cost is SAP's current cost</strong>, read from SAP for you —
+          an estimate, not a quote price. If your account can't read SAP
+          costs, the cost columns are hidden and the screen says so.
+        </Tip>
+        <H3>Saving a BOM</H3>
+        <P>
+          Enter the <strong>Panel System #</strong> and press{" "}
+          <strong>Save BOM</strong>. You can pick its{" "}
+          <strong>Panel Order</strong> now or later; a saved BOM is listed
+          under <strong>Saved BOMs</strong> and on its Panel Order's page,
+          where <strong>New BOM</strong> starts one already pointed at the
+          order and <strong>Link a saved BOM</strong> attaches one saved
+          without an order. Open a saved BOM to change it, copy it into SAP
+          again, or <strong>Save as new</strong> for a copy. If the parts or
+          kits have changed since a BOM was saved, it says so. Changes you
+          haven't saved are kept in this browser and come back with a notice.
+          Viewers can build and copy a BOM but not save one.
+        </P>
+        <H3>Keeping the parts and kits up to date</H3>
+        <P>
+          <strong>Parts &amp; kits</strong> lists everything the builder
+          offers. A panel <strong>Super User</strong> or an ARC admin adds and
+          changes parts and kits there; a part or kit that's no longer used is
+          set to <strong>Active: No</strong> rather than deleted, so it leaves
+          the picker but stays on any BOM that uses it.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "qc-time-tracking",
     title: "QC Time Tracking",
     group: "Panels",

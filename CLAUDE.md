@@ -514,6 +514,9 @@ src/
 │   ├── panelTimeOff.ts           Panel Time Off CRUD (panelTeam site) — the panel team's "Where am I?", person + date range, or a company holiday (nobody); delete OK
 │   ├── panelTaskTemplates.ts     Panel Task Templates CRUD — the standard tasks a new Panel Order raises; unset = the built-in four, read-only; delete OK
 │   ├── panelSettings.ts          Panel Settings (Title/Value rows) — the Capacity amber threshold; unset = 85%, read-only
+│   ├── panelBomParts.ts          BOM Builder parts + kits (panelTeam site) — whole-list reads, Super User writes; NO cost column, no delete (retire)
+│   ├── panelBoms.ts              Saved BOMs — picks + lines snapshot as JSON, optional PanelOrderRef (single lookup); refuses to write over unreadable picks
+│   ├── panelBomCosts.ts          BOM Builder SAP unit costs through Fabric (tbl_cogs_material_apis), `in` batches of 100, never stored
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
 │   ├── qcForms.ts                EVERY QC form's test sheet CRUD, by form spec (Quality Control, PMO site) — mock store per form, no delete
 │   ├── qcFormLists.ts            Each QC form's SharePoint list (site, id, env var) — the api half of the registry
@@ -580,6 +583,7 @@ src/
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
+│   ├── panelBomMockData.ts       Sample BOM parts, kits (one with non-SAP parts), costs + a saved BOM — all INVENTED
 │   ├── qcCpu95MockData.ts        Sample CPU-95 (QCFRM-012) test sheets, one per Altmode shape
 │   ├── qcCpu95FiringSpecs.json   Standard TEST firing specs by part number — the form, the blank sheet and the backfill script read it
 │   ├── qcGet1MockData.ts         Sample GET-1 (GE ECU) log sheets — signed off, reworked, part-way, just scanned
@@ -640,6 +644,7 @@ src/
 │   ├── usePanelOrderChain.ts     Runs the chain (a finished step opens the next) and the order's hold/release over its tasks
 │   ├── usePanelTaskTemplates.ts  Panel Task Templates query + manager-gated writes
 │   ├── usePanelSettings.ts       Panel Settings query + the Super User-gated amber threshold write
+│   ├── usePanelBom.ts            BOM Builder queries (parts, kits, saved BOMs, SAP costs) + gated writes (Super User for parts/kits, team edit for BOMs)
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
 │   ├── useQcForms.ts             Any QC form's test sheet queries + mutations, cached per form — no delete hook
 │   ├── useVisitReports.ts        Visit Report queries + mutations
@@ -700,6 +705,7 @@ src/
 │   ├── useListAccess.ts          Shared "SharePoint refused this list" store (banner + nav gating)
 │   ├── useEmptyListCheck.ts      An empty list: really empty, or trimmed away from you?
 │   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
+│   ├── useFitToWindow.ts         Fits a table box between its top and the fixed footer on a desktop (Parts List, BOM parts & kits) so a sticky header stays in view
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
@@ -792,10 +798,11 @@ src/
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
-│   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays) + capacityPeople (who gets a Capacity row) (pure)
+│   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays, BOM parts + kits) + capacityPeople (who gets a Capacity row) (pure)
 │   ├── panelOrderTasks.ts        A Panel Order's standard tasks (pure) — defaults, titles, who's assigned, what's missing, the one email
 │   ├── panelOrderChain.ts        A Panel Order's task chain + hold (pure) — start status, what a finished step opens, hold/release writes, the Ready email
 │   ├── panelSettings.ts          Panel Settings (pure) — keys, defaults, reading Title/Value rows, the amber threshold rule
+│   ├── panelBom.ts               THE BOM rules (pure) — sum per SAP #, kit × component, hand-entry lines, cluster item numbers, 28/27 paste blocks, CSV, picks JSON, picker filters
 │   ├── capacity.ts               SHARED capacity engine (pure) — generic work items + time off → per-person day/week load, amber >85% / red >100%, backlog
 │   ├── panelCapacity.ts          Panels' adapter: PanelTask → CapacityWorkItem (Engineering/Operations get one beside their mappers)
 │   ├── panelTaskStatus.ts        Panel task statuses (Wrike's Panel Workflow) — groups, open/done, old-four → new reading (pure)
@@ -921,7 +928,8 @@ src/
 │   ├── coating.ts                Conformal Coating Checks types + constants (units — mm first, coated sides, spec, check)
 │   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
-│   └── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
+│   ├── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
+│   └── panelBom.ts               Panel SAP BOM Builder types + PANEL_BOM_CLUSTERS (the ten clusters, which drive item numbers)
 │
 ├── components/
 │   ├── Header.tsx                Top nav (departments menu, view switcher, theme, Report issue)
@@ -981,6 +989,9 @@ src/
 │   ├── CapacityGrid.tsx          SHARED capacity screen body — Days/Weeks + navigation in the URL, grid, task bars, cell detail, backlog
 │   ├── PanelTeamGate.tsx         "Panel team only" gate for Capacity + Time Off
 │   ├── PanelTimeOffFormModal.tsx Add/edit/remove a Panel Time Off entry (defaultDate from the calendar)
+│   ├── PanelBomPartFormModal.tsx Add/edit a BOM Builder part (Super User / ARC admin) — no cost field
+│   ├── PanelBomKitFormModal.tsx  Add/edit a BOM Builder kit + its components; fills MFG # / description from a listed SAP #
+│   ├── PanelOrderBomsCard.tsx    A Panel Order's BOMs (the link lives on the BOM) — New BOM for this order, Link a saved BOM
 │   ├── MonthCalendar.tsx         SHARED month calendar + day panel — Where Am I? and Panel Time Off (grows to fit, "+N more", ?day= panel)
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
 │   ├── QcFormModal.tsx           Create/edit a test sheet for ANY QC form — spec driven; Enter-as-Tab, firing grid, Export (filled form) in edit mode
@@ -1160,6 +1171,9 @@ src/
 │   ├── PanelCapacityView.tsx     Panel Engineering Capacity (/panels/capacity) — Panels' gate, header and data around the shared CapacityGrid
 │   ├── PanelTimeOffView.tsx      Panel Time Off (/panels/time-off) — month calendar + day panel (shared MonthCalendar); ?view=list / phone = sortable list
 │   ├── PanelTaskTemplatesView.tsx Panel Orders → Standard tasks (/panels/task-templates) — the tasks a new order raises; panel managers edit
+│   ├── PanelBomBuilderView.tsx   Panel SAP BOM Builder (/panels/bom-builder, /:id) — clusters, parts + kits, the live SAP BOM, copy blocks, CSV, save; unsaved picks kept in the browser
+│   ├── PanelBomsView.tsx         Saved BOMs (/panels/boms) — sortable, filterable
+│   ├── PanelBomPartsView.tsx     BOM parts & kits (/panels/bom-parts, ?tab=kits) — sortable tables; Super User / ARC admin edit
 │   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
 │   ├── QcFormsView.tsx           QC Forms landing dashboard — search + a button per controlled form
 │   ├── QcFormView.tsx            /qc-forms/:formId — any QC form's sheet list (status lights, sortable, cards on a phone, blank export)
@@ -6680,6 +6694,131 @@ Re-runnable on purpose (Tim: pull during testing, run again before go-live):
 holds the hash of what the import wrote, so a re-run **never overwrites a task
 somebody edited in ARC** — it lands in `conflicts.csv`. Nothing in it has run
 live yet.
+
+### Panel SAP BOM Builder (Panels, panelTeam site)
+
+BusinessIT#59 (ARC Feature Request #33). Mark Balent's standalone builder —
+a generated single HTML file (`dash_template.html` + `Rebuild BOM Builder.py`
+reading the PANEL Parts Database workbook) — brought into ARC. The panel team
+picks parts and kits and copies SAP-ready lines (Item, L, Qty, SAP #) into
+SAP. Tim's decisions, 2026-11-05:
+
+- **ARC is the master for the parts and kits.** They're loaded ONCE from the
+  workbook, then edited in ARC; the workbook's rebuild step and Mark's Excel
+  version of the builder retire once ARC is live.
+- **Cost comes from SAP through Fabric, never a SharePoint column.** Who sees
+  it is Fabric's call (the Supplier performance arrangement): somebody without
+  read access on the GraphQL API item gets every cost column hidden, with a
+  sentence saying why.
+- **Access:** anyone on Panel User Roles (or an ARC admin) opens it; any role
+  but Viewer saves a BOM (`useRequirePanelTeamEdit`); only a panel **Super
+  User** or an ARC admin changes the parts and kits (`canManageBomParts`,
+  `useRequirePanelBomManager`). Both asked inside every mutationFn.
+- **A finished BOM is saved as JSON on its own list**, optionally linked to a
+  Panel Order — and a BOM can be saved first and linked later.
+- **It ships as a limited live demo: `PANEL_BOM_LIVE`**
+  (`VITE_PANEL_BOM_LIVE`, the MCN / Sales Pricing switch; repo variable set
+  to `false` on 2026-11-05). Off: only panel **Super Users** open, build and
+  manage it — NOT ARC admins, not the rest of the team (Tim's call); everyone
+  else gets "Panel SAP BOM Builder — Coming soon" on the Dashboard and in the
+  Departments menu, and the screens say it's coming soon. On: the panel team,
+  with the rights below, and no "Coming soon" row at all (non-team people
+  don't see it, like Capacity). The rule is `canOpenBom` / `canBuildBom` /
+  `bomHint` in `panelTeamAccess` (it takes `bomLive`), asked by
+  `PanelTeamGate bom`, the menu (`panelBomAccess`), the Dashboard, the order
+  page's BOMs card and — inside every mutationFn — `useRequirePanelBomBuild`
+  / `useRequirePanelBomManager`. Mock mode is always live, so the demo-off
+  behaviour is only visible in tests that pass `bomLive: false` or mock the
+  config (`usePanelBom.gate.test.tsx`). Going live = set the variable to
+  `true` and redeploy.
+
+Pieces: `lib/panelBom.ts` (THE rules), `api/panelBomParts.ts`,
+`api/panelBoms.ts`, `api/panelBomCosts.ts`, `hooks/usePanelBom.ts`,
+`PanelBomBuilderView` (`/panels/bom-builder`, `/:id`), `PanelBomsView`
+(`/panels/boms`), `PanelBomPartsView` (`/panels/bom-parts`),
+`PanelOrderBomsCard` on the order page. Three lists on `SITES.panelTeam`, all
+**no default** (unset = "not set up yet"), created by
+`scripts/create-panel-bom-lists.ps1` (idempotent, `-WhatIf`, write/read-back
+check — its internal names are the contract):
+
+| List | env | Holds |
+|---|---|---|
+| Panel BOM Parts | `VITE_SP_PANEL_BOM_PARTS_LIST_ID` | Title = SAP #, AltronicPartNumber, Description, Cluster (0–9), Category, Standard, Preferred, DoNotQuote, Datasheet, QtyIfUsed, Active |
+| Panel BOM Kits | `VITE_SP_PANEL_BOM_KITS_LIST_ID` | Title = kit name (unique), Description, Category, Standard, Preferred, Active, Components (JSON) |
+| Panel BOMs | `VITE_SP_PANEL_BOMS_LIST_ID` | Title = Panel System #, Notes, PanelOrderRef (single lookup), Picks (JSON), BomLines (JSON snapshot) |
+
+**The BOM rules — `lib/panelBom.ts`, the ONE copy now the Excel version
+retires:**
+
+- Sum per SAP # from parts picked directly AND kit qty × component qty —
+  picking a kit's part as well is how extras go on top.
+- A kit component with no SAP # is listed to enter in SAP by hand ("manual").
+- Lines come out in parts-list order (cluster, category, description), one
+  per SAP #. A SAP # on two rows (the live list has a few, in two categories)
+  is named, clustered and numbered by its FIRST row in that order.
+- Item numbers: cluster 0 runs 10, 20, 30…; cluster N starts at N × 1000,
+  steps of 10. **The clusters are fixed in code** (`PANEL_BOM_CLUSTERS`),
+  since they drive the numbers.
+- **One deliberate change from Mark's tool: an SAP # that isn't on the parts
+  list is LISTED ("unlisted"), never dropped.** His `computeBom()` skipped it
+  silently, which was harmless on a frozen snapshot and is not now that the
+  list is edited. ARC can't number it (no cluster), so it goes with the
+  hand-entry lines, saying why. A picked kit no longer on the kits list is
+  listed the same way.
+- Copy in blocks of **28 rows, then 27** (`SAP_PASTE_FIRST_BLOCK` /
+  `SAP_PASTE_NEXT_BLOCKS`) — Mark's numbers, **not yet confirmed** with
+  somebody who pastes BOMs daily (Tim is checking). The ticks clear when the
+  BOM changes.
+- A kit's display cluster is its components' majority vote, the LOWER cluster
+  on a tie (Python's `max(set(...))` wasn't deterministic).
+
+Seven things that are load-bearing:
+
+- **Picks are keyed by SAP # and kit NAME, never row position.** Mark's tool
+  saved quantities by array index, which lands them on the wrong part the
+  moment the list changes. Renaming a kit therefore takes it off saved BOMs —
+  the kit form says so.
+- **A saved BOM holds the picks AND a snapshot of the SAP lines.** Picks
+  reopen and edit it; the snapshot is the record of what went into SAP, and
+  the builder says when today's lines differ from it ("the parts or kits have
+  changed since this BOM was saved").
+- **Unreadable JSON is never written over**: Picks (`updatePanelBom`, read
+  FRESH in the mutationFn) and a kit's Components (`updatePanelBomKit`) each
+  refuse, and say how to recover. An unreadable snapshot just reads as empty —
+  nothing is decided from it.
+- **`PanelOrderRef` is a SINGLE lookup**: both halves selected, a bare integer
+  on write (in the create POST — a lookup, unlike a Hyperlink, is fine there),
+  `null` to unlink. Pinned in real mode in `api/panelBoms.real.test.ts`. The
+  link is stored ONCE, on the BOM; the order page derives its list
+  (`bomsForOrder`).
+- **Fabric's `in` filter takes at most 100 values** ("IN operator filter
+  object cannot process more than 100 values at a time", measured live
+  2026-11-05). `listPanelBomCosts` chunks by 100 and sends the chunks
+  together — all ~800 panel SAP #s took 1.5 s, 780 found, 33 with no cost,
+  every row plant 4222. 0 or missing is "No SAP cost", never $0. Real mode
+  only (`PANEL_BOM_COSTS_LIVE`); the demo reads invented costs.
+- **Unsaved work is kept in this browser** (`arc:panel-bom:<new|id>`, 7-day
+  expiry, every access in try/catch) and **announced** with
+  `DraftRestoredNotice` — the `useDraft` rules, by hand because the draft is
+  four fields, not one string.
+- **No delete on parts or kits** — retire (Active = No): off the picker, kept
+  on any BOM already using it (a picked part always shows). Saved BOMs DO
+  have a delete (a working document).
+
+**The one-time load** — `node scripts/prepare-panel-bom-load.mjs
+"<PANEL Parts Database.xlsm>" "<qiu_map.json>" <dir>` (refuses a dir inside
+the repo; leaves COGS behind; writes `parts.json`, `kits.json`, `report.md`),
+then `scripts/load-panel-bom-lists.ps1 -DataDir <dir> -PartsListId …
+-KitsListId … [-Apply]` — ADD-ONLY (parts matched on SAP # + category, kits
+on name), so a re-run never puts workbook values back over ARC edits. Dry
+run on the latest workbook (2026-11-05): 801 parts, 30 kits, 102 components,
+580 qty-if-used hints. Two things it learned: **Kit-List's name column is a
+formula on every row**, and the empty rows past the last kit carry it with no
+result — read those as blank (Python's `data_only` did); and one part
+(1023-3191-00) is listed twice in the same category, loaded once. Mark's
+source (template, `qiu_map.json`, the Python script, the workbook) is outside
+the repo at `C:\Working_Dir\ProcessImprovement\Arc\Panels\BOM Builder` — the
+workbook carries COGS, so none of it is committed.
 
 ### Panel QC Issue Tracker (Panels, panelTeam site)
 

@@ -129,3 +129,41 @@ describe("capacityPeople", () => {
     expect(capacityPeople([{ ...row(1, "Ana", "Engineer"), user: null }])).toEqual([]);
   });
 });
+
+describe("panelTeamAccess: the BOM Builder's limited live demo (BusinessIT#59)", () => {
+  const demo = (roles: PanelRole[], isArcAdmin = false) =>
+    panelTeamAccess({ roles, isArcAdmin, resolving: false, bomLive: false });
+  const live = (roles: PanelRole[], isArcAdmin = false) =>
+    panelTeamAccess({ roles, isArcAdmin, resolving: false, bomLive: true });
+
+  it("during the demo, only a panel Super User opens, builds and manages it", () => {
+    const su = demo(["Super User"]);
+    expect([su.canOpenBom, su.canBuildBom, su.canManageBomParts]).toEqual([true, true, true]);
+    for (const role of ["Engineer", "Manager", "Admin", "Tech", "Viewer"] as PanelRole[]) {
+      const a = demo([role]);
+      expect([a.canOpenBom, a.canBuildBom, a.canManageBomParts]).toEqual([false, false, false]);
+      expect(a.bomHint).toMatch(/coming soon/);
+    }
+  });
+
+  it("during the demo, an ARC admin who isn't a Super User is kept out too", () => {
+    const a = demo([], true);
+    expect([a.canOpenBom, a.canManageBomParts]).toEqual([false, false]);
+  });
+
+  it("once live, the panel team opens it, a Viewer can't save, and parts stay Super User / ARC admin", () => {
+    expect(live(["Engineer"]).canOpenBom).toBe(true);
+    expect(live(["Engineer"]).canBuildBom).toBe(true);
+    expect(live(["Engineer"]).canManageBomParts).toBe(false);
+    expect(live(["Viewer"]).canOpenBom).toBe(true);
+    expect(live(["Viewer"]).canBuildBom).toBe(false);
+    expect(live([], true).canManageBomParts).toBe(true);
+    expect(live([]).canOpenBom).toBe(false);
+  });
+
+  it("is neither yes nor no while the lists load", () => {
+    const a = panelTeamAccess({ roles: [], isArcAdmin: false, resolving: true, bomLive: false });
+    expect(a.bomResolving).toBe(true);
+    expect(a.bomHint).toMatch(/Checking/);
+  });
+});

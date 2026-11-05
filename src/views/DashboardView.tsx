@@ -31,6 +31,7 @@ import {
   Layers,
   ListChecks,
   Gauge,
+  Package,
   Lock,
   MapPin,
   Megaphone,
@@ -63,7 +64,7 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
-import { MCNS_CONFIGURED } from "@/api/config";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE } from "@/api/config";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -970,6 +971,18 @@ export function DashboardView() {
             onClick={() => navigate("/panels/capacity")}
           />
         )}
+        {/* BusinessIT#59 — panel Super Users during the limited demo, the panel team once
+            PANEL_BOM_LIVE is on. Red like Panel Orders: a BOM belongs to an order. */}
+        {panelTeam.canOpenBom && (
+          <TypeCard
+            name="Panel SAP BOM Builder"
+            icon={<Package className="h-5 w-5" />}
+            tone="cooper-red"
+            description="Pick parts and kits from the panel parts list and copy SAP-ready BOM lines into SAP."
+            to="/panels/bom-builder"
+            onClick={() => navigate("/panels/bom-builder")}
+          />
+        )}
         <TypeCard
           name="QC Time Tracking"
           icon={<Timer className="h-5 w-5" />}
@@ -986,6 +999,10 @@ export function DashboardView() {
           to={"/panels/qc-issues"}
           onClick={() => navigate("/panels/qc-issues")}
         />
+        {/* "Coming soon" for everyone the BOM Builder's limited demo doesn't include. */}
+        {!PANEL_BOM_LIVE && !panelTeam.bomResolving && !panelTeam.canOpenBom && (
+          <PlaceholderCard name="Panel SAP BOM Builder" icon={<Package className="h-5 w-5" />} />
+        )}
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 
