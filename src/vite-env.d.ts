@@ -34,6 +34,7 @@ interface ImportMetaEnv {
   readonly VITE_SP_MCN_ROLES_LIST_ID: string;
   readonly VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID: string;
   readonly VITE_MCN_LIVE: string;
+  readonly VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID: string;
   readonly VITE_SP_PMO_SITE_ID: string;
   readonly VITE_SP_LIST_ID: string;
   readonly VITE_SP_PROJECTS_LIST_ID: string;

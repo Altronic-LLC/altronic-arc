@@ -28,6 +28,7 @@ import { EcnsView } from "@/views/EcnsView";
 import { FaitsView } from "@/views/FaitsView";
 import { FaitDetailView } from "@/views/FaitDetailView";
 import { EcnDetailView } from "@/views/EcnDetailView";
+import { EcnDistributionGroupsView } from "@/views/EcnDistributionGroupsView";
 import { VisitReportsView } from "@/views/VisitReportsView";
 import { GrayMarketRequestsView } from "@/views/GrayMarketRequestsView";
 import { GrayMarketRequestDetailView } from "@/views/GrayMarketRequestDetailView";
@@ -867,6 +868,7 @@ export function App() {
             />
             <Route path="/engineering/where-am-i" element={<WhereAmIView />} />
             <Route path="/engineering/ecns" element={<EcnsView />} />
+            <Route path="/engineering/ecns/distribution" element={<EcnDistributionGroupsView />} />
             <Route path="/engineering/ecn/:id" element={<EcnDetailView />} />
             <Route
               path="/eirs"

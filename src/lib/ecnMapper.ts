@@ -4,6 +4,8 @@ import { parseCommunication } from "./communicationParser";
 import { parseSpDate } from "./spDates";
 import { toStoredRichText } from "./richText";
 import { htmlToPlainText } from "./htmlText";
+import { orderDistribution, parseEcnDistribution } from "./ecnDistribution";
+import { parsePeopleLines, serializePeopleLines } from "./peopleLines";
 
 // =============================================================================
 // Graph item → Ecn, and back.
@@ -73,6 +75,12 @@ export function toEcn(item: GraphListItem): Ecn {
     comments: parseCommunication(text(f.Communication)),
     hasAttachments: f.Attachments === true,
     values,
+    // Absent until scripts/create-ecn-distribution.ps1 has run — and absent
+    // from a read that fell back without them (api/ecns.ts). Both read as
+    // "nothing ticked, nothing sent".
+    distribution: parseEcnDistribution(f.Distribution),
+    distributedTo: parsePeopleLines(f.DistributedTo),
+    distributedAt: parseSpDate(f.DistributedAt) ?? null,
     createdAt: parseSpDate(f.Created) ?? new Date(0),
     modifiedAt: parseSpDate(f.Modified) ?? new Date(0),
   };
@@ -112,7 +120,22 @@ export function buildEcnCreateFields(input: EcnInput): Record<string, unknown> {
     if (!value) continue;
     fields[field.column] = columnValue(field.key, value);
   }
+  // Only when something is ticked, so a create never names the column on a
+  // list that hasn't got it yet. A plain array here — the write site adds the
+  // Collection(Edm.String) annotation (ECN_MULTI_CHOICE_COLUMNS).
+  const distribution = orderDistribution(input.distribution ?? []);
+  if (distribution.length > 0) fields.Distribution = distribution;
   return fields;
+}
+
+/** The ticked roles' patch. An empty array CLEARS it (annotated at the write site). */
+export function ecnDistributionPatch(roles: readonly string[]): Record<string, unknown> {
+  return { Distribution: orderDistribution(roles) };
+}
+
+/** Record who an ECN's distribution went to, and when. */
+export function ecnDistributedPatch(people: Person[], at: Date): Record<string, unknown> {
+  return { DistributedTo: serializePeopleLines(people), DistributedAt: at.toISOString() };
 }
 
 /**
@@ -238,10 +261,37 @@ export function ecnStockNeedsSerialNumbers(ecn: Ecn): boolean {
   return stock !== "" && !DO_NOT_MODIFY.test(stock);
 }
 
+/** "Please provide serial numbers" (or "…number"), anywhere in the text, any case. */
+const PROVIDE_SERIAL_NUMBERS = /\bplease\s+provide\s+serial\s+numbers?\b/i;
+
 /**
- * The ECN list's "Waiting" serial-numbers filter: the stock disposition says
- * serial numbers are needed, and none are recorded yet.
+ * Does the Serial Numbers field say "Please provide serial numbers"? (Tim,
+ * 2026-11-05.) Literally that wording, anywhere in the field — the ECN's
+ * author asking for them is reason enough to list it as Waiting, whatever its
+ * stock disposition and whatever else the field holds.
+ */
+export function ecnAsksForSerialNumbers(ecn: Ecn): boolean {
+  return PROVIDE_SERIAL_NUMBERS.test(htmlToPlainText(ecn.values.serialNumbers ?? ""));
+}
+
+/**
+ * The ECN list's "Waiting" serial-numbers filter. Either:
+ *  - the field says "Please provide serial numbers" — ANY ECN, even one whose
+ *    stock disposition is blank or Do NOT modify, and even one with an answer
+ *    written after the request (Tim, 2026-11-05: "any and all"); or
+ *  - the stock disposition says serial numbers are needed, and none are
+ *    recorded yet.
  */
 export function isEcnWaitingForSerialNumbers(ecn: Ecn): boolean {
+  if (ecnAsksForSerialNumbers(ecn)) return true;
   return ecnStockNeedsSerialNumbers(ecn) && isEcnSerialNumbersMissing(ecn);
+}
+
+/**
+ * The "Recorded" filter: serial numbers are on file and the ECN isn't Waiting.
+ * Waiting wins, so the two filters never list the same ECN — an answered
+ * "Please provide serial numbers" is Waiting, not Recorded.
+ */
+export function isEcnSerialNumbersRecorded(ecn: Ecn): boolean {
+  return !isEcnSerialNumbersMissing(ecn) && !isEcnWaitingForSerialNumbers(ecn);
 }

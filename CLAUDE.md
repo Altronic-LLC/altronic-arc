@@ -473,6 +473,7 @@ src/
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── ecns.ts                   ECN CRUD + comments (Engineering) — admin-only delete
 │   ├── ecnChecklists.ts          ECN Checklist CRUD (MFGFRM-038), one row per ECN — no delete
+│   ├── ecnDistributionGroups.ts  ECN Distribution Groups (BusinessIT#57) — who each DISTRIBUTION role reaches; list + set members, no add/delete
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
@@ -672,6 +673,7 @@ src/
 │   ├── useDeleteProject.ts       Delete an Engineering project — admin only, refused while anything still points at it
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
+│   ├── useEcnDistributionGroups.ts ECN distribution groups query, ARC-admin-gated member edits, readEcnDistributionGroups (fresh, for a send)
 │   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
@@ -705,6 +707,7 @@ src/
 │   ├── mentions.ts               @-mention parsing, recipients, rankMentionCandidates
 │   ├── mentionDetector.ts        Detecting @-mentions in stored comment HTML
 │   ├── people.ts                 Merge/dedupe Person lists (by lowercased email)
+│   ├── peopleLines.ts            People as plain text, one "Name <email>" per line — MCN and ECN distribution lists (shared)
 │   ├── itemSearch.ts             Shared multi-keyword all-fields search for list views
 │   ├── adminAccess.ts            Bootstrap admin set (admins before the list loads)
 │   ├── appUrl.ts                 Absolute in-app links that keep the Pages sub-path
@@ -731,6 +734,7 @@ src/
 │   ├── ecnChecklistTemplate.ts   The 84 MFGFRM-038 items as DATA (generated, verbatim)
 │   ├── ecnChecklistRaci.ts       The MFGFRM-038 RACI matrix as STATIC REFERENCE (never stored)
 │   ├── ecnChecklist.ts           Checklist answers — parse/merge/progress (pure)
+│   ├── ecnDistribution.ts        ECN distribution (pure) — the ten roles, the seven default ticks, recipients, when it sends, the email
 │   ├── ecnChecklistMapper.ts     Graph item → EcnChecklist (single-lookup trap)
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
 │   ├── faitMapper.ts             Graph item → Fait (+ bare-LookupId people)
@@ -1016,6 +1020,8 @@ src/
 │   ├── PartFormModal.tsx         New part (fields follow the number's list, optional datasheet PDF) + NewPartButton (hidden without a role)
 │   ├── ComponentDescriptionPicker.tsx  New component's SIL category / Description / Type dropdowns (Type waits on Description)
 │   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
+│   ├── EcnDistributionCard.tsx   An ECN's Distribution card — ticked roles and who they reach, sent to/when, Send now, the tick-box editor
+│   ├── EcnDistributionChecklist.tsx The ten DISTRIBUTION roles as tick boxes (New ECN + the card's editor), each saying who it reaches
 │   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── ErDiagram.tsx             About-page Data model — zoom/pan/full screen, hover or tap a table to trace its links
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
@@ -1174,6 +1180,7 @@ src/
 │   ├── FaitsView.tsx             FAITs list (Supply Chain)
 │   ├── FaitDetailView.tsx        One FAIT — five workflow cards, sign-offs, comments
 │   ├── EcnDetailView.tsx         One ECN — workflow cards, attachments, comments
+│   ├── EcnDistributionGroupsView.tsx  ECN distribution groups (/engineering/ecns/distribution) — readable by all, ARC admins pick people
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── FeatureRequestsView.tsx   ARC Feature Requests list — status pills, Department filter, search, open-first
 │   ├── FeatureRequestDetailView.tsx  One feature request — sidebar (Status/Priority/Department/Target Version), comments, watchers
@@ -3255,7 +3262,15 @@ Attachments are enabled on the list (kind `ecn` in `api/attachments.ts`).
 **"Waiting for serial numbers" is a filter, not a column** (BusinessIT#61,
 David Bulkley; Tim, 2026-11-04). The rules are in `lib/ecnMapper.ts`, and
 the ECN list's Serial numbers filter (`?serials=Waiting` / `Recorded`) reads
-them. Waiting = BOTH halves (`isEcnWaitingForSerialNumbers`):
+them. Waiting (`isEcnWaitingForSerialNumbers`) is EITHER:
+
+- **The field says "Please provide serial numbers"** (`ecnAsksForSerialNumbers`,
+  Tim, 2026-11-05: "any and all"). That wording anywhere in `field_6`, any
+  case, "number" or "numbers" — on ANY ECN, whatever its stock disposition,
+  and even with an answer written after it. Other wordings ("Please include…",
+  "enter serial numbers") don't count on their own.
+
+Or BOTH of these:
 
 - **The stock disposition needs them** (`ecnStockNeedsSerialNumbers`): In
   House Stock (`field_7`) is set, and not "Do NOT modify". Blank or Do NOT
@@ -3267,11 +3282,60 @@ them. Waiting = BOTH halves (`isEcnWaitingForSerialNumbers`):
   `see ECN`). Live, 90 rows held such a request; counting blanks alone
   misses them.
 
-Recorded = serial numbers on file, whatever the stock. An ECN that needs
-none and has none is in neither — only Any shows it. **There is no "closed" ECN**: the list has no status
+Recorded (`isEcnSerialNumbersRecorded`) = serial numbers on file AND not
+Waiting, so the two never list the same ECN — an answered "Please provide
+serial numbers" is Waiting. An ECN that needs none and has none is in
+neither — only Any shows it. **There is no "closed" ECN**: the list has no status
 column, and Sign-off status (`field_12`) was blank on all 1,829 rows. Tim
 parked hiding closed ECNs until that is decided, so don't build it on
 `field_12` or on Log# age unasked.
+
+### ECN distribution (BusinessIT#57)
+
+Ray: "mirror MCN distribution list structure". Tim's decisions, 2026-11-05.
+Pieces: `lib/ecnDistribution.ts` (pure — the rules), `api/ecnDistributionGroups.ts`,
+`hooks/useEcnDistributionGroups.ts`, the send in `hooks/useEcns.ts`
+(`distributeEcn`, `useSendEcnDistribution`), `EcnDistributionCard`,
+`EcnDistributionChecklist`, `EcnDistributionGroupsView`
+(`/engineering/ecns/distribution`), and `scripts/create-ecn-distribution.ps1`.
+
+- **The roles are the paper ECN form's ten** (`ECN_DISTRIBUTION_ROLES`):
+  CAD Department, VP Operations Eng., Quality Manager, Logistics Manager,
+  Production Director, Sales, Op. Program Manager, Purchasing Manager, SHE
+  Coordinator, Panel Plant. Not the MCN's eight. They must equal the
+  `Distribution` column's choices — change both together.
+- **A new ECN starts with the form's seven X's** (`ECN_DEFAULT_DISTRIBUTION`,
+  VP Operations Eng. through Purchasing Manager), editable on the form.
+- **It SENDS the first time Sign-off status (`field_12`) is filled in** —
+  blank → anything (`shouldDistributeEcn`). Not on create, not on a later
+  edit. The pre-patch row is captured in `useUpdateEcnFields`' `onMutate`
+  (after the optimistic patch the sign-off already reads as set), and
+  `updated` — SharePoint's row after the PATCH — must have no
+  `distributedAt`. Recipients are the ticked roles' members, de-duped by
+  address, minus the signer STRICTLY (the MCN approved-email rule).
+- **Who it went to is RECORDED**, in `DistributedTo` (plain text, one
+  "Name <email>" per line — `lib/peopleLines.ts`, moved out of
+  `mcnFields.ts` into the shared layer for this; `mcnFields` re-exports
+  it) and `DistributedAt`. Only the addresses the send reports as sent.
+- **Send now** (`canSendDistributionNow`: signed off, not sent) is the
+  recovery — nobody was set up, the send failed, or the ECN was signed off
+  before this. It re-reads the ECN first and refuses one already sent.
+- **Three columns on the ECN list**: `Distribution` (MULTI-choice,
+  checkboxes — annotated `Collection(Edm.String)` at the write site in
+  `api/ecns.ts`), `DistributedTo`, `DistributedAt`. The script adds them;
+  until then **a read asks for them and, on a 400 only, retries without and
+  remembers** (`withDistributionFallback`, the MRB Watchers shape), so the
+  1,800-row register never goes blank. A create then leaves the ticks off,
+  and a write naming those columns is refused with the script's name.
+- **ECN Distribution Groups is its OWN list** on the Engineering site
+  (`VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID`, **no default** — unset, the
+  card says so and nothing is emailed). Not MCN's: re-pointing one must never
+  re-point the other. Matched to an ECN's ticks by role NAME (no FK), read
+  FRESH at send time. **ARC admins** pick people from the directory
+  (`useRequireArcAdmin` in the mutationFn); anyone can view. ARC never adds
+  or deletes a group; the script seeds the ten only into an EMPTY list.
+- **The form's RCVD (received) column is NOT tracked** (Tim). Comments are
+  unchanged: still submitter + mentions only.
 
 ### ECN Checklist — the Cross-Functional ECN Checklist (Form# MFGFRM-038)
 
@@ -10161,6 +10225,7 @@ shows: a multi column's sample values are arrays.
 | Build Request Items | `Assembly`, `Operations`, `Testing` |
 | Suppliers List | `CoreCompetency` (and `PrimarySupplyFocus`, still unconfigured) |
 | Customer Notes | `CustomerType` |
+| ECN NEW | `Distribution` (added 2026-11-05, BusinessIT#57) |
 
 `Project Task List` has one (`Orderanynewpartsthatwedonothavey`) that ARC
 never writes. The Build Request **Tracker** and the EIRs list have none.

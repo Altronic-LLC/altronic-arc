@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.215.0",
+    date: "2026-11-05",
+    changes: [
+      "ECNs: every ECN now has a Distribution list, the same roles as the DISTRIBUTION block on the paper ECN form",
+      "ECNs: a new ECN starts with the roles the paper form ticks (VP Operations Eng. through Purchasing Manager); untick or add any before raising it",
+      "ECNs: the first time an ECN's Sign-off status is filled in, everyone in its ticked roles is emailed the ECN, and the ECN records who it went to and when",
+      "ECNs: the Distribution card on an ECN shows who each ticked role reaches, warns about a role nobody is set up for, and has a Send now button if a signed-off ECN was never sent",
+      "ECNs: ARC admins choose who is in each distribution role from the new Distribution groups screen",
+      "ECNs: the Serial numbers Waiting filter now also lists every ECN whose Serial Numbers field says \"Please provide serial numbers\", whatever its In House Stock",
+    ],
+  },
+  {
     version: "0.214.0",
     date: "2026-11-04",
     changes: [

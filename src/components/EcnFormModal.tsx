@@ -15,6 +15,10 @@ import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { ChoicePills, MAX_PILL_OPTIONS } from "./ChoicePills";
 import { YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+import { EcnDistributionChecklist } from "./EcnDistributionChecklist";
+import { ECN_DEFAULT_DISTRIBUTION } from "@/lib/ecnDistribution";
+import { ecnDistributionAvailable } from "@/api/ecns";
+import { useEcnDistributionGroups } from "@/hooks/useEcnDistributionGroups";
 
 // =============================================================================
 // New ECN.
@@ -47,6 +51,10 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
   const [logNo, setLogNo] = useState("");
   const [projectLookupId, setProjectLookupId] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
+  // BusinessIT#57 — the paper form's seven X's, editable.
+  const [distribution, setDistribution] = useState<string[]>(() => [...ECN_DEFAULT_DISTRIBUTION]);
+  const { data: distributionGroups = [] } = useEcnDistributionGroups();
+  const showDistribution = ecnDistributionAvailable();
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
@@ -105,6 +113,7 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
       logNo,
       projectLookupId: projectLookupId ? parseInt(projectLookupId, 10) : null,
       values,
+      distribution: showDistribution ? distribution : [],
     };
     try {
       const created = await create.mutateAsync(input);
@@ -225,6 +234,24 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
               </div>
             </section>
           ))}
+
+          {showDistribution && (
+            <section className="mt-5">
+              <h3 className="mb-1 font-display text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                Distribution
+              </h3>
+              <p className="mb-2 text-[11px] text-fg-muted">
+                Everyone in the ticked roles is emailed the ECN the first time its Sign-off status is filled in.
+              </p>
+              <EcnDistributionChecklist
+                ticked={distribution}
+                onChange={setDistribution}
+                groups={distributionGroups}
+                disabled={busy}
+                idPrefix="new-ecn-dist"
+              />
+            </section>
+          )}
 
           {error && <p className="mt-4 text-sm text-cooper-red">{error}</p>}
 

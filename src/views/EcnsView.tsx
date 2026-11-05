@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { FileDiff, MessageSquare, Paperclip, Plus } from "lucide-react";
+import { FileDiff, MessageSquare, Paperclip, Plus, Users } from "lucide-react";
 import { useEcns } from "@/hooks/useEcns";
+import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { useProjects } from "@/hooks/useTasks";
 import type { Ecn } from "@/types/task";
 import { stockDispositions } from "@/lib/ecnFields";
 import {
   isEcnOnHold,
-  isEcnSerialNumbersMissing,
+  isEcnSerialNumbersRecorded,
   isEcnWaitingForSerialNumbers,
 } from "@/lib/ecnMapper";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
@@ -48,16 +49,18 @@ export function EcnsView() {
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const { isAdmin } = useAdminAccess();
 
   const q = params.get("q") ?? "";
   const project = params.get("project") ?? "";
   const stock = params.get("stock") ?? "";
   const hold = (params.get("hold") as HoldFilter) || "";
   const drawings = params.get("drawings") ?? "";
-  // BusinessIT#61 — "Waiting" is an ECN whose stock disposition needs serial
-  // numbers and has none recorded (isEcnWaitingForSerialNumbers); "Recorded"
-  // is one with serial numbers on file. An ECN that needs none and has none
-  // is in neither — it only shows under Any.
+  // BusinessIT#61 — "Waiting" is an ECN whose Serial Numbers field says
+  // "Please provide serial numbers" (any ECN), or whose stock disposition
+  // needs serial numbers and has none recorded (isEcnWaitingForSerialNumbers);
+  // "Recorded" is one with serial numbers on file that isn't Waiting. An ECN
+  // that needs none and has none is in neither — it only shows under Any.
   const serials = (params.get("serials") as SerialsFilter) || "";
 
   function setParam(key: string, value: string) {
@@ -93,7 +96,7 @@ export function EcnsView() {
       if (hold === "On hold" && !isEcnOnHold(ecn)) return false;
       if (hold === "Not on hold" && isEcnOnHold(ecn)) return false;
       if (serials === "Waiting" && !isEcnWaitingForSerialNumbers(ecn)) return false;
-      if (serials === "Recorded" && isEcnSerialNumbersMissing(ecn)) return false;
+      if (serials === "Recorded" && !isEcnSerialNumbersRecorded(ecn)) return false;
       if (drawings === "Complete" && ecn.values.drawingsComplete !== "Yes") return false;
       if (drawings === "Outstanding" && ecn.values.drawingsComplete === "Yes") return false;
       return matchesSearch(ecn, tokens);
@@ -164,6 +167,17 @@ export function EcnsView() {
             and whether the drawings have caught up.
           </p>
         </div>
+        {isAdmin && (
+          // ARC admins only, like Harness's Who's notified. The screen itself is
+          // readable by anyone with the link.
+          <Link
+            to="/engineering/ecns/distribution"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+          >
+            <Users className="h-4 w-4" />
+            Distribution groups
+          </Link>
+        )}
         <button
           onClick={() => setShowNew(true)}
           className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"

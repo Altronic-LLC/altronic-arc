@@ -114,8 +114,9 @@ describe("EcnsView", () => {
     await waitFor(() => expect(screen.queryByText("260059R1")).not.toBeInTheDocument());
     // Modifies stock and only asks for serial numbers.
     expect(screen.getByText("250107R4")).toBeInTheDocument();
-    // Also only asks — but its stock is Do NOT modify, so none are needed.
-    expect(screen.queryByText("260062")).not.toBeInTheDocument();
+    // Its stock is Do NOT modify, but its field says "Please provide serial
+    // numbers" — and ANY ECN that says so is waiting (Tim, 2026-11-05).
+    expect(screen.getByText("260062")).toBeInTheDocument();
     // "Not a serialized product" and "See R0" are answers, not gaps.
     expect(screen.queryByText("260059")).not.toBeInTheDocument();
     expect(screen.queryByText("260058")).not.toBeInTheDocument();

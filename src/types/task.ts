@@ -1924,6 +1924,19 @@ export interface Ecn {
   hasAttachments: boolean;
   /** Every workflow column, keyed by the descriptor keys in ecnFields.ts. */
   values: Record<string, string>;
+  /**
+   * `Distribution` — the roles ticked on the form's DISTRIBUTION block
+   * (BusinessIT#57). A MULTI-choice column (checkboxes). See
+   * lib/ecnDistribution.ts.
+   */
+  distribution: string[];
+  /**
+   * `DistributedTo` — who the ECN was actually emailed to when its Sign-off
+   * status was first filled in, one "Name <email>" per line. Empty until then.
+   */
+  distributedTo: Person[];
+  /** `DistributedAt` — when that email went. Null = not sent yet. */
+  distributedAt: Date | null;
   createdAt: Date;
   modifiedAt: Date;
 }
@@ -1936,6 +1949,20 @@ export interface EcnInput {
   /** Typed by whoever raises the ECN — see the note on `Ecn.logNo`. */
   logNo: string;
   values: Record<string, string>;
+  /** The distribution roles ticked on the form. Omitted = none. */
+  distribution?: string[];
+}
+
+/**
+ * One row of ECN Distribution Groups (Engineering site): a role on the ECN
+ * form's DISTRIBUTION block and who receives an ECN for it.
+ */
+export interface EcnDistributionGroup {
+  id: number;
+  /** The role, as printed on the form ("QUALITY MANAGER" → "Quality Manager"). */
+  role: string;
+  members: Person[];
+  sortOrder: number;
 }
 
 // =============================================================================
