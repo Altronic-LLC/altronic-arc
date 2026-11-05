@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.217.0",
+    date: "2026-11-05",
+    changes: [
+      "Panels: new Panel SAP BOM Builder — pick parts and kits from the panel parts list and copy SAP-ready BOM lines (Item, L, Qty, SAP #) into SAP",
+      "BOM Builder: starts as a limited preview for panel Super Users; it shows as Coming soon for everyone else until it opens to the panel team",
+      "BOM Builder: parts are grouped by cluster and category, with search, Preferred only, Standard only and Hide Do-Not-Quote; a kit adds all its parts, and extras picked on top are added to the same line",
+      "BOM Builder: item numbers band by cluster (10, 20… then 1000, 2000…); parts with no SAP #, or not on the parts list, are listed to enter in SAP by hand",
+      "BOM Builder: Copy for SAP copies in blocks of about 28 rows, ticking each block as it's copied; CSV downloads the BOM named after the Panel System #",
+      "BOM Builder: cost is SAP's current cost, read for you from SAP; it's hidden if your account can't read SAP costs",
+      "BOM Builder: save a BOM with its Panel System # and, now or later, its Panel Order; Saved BOMs lists them, and a Panel Order's page shows its BOMs and can start or link one",
+      "BOM Builder: a panel Super User or an ARC admin keeps the parts and kits up to date in ARC",
+      "BOM Builder: Saved BOMs and Parts & kits have a Back button, and the Parts & kits table keeps its column names in view as you scroll",
+    ],
+  },
+  {
     version: "0.216.0",
     date: "2026-11-05",
     changes: [

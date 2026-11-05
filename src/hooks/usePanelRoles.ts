@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addPanelRole, listPanelRoles, removePanelRole, updatePanelRole } from "@/api/panelRoles";
-import { PANEL_ROLES_ENFORCED, USE_MOCK } from "@/api/config";
+import { PANEL_BOM_LIVE, PANEL_ROLES_ENFORCED, USE_MOCK } from "@/api/config";
 import { listAdmins } from "@/api/admins";
 import { isAdminEmail } from "@/lib/adminAccess";
 import { matchesAnyEmail } from "@/lib/emailIdentity";
@@ -168,11 +168,12 @@ export function usePanelTeamAccess(): PanelTeamAccess {
   const emails = useCurrentUserEmails();
   const { data: entries = [], isLoading } = usePanelRoles();
   const admin = useAdminAccess();
-  if (USE_MOCK) return panelTeamAccess({ roles: [], isArcAdmin: true, resolving: false });
+  if (USE_MOCK) return panelTeamAccess({ roles: [], isArcAdmin: true, resolving: false, bomLive: PANEL_BOM_LIVE });
   return panelTeamAccess({
     roles: rolesFor(entries, emails),
     isArcAdmin: admin.isAdmin,
     resolving: isLoading || admin.isResolving,
+    bomLive: PANEL_BOM_LIVE,
   });
 }
 
@@ -196,6 +197,7 @@ export function useRequirePanelTeamEdit(): () => Promise<void> {
       roles: rolesFor(entries, ref.current),
       isArcAdmin: ref.current.some((e) => isAdminEmail(e, admins)),
       resolving: false,
+      bomLive: PANEL_BOM_LIVE,
     });
     if (!access.canEdit) throw new Error(access.hint);
   }, [qc]);
@@ -224,6 +226,7 @@ function usePanelAccessCheck(refusal: (a: PanelTeamAccess) => string): () => Pro
         roles: rolesFor(entries, ref.current),
         isArcAdmin: ref.current.some((e) => isAdminEmail(e, admins)),
         resolving: false,
+        bomLive: PANEL_BOM_LIVE,
       }),
     );
     if (why) throw new Error(why);
@@ -238,4 +241,18 @@ export function useRequirePanelTemplateManager(): () => Promise<void> {
 /** Throws unless the user may change capacity settings or company holidays (Super User, or an ARC admin). */
 export function useRequirePanelCapacityManager(): () => Promise<void> {
   return usePanelAccessCheck((a) => (a.canManageCapacity ? "" : a.capacityHint));
+}
+
+/** Throws unless the user may change the BOM Builder's parts and kits (Super User, or an ARC admin). */
+export function useRequirePanelBomManager(): () => Promise<void> {
+  return usePanelAccessCheck((a) => (a.canManageBomParts ? "" : a.bomPartsHint));
+}
+
+/**
+ * Throws unless the user may save, link or delete a BOM: anyone on the panel
+ * team but a Viewer once the builder is live; only a Super User during its
+ * limited demo (PANEL_BOM_LIVE).
+ */
+export function useRequirePanelBomBuild(): () => Promise<void> {
+  return usePanelAccessCheck((a) => (a.canBuildBom ? "" : a.bomHint));
 }

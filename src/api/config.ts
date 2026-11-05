@@ -1045,6 +1045,36 @@ export const SP_PANEL_SETTINGS_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_PANEL_SETTINGS_LIST_ID || undefined;
 
 /**
+ * Panel SAP BOM Builder (BusinessIT#59) — three lists on ALTRONICPANELTEAM,
+ * created by scripts/create-panel-bom-lists.ps1 and loaded once from the
+ * PANEL Parts Database workbook by scripts/load-panel-bom-lists.ps1. ARC is
+ * the master for the parts and kits from then on (Tim, 2026-11-05).
+ *
+ *   - Panel BOM Parts — one row per part (Title = SAP #). NO cost column:
+ *     cost comes from SAP through Fabric, per viewer.
+ *   - Panel BOM Kits  — one row per kit (Title = kit name), components as JSON.
+ *   - Panel BOMs      — saved BOMs, optionally linked to a Panel Order.
+ *
+ * NO defaults: unset, the screens say the builder isn't set up yet.
+ */
+export const SP_PANEL_BOM_PARTS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_BOM_PARTS_LIST_ID || undefined;
+export const SP_PANEL_BOM_KITS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_BOM_KITS_LIST_ID || undefined;
+export const SP_PANEL_BOMS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_BOMS_LIST_ID || undefined;
+
+/**
+ * The BOM Builder is in a LIMITED LIVE DEMO until this is "true" (Tim,
+ * 2026-11-05): only panel Super Users (on Panel User Roles) can open it;
+ * everyone else sees "Panel SAP BOM Builder — Coming soon" on the Dashboard
+ * and in the Departments menu. Going live is this repo variable and a
+ * redeploy, after which the whole panel team gets it — the MCN / Sales
+ * Pricing switch. Mock mode is always live.
+ */
+export const PANEL_BOM_LIVE = USE_MOCK || import.meta.env.VITE_PANEL_BOM_LIVE === "true";
+
+/**
  * "QC Time Tracking" — the panel team's log of hours QC spends on a project.
  * Same site as the other three Panels lists, its own list. Added 2026-09-01.
  */

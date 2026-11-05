@@ -50,6 +50,8 @@ import {
   SP_OPEN_ORDERS_CUSTOMERS_LIST_ID,
   SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
+  SP_PANEL_BOMS_LIST_ID,
+  SP_PANEL_BOM_PARTS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
   SP_PANEL_QC_ISSUES_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
@@ -216,6 +218,11 @@ export const APPS: AppSpec[] = [
   // Capacity reads Panel Tasks; refused time off only means nobody looks off.
   { path: "/panels/capacity", label: "Panel Engineering Capacity", site: "panelTeam", lists: ids(SP_PANEL_TASKS_LIST_ID) },
   { path: "/panels/task-templates", label: "Panel standard tasks", site: "panelTeam", lists: ids(SP_PANEL_TASK_TEMPLATES_LIST_ID) },
+  // BOM Builder (BusinessIT#59): the builder and Parts & kits need the parts list; kits are read too, but a
+  // refused kits list alone still leaves a working builder. Saved BOMs is its own list.
+  { path: "/panels/bom-builder", label: "Panel SAP BOM Builder", site: "panelTeam", lists: ids(SP_PANEL_BOM_PARTS_LIST_ID) },
+  { path: "/panels/bom-parts", label: "BOM parts & kits", site: "panelTeam", lists: ids(SP_PANEL_BOM_PARTS_LIST_ID) },
+  { path: "/panels/boms", label: "Saved BOMs", site: "panelTeam", lists: ids(SP_PANEL_BOMS_LIST_ID) },
   { path: "/panels/time-off", label: "Panel Time Off", site: "panelTeam", lists: ids(SP_PANEL_TIME_OFF_LIST_ID) },
   { path: "/panels/qc-time-tracking", label: "QC Time Tracking", site: "panelTeam", lists: ids(SP_QC_TIME_TRACKING_LIST_ID) },
   { path: "/panels/qc-issues", label: "Panel QC Issue Tracker", site: "panelTeam", lists: ids(SP_PANEL_QC_ISSUES_LIST_ID) },
