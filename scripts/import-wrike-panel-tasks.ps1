@@ -447,7 +447,7 @@ if ($Export -or $Blueprints) {
         foreach ($fb in ($folderBps | Sort-Object { $_.title })) {
             $md += "## $($fb.title)$(if ($fb.project) { ' (project blueprint)' })", ""
             # @($null) is one item in PowerShell, so a missing list is checked first.
-            $own = if ($tasksByFolder.ContainsKey($fb.id)) { @($tasksByFolder[$fb.id] | Where-Object { $_ }) } else { @() }
+            $own = @(if ($tasksByFolder.ContainsKey($fb.id)) { $tasksByFolder[$fb.id] | Where-Object { $_ } })
             # Only the top of each task tree; subtasks print under their parent.
             $subIds = @{}
             foreach ($t in $own) { foreach ($sid in @($t.subTaskIds)) { if ($sid) { $subIds[$sid] = $true } } }
@@ -813,7 +813,9 @@ if ($Plan) {
         $cfile = Join-Path $OutDir "comments/$($t.id).json"
         if (Test-Path $cfile) { $wrikeComments = @((Read-JsonFile $cfile).data) }
 
-        $rows = if ($liveByLegacy.ContainsKey($legacy)) { @($liveByLegacy[$legacy]) } else { @() }
+        # @(if ...) - an if statement UNROLLS a one-item array, so the bare form handed back the
+        # row itself and .Count counted its 12 keys ("12 ARC rows carry ...", 2026-11-05).
+        $rows = @(if ($liveByLegacy.ContainsKey($legacy)) { $liveByLegacy[$legacy] })
         $live = if ($rows.Count -eq 1) { $rows[0] } else { $null }
         $present = Get-CommentKeys $(if ($live) { $live.fields.Communication } else { "" })
         $records = @()
@@ -953,16 +955,32 @@ if ($Apply) {
 
     # New Panel Project References first, add-only: a Title that exists by now
     # (an earlier run, or somebody in ARC) is reused, never renamed.
+    # A refused Graph call's own message ("Field 'Title' cannot be referenced
+    # in filter...") rather than the bare "BadRequest" the SDK reports.
+    function Get-RefusalText($err) {
+        $msg = "$($err.Exception.Message)"
+        $raw = "$($err.ErrorDetails.Message)"
+        if ($raw) { try { $j = $raw | ConvertFrom-Json; if ($j.error.message) { return "$msg - $($j.error.message)" } } catch { return "$msg - $raw" } }
+        return $msg
+    }
+
+    # Read the whole (small) list once and match titles here: Title isn't
+    # indexed on Panel Project Reference, and SharePoint refuses a $filter on
+    # an unindexed column with a 400 (every project create failed that way,
+    # 2026-11-05). Case-insensitive, like SharePoint's own eq.
+    $projectIdByTitle = @{}
+    foreach ($p in @(Get-GraphAll "$graph/lists/$PROJECTS_LIST/items?`$expand=fields(`$select=Title)&`$top=500")) {
+        $k = "$($p.fields.Title)".Trim().ToLowerInvariant()
+        if ($k -and -not $projectIdByTitle.ContainsKey($k)) { $projectIdByTitle[$k] = [int]$p.id }
+    }
     $newProjectIds = @{}
     foreach ($np in @($planDoc.newProjects)) {
         if (-not $np) { continue }
         $entry = [ordered]@{ WrikeId = ""; ArcId = $null; Title = $np.title; Action = "create project"; Result = ""; Warning = "" }
         try {
-            $q = "$($np.title)" -replace "'", "''"
-            $filter = [uri]::EscapeDataString("fields/Title eq '$q'")
-            $found = @(Get-GraphAll "$graph/lists/$PROJECTS_LIST/items?`$expand=fields(`$select=Title)&`$filter=$filter&`$top=5")
-            if ($found.Count) {
-                $newProjectIds[$np.title] = [int]$found[0].id; $entry.ArcId = [int]$found[0].id; $entry.Result = "already there - reused"
+            $foundId = $projectIdByTitle["$($np.title)".Trim().ToLowerInvariant()]
+            if ($foundId) {
+                $newProjectIds[$np.title] = $foundId; $entry.ArcId = $foundId; $entry.Result = "already there - reused"
             } else {
                 $pf = [ordered]@{ Title = $np.title }
                 if ($np.projectType) { $pf.ProjectType = $np.projectType }
@@ -973,12 +991,12 @@ if ($Apply) {
                 $back = Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$PROJECTS_LIST/items/$($made.id)?`$expand=fields(`$select=Title,ProjectType,DWGNO)"
                 if ("$($back.fields.Title)" -ne $np.title) { throw "Title did not read back" }
                 if ($np.projectType -and "$($back.fields.ProjectType)" -ne $np.projectType) { $entry.Warning = "ProjectType read back as '$($back.fields.ProjectType)'" }
-                $newProjectIds[$np.title] = [int]$made.id; $entry.ArcId = [int]$made.id; $entry.Result = "created"
+                $newProjectIds[$np.title] = [int]$made.id; $entry.ArcId = [int]$made.id; $entry.Result = "created"; $projectIdByTitle["$($np.title)".Trim().ToLowerInvariant()] = [int]$made.id
             }
             Write-Host "  ok    project  $($np.title)  $($entry.Result)" -ForegroundColor Green
         } catch {
-            $entry.Result = "REFUSED: $($_.Exception.Message)"
-            Write-Host "  FAIL  project  $($np.title)  $($_.Exception.Message)" -ForegroundColor Red
+            $why = Get-RefusalText $_; $entry.Result = "REFUSED: $why"
+            Write-Host "  FAIL  project  $($np.title)  $why" -ForegroundColor Red
         }
         $log += [pscustomobject]$entry
     }
@@ -1050,8 +1068,8 @@ if ($Apply) {
             }
             Write-Host "  ok    $($it.wrikeId)  $($entry.Result)" -ForegroundColor Green
         } catch {
-            $entry.Result = "REFUSED: $($_.Exception.Message)"
-            Write-Host "  FAIL  $($it.wrikeId)  $($_.Exception.Message)" -ForegroundColor Red
+            $why = Get-RefusalText $_; $entry.Result = "REFUSED: $why"
+            Write-Host "  FAIL  $($it.wrikeId)  $why" -ForegroundColor Red
         }
         $log += [pscustomobject]$entry
     }

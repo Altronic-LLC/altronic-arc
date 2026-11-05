@@ -13,6 +13,10 @@ terminal. Anything marked *unverified* needs checking on that run.
 
 ## Prerequisites
 
+0. Panel Tasks' `Communication` column is **Multiple lines of text** (plain,
+   Append Changes = No). It was single-line, 255 characters, until
+   2026-11-05, which refused every comment past that length.
+
 1. `scripts/add-panel-task-capacity-columns.ps1` has been run. It adds
    `StartDate`, `DueDate` and `EstimatedHours` (which the app reads) and
    `LegacySource` (indexed) and `ImportHash` (which only the import uses).

@@ -6375,6 +6375,14 @@ value is the standard trade-off here).
 
 ### Panel Engineering Capacity + Panel Time Off (Panels, panelTeam site)
 
+**Panel Tasks' `Communication` column was SINGLE-LINE, max 255 characters**
+(found 2026-11-05, when the Wrike import's comment writes were refused with a
+bare 400). The whole comment thread lives in that one column, so any panel
+task thread past 255 characters could not be saved, in ARC as well as the
+import. Panel Order Headers and Panel QC Issues were already multi-line. Fixed
+in List settings (Multiple lines of text, Plain text, Append Changes = No);
+if the list is ever recreated, check it with a read of `/columns`.
+
 BusinessIT#42 (Ray's brainstorm on the issue; Tim, 2026-10-28). The panel team
 plans in Wrike's Workload chart today; this brings that into ARC. Panel Orders
 and Panel Tasks had never been used by the team, so their shape was free to
