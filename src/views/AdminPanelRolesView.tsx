@@ -25,8 +25,8 @@ const ON_CAPACITY_HINT =
  * Admin → Panel User Roles page. One row per user PER role (the SharePoint
  * list's shape — a user holding two roles appears twice). Roles map to edit
  * rights via lib/panelRoles.ts (Tech/Manager → production, Engineer →
- * engineering, Admin/Super User → both, Viewer → none), but v1 gates no
- * fields — this list is bookkeeping until the first gated field is wired.
+ * engineering, Admin/Super User → both, Viewer → none), but no fields are
+ * gated (Tim, 2026-11-05: everyone edits everything).
  * Access gated by useIsAdmin().
  */
 export function AdminPanelRolesView() {

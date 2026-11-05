@@ -6561,8 +6561,9 @@ only". Time Off writes ask `useRequirePanelTeamEdit` INSIDE the mutationFn
 rights sit beside it, asked the same way: `canManageTemplates` (Manager,
 Admin, Super User) for the standard tasks, and `canManageCapacity` (Super
 User only) for the amber threshold and company holidays; an ARC admin holds
-both. Panel Tasks themselves are NOT gated yet — **which fields each role
-edits is still Tim's to decide.**
+both. **Panel Order and Panel Task FIELDS are not gated, by decision**
+(Tim, 2026-11-05: "everyone can edit everything") — `panelRights` is kept
+unused; don't wire a gated field without a new decision.
 
 **A Panel Order raises its standard tasks** (Tim, 2026-10-29) — ARC's
 version of Wrike's "New Production Order" form + "Panel Blueprint - Production

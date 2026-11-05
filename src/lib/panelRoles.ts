@@ -11,9 +11,10 @@ import type { PanelRole, PanelRoleEntry, Person } from "@/types/task";
 //   - Admin + Super User grant BOTH rights.
 //   - Viewer grants neither — editing-wise identical to having no entry.
 //
-// v1 gates NO fields: everyone signed in edits everything. This mapping
-// ships dark so the first gated field is a `disabled` prop away (the EIR
-// pattern in EirDetailView). Access to the /admin/panel-* pages is NOT a
+// NO fields are gated, by decision (Tim, 2026-11-05): everyone edits every
+// Panel Order and Panel Task field. This mapping is kept, unused, so a gated
+// field would be a `disabled` prop away (the EIR pattern in EirDetailView) —
+// but don't wire one without a new decision. Access to the /admin/panel-* pages is NOT a
 // role — that stays with ARC's global Admins list (useIsAdmin).
 // =============================================================================
 
@@ -46,7 +47,7 @@ export function panelRights(roles: readonly PanelRole[]): PanelRights {
 //     is never a door locked from the inside.
 //
 // Navigation, not security: SharePoint's list permissions are the boundary.
-// Which FIELDS each role may edit is still to be decided (Tim).
+// Which FIELDS each role may edit: none are gated (Tim, 2026-11-05).
 // =============================================================================
 
 /** Panel roles that manage the standard tasks a new order raises. */

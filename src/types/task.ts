@@ -864,7 +864,7 @@ export interface BuildRequestItem {
 //     number (numbering scheme TBD), plus type/description/DWG/customer/dept.
 //   - Panel User Roles: admin-managed; one row = one User + one Role choice.
 //     Multiple roles per user = multiple rows. Rights mapping lives in
-//     lib/panelRoles.ts; NO fields are gated in v1 (infra ships dark).
+//     lib/panelRoles.ts; NO fields are gated — everyone edits everything (Tim, 2026-11-05).
 // =============================================================================
 
 export const PANEL_ORDER_STATUSES = [

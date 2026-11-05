@@ -10,8 +10,8 @@ import { mockDelay } from "./mockLatency";
 // Panel User Roles list — one row per user PER role (User person column +
 // single Role choice), unlike EIR Roles' email/CSV shape. Managed only at
 // /admin/panel-roles. The role → editing-rights mapping is in
-// lib/panelRoles.ts; v1 gates no fields, so this list is bookkeeping until
-// the first gated field is wired.
+// lib/panelRoles.ts; no fields are gated (everyone edits everything — Tim,
+// 2026-11-05), so the list decides panel team access and capacity rows only.
 //
 // Person-column note: the single `User` column returns only a bare
 // UserLookupId via Graph — display names are joined from the panel site's
