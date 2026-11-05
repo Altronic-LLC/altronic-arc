@@ -10870,6 +10870,23 @@ Two details that are easy to get wrong:
 point — which is why it now carries a **Done** row. If you add a dropdown that
 stays open, give it a visible way out.
 
+**A panel opens ABOVE its trigger when it won't fit below** (BusinessIT#66,
+2026-11-05). On a short page the task's Watchers search opened under the fixed
+footer and the page couldn't scroll far enough to reach it.
+`choosePanelPlacement` in `SearchableSelect.tsx` is the rule: below when the
+whole panel (`max-h-80`) fits above the footer's top (`[data-fixed-footer]`,
+else the window bottom), otherwise whichever side has more room, shortened to
+fit. An above panel is portalled to `<body>`, `fixed z-100`, and re-measured
+on scroll and resize. Two things that go with it:
+
+- **The panel isn't rendered until it's placed** (a layout effect, before
+  paint), so it mounts once, in the right place.
+- **Focus landing in the panel is recognised by `data-dropdown-panel`**, not
+  only `panelRef`. The search box autofocuses during the commit, BEFORE React
+  attaches `panelRef`, and a portalled panel isn't inside the wrapper — so
+  without the id the panel closed the instant it opened above. The
+  ColumnFilterButton lesson, met again.
+
 Testing note: `resetOpenDropdown()` in a `beforeEach`, or a claim left by a
 previous test closes the one under test. And jsdom does NOT populate
 `relatedTarget` on a programmatic `.focus()`, so drive the focusout rule with

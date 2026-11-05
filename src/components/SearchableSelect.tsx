@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -228,6 +228,71 @@ export function ChoiceSelect({
   );
 }
 
+/** The panel's tallest size — `max-h-80`. */
+export const PANEL_MAX_HEIGHT = 320;
+/** Space between the trigger and the panel — `mt-1`. */
+const PANEL_GAP = 4;
+/** Room kept between the panel and the edge of what can be seen. */
+const EDGE_MARGIN = 8;
+
+export type PanelPlacement =
+  | { side: "below"; maxHeight?: number }
+  | { side: "above"; left: number; width: number; bottom: number; maxHeight: number };
+
+interface TriggerRect {
+  top: number;
+  bottom: number;
+  left: number;
+  width: number;
+}
+
+/**
+ * Where a dropdown panel opens (BusinessIT#66). It opens BELOW its trigger
+ * when the full panel fits above `visibleBottom` — the top of the fixed
+ * footer, or the bottom of the window. Otherwise it opens on whichever side
+ * has more room, shortened to fit.
+ *
+ * Below the trigger it used to open whatever the room, and on a page too
+ * short to scroll far enough (a task with few comments) the Watchers search
+ * landed under the footer, with its options out of reach.
+ *
+ * `preferred: "above"` always opens above — the callers that ask for it sit
+ * at the bottom of a modal.
+ */
+export function choosePanelPlacement(
+  trigger: TriggerRect,
+  visibleBottom: number,
+  preferred: "below" | "above" = "below",
+): PanelPlacement {
+  const spaceBelow = visibleBottom - trigger.bottom - PANEL_GAP - EDGE_MARGIN;
+  const spaceAbove = trigger.top - PANEL_GAP - EDGE_MARGIN;
+  const openAbove =
+    preferred === "above" || (spaceBelow < PANEL_MAX_HEIGHT && spaceAbove > spaceBelow);
+  if (openAbove) {
+    return {
+      side: "above",
+      left: trigger.left,
+      width: trigger.width,
+      bottom: window.innerHeight - trigger.top + PANEL_GAP,
+      maxHeight: Math.max(0, Math.min(PANEL_MAX_HEIGHT, spaceAbove)),
+    };
+  }
+  return spaceBelow < PANEL_MAX_HEIGHT
+    ? { side: "below", maxHeight: Math.max(0, spaceBelow) }
+    : { side: "below" };
+}
+
+/** The lowest point a panel can be seen at: the top of the fixed footer, if there is one. */
+function visibleBottom(): number {
+  const footer = document.querySelector("[data-fixed-footer]");
+  const top = footer?.getBoundingClientRect().top;
+  return top && top > 0 && top < window.innerHeight ? top : window.innerHeight;
+}
+
+function samePlacement(a: PanelPlacement | null, b: PanelPlacement): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 interface DropdownShellProps {
   summary: string;
   isEmpty: boolean;
@@ -273,7 +338,7 @@ function DropdownShell({
   panelPlacement = "below",
 }: DropdownShellProps) {
   const [open, setOpen] = useState(false);
-  const [portalPosition, setPortalPosition] = useState<{ left: number; width: number; bottom: number } | null>(null);
+  const [placement, setPlacement] = useState<PanelPlacement | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const useChips = chips !== undefined && chips.length > 0;
@@ -281,23 +346,69 @@ function DropdownShell({
   // Stable so the close rules aren't torn down and rebuilt on every render.
   const close = useCallback(() => setOpen(false), []);
   useDropdownClose(open, ref, close, panelRef);
+  const panelId = useId();
+  const blur = dropdownBlurHandler(ref, close, panelRef);
+  // The panel's search box takes focus AS the panel mounts — before React has
+  // attached panelRef — and a portalled panel isn't inside the wrapper. So
+  // focus landing anywhere in THIS panel is recognised by its id, or the
+  // panel would close the instant it opened above the trigger.
+  const onWrapperBlur = (e: React.FocusEvent) => {
+    const next = e.relatedTarget;
+    if (next instanceof Element && next.closest(`[data-dropdown-panel="${panelId}"]`)) return;
+    blur(e);
+  };
 
+  // Where the panel goes is decided when it opens, and again on scroll or
+  // resize while it's open: below the trigger when it fits above the fixed
+  // footer, otherwise above it (BusinessIT#66). See choosePanelPlacement.
   useLayoutEffect(() => {
-    if (!open || panelPlacement !== "above" || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    setPortalPosition({ left: rect.left, width: rect.width, bottom: window.innerHeight - rect.top + 4 });
+    if (!open || !ref.current) {
+      setPlacement(null);
+      return;
+    }
+    const measure = () => {
+      if (!ref.current) return;
+      const next = choosePanelPlacement(
+        ref.current.getBoundingClientRect(),
+        visibleBottom(),
+        panelPlacement,
+      );
+      setPlacement((prev) => (samePlacement(prev, next) ? prev : next));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    // Capture, so a scroll inside any scrolling ancestor moves the panel too.
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
   }, [open, panelPlacement]);
 
-  const panel = open && (
+  const above = placement?.side === "above";
+  // Not rendered until it's been placed, so it mounts once, in the right
+  // place — the layout effect runs before the browser paints.
+  const panel = open && placement && (
     <div
       ref={panelRef}
       role="listbox"
-      style={panelPlacement === "above" && portalPosition ? portalPosition : undefined}
+      data-dropdown-panel={panelId}
+      style={
+        above
+          ? {
+              left: placement.left,
+              width: placement.width,
+              bottom: placement.bottom,
+              maxHeight: placement.maxHeight,
+            }
+          : placement.maxHeight !== undefined
+            ? { maxHeight: placement.maxHeight }
+            : undefined
+      }
       className={cn(
-        "z-20 flex max-h-80 flex-col rounded-lg border border-border bg-surface shadow-lg",
-        panelPlacement === "above"
-          ? "fixed z-100"
-          : "absolute left-0 right-0 top-full mt-1",
+        "flex max-h-80 flex-col rounded-lg border border-border bg-surface shadow-lg",
+        // Above the fixed footer (z-30) and any modal (z-50).
+        above ? "fixed z-100" : "absolute left-0 right-0 top-full z-20 mt-1",
       )}
     >
       {renderPanel({ close: () => setOpen(false) })}
@@ -311,7 +422,7 @@ function DropdownShell({
       ref={ref}
       className="relative"
       title={title}
-      onBlur={dropdownBlurHandler(ref, close, panelRef)}
+      onBlur={onWrapperBlur}
       // Escape closes the panel WITHOUT reaching an enclosing modal — see
       // dropdownKeyHandler.
       onKeyDown={dropdownKeyHandler(open, close)}
@@ -405,9 +516,7 @@ function DropdownShell({
         </button>
       )}
 
-      {panelPlacement === "above" && panel && portalPosition
-        ? createPortal(panel, document.body)
-        : panel}
+      {above && panel ? createPortal(panel, document.body) : panel}
     </div>
   );
 }
