@@ -29,8 +29,9 @@ import SUPPLIER from "./SupplierDetailView.tsx?raw";
 // thumbnail, and only uploads it on submit IF the parent passed `uploadFile`.
 // With no prop the comment posts as plain text and the screenshot is silently
 // gone — nothing on screen says so, and a type check can't catch it, because
-// the prop has to be optional: `CustomerNoteDetailView` and
-// `FeatureRequestDetailView` have no list-item attachment store to upload to.
+// the prop has to be optional: `CustomerNoteDetailView` has no list-item
+// attachment store to upload to. (`FeatureRequestDetailView` was the other
+// exemption until 2026-11-05, when the same silent drop was reported there.)
 //
 // FAIT was the only one of eleven views that passed it. EIRs and nine others
 // did not, which is what "screenshots are not saving as attachments to EIR and
@@ -45,15 +46,12 @@ import SUPPLIER from "./SupplierDetailView.tsx?raw";
 /**
  * Views that deliberately pass NO `uploadFile`, with the reason.
  *
- * Both lists have a Communication column but NO list-item attachment store in
- * `api/attachments.ts` (no `AttachmentParent` entry, and neither page renders
- * an `AttachmentsSection`), so there is nowhere for a pasted file to go.
- * Giving either one comment attachments means adding its parent config first.
+ * Customer Notes has a Communication column but NO list-item attachment store
+ * in `api/attachments.ts` (no `AttachmentParent` entry, and the page renders
+ * no `AttachmentsSection`), so there is nowhere for a pasted file to go.
+ * Giving it comment attachments means adding its parent config first.
  */
-const NO_ATTACHMENT_STORE = new Set([
-  "CustomerNoteDetailView.tsx",
-  "FeatureRequestDetailView.tsx",
-]);
+const NO_ATTACHMENT_STORE = new Set(["CustomerNoteDetailView.tsx"]);
 
 /**
  * Every detail view that renders a comment thread.

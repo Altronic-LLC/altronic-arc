@@ -8881,6 +8881,11 @@ Four things that shape this feature:
     mutates a module-level array, so an earlier test moving a request leaked
     into the guard test and made it pass for the wrong reason — caught because
     the first version of the test failed with `from: "In Work"`.
+- **Attachments** (2026-11-05): an `AttachmentsSection` on the page, kind
+  `featureRequest`, and a file attached to a comment uploads there through
+  `useCommentFileUpload` — before that the composer showed the file and
+  dropped it on Send. Pinned end to end, mock mode, in
+  `FeatureRequestDetailView.attachments.test.tsx`.
 - **Comments follow the full house rules** —
   `commentNotifyRecipients`/`commentRenotifyRecipients` (not ECN's narrower
   submitter-only rule, since this list DOES have a Watchers column and a
@@ -10869,6 +10874,23 @@ Two details that are easy to get wrong:
 **A multi-select still doesn't close on a pick** — ticking several is the
 point — which is why it now carries a **Done** row. If you add a dropdown that
 stays open, give it a visible way out.
+
+**A panel opens ABOVE its trigger when it won't fit below** (BusinessIT#66,
+2026-11-05). On a short page the task's Watchers search opened under the fixed
+footer and the page couldn't scroll far enough to reach it.
+`choosePanelPlacement` in `SearchableSelect.tsx` is the rule: below when the
+whole panel (`max-h-80`) fits above the footer's top (`[data-fixed-footer]`,
+else the window bottom), otherwise whichever side has more room, shortened to
+fit. An above panel is portalled to `<body>`, `fixed z-100`, and re-measured
+on scroll and resize. Two things that go with it:
+
+- **The panel isn't rendered until it's placed** (a layout effect, before
+  paint), so it mounts once, in the right place.
+- **Focus landing in the panel is recognised by `data-dropdown-panel`**, not
+  only `panelRef`. The search box autofocuses during the commit, BEFORE React
+  attaches `panelRef`, and a portalled panel isn't inside the wrapper — so
+  without the id the panel closed the instant it opened above. The
+  ColumnFilterButton lesson, met again.
 
 Testing note: `resetOpenDropdown()` in a `beforeEach`, or a claim left by a
 previous test closes the one under test. And jsdom does NOT populate
@@ -13369,11 +13391,15 @@ Three things about the wiring:
 - **Call the hook ABOVE the view's early return**, next to the nullable
   `<thing>Id`. These views `return` before the item loads, and a hook cannot
   be called conditionally; the hook takes `number | null` for exactly this.
-- **Two views are deliberately exempt**: `CustomerNoteDetailView` and
-  `FeatureRequestDetailView` have a Communication column but no
-  `AttachmentParent` entry and no `AttachmentsSection`, so there is nowhere
-  for a file to go. Giving either one comment attachments means adding its
-  parent config in `api/attachments.ts` first.
+- **One view is deliberately exempt**: `CustomerNoteDetailView` has a
+  Communication column but no `AttachmentParent` entry and no
+  `AttachmentsSection`, so there is nowhere for a file to go — and its
+  composer still shows a dropped file, then drops it on Send. Giving it comment
+  attachments means adding its parent config in `api/attachments.ts` first.
+  **Feature Requests was the other exemption until 2026-11-05**, when exactly
+  that was reported ("it says it is attaching but doesn't show anything"); it
+  now has a `featureRequest` parent (Engineering site, the list is a
+  genericList so attachments were already ON) and an Attachments card.
 
 `views/commentFileUpload.wiring.test.ts` pins it structurally — reading each
 view's source via Vite's `?raw` (the app's tsconfig has no Node types), in the

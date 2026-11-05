@@ -66,6 +66,7 @@ const PARENT_NOUN: Record<AttachmentParent, string> = {
   customerQuote: "quote",
   npSubAssembly: "sub-assembly",
   mcn: "MCN",
+  featureRequest: "feature request",
 };
 
 export function parentNoun(parent: AttachmentParent): string {

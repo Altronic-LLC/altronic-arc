@@ -5,6 +5,7 @@ import {
   SP_CSA_LISTINGS_LIST_ID,
   SP_ECNS_LIST_ID,
   SP_FAIT_LIST_ID,
+  SP_FEATURE_REQUESTS_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_MAINTENANCE_TASKS_LIST_ID,
@@ -87,7 +88,8 @@ export type AttachmentParent =
   | "newProductPricing"
   | "npSubAssembly"
   | "customerQuote"
-  | "mcn";
+  | "mcn"
+  | "featureRequest";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -258,6 +260,15 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_MCNS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_MCNS_LIST_ID",
+  },
+  // ARC Feature Requests — a screenshot of what's being asked for, a mock-up.
+  // The list is a genericList, created with attachments ON, so nothing to set
+  // in SharePoint. Until this existed a file attached to a comment here was
+  // shown, then dropped on Send (BusinessIT, 2026-11-05). Engineering site.
+  featureRequest: {
+    listId: SP_FEATURE_REQUESTS_LIST_ID,
+    siteUrl: SP_SITE_URL,
+    listIdEnvVar: "VITE_SP_FEATURE_REQUESTS_LIST_ID",
   },
 };
 

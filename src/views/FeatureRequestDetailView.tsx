@@ -19,8 +19,10 @@ import {
 import { featureRequestLabel } from "@/lib/featureRequestMapper";
 import { mergePeople } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { ChoiceSelect } from "@/components/SearchableSelect";
+import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
@@ -50,6 +52,9 @@ export function FeatureRequestDetailView() {
   const setWatchers = useSetFeatureRequestWatchers();
   const addComment = useAddFeatureRequestComment();
   const editComment = useEditFeatureRequestComment();
+  // A file attached to a comment lands in the request's own attachments.
+  // Called above the early returns — a hook can't be conditional.
+  const uploadCommentFile = useCommentFileUpload("featureRequest", requestId);
 
   const mentionCandidates = useMemo(
     () => mergePeople(collectFeatureRequestPeople(requests), directory),
@@ -144,12 +149,18 @@ export function FeatureRequestDetailView() {
             )}
           </section>
 
+          <AttachmentsSection parent="featureRequest" itemId={request.id} />
+
           <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
             <CommentComposer
-              draftKey={`featureRequest:${requestId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+              draftKey={`featureRequest:${requestId}`}
+              onSubmit={handleAddComment}
+              mentionablePeople={mentionCandidates}
+              uploadFile={uploadCommentFile}
+            />
             <div className="mt-5">
               <CommentThread
                 comments={request.comments}
@@ -158,6 +169,7 @@ export function FeatureRequestDetailView() {
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
                 onReply={handleAddComment}
+                uploadFile={uploadCommentFile}
                 draftKey={`featureRequest:${requestId}`}
               />
             </div>
