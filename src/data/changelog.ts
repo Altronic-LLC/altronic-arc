@@ -24,6 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-11-05",
     changes: [
       "Pickers near the bottom of the screen (like a task's Watchers) now open upward when there isn't room below, instead of disappearing under the footer",
+      "Feature requests: a file attached to a comment is now saved and linked, instead of disappearing when the comment posts, and each request has an Attachments card",
     ],
   },
   {

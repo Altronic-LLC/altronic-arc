@@ -8881,6 +8881,11 @@ Four things that shape this feature:
     mutates a module-level array, so an earlier test moving a request leaked
     into the guard test and made it pass for the wrong reason — caught because
     the first version of the test failed with `from: "In Work"`.
+- **Attachments** (2026-11-05): an `AttachmentsSection` on the page, kind
+  `featureRequest`, and a file attached to a comment uploads there through
+  `useCommentFileUpload` — before that the composer showed the file and
+  dropped it on Send. Pinned end to end, mock mode, in
+  `FeatureRequestDetailView.attachments.test.tsx`.
 - **Comments follow the full house rules** —
   `commentNotifyRecipients`/`commentRenotifyRecipients` (not ECN's narrower
   submitter-only rule, since this list DOES have a Watchers column and a
@@ -13386,11 +13391,15 @@ Three things about the wiring:
 - **Call the hook ABOVE the view's early return**, next to the nullable
   `<thing>Id`. These views `return` before the item loads, and a hook cannot
   be called conditionally; the hook takes `number | null` for exactly this.
-- **Two views are deliberately exempt**: `CustomerNoteDetailView` and
-  `FeatureRequestDetailView` have a Communication column but no
-  `AttachmentParent` entry and no `AttachmentsSection`, so there is nowhere
-  for a file to go. Giving either one comment attachments means adding its
-  parent config in `api/attachments.ts` first.
+- **One view is deliberately exempt**: `CustomerNoteDetailView` has a
+  Communication column but no `AttachmentParent` entry and no
+  `AttachmentsSection`, so there is nowhere for a file to go — and its
+  composer still shows a dropped file, then drops it on Send. Giving it comment
+  attachments means adding its parent config in `api/attachments.ts` first.
+  **Feature Requests was the other exemption until 2026-11-05**, when exactly
+  that was reported ("it says it is attaching but doesn't show anything"); it
+  now has a `featureRequest` parent (Engineering site, the list is a
+  genericList so attachments were already ON) and an Attachments card.
 
 `views/commentFileUpload.wiring.test.ts` pins it structurally — reading each
 view's source via Vite's `?raw` (the app's tsconfig has no Node types), in the
