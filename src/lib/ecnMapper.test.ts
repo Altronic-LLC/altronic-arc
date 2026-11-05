@@ -7,7 +7,9 @@ import {
   ecnLabel,
   ecnStockNeedsSerialNumbers,
   isEcnOnHold,
+  ecnAsksForSerialNumbers,
   isEcnSerialNumbersMissing,
+  isEcnSerialNumbersRecorded,
   isEcnWaitingForSerialNumbers,
   parseCreatedBy,
   parseEcnLogNo,
@@ -33,6 +35,9 @@ function ecn(logNo: string, id = 1, values: Record<string, string> = {}): Ecn {
     comments: [],
     hasAttachments: false,
     values,
+    distribution: [],
+    distributedTo: [],
+    distributedAt: null,
     createdAt: new Date(0),
     modifiedAt: new Date(0),
   };
@@ -315,11 +320,52 @@ describe("isEcnWaitingForSerialNumbers", () => {
     expect(waiting({ inHouseStock: MODIFY, serialNumbers: "S/N 628" })).toBe(false);
   });
 
-  it("is not waiting when the ECN doesn't modify stock, even with nothing recorded", () => {
+  it("is not waiting when the ECN doesn't modify stock and nothing asks for serial numbers", () => {
     expect(waiting({})).toBe(false);
     expect(waiting({ inHouseStock: "Engineering - Do NOT modify stock" })).toBe(false);
+    expect(waiting({ inHouseStock: "Engineering - Do NOT modify stock", serialNumbers: "enter serial numbers" })).toBe(
+      false,
+    );
+  });
+
+  // Tim, 2026-11-05: ANY ECN whose field says "Please provide serial numbers"
+  // is waiting, whatever its stock disposition and whatever follows it.
+  it("is waiting whenever the field says 'Please provide serial numbers', whatever the stock", () => {
+    expect(waiting({ serialNumbers: "Please provide serial numbers" })).toBe(true);
     expect(
       waiting({ inHouseStock: "Engineering - Do NOT modify stock", serialNumbers: "Please provide serial numbers" }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(waiting({ serialNumbers: '<div class="ExternalClass9">PLEASE PROVIDE SERIAL NUMBER.</div>' })).toBe(true);
+    expect(waiting({ serialNumbers: "Please provide serial numbers. Response: please see ECN 160055R1" })).toBe(true);
+  });
+});
+
+describe("ecnAsksForSerialNumbers", () => {
+  const asks = (serialNumbers: string) => ecnAsksForSerialNumbers(ecn("1", 1, { serialNumbers }));
+
+  it("matches the wording anywhere, in any case, singular or plural", () => {
+    expect(asks("Please provide serial numbers")).toBe(true);
+    expect(asks("<div>S/N 12</div><div>please   provide serial number for the rest</div>")).toBe(true);
+  });
+
+  it("doesn't match other wording", () => {
+    expect(asks("")).toBe(false);
+    expect(asks("Please include serial numbers")).toBe(false);
+    expect(asks("Please provide starting serial number.")).toBe(false);
+    expect(asks("S/N 628")).toBe(false);
+  });
+});
+
+describe("isEcnSerialNumbersRecorded", () => {
+  const recorded = (values: Record<string, string>) => isEcnSerialNumbersRecorded(ecn("1", 1, values));
+
+  it("is serial numbers on file", () => {
+    expect(recorded({ serialNumbers: "S/N 628" })).toBe(true);
+    expect(recorded({ serialNumbers: "N/A" })).toBe(true);
+    expect(recorded({})).toBe(false);
+  });
+
+  it("never lists an ECN that is Waiting — an answered request is Waiting, not Recorded", () => {
+    expect(recorded({ serialNumbers: "Please provide serial numbers. Response: please see ECN 160055R1" })).toBe(false);
   });
 });

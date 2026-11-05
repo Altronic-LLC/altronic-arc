@@ -160,6 +160,10 @@ jobs:
           # in config.ts — the checklist card on an ECN reports itself "not
           # configured" until this is set, same as Quick Links.
           VITE_SP_ECN_CHECKLISTS_LIST_ID: ${{ vars.VITE_SP_ECN_CHECKLISTS_LIST_ID }}
+          # ECN Distribution Groups (BusinessIT#57) — who receives an ECN for
+          # each role on its DISTRIBUTION block. No default in config.ts; unset,
+          # the ECN says the groups aren't set up and nothing is emailed.
+          VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID: ${{ vars.VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID }}
           # QC Forms — GET-1 (GE Transportation Log Sheet), PMO site. No
           # default in config.ts — the GET-1 screen says the variable isn't
           # set until scripts/create-qc-form-list.ps1 has built the list.

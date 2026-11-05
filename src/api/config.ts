@@ -756,6 +756,18 @@ export const SP_ECNS_LIST_ID =
 export const SP_ECN_CHECKLISTS_LIST_ID =
   import.meta.env.VITE_SP_ECN_CHECKLISTS_LIST_ID || "";
 
+/**
+ * ECN Distribution Groups (BusinessIT#57) — who receives an ECN for each role
+ * on the form's DISTRIBUTION block. Engineering site, created and seeded by
+ * `scripts/create-ecn-distribution.ps1`, managed by ARC admins in ARC.
+ *
+ * **No default**: until it is set, an ECN's distribution card says the groups
+ * aren't set up and nothing is emailed. Nothing was emailed before this, so an
+ * unset id takes nothing away.
+ */
+export const SP_ECN_DISTRIBUTION_GROUPS_LIST_ID =
+  import.meta.env.VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID || "";
+
 // =============================================================================
 // Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),
 // one per product family. QC defect log entries are stored per-family list.

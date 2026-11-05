@@ -6417,9 +6417,15 @@ const SECTIONS: ManualSection[] = [
       "n/a",
       "flagged",
       "sign off checklist",
+      "distribution",
+      "distribution list",
+      "distribution groups",
+      "sign-off status",
+      "send now",
+      "please provide serial numbers",
     ],
     searchText:
-      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, whether the notice is on hold, and Serial numbers. Setting Serial numbers to Waiting shows the notices that still need their first serial numbers recorded: In House Stock is set to modify stock (Engineering - Modify stock or Operations - Stock modified), and the Serial Numbers field is empty or only asks for them ('Please provide serial numbers' and similar wording). A notice whose stock is blank or Do NOT modify never needs serial numbers, so it is not listed as waiting. Recorded shows the notices that have serial numbers on file; a request with an answer written after it, and entries such as N/A, Not a serialized product or See R1, count as recorded. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Admins can delete a notice from its page — for a duplicate or one entered by mistake — and are asked to confirm first; a superseded ECN should still be revised rather than deleted. Nobody else sees the Delete button. Every ECN also carries the Cross-Functional ECN Checklist (Form# MFGFRM-038) at the bottom of its page: all 84 review steps across the form's ten sections, filled out in ARC rather than on paper. A new ECN gets its checklist automatically; an ECN raised before this existed gets one from the Create checklist button. The card shows how many steps are answered with a progress bar; open it and each section expands to its own steps. Each step is marked Complete, N/A or Flagged, with a Findings / comments box beside it. Mark a step N/A when it does not apply to this ECN — that is what lets a finished checklist reach 100% on an ECN that never touches chemicals or CSA files — and Flagged when it needs a department review before release. Steps carry the form's own two markers: Must be on ECN means details have to appear on the notice, and Needs department review mirrors the form's review column. Changes save on their own a moment after you stop typing or click away, so there is no Save button. Who is involved? (RACI) opens the form's role matrix as reference — 32 roles across nine departments, with the R/A/C/I legend; steps that have a RACI assigned show a RACI link that opens the matrix at that step. The RACI is reference only and is never stored against an ECN.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, whether the notice is on hold, and Serial numbers. Setting Serial numbers to Waiting shows the notices that still need their serial numbers: every notice whose Serial Numbers field says 'Please provide serial numbers', whatever its In House Stock and whatever else the field holds; and any notice whose In House Stock is set to modify stock (Engineering - Modify stock or Operations - Stock modified) with the Serial Numbers field empty or only asking for them in other words. Recorded shows the notices that have serial numbers on file and aren't waiting; entries such as N/A, Not a serialized product or See R1 count as recorded. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. Distribution: every ECN has a Distribution list, the same ten roles as the DISTRIBUTION block on the paper form (CAD Department, VP Operations Eng., Quality Manager, Logistics Manager, Production Director, Sales, Op. Program Manager, Purchasing Manager, SHE Coordinator, Panel Plant). A new ECN starts with the seven the paper form ticks, VP Operations Eng. through Purchasing Manager; untick or add any before raising it, or later from the Distribution card's Edit button. The first time the ECN's Sign-off status is filled in, everyone in the ticked roles is emailed the ECN — not the person who filled it in — and the card then shows who it went to and when. Editing the sign-off afterwards sends nothing more. The card shows who each ticked role reaches and warns about a role nobody is set up for. If a signed-off ECN was never sent, because nobody was set up at the time or the email failed, the card has a Send now button. Who is in each role is set by ARC admins on the Distribution groups screen, from the button on the ECN list; anyone can view it there. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Admins can delete a notice from its page — for a duplicate or one entered by mistake — and are asked to confirm first; a superseded ECN should still be revised rather than deleted. Nobody else sees the Delete button. Every ECN also carries the Cross-Functional ECN Checklist (Form# MFGFRM-038) at the bottom of its page: all 84 review steps across the form's ten sections, filled out in ARC rather than on paper. A new ECN gets its checklist automatically; an ECN raised before this existed gets one from the Create checklist button. The card shows how many steps are answered with a progress bar; open it and each section expands to its own steps. Each step is marked Complete, N/A or Flagged, with a Findings / comments box beside it. Mark a step N/A when it does not apply to this ECN — that is what lets a finished checklist reach 100% on an ECN that never touches chemicals or CSA files — and Flagged when it needs a department review before release. Steps carry the form's own two markers: Must be on ECN means details have to appear on the notice, and Needs department review mirrors the form's review column. Changes save on their own a moment after you stop typing or click away, so there is no Save button. Who is involved? (RACI) opens the form's role matrix as reference — 32 roles across nine departments, with the R/A/C/I legend; steps that have a RACI assigned show a RACI link that opens the matrix at that step. The RACI is reference only and is never stored against an ECN.",
     render: () => (
       <>
         <P>
@@ -6447,8 +6453,18 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Filter by <strong>project</strong>, by <strong>In House Stock</strong>,
             by whether the <strong>drawings</strong> are complete or
-            outstanding, and by <strong>on hold</strong>. The filters live in
-            the address bar, so a filtered view can be shared.
+            outstanding, by <strong>on hold</strong>, and by{" "}
+            <strong>Serial numbers</strong>. The filters live in the address
+            bar, so a filtered view can be shared.
+          </LI>
+          <LI>
+            <strong>Serial numbers → Waiting</strong> lists the notices that
+            still need serial numbers: <strong>every</strong> notice whose
+            Serial Numbers field says <em>Please provide serial numbers</em>,
+            whatever its In House Stock, plus any notice that modifies stock
+            and has no serial numbers recorded yet.{" "}
+            <strong>Recorded</strong> lists the ones with serial numbers on
+            file that aren't waiting.
           </LI>
         </UL>
 
@@ -6507,6 +6523,38 @@ const SECTIONS: ManualSection[] = [
           comment too, mention them again: a mention notifies once, it doesn't
           subscribe anyone.
         </Tip>
+
+        <H3>Distribution</H3>
+        <P>
+          Every ECN has a <strong>Distribution</strong> list — the ten roles
+          on the paper form's DISTRIBUTION block. A new ECN starts with the
+          seven the paper form ticks (<strong>VP Operations Eng.</strong>{" "}
+          through <strong>Purchasing Manager</strong>); untick or add any on
+          the New ECN form, or later from the Distribution card's{" "}
+          <strong>Edit</strong> button.
+        </P>
+        <UL>
+          <LI>
+            <strong>The first time Sign-off status is filled in</strong>,
+            everyone in the ticked roles is emailed the ECN (not the person
+            who filled it in). The card then says who it went to and when.
+            Changing the sign-off afterwards sends nothing more.
+          </LI>
+          <LI>
+            The card shows who each ticked role reaches, and warns about a
+            role nobody is set up for — that role won't be emailed.
+          </LI>
+          <LI>
+            If a signed-off ECN was never sent (nobody was set up yet, or the
+            email failed), the card has a <strong>Send now</strong> button.
+          </LI>
+          <LI>
+            Who is in each role is set by <strong>ARC admins</strong> on the{" "}
+            <strong>Distribution groups</strong> screen, from the button on
+            the ECN list. Anyone can look at it. A change applies to the next
+            ECN signed off, not to ones already sent.
+          </LI>
+        </UL>
 
         <H3>The Cross-Functional ECN Checklist</H3>
         <P>

@@ -78,6 +78,7 @@ export interface ChangeTarget {
     | "altronicComponent"
     | "pricingRequest"
     | "mcn"
+    | "ecn"
     | "crimpCheck"
     | "coatingCheck"
     | "harnessPartNumber";
@@ -105,6 +106,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   altronicComponent: "component",
   pricingRequest: "pricing request",
   mcn: "MCN",
+  ecn: "ECN",
   crimpCheck: "crimp height check",
   coatingCheck: "conformal coating check",
   harnessPartNumber: "harness part number",

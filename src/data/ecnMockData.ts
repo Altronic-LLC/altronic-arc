@@ -1,4 +1,5 @@
-import type { Ecn } from "@/types/task";
+import type { Ecn, EcnDistributionGroup, Person } from "@/types/task";
+import { ECN_DEFAULT_DISTRIBUTION, ECN_DISTRIBUTION_ROLES } from "@/lib/ecnDistribution";
 
 // =============================================================================
 // Sample ECNs for mock mode.
@@ -37,6 +38,9 @@ export const MOCK_ECNS: Ecn[] = [
       engineeringComments: "",
       signOffStatus: "",
     },
+    distribution: [...ECN_DEFAULT_DISTRIBUTION],
+    distributedTo: [],
+    distributedAt: null,
     createdAt: daysAgo(2),
     modifiedAt: daysAgo(2),
   },
@@ -69,6 +73,9 @@ export const MOCK_ECNS: Ecn[] = [
         '<div class="ExternalClass5">7-30-26: SAP BOM updated. Drawings will follow at a later date.</div>',
       signOffStatus: "",
     },
+    distribution: [...ECN_DEFAULT_DISTRIBUTION, "CAD Department"],
+    distributedTo: [],
+    distributedAt: null,
     createdAt: daysAgo(6),
     modifiedAt: daysAgo(3),
   },
@@ -93,6 +100,14 @@ export const MOCK_ECNS: Ecn[] = [
         '<div class="ExternalClass8">7-28-26: SAP updated and drawings are ready for distribution</div>',
       signOffStatus: "Complete",
     },
+    distribution: [...ECN_DEFAULT_DISTRIBUTION],
+    // Signed off and sent — what an ECN looks like afterwards.
+    distributedTo: [
+      { displayName: "Quinn Quality", email: "quinn.quality@example.com" },
+      { displayName: "Lee Logistics", email: "lee.logistics@example.com" },
+      { displayName: "Pat Production", email: "pat.production@example.com" },
+    ],
+    distributedAt: daysAgo(18),
     createdAt: daysAgo(20),
     modifiedAt: daysAgo(14),
   },
@@ -116,6 +131,9 @@ export const MOCK_ECNS: Ecn[] = [
       engineeringComments: "",
       signOffStatus: "",
     },
+    distribution: [...ECN_DEFAULT_DISTRIBUTION, "Panel Plant"],
+    distributedTo: [],
+    distributedAt: null,
     createdAt: daysAgo(28),
     modifiedAt: daysAgo(28),
   },
@@ -141,7 +159,42 @@ export const MOCK_ECNS: Ecn[] = [
       engineeringComments: "",
       signOffStatus: "",
     },
+    // Predates distribution in ARC — nothing ticked, nothing sent.
+    distribution: [],
+    distributedTo: [],
+    distributedAt: null,
     createdAt: daysAgo(200),
     modifiedAt: daysAgo(190),
   },
 ];
+
+// -----------------------------------------------------------------------------
+// ECN Distribution Groups (BusinessIT#57) — INVENTED people, never real ones
+// (the repository is public). Panel Plant and SHE Coordinator are left empty
+// so the "nobody is set up for…" warning can be seen in the demo.
+// -----------------------------------------------------------------------------
+
+const GROUP_MEMBERS: Partial<Record<string, Person[]>> = {
+  "CAD Department": [{ displayName: "Casey Drafter", email: "casey.drafter@example.com" }],
+  "VP Operations Eng.": [{ displayName: "Val Operations", email: "val.operations@example.com" }],
+  "Quality Manager": [{ displayName: "Quinn Quality", email: "quinn.quality@example.com" }],
+  "Logistics Manager": [{ displayName: "Lee Logistics", email: "lee.logistics@example.com" }],
+  "Production Director": [{ displayName: "Pat Production", email: "pat.production@example.com" }],
+  Sales: [
+    { displayName: "Sam Sales", email: "sam.sales@example.com" },
+    { displayName: "Robin Accounts", email: "robin.accounts@example.com" },
+  ],
+  "Op. Program Manager": [{ displayName: "Morgan Program", email: "morgan.program@example.com" }],
+  // Also in Quality — so the demo shows one person on two roles getting ONE email.
+  "Purchasing Manager": [
+    { displayName: "Bailey Buyer", email: "bailey.buyer@example.com" },
+    { displayName: "Quinn Quality", email: "quinn.quality@example.com" },
+  ],
+};
+
+export const MOCK_ECN_DISTRIBUTION_GROUPS: EcnDistributionGroup[] = ECN_DISTRIBUTION_ROLES.map((role, i) => ({
+  id: i + 1,
+  role,
+  members: GROUP_MEMBERS[role] ?? [],
+  sortOrder: i + 1,
+}));

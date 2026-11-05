@@ -27,6 +27,8 @@
 // captured 2026-08-19.
 // =============================================================================
 
+import { ECN_DISTRIBUTION_COLUMNS } from "./ecnDistribution";
+
 /** The card a field belongs to on the detail page. */
 export type EcnSection = "Change" | "Disposition" | "Sign-off";
 
@@ -136,6 +138,9 @@ export const ECN_FIELDS: EcnField[] = [
     label: "Sign-off status",
     kind: "text",
     section: "Sign-off",
+    // BusinessIT#57 — the first time this is filled in, the ECN is emailed to
+    // its distribution (lib/ecnDistribution.ts).
+    hint: "The first time this is filled in, ARC emails the ECN to everyone in its ticked distribution roles.",
   },
 ];
 
@@ -194,3 +199,11 @@ export const ECN_SELECT = [
   "Modified",
   ...ECN_FIELDS.map((f) => f.column),
 ].join(",");
+
+/**
+ * The read WITH the three distribution columns (BusinessIT#57). Kept apart
+ * from ECN_SELECT because those columns are added by a script that runs
+ * separately from a deploy, and selecting a column a list hasn't got 400s the
+ * WHOLE read — api/ecns.ts falls back to ECN_SELECT when it does.
+ */
+export const ECN_SELECT_WITH_DISTRIBUTION = [ECN_SELECT, ...ECN_DISTRIBUTION_COLUMNS].join(",");
