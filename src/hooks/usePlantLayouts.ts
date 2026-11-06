@@ -5,13 +5,15 @@ import {
   createPlantLayout,
   getPlantLayout,
   listPlantLayouts,
+  publishPlantLayout,
   savePlantLayoutDraft,
 } from "@/api/plantLayouts";
 import { createLayoutComponent, listLayoutComponents } from "@/api/layoutComponents";
 import { readWallsFile } from "@/api/plantLayoutFiles";
 import type { LayoutComponent, NewLayoutComponentInput, NewPlantLayoutInput, PlantLayout, PlantLayoutDoc } from "@/types/plant";
 import { readWallsSvg, type WallsCheck } from "@/lib/plantSvg";
-import { editLayoutGate, manageSymbolsGate } from "@/lib/plantMapRoles";
+import { editLayoutGate, manageSymbolsGate, publishLayoutGate } from "@/lib/plantMapRoles";
+import { checkLayout } from "@/lib/plantGeometry";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { requirePlantMapGate, useResolvePlantMapAccess } from "./usePlantMapRoles";
 import { pushToast } from "@/components/Toast";
@@ -50,6 +52,57 @@ export function useLayoutComponents() {
     queryKey: LAYOUT_COMPONENTS_KEY,
     queryFn: listLayoutComponents,
     staleTime: 10 * 60_000,
+  });
+}
+
+/**
+ * Publish a draft — a Plant Map admin, asked inside the mutationFn, and ONLY
+ * if the placement check passes, asked again here on a fresh read of the
+ * layout, the walls drawing and the symbol library (a page open for an hour
+ * mustn't publish what it showed then). The API flips the old version to
+ * Superseded.
+ */
+export function usePublishPlantLayout() {
+  const qc = useQueryClient();
+  const resolve = useResolvePlantMapAccess();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      requirePlantMapGate(publishLayoutGate(await resolve()));
+      const layout = await getPlantLayout(id);
+      if (!layout) throw new Error("That layout has been deleted.");
+      const components = await qc.fetchQuery({ queryKey: LAYOUT_COMPONENTS_KEY, queryFn: listLayoutComponents });
+      const walls = layout.wallsFileId
+        ? await qc.fetchQuery({
+            queryKey: wallsKey(layout.wallsFileId),
+            queryFn: async () => readWallsSvg(await readWallsFile(layout.wallsFileId)),
+            staleTime: Infinity,
+          })
+        : null;
+      if (walls && !walls.ok) {
+        throw new Error(`The walls drawing can't be read (${walls.problem}), so the layout can't be checked or published.`);
+      }
+      const byId = new Map(components.map((c) => [c.id, c]));
+      const problems = checkLayout(layout.doc, (cid) => byId.get(cid)?.collides ?? true, walls?.ok ? walls.drawing : null);
+      if (problems.length > 0) {
+        throw new Error(
+          `Fix the ${problems.length} placement problem${problems.length === 1 ? "" : "s"} first — a layout with problems can't be published.`,
+        );
+      }
+      return publishPlantLayout(id);
+    },
+    onSuccess: ({ layout, superseded, warnings }) => {
+      storeLayout(qc, layout);
+      for (const old of superseded) storeLayout(qc, old);
+      const was = superseded.map((l) => `v${l.version}`).join(", ");
+      pushToast({ message: `Published v${layout.version}.${was ? ` ${was} is now Superseded.` : ""}` });
+      for (const w of warnings) pushToast({ message: w, variant: "error" });
+    },
+    onError: (err) =>
+      pushToast({
+        message: describeListWriteFailure(err, { action: "publish the layout", site: "Altronic_PMO", permission: "editing" }),
+        variant: "error",
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: PLANT_LAYOUTS_KEY }),
   });
 }
 

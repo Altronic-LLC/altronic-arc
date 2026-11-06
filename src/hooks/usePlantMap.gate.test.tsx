@@ -10,7 +10,13 @@ import type { ReactNode } from "react";
 
 const roles = vi.hoisted(() => ({ rows: [] as unknown[] }));
 const admins = vi.hoisted(() => ({ rows: [] as unknown[] }));
-const api = vi.hoisted(() => ({ createLayout: vi.fn(), createRole: vi.fn(), createSymbol: vi.fn() }));
+const api = vi.hoisted(() => ({
+  createLayout: vi.fn(),
+  createRole: vi.fn(),
+  createSymbol: vi.fn(),
+  getLayout: vi.fn(),
+  publish: vi.fn(),
+}));
 
 vi.mock("@/api/config", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/config")>()),
@@ -24,7 +30,8 @@ vi.mock("@/api/plantMapRoles", () => ({
 }));
 vi.mock("@/api/plantLayouts", () => ({
   createPlantLayout: api.createLayout,
-  getPlantLayout: vi.fn(),
+  getPlantLayout: api.getLayout,
+  publishPlantLayout: api.publish,
   listPlantLayouts: vi.fn(async () => []),
 }));
 vi.mock("@/api/layoutComponents", () => ({
@@ -38,7 +45,7 @@ vi.mock("./useCurrentUser", () => ({
 }));
 vi.mock("@/components/Toast", () => ({ pushToast: vi.fn() }));
 
-import { useCreateLayoutComponent, useCreatePlantLayout } from "./usePlantLayouts";
+import { useCreateLayoutComponent, useCreatePlantLayout, usePublishPlantLayout } from "./usePlantLayouts";
 import { useCreatePlantMapRoleEntry } from "./usePlantMapRoles";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -56,6 +63,8 @@ beforeEach(() => {
   api.createLayout.mockReset().mockResolvedValue({ id: 9, doc: { items: [] } });
   api.createRole.mockReset().mockImplementation(async (input) => ({ id: 2, ...input }));
   api.createSymbol.mockReset();
+  api.getLayout.mockReset();
+  api.publish.mockReset().mockResolvedValue({ layout: { id: 5, version: 2 }, superseded: [], warnings: [] });
 });
 
 describe("starting a layout", () => {
@@ -133,5 +142,35 @@ describe("adding a symbol", () => {
     const { result } = renderHook(() => useCreateLayoutComponent(), { wrapper });
     await act(() => result.current.mutateAsync(SYMBOL));
     expect(api.createSymbol).toHaveBeenCalledWith(SYMBOL);
+  });
+});
+
+describe("publishing a layout", () => {
+  // No walls file, so the check is against the layout's own extent: 100 × 50.
+  const layout = (x: number) => ({
+    id: 5,
+    status: "Draft",
+    wallsFileId: "",
+    doc: { extent: { w: 100, h: 50 }, items: [{ uid: "i1", componentId: 1, x, y: 25, w: 10, d: 10, rot: 0, label: "Bench" }], areas: [] },
+  });
+
+  it("is refused to an editor, and nothing is written", async () => {
+    roles.rows = [me(["editor"])];
+    api.getLayout.mockResolvedValue(layout(50));
+    const { result } = renderHook(() => usePublishPlantLayout(), { wrapper });
+    await act(() => expect(result.current.mutateAsync(5)).rejects.toThrow(/Only a Plant Map admin can publish/));
+    expect(api.publish).not.toHaveBeenCalled();
+  });
+
+  it("checks the layout AGAIN before writing — a problem refuses it, whatever the page showed", async () => {
+    roles.rows = [me(["admin"])];
+    api.getLayout.mockResolvedValue(layout(98)); // half the bench is outside the building
+    const { result } = renderHook(() => usePublishPlantLayout(), { wrapper });
+    await act(() => expect(result.current.mutateAsync(5)).rejects.toThrow(/Fix the 1 placement problem first/));
+    expect(api.publish).not.toHaveBeenCalled();
+
+    api.getLayout.mockResolvedValue(layout(50));
+    await act(() => result.current.mutateAsync(5));
+    expect(api.publish).toHaveBeenCalledWith(5);
   });
 });

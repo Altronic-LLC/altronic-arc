@@ -280,6 +280,40 @@ describe("PlantLayoutView", () => {
   });
 });
 
+describe("publishing", () => {
+  it("won't publish a draft with problems — the button says why", async () => {
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/2", routePattern: "/operations/plant-map/:id" });
+    await screen.findByRole("region", { name: "Placement check" });
+    const button = await screen.findByRole("button", { name: "Publish" });
+    await waitFor(() => expect(button).toHaveAttribute("title", "Fix the 5 placement problems first."));
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    await userEvent.setup().click(button);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("publishes a clean draft after asking, and it becomes Published", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
+    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    await user.click(await screen.findByRole("button", { name: "Publish" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Publish Engineering & Sales v1?");
+    expect(dialog).toHaveTextContent("It's the first published version of this layout.");
+    await user.click(within(dialog).getByRole("button", { name: "Publish" }));
+    await waitFor(async () => expect((await listPlantLayouts()).find((l) => l.id === 4)?.status).toBe("Published"));
+    // A published layout offers a new draft, not Publish.
+    expect(await screen.findByRole("button", { name: "Edit as a new draft" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
+  });
+
+  it("isn't offered to an editor", async () => {
+    who.email = "riley.sample@example.com";
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
+    expect(await screen.findByRole("button", { name: "Edit layout" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
+  });
+});
+
 describe("PlantMapRolesView", () => {
   it("lets a Plant Map admin tick a role", async () => {
     const user = userEvent.setup();

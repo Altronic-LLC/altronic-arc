@@ -201,3 +201,24 @@ export function feetLabel(inches: number): string {
   if (ft === 0) return `${inch} in`;
   return inch === 0 ? `${ft} ft` : `${ft} ft ${inch} in`;
 }
+
+
+/**
+ * A saved layout's placement check — the ONE recipe, used by the layout page
+ * and by Publish (which asks it again on fresh data before writing): its items
+ * against the walls drawing's obstacles plus its own drawn areas, inside the
+ * drawing's extent (the layout's own extent when there's no drawing).
+ */
+export function checkLayout(
+  doc: {
+    items: readonly (OrientedBox & { uid: string; label: string; componentId: number })[];
+    areas?: Parameters<typeof areaObstacles>[0];
+    extent: { w: number; h: number };
+  },
+  collidesOf: (componentId: number) => boolean,
+  drawing: { obstacles: readonly Obstacle[]; extent: { w: number; h: number } } | null,
+): LayoutProblem[] {
+  const items: CheckableItem[] = doc.items.map((it) => ({ ...it, collides: collidesOf(it.componentId) }));
+  const obstacles = [...(drawing?.obstacles ?? []), ...areaObstacles(doc.areas ?? [])];
+  return findLayoutProblems(items, obstacles, drawing?.extent ?? doc.extent);
+}

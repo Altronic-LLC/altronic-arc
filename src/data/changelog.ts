@@ -27,7 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Plant Map: open a layout to see it to scale — scroll to zoom, drag to pan, click an item for its details; each layout is checked for anything that overlaps, sits on a wall, aisle or no-go area, or goes outside the building, and problems are outlined in red",
       "Plant Map: editors drag symbols from the palette onto the plan, then move, turn and resize them; they snap to a grid and line up with nearby items along a dotted guide. Lock, duplicate, link to the equipment register, undo and keyboard shortcuts are all there",
       "Plant Map: draw your own aisles and no-go areas on a layout and label them; anything placed in one is flagged by name",
-      "Plant Map: a published layout is never changed — Edit starts a new draft version of it",
+      "Plant Map: a Plant Map admin publishes a draft once its placement check passes, and the version it replaces becomes Superseded; a published layout is never changed — Edit starts a new draft version of it",
       "Plant Map: the Layouts list has a tab per building. A new layout in an existing building reuses its walls drawing; a new building's drawing is reviewed before it's saved — confirm its size and pick which keep-outs become editable areas",
       "Plant Map: a Symbols tab shows the symbol library, and a Plant Map admin can add a symbol from an SVG, a CAD DXF or a picture ARC traces to an outline",
       "Plant Map: Plant Map admins choose who is a viewer, editor or admin under Roles; ARC admins reach Roles from the Admin page",

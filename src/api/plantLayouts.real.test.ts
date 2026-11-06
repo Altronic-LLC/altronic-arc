@@ -42,6 +42,7 @@ import {
   createPlantLayout,
   getPlantLayout,
   listPlantLayouts,
+  publishPlantLayout,
   savePlantLayoutDraft,
 } from "./plantLayouts";
 import { __resetPlantLayoutFilesForTests, readWallsFile, wallsFileName } from "./plantLayoutFiles";
@@ -245,5 +246,48 @@ describe("copyLayoutToDraft", () => {
     expect(existing).toBe(true);
     expect(layout.id).toBe(7);
     expect(graphFetch.mock.calls.some(([, i]) => i?.method === "POST")).toBe(false);
+  });
+});
+
+describe("publishPlantLayout", () => {
+  const draft = row("9", {
+    Title: "Main", LayoutKey: "main-x", Status: "Draft", Version: 4, WallsFile: "F1", LayoutJson: serializeLayoutDoc(DOC),
+  });
+  const live = row("4", { Title: "Main", LayoutKey: "main-x", Status: "Published", Version: 3, WallsFile: "F1" });
+  const older = row("2", { Title: "Main", LayoutKey: "main-x", Status: "Superseded", Version: 2, WallsFile: "F1" });
+  const patches = () =>
+    graphFetch.mock.calls
+      .filter(([, i]) => i?.method === "PATCH")
+      .map(([path, i]) => [String(path).split("/items/")[1], JSON.parse(String(i!.body))]);
+
+  it("publishes the draft FIRST, then supersedes the version that was published — and nothing else", async () => {
+    graphFetch.mockImplementation(async () => draft);
+    graphFetchAll.mockResolvedValue([draft, live, older]);
+    const result = await publishPlantLayout(9);
+    expect(patches()).toEqual([
+      ["9/fields", { Status: "Published" }],
+      ["4/fields", { Status: "Superseded" }],
+    ]);
+    expect(result.superseded.map((l) => l.id)).toEqual([4]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("keeps the new version published when an old one can't be superseded, and says which", async () => {
+    graphFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "PATCH" && String(path).includes("/items/4/")) throw new Error("Graph 403 Forbidden");
+      return draft;
+    });
+    graphFetchAll.mockResolvedValue([draft, live]);
+    const result = await publishPlantLayout(9);
+    expect(result.superseded).toEqual([]);
+    expect(result.warnings).toEqual([expect.stringMatching(/v3 is still marked Published — set it to Superseded.*403/)]);
+  });
+
+  it("refuses anything but a readable Draft, writing nothing", async () => {
+    graphFetch.mockResolvedValue(live);
+    await expect(publishPlantLayout(4)).rejects.toThrow("This layout is already Published.");
+    graphFetch.mockResolvedValue(row("9", { ...draft.fields, LayoutJson: "{not json" }));
+    await expect(publishPlantLayout(9)).rejects.toThrow(/couldn't be read/);
+    expect(patches()).toEqual([]);
   });
 });

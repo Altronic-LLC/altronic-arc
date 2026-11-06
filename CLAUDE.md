@@ -8576,9 +8576,10 @@ data came from, with the Python that generated them). Tim's decisions: under
 plan, the placement check, New layout, Roles, and the layout EDITOR (Tim tried
 the read-only first cut in demo mode and asked for drag and drop the same day;
 he also called it "a bit clunky", which is why the plan became a pan/zoom
-canvas and the editor works on the plan rather than through forms). Next:
-Phase 3 Publish (validate, the composite SVG to the library, Plant Tags rows
-for Power BI — "Edit as a new draft" already makes the next version), Phase 4
+canvas and the editor works on the plan rather than through forms).
+**Publish is built** (Tim, 2026-11-06, testing on the live lists): see below.
+Still to come in Phase 3: the composite SVG to the library and Plant Tags rows
+for Power BI. Then Phase 4
 overlays, Phase 5 live status (CMMS AssetStatus
 first, then Fabric), Phase 6 Power BI. **The Plant Overlays and Plant Tags
 lists don't exist yet**; the script adds them in their phase. Still open from
@@ -8635,9 +8636,20 @@ Eight things that are load-bearing:
   transactions). `serializeLayoutDoc` refuses past 63,000 characters rather
   than let SharePoint truncate it; `parseLayoutDoc` calls anything unreadable
   CORRUPT, and **ARC never writes over a corrupt layout**.
-- **A Published row is never written.** `savePlantLayoutDraft` re-reads the
-  row and refuses anything but a Draft (`LayoutNotDraftError`). Changing a
-  published layout will be "copy to a new draft".
+- **A Published row is never written** by a save. `savePlantLayoutDraft`
+  re-reads the row and refuses anything but a Draft (`LayoutNotDraftError`).
+  Changing a published layout is "copy to a new draft".
+- **Publish** (`publishPlantLayout` + `usePublishPlantLayout`, the Publish
+  button on a draft's page): a Plant Map admin (`publishLayoutGate`), and only
+  with NO placement problems — `checkLayout` (lib/plantGeometry, the one
+  recipe the page uses too) is asked AGAIN in the mutationFn on a fresh read of
+  the layout, the walls drawing and the symbols, so a stale page can't publish
+  what it once showed. The API re-reads the row (Draft, readable), PATCHes it
+  `Published` FIRST, then each other `Published` row with the same `LayoutKey`
+  to `Superseded`, collecting a refusal as a warning naming the version to fix
+  by hand — the other order could leave nothing published. The button is
+  `aria-disabled` with the reason as its title, and confirms first
+  (`RichTextWarningDialog`). No email.
 - **New layout uploads the walls file FIRST** (the row needs its id), with
   `conflictBehavior: rename` (never overwrite), and stores the SANITISED
   drawing. If the row is then refused, the error names the file left behind.

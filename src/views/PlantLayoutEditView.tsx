@@ -39,6 +39,7 @@ import { PlantCanvas, type PlantCanvasHandle } from "@/components/PlantCanvas";
 import { PlantAreaInspector, PlantInspector, PlantPalette } from "@/components/PlantEditorPanels";
 import { PlantLayoutStatusChip, PlantMapAccessGate } from "@/components/plantMapAtoms";
 import { cn } from "@/lib/cn";
+import { useFitToWindow } from "@/hooks/useFitToWindow";
 
 // =============================================================================
 // The plant layout editor (/operations/plant-map/:id/edit) — a DRAFT only.
@@ -142,6 +143,11 @@ function Editor({
   const { byId } = useLayoutComponentMap();
   const { data: equipment = [] } = useEquipment();
   const canvas = useRef<PlantCanvasHandle>(null);
+  // The three columns end just above the fixed footer, MEASURED (a guessed
+  // calc() ran under the footer on a short window, hiding the last symbols).
+  // Null on a phone, where the columns stack and the page scrolls.
+  const [fitRef, fitHeight] = useFitToWindow();
+  const columnHeight = fitHeight ? `${fitHeight}px` : undefined;
 
   const [state, dispatch] = useReducer(
     editorReducer,
@@ -458,8 +464,8 @@ function Editor({
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
-        <div className="lg:h-[calc(100dvh-210px)] lg:min-h-[480px]">
+      <div ref={fitRef} className="grid grid-cols-1 gap-3 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
+        <div style={{ height: columnHeight }}>
           <PlantPalette
             components={components}
             onAdd={(c) => addAt(c, canvas.current?.centre() ?? { x: extent.w / 2, y: extent.h / 2 })}
@@ -483,7 +489,7 @@ function Editor({
             selectedUid={selected}
             onSelect={setSelected}
             showLabels={showLabels}
-            height="calc(100dvh - 210px)"
+            height={columnHeight ?? "70vh"}
             editing={{
               grid,
               onCommit: (uid, patch) => dispatch({ type: "update", uid, patch }),
@@ -496,7 +502,7 @@ function Editor({
             }}
           />
         </div>
-        <aside className="flex min-w-0 flex-col gap-3 lg:h-[calc(100dvh-210px)] lg:min-h-[480px] lg:overflow-y-auto">
+        <aside className="flex min-w-0 flex-col gap-3 lg:overflow-y-auto" style={{ height: columnHeight }}>
           {selectedArea ? (
             <PlantAreaInspector
               area={selectedArea}

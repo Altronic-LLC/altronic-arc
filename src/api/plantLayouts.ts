@@ -197,6 +197,68 @@ export async function savePlantLayoutDraft(id: number, doc: PlantLayoutDoc): Pro
   return after;
 }
 
+export interface PublishResult {
+  layout: PlantLayout;
+  /** The versions that were Published before and are Superseded now. */
+  superseded: PlantLayout[];
+  /** Anything that couldn't be done after the layout itself was published. */
+  warnings: string[];
+}
+
+/**
+ * Publish a Draft: it becomes the layout everyone sees, and whatever version
+ * of the same layout (LayoutKey) was Published before becomes Superseded.
+ *
+ * Re-reads the row and refuses anything but a readable Draft. The draft is
+ * published FIRST, then the old versions are superseded one by one: if one of
+ * those writes is refused the new version is still the published one, and the
+ * warning says which old version to set to Superseded by hand. (The other
+ * order could leave a layout with nothing published at all.) Whether the
+ * layout passes the placement check is the caller's question — it needs the
+ * walls drawing and the symbol library (hooks/usePlantLayouts.ts).
+ */
+export async function publishPlantLayout(id: number): Promise<PublishResult> {
+  const current = await getPlantLayout(id);
+  if (!current) throw new Error("That layout has been deleted.");
+  if (current.status !== "Draft") throw new Error(`This layout is already ${current.status}.`);
+  if (current.docCorrupt) throw new Error("The saved layout couldn't be read, so it can't be published.");
+  const older = current.layoutKey
+    ? (await listPlantLayouts()).filter((l) => l.layoutKey === current.layoutKey && l.id !== id && l.status === "Published")
+    : [];
+
+  if (USE_MOCK) {
+    const olderIds = new Set(older.map((l) => l.id));
+    mockLayouts = mockLayouts.map((l) =>
+      l.id === id
+        ? { ...l, status: "Published" as const, modifiedAt: new Date() }
+        : olderIds.has(l.id)
+          ? { ...l, status: "Superseded" as const, modifiedAt: new Date() }
+          : l,
+    );
+    const rows = clone(mockLayouts);
+    return mockDelay({
+      layout: rows.find((l) => l.id === id)!,
+      superseded: rows.filter((l) => olderIds.has(l.id)),
+      warnings: [],
+    });
+  }
+
+  await graphFetch(`${itemsPath()}/${id}/fields`, { method: "PATCH", body: JSON.stringify({ Status: "Published" }) });
+  const superseded: PlantLayout[] = [];
+  const warnings: string[] = [];
+  for (const old of older) {
+    try {
+      await graphFetch(`${itemsPath()}/${old.id}/fields`, { method: "PATCH", body: JSON.stringify({ Status: "Superseded" }) });
+      superseded.push({ ...old, status: "Superseded" });
+    } catch (err) {
+      const why = err instanceof Error ? err.message : String(err);
+      warnings.push(`v${old.version} is still marked Published — set it to Superseded in SharePoint (${why}).`);
+    }
+  }
+  const after = await getPlantLayout(id);
+  return { layout: after ?? { ...current, status: "Published" }, superseded, warnings };
+}
+
 /**
  * Changing a published layout: a NEW Draft row, one version up, with the same
  * walls and items, pointing back at the version it copies. One layout has at

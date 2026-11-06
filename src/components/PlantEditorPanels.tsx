@@ -48,7 +48,9 @@ export function PlantPalette({
   }, [active]);
 
   return (
-    <section aria-label="Symbols" className="flex min-h-0 flex-col gap-2 rounded-xl border border-border bg-surface p-3">
+    // h-full: the panel fills its fixed-height column, so the LIST scrolls inside it.
+    // Without it the panel grew past the column and the last symbols sat under the footer.
+    <section aria-label="Symbols" className="flex h-full min-h-0 flex-col gap-2 rounded-xl border border-border bg-surface p-3">
       <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Symbols</h2>
       <SearchInput value={q} onChange={setQ} placeholder="Search symbols…" />
       <div className="flex flex-wrap gap-1">

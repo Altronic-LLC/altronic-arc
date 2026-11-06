@@ -1,24 +1,23 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, Map as MapIcon, Pencil } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Map as MapIcon, Pencil, Send } from "lucide-react";
 import {
   useCopyLayoutToDraft,
   useLayoutComponentMap,
   usePlantLayout,
   usePlantLayouts,
+  usePublishPlantLayout,
   useWallsDrawing,
 } from "@/hooks/usePlantLayouts";
 import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
-import { editLayoutGate } from "@/lib/plantMapRoles";
+import { editLayoutGate, publishLayoutGate } from "@/lib/plantMapRoles";
 import { pushToast } from "@/components/Toast";
 import type { PlantLayout, PlantLayoutItem } from "@/types/plant";
 import {
-  areaObstacles,
+  checkLayout,
   describeLayoutProblem,
   feetLabel,
-  findLayoutProblems,
   itemsWithProblems,
-  type CheckableItem,
   type LayoutProblem,
 } from "@/lib/plantGeometry";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
@@ -31,6 +30,7 @@ import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PlantCanvas } from "@/components/PlantCanvas";
 import { PlantCardTitle, PlantLayoutStatusChip, PlantMapAccessGate } from "@/components/plantMapAtoms";
 import { cn } from "@/lib/cn";
+import { RichTextWarningDialog } from "@/components/RichTextWarningDialog";
 
 // =============================================================================
 // One plant layout, drawn to scale — read-only (the editor is Phase 2).
@@ -108,10 +108,10 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
 
   const problems = useMemo<LayoutProblem[] | null>(() => {
     if (!drawing) return null;
-    const checkable: CheckableItem[] = items.map((it) => ({ ...it, collides: byId.get(it.componentId)?.collides ?? true }));
-    // The walls drawing's own keep-outs, plus the aisles and no-go areas drawn on the layout.
-    return findLayoutProblems(checkable, [...drawing.obstacles, ...areaObstacles(layout.doc.areas ?? [])], drawing.extent);
-  }, [drawing, items, byId, layout.doc.areas]);
+    // The walls drawing's own keep-outs, plus the aisles and no-go areas drawn on the layout —
+    // the same check Publish asks again before writing.
+    return checkLayout(layout.doc, (cid) => byId.get(cid)?.collides ?? true, drawing);
+  }, [drawing, byId, layout.doc]);
   const problemUids = useMemo(() => (problems ? itemsWithProblems(problems) : new Set<string>()), [problems]);
 
   return (
@@ -149,6 +149,7 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
             />
             Show labels
           </label>
+          <PublishButton layout={layout} problems={problems} />
           <EditButton layout={layout} />
         </div>
       </header>
@@ -210,6 +211,62 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
         onPick={setSelected}
       />
     </Shell>
+  );
+}
+
+/**
+ * Publish — a Plant Map admin, on a draft. Greyed with the reason (never
+ * `disabled`, so the reason is reachable) while the check is still running or
+ * finds problems; asks first, since a published layout can't be changed.
+ */
+function PublishButton({ layout, problems }: { layout: PlantLayout; problems: LayoutProblem[] | null }) {
+  const gate = publishLayoutGate(useMyPlantMapAccess());
+  const publish = usePublishPlantLayout();
+  const { data: all = [] } = usePlantLayouts();
+  const [asking, setAsking] = useState(false);
+  if (!gate.allowed || layout.status !== "Draft" || layout.docCorrupt) return null;
+  const blocked =
+    problems === null
+      ? "Checking the layout…"
+      : problems.length > 0
+        ? `Fix the ${problems.length} placement problem${problems.length === 1 ? "" : "s"} first.`
+        : null;
+  const current = all.find((l) => l.status === "Published" && !!layout.layoutKey && l.layoutKey === layout.layoutKey);
+  return (
+    <>
+      <button
+        type="button"
+        aria-disabled={!!blocked || publish.isPending}
+        title={blocked ?? "Publish this draft"}
+        onClick={() => !blocked && !publish.isPending && setAsking(true)}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md border border-cooper-green px-3 py-1.5 text-sm font-medium text-cooper-green hover:bg-cooper-green/10",
+          (blocked || publish.isPending) && "cursor-not-allowed opacity-50 hover:bg-transparent",
+        )}
+      >
+        <Send className="h-4 w-4" />
+        {publish.isPending ? "Publishing…" : "Publish"}
+      </button>
+      {asking && (
+        <RichTextWarningDialog
+          title={`Publish ${layout.title} v${layout.version}?`}
+          detail="It becomes the layout everyone on the Plant Map sees. A published layout can't be changed — later changes go in a new draft."
+          notifyNote={
+            current
+              ? `v${current.version}, published now, will be marked Superseded.`
+              : "It's the first published version of this layout."
+          }
+          trailing="Nobody is emailed."
+          confirmLabel="Publish"
+          cancelLabel="Not yet"
+          onCancel={() => setAsking(false)}
+          onConfirm={() => {
+            setAsking(false);
+            publish.mutate(layout.id);
+          }}
+        />
+      )}
+    </>
   );
 }
 
