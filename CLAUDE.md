@@ -906,6 +906,8 @@ src/
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
 │   ├── emailThread.ts            One Outlook conversation per item — the subject + conversation index every email about it carries (pure)
+│   ├── emailContext.ts           A task / EIR / build request email's context — parent or linked task, description, details — drawn as three blocks (pure)
+│   ├── pottingSampleAlerts.ts    The coil potting sample out-of-limit email — subject + the pieces the shared layout draws (pure)
 │   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
 │   ├── linkify.ts               Bare URL → <a>; two entry points (escaped vs markup)
@@ -10281,11 +10283,12 @@ Five things that are load-bearing:
   reuses that kind's existing label — check its other call sites.
 - **`target.thread` overrides the default.** An `EmailThread` files the email
   under ANOTHER item's conversation: a quote component's comments go to the
-  quote (the old quote component threads did), the EIR-promotion email to the EIR
-  (`firePromotionAlert`), and a PM-schedule alert gets its own
-  `scheduledMaintenance:id` key, since its id is a schedule's and the default
-  would be a work order's. **`thread: null` opts out** — the two parts-list
-  requests, which aren't about one part.
+  quote (the old quote component threads did), and a quote-to-task email to the
+  quote. **`thread: null` opts out** — the two parts-list requests, which
+  aren't about one part. (The EIR-promotion email and the PM-schedule alert
+  used overrides until v0.218.0; both are now sent with their OWN kind, `eir`
+  and `scheduledMaintenance`, whose default keys are the ones they used, so
+  no open conversation split.)
 - **`id: 0` never threads**, nor does a blank title — `emailThreadFor`
   returns null and the email keeps its summary as its subject.
 - **Renaming an item starts a new conversation.** Accepted (Tim): an id-only
@@ -10296,6 +10299,62 @@ Five things that are load-bearing:
 `api/email.threading.test.ts` pins the guarantee in real mode across both
 paths — a comment and a status alert on one item share subject AND index —
 and was verified by removing the index and watching it fail.
+
+### Task, EIR and build request emails: three blocks (BusinessIT#67)
+
+Valerie Sweeney (Feature Request #41): an email should say what it's about
+before it's opened. Decided with Tim, 2026-11-06, from mock-ups of every
+email (the "ARC Email Cut Sheet" Claude Doc). A target may carry a
+**`context`** (`lib/emailContext.ts`, on `MentionTarget` and `ChangeTarget`);
+when it does, `renderEmailShell` draws three blocks under the greeting:
+
+1. **The card** — the item's number and title, with `context.above` on a line
+   above it as a link: a task's **Parent task**, a build request's linked
+   **Task**.
+2. **What's new** — the headline (who did what), then the comment / change /
+   request. Always ABOVE the description, so a phone shows it first.
+3. **Description** — `descriptionExcerpt` (lib/changeAlerts.ts, the 600-char
+   word-boundary cut the assignment email already used, renamed from
+   `assignmentDescriptionExcerpt`), with "Read the full description in ARC"
+   only when it was cut. A build request has no description column, so
+   `context.details` (product, type, sample phase, quoted ship date, customer,
+   blanks dropped) fills this block instead.
+
+Rules that are load-bearing:
+
+- **Only Engineering tasks, EIRs and build requests carry a context**
+  (`taskEmailTarget`, `eirEmailTarget` in useEirs, `brEmailTarget` in
+  useBuildRequests, and `audienceFor` in useCommentMirror for the mirrored
+  copies). Every other email keeps the single-message layout, pinned in
+  `api/email.context.test.ts`. Build request PART emails were left alone
+  (Tim). Operations tasks weren't asked for.
+- **The subject never changes** — the parent is NOT in it (Tim): a moved task
+  would start a new Outlook conversation, and subjects would run long.
+- **The assignment email doesn't repeat the description**: with a context,
+  callers pass `details: { dueDate }` only, so the due date sits in What's new
+  and the description in its own block. `AssignmentDetails.description` is
+  optional for this; Operations tasks still pass it.
+- **A build request's linked task is read from the cached task list**
+  (`["tasks","list"]`, else the recent preview). The mention scanner keeps it
+  mounted on every page; when it isn't cached the card has no Task line.
+- **The EIR promotion email is the EIR's** — card, description and
+  conversation — with the new task named as a link in What's new and the
+  button pointed at it (`link`). It used to be the task's card and button
+  under the EIR's subject.
+
+**The potting alert is the deliberate odd one** (`sendOpenAlert`): the
+standard layout, but NO button (everything is in the email), everyone in
+**To** so Reply all reaches the list (Tim: they discuss a sample by email),
+a footer inviting Reply all instead of "Do not reply", its own subject, and
+failures reported like every other send. It runs in the background so the
+sample's save no longer waits on mail.
+
+**A PM schedule is its own email kind, `scheduledMaintenance`** ("PM
+schedule", button "Open this PM schedule"). As `maintenanceTask` the email
+said "this work order" and its button opened the work order with the
+schedule's id. `KIND_SEGMENTS.scheduledMaintenance` is
+`/operations/maintenance/schedules/:id`, which `PmLibraryView` reads as "show
+just this schedule" (retired included, filters hidden, Show all link).
 
 ## Theming
 

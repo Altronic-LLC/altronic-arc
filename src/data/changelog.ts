@@ -20,6 +20,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.218.0",
+    date: "2026-11-06",
+    changes: [
+      "Task, EIR and build request emails are now laid out in three parts: the item, what's new, and its description, so you can tell what an email is about without opening ARC",
+      "A task email shows its parent task above the task, and a build request email shows the task it's linked to; both are links",
+      "Task and EIR emails now include the description, cut at 600 characters with a link to read the rest; build request emails show the product, type, sample phase, ship date and customer",
+      "The email sent when an EIR is promoted now shows the EIR, names the new task as a link, and its button opens the task",
+      "PM schedule owner emails now say PM schedule, and their button opens that schedule in the PM library instead of an unrelated work order",
+      "Completing a work order from the Complete form now emails the status it moved from, instead of \"— → Complete\"",
+      "Panel \"Ready to start\" emails sent when an order comes off hold now name the step that finished",
+      "The coil potting sample alert now uses the standard ARC email layout; everyone on the list is still in To so Reply all works, and a send that fails now says so",
+    ],
+  },
+  {
     version: "0.217.1",
     date: "2026-11-05",
     changes: [

@@ -42,6 +42,7 @@ import {
   notifyMentions,
 } from "@/api/email";
 import { eirTriageStage } from "@/lib/eirTriage";
+import { eirEmailContext, type EmailContext } from "@/lib/emailContext";
 import {
   EIR_CLOSED,
   EIR_RESOLUTION_RESOLVED,
@@ -174,7 +175,7 @@ export function useCreateEir() {
       const engineers = variables.assignedEngineers ?? [];
       if (engineers.length > 0) {
         fireAssigneeChangeAlert({
-          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          target: eirEmailTarget(created),
           prev: [],
           next: engineers,
           actor,
@@ -193,7 +194,7 @@ export function useCreateEir() {
       });
       if (stage) {
         fireEirTriageAlert({
-          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          target: eirEmailTarget(created),
           stage,
           actor,
           projectTitle: projectTitleFor(qc, projectIds[0]),
@@ -348,6 +349,7 @@ export function usePromoteEirToTask() {
           id: eir.id,
           eirNo: eir.eirNo,
           title: eir.title,
+          description: eir.description,
           watchers: eir.watchers,
           reporter: eir.reporter,
         },
@@ -455,11 +457,7 @@ export function useUpdateEirFields() {
       // so fire each independently. Recipients = watchers + assigned engineers
       // + reporter, minus the actor.
       if (ctx?.prevEir) {
-        const target = {
-          kind: "eir" as const,
-          id,
-          title: eirTargetTitle(ctx.prevEir),
-        };
+        const target = eirEmailTarget(ctx.prevEir);
         const recipients = {
           actor,
           watchers: ctx.prevEir.watchers,
@@ -625,7 +623,7 @@ export function useSetEirAssignedEngineers() {
       });
       if (ctx?.prevEir) {
         fireAssigneeChangeAlert({
-          target: { kind: "eir", id, title: eirTargetTitle(ctx.prevEir) },
+          target: eirEmailTarget(ctx.prevEir),
           prev,
           next: people,
           actor,
@@ -726,11 +724,7 @@ export function useAddEirComment() {
         void notifyMentions({
           recipients,
           sender: { displayName: comment.authorName, email: comment.authorEmail },
-          target: {
-            kind: "eir",
-            id: eir.id,
-            title: eirTargetTitle(eir),
-          },
+          target: eirEmailTarget(eir),
           commentExcerpt: eirCommentExcerpt(comment.bodyHtml),
           attachments: [],
         });
@@ -870,7 +864,7 @@ export function useEditEirComment() {
           void notifyMentions({
             recipients,
             sender: { displayName: prevComment.authorName, email: prevComment.authorEmail },
-            target: { kind: "eir", id: eir.id, title: eirTargetTitle(eir) },
+            target: eirEmailTarget(eir),
             commentExcerpt: eirCommentExcerpt(newBodyHtml),
             attachments: prevComment.attachments ?? [],
           });
@@ -893,6 +887,11 @@ export function useEditEirComment() {
 /** Human-readable EIR label for email subjects/callouts ("EIR_2026-0042 — Title"). */
 export function eirTargetTitle(e: Eir): string {
   return [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title;
+}
+
+/** An EIR's email target: its title, and its description as the third block (BusinessIT#67). */
+export function eirEmailTarget(e: Eir): { kind: "eir"; id: number; title: string; context: EmailContext } {
+  return { kind: "eir", id: e.id, title: eirTargetTitle(e), context: eirEmailContext(e) };
 }
 
 /**

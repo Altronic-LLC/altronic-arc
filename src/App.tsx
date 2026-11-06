@@ -979,6 +979,15 @@ export function App() {
                 </Suspense>
               }
             />
+            {/* One schedule — where a PM schedule email's button lands (KIND_SEGMENTS.scheduledMaintenance). */}
+            <Route
+              path="/operations/maintenance/schedules/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the maintenance schedule" />}>
+                  <PmLibraryView />
+                </Suspense>
+              }
+            />
             <Route
               path="/operations/maintenance/assets"
               element={

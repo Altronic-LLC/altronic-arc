@@ -23,7 +23,7 @@ import {
   setBuildRequestItemWatchers,
   updateBuildRequestItemFields,
 } from "@/api/buildRequestItems";
-import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
+import type { BuildRequest, BuildRequestItem, Person, Task } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
@@ -64,6 +64,7 @@ import {
 } from "./mentionAutoWatch";
 import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
 import { buildRequestEmailTitle, buildRequestPartEmailTitle } from "@/lib/buildRequestAlerts";
+import { buildRequestEmailContext, type EmailContext, type LinkedTaskRef } from "@/lib/emailContext";
 import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
@@ -73,6 +74,36 @@ import { parseWrittenDate } from "@/lib/dateInput";
 // mutations fire mention/watcher emails with kind "buildRequest" (headers)
 // or "buildRequestItem" (parts).
 // =============================================================================
+
+/**
+ * The task a build request is linked to, as its email card names it — read from
+ * whichever task list is cached (the full list, else the recent-tasks preview).
+ * The mention scanner keeps the task list mounted on every page, so it's almost
+ * always there; when it isn't, the card just shows no "Task:" line. Keys are
+ * spelled here: importing useTasks would cycle through useCommentMirror.
+ */
+function linkedTaskFor(qc: QueryClient, br: Pick<BuildRequest, "taskReferenceLookupId">): LinkedTaskRef | null {
+  const id = br.taskReferenceLookupId;
+  if (!id) return null;
+  for (const key of [["tasks", "list"], ["tasks", "recent"]]) {
+    const t = qc.getQueryData<Task[]>(key)?.find((x) => x.id === id);
+    if (t) return { id: t.id, title: t.numberedTitle || t.title };
+  }
+  return null;
+}
+
+/** A build request's email target: its title, linked task and details (BusinessIT#67). */
+function brEmailTarget(
+  qc: QueryClient,
+  br: BuildRequest,
+): { kind: "buildRequest"; id: number; title: string; context: EmailContext } {
+  return {
+    kind: "buildRequest",
+    id: br.id,
+    title: buildRequestEmailTitle(br),
+    context: buildRequestEmailContext(br, linkedTaskFor(qc, br)),
+  };
+}
 
 export const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 export const BUILD_REQUEST_ITEMS_KEY = ["buildRequestItems", "list"] as const;
@@ -390,7 +421,7 @@ export function useUpdateBuildRequestFields() {
       }
       return snapshotAndPatchBr(qc, id, patchBr(id, (b) => applyBrFieldsLocally(b, fields)));
     },
-    onSuccess: (_data, { id, fields }, ctx) => {
+    onSuccess: (_data, { fields }, ctx) => {
       pushToast({ message: "Changes saved." });
       const prevBr = ctx?.prevBr;
       if ("BRStatus" in fields && prevBr) {
@@ -400,7 +431,7 @@ export function useUpdateBuildRequestFields() {
         if (!brStatusHasOwnAlert(from, to)) {
           // No-ops by itself when from === to.
           fireFieldChangeAlert({
-            target: { kind: "buildRequest", id, title: buildRequestEmailTitle(prevBr) },
+            target: brEmailTarget(qc, prevBr),
             fieldLabel: "status",
             from,
             to,
@@ -414,11 +445,11 @@ export function useUpdateBuildRequestFields() {
         // OUR guard, so re-saving a status never re-announces it.
         if (to !== from) {
           if (to === "Ready for Production") {
-            fireBuildRequestReadyForProductionAlert({ buildRequest: prevBr, actor: who });
+            fireBuildRequestReadyForProductionAlert({ buildRequest: prevBr, context: brEmailTarget(qc, prevBr).context, actor: who });
           } else if (to === "Production Complete") {
-            fireBuildRequestProductionCompleteAlert({ buildRequest: prevBr, actor: who });
+            fireBuildRequestProductionCompleteAlert({ buildRequest: prevBr, context: brEmailTarget(qc, prevBr).context, actor: who });
           } else if (to === "Complete" && from === "Production Complete") {
-            fireBuildRequestCompleteAlert({ buildRequest: prevBr, actor: who });
+            fireBuildRequestCompleteAlert({ buildRequest: prevBr, context: brEmailTarget(qc, prevBr).context, actor: who });
           }
         }
       }
@@ -477,7 +508,7 @@ export function useSetBuildRequestEngineer() {
       });
       if (ctx?.prevBr) {
         fireAssigneeChangeAlert({
-          target: { kind: "buildRequest", id, title: buildRequestEmailTitle(ctx.prevBr) },
+          target: brEmailTarget(qc, ctx.prevBr),
           prev: prev ? [prev] : [],
           next: person ? [person] : [],
           actor,
@@ -600,7 +631,7 @@ export function useCreateBuildRequest() {
       const engineer = variables.engineerAssigned ?? null;
       if (engineer) {
         fireAssigneeChangeAlert({
-          target: { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br) },
+          target: brEmailTarget(qc, br),
           prev: [],
           next: [engineer],
           actor,
@@ -752,11 +783,7 @@ export function useAddBuildRequestComment() {
         void notifyMentions({
           recipients,
           sender,
-          target: {
-            kind: "buildRequest",
-            id: br.id,
-            title: buildRequestEmailTitle(br),
-          },
+          target: brEmailTarget(qc, br),
           commentExcerpt: htmlToPlainText(comment.bodyHtml),
           attachments: [],
         });
@@ -835,11 +862,7 @@ export function useEditBuildRequestComment() {
       const br = brs?.find((b) => b.id === id);
       if (!br) return;
       const sender: Person = { displayName: prevComment.authorName, email: prevComment.authorEmail };
-      const targetRef = {
-        kind: "buildRequest" as const,
-        id: br.id,
-        title: buildRequestEmailTitle(br),
-      };
+      const targetRef = brEmailTarget(qc, br);
 
       if (renotify) {
         const recipients = commentRenotifyRecipients({

@@ -1,5 +1,6 @@
 import type { Person } from "@/types/task";
 import type { EmailThread } from "./emailThread";
+import type { EmailContext } from "./emailContext";
 import { looksLikeHtml, parseChecklistItems } from "./descriptionChecklist";
 import { htmlToPlainText } from "./htmlText";
 import { escapeHtml } from "./mentions";
@@ -81,11 +82,14 @@ export interface ChangeTarget {
     | "ecn"
     | "crimpCheck"
     | "coatingCheck"
-    | "harnessPartNumber";
+    | "harnessPartNumber"
+    | "scheduledMaintenance";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
   thread?: EmailThread | null;
+  /** Parent / linked task, description or details — the three-block layout (lib/emailContext.ts). */
+  context?: EmailContext;
 }
 
 const NOUNS: Record<ChangeTarget["kind"], string> = {
@@ -110,6 +114,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   crimpCheck: "crimp height check",
   coatingCheck: "conformal coating check",
   harnessPartNumber: "harness part number",
+  scheduledMaintenance: "PM schedule",
 };
 
 function nounFor(target: ChangeTarget): string {
@@ -237,16 +242,23 @@ export function buildChecklistToggleEmails(args: {
  */
 export interface AssignmentDetails {
   dueDate: Date | null;
-  /** The raw stored Description — HTML or plain text, checklists included. */
-  description: string;
+  /**
+   * The raw stored Description — HTML or plain text, checklists included.
+   * Omitted when the email carries the description in its own block instead
+   * (an Engineering task's context, lib/emailContext.ts).
+   */
+  description?: string;
 }
 
 /**
- * Longest description excerpt an assignment email carries. Long enough for a
- * normal task's context; a multi-page spec stops here rather than burying
- * the Open button under it.
+ * Longest description excerpt an email carries — the assignment email, and
+ * the Description block of every task / EIR email (BusinessIT#67). Long
+ * enough for a normal task's context; a multi-page spec stops here, with a
+ * "Read the full description in ARC" link, rather than burying the button.
+ * About two thirds of a phone screen, accepted (Tim, 2026-11-06): the email
+ * scrolls, and what changed is always above it.
  */
-export const ASSIGNMENT_DESCRIPTION_MAX_CHARS = 600;
+export const DESCRIPTION_EXCERPT_MAX_CHARS = 600;
 
 function formatDueDate(d: Date | null): string {
   // Local getters, as the task page reads it — the sender's browser builds the
@@ -264,9 +276,9 @@ function formatDueDate(d: Date | null): string {
  * A description as readable plain text for an email: HTML stripped, and each
  * `- [ ]` / `- [x]` checklist line shown as a box with its who/when stamp
  * dropped (the stamp is working detail, not context). Capped at
- * ASSIGNMENT_DESCRIPTION_MAX_CHARS on a word boundary, ending "…".
+ * DESCRIPTION_EXCERPT_MAX_CHARS on a word boundary, ending "…".
  */
-export function assignmentDescriptionExcerpt(description: string): string {
+export function descriptionExcerpt(description: string): string {
   const raw = description ?? "";
   // A plain description goes through as typed: htmlToPlainText's tag strip
   // would eat "< 5V … >" out of ordinary prose.
@@ -279,19 +291,19 @@ export function assignmentDescriptionExcerpt(description: string): string {
       `${item.depth === 1 ? "    " : ""}${item.checked ? "☑" : "☐"} ${item.text.trim()}`;
   }
   const text = lines.join("\n").trim();
-  if (text.length <= ASSIGNMENT_DESCRIPTION_MAX_CHARS) return text;
+  if (text.length <= DESCRIPTION_EXCERPT_MAX_CHARS) return text;
 
-  const cut = text.slice(0, ASSIGNMENT_DESCRIPTION_MAX_CHARS);
+  const cut = text.slice(0, DESCRIPTION_EXCERPT_MAX_CHARS);
   const lastBreak = cut.search(/\s\S*$/);
   // No whitespace in the back half means one enormous word — cut it mid-word
   // rather than throwing most of the excerpt away.
-  const end = lastBreak > ASSIGNMENT_DESCRIPTION_MAX_CHARS / 2 ? lastBreak : cut.length;
+  const end = lastBreak > DESCRIPTION_EXCERPT_MAX_CHARS / 2 ? lastBreak : cut.length;
   return `${cut.slice(0, end).trimEnd()}…`;
 }
 
 function assignmentDetailHtml(details: AssignmentDetails): string {
   const due = `<div style="font-size:14px;"><strong>Due:</strong> ${escapeHtml(formatDueDate(details.dueDate))}</div>`;
-  const excerpt = assignmentDescriptionExcerpt(details.description);
+  const excerpt = descriptionExcerpt(details.description ?? "");
   if (!excerpt) return due;
   return (
     due +
@@ -394,14 +406,17 @@ export function buildAssigneeChangeEmails(args: {
 
 /**
  * Alerts for promoting an EIR to a task. Recipients = the EIR's watchers +
- * reporter (minus the actor). The email links to the NEW TASK — callers send
- * these with a task-kind target so the callout + button open the task.
+ * reporter (minus the actor).
  *
- * `eirLabel` is the EIR number (or "EIR #id"); it appears in the copy so
- * recipients know which EIR spawned the task.
+ * Sent with an EIR target — the card is the EIR these people follow, and the
+ * email files under the EIR's conversation — and with the button pointed at
+ * the NEW task (`link`). The new task is named, as a link, in the headline.
+ * Until 2026-11-06 the card and button were the task's under the EIR's
+ * subject, which read as an email about some other item (BusinessIT#67).
  */
 export function buildPromotionEmails(args: {
   eirLabel: string;
+  task: { title: string; url: string };
   watchers: Person[];
   reporter?: Person | null;
   actor: Person;
@@ -411,13 +426,13 @@ export function buildPromotionEmails(args: {
   if (recipients.length === 0) return [];
 
   const actorName = escapeHtml(args.actor.displayName || "Someone");
-  const eir = escapeHtml(args.eirLabel);
+  const taskLink = `<a href="${escapeHtml(args.task.url)}" style="color:#CB2C30;font-weight:600;">${escapeHtml(args.task.title)}</a>`;
   return recipients.map((p) => ({
     email: p.email,
     displayName: p.displayName,
-    subject: `${args.eirLabel} was promoted to a task`,
-    headlineHtml: `<strong>${actorName}</strong> promoted EIR <strong>${eir}</strong> to a task.`,
+    subject: `${args.eirLabel} was promoted to task ${args.task.title}`,
+    headlineHtml: `<strong>${actorName}</strong> promoted this EIR to task ${taskLink}.`,
     detailHtml:
-      '<div style="font-size:14px;">A task has been created to carry this work forward — open it below.</div>',
+      '<div style="font-size:14px;">The work carries on there. Comments on either one are copied to the other.</div>',
   }));
 }

@@ -3,6 +3,7 @@ import type { PanelTask, PanelTaskStatus, Person } from "@/types/task";
 import {
   buildChainOpenedEmails,
   chainStartStatus,
+  chainStepBefore,
   chainTasksReadyToOpen,
   chainWaitingOn,
   holdWrites,
@@ -126,6 +127,25 @@ describe("chainTasksReadyToOpen", () => {
   it("finds a step whose turn came while the order was held", () => {
     const tasks = chain("Completed", "Awaiting Pre-Req", "Awaiting Pre-Req", "Awaiting Pre-Req");
     expect(chainTasksReadyToOpen(12, tasks).map((t) => t.id)).toEqual([2]);
+  });
+});
+
+describe("chainStepBefore", () => {
+  it("names the finished step just before the task — what its Ready email says is done", () => {
+    const tasks = chain("Completed", "Completed", "Awaiting Pre-Req", "Awaiting Pre-Req");
+    expect(chainStepBefore(tasks[2], tasks)?.id).toBe(2);
+  });
+
+  it("skips a step still to do and a task from another order", () => {
+    const other = task(9, "Completed", 3, 99);
+    const tasks = [...chain("Completed", "In Progress", "Awaiting Pre-Req", "Awaiting Pre-Req"), other];
+    expect(chainStepBefore(tasks[3], tasks)?.id).toBe(1);
+  });
+
+  it("is null for the first step, and for a task outside a chain", () => {
+    const tasks = chain("Ready", "Awaiting Pre-Req", "Awaiting Pre-Req", "Awaiting Pre-Req");
+    expect(chainStepBefore(tasks[0], tasks)).toBeNull();
+    expect(chainStepBefore(task(5, "Ready", null), tasks)).toBeNull();
   });
 });
 

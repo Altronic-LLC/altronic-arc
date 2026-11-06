@@ -228,16 +228,14 @@ export function useSetScheduleAssignedTo() {
       });
       if (ctx?.prev) {
         fireAssigneeChangeAlert({
+          // Its own kind: `id` is a SCHEDULE id. As a maintenanceTask the email
+          // said "this work order" and its button opened the work order with
+          // the schedule's id. The default thread key, scheduledMaintenance:id,
+          // is the one these emails already used, so open conversations hold.
           target: {
-            kind: "maintenanceTask",
+            kind: "scheduledMaintenance",
             id,
             title: `PM schedule: ${scheduledMaintenanceLabel(ctx.prev)}`,
-            // A schedule's own conversation — `id` is a SCHEDULE id, so the
-            // default `maintenanceTask:id` would claim a work order's.
-            thread: {
-              key: `scheduledMaintenance:${id}`,
-              subject: `PM schedule: ${scheduledMaintenanceLabel(ctx.prev)}`,
-            },
           },
           prev: prev ? [prev] : [],
           next: person ? [person] : [],

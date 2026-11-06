@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
 import {
-  ASSIGNMENT_DESCRIPTION_MAX_CHARS,
-  assignmentDescriptionExcerpt,
+  DESCRIPTION_EXCERPT_MAX_CHARS,
+  descriptionExcerpt,
   buildAssigneeChangeEmails,
   buildChecklistToggleEmails,
   buildFieldChangeEmails,
@@ -353,16 +353,16 @@ describe("buildAssigneeChangeEmails — assignment details", () => {
   });
 });
 
-describe("assignmentDescriptionExcerpt", () => {
+describe("descriptionExcerpt", () => {
   it("strips HTML to text", () => {
-    expect(assignmentDescriptionExcerpt("<p>Hello <strong>there</strong></p><p>Second</p>")).toBe(
+    expect(descriptionExcerpt("<p>Hello <strong>there</strong></p><p>Second</p>")).toBe(
       "Hello there\n\nSecond",
     );
   });
 
   // A tag strip on plain text would eat everything between a "<" and a ">".
   it("leaves plain text with angle brackets alone", () => {
-    expect(assignmentDescriptionExcerpt("Vout < 5V and Iout > 2A")).toBe("Vout < 5V and Iout > 2A");
+    expect(descriptionExcerpt("Vout < 5V and Iout > 2A")).toBe("Vout < 5V and Iout > 2A");
   });
 
   it("shows checklist lines as boxes, without their who/when stamps", () => {
@@ -372,31 +372,31 @@ describe("assignmentDescriptionExcerpt", () => {
       "\t- [ ] Confirm the bracket",
       "- [ ] Bench test",
     ].join("\n");
-    expect(assignmentDescriptionExcerpt(text)).toBe(
+    expect(descriptionExcerpt(text)).toBe(
       ["Steps:", "☑ Order the part", "    ☐ Confirm the bracket", "☐ Bench test"].join("\n"),
     );
   });
 
   it("returns empty for a blank description", () => {
-    expect(assignmentDescriptionExcerpt("")).toBe("");
-    expect(assignmentDescriptionExcerpt("<p> </p>")).toBe("");
+    expect(descriptionExcerpt("")).toBe("");
+    expect(descriptionExcerpt("<p> </p>")).toBe("");
   });
 
   it("caps a long description on a word boundary with an ellipsis", () => {
     const long = "word ".repeat(400).trim();
-    const out = assignmentDescriptionExcerpt(long);
-    expect(out.length).toBeLessThanOrEqual(ASSIGNMENT_DESCRIPTION_MAX_CHARS + 1);
+    const out = descriptionExcerpt(long);
+    expect(out.length).toBeLessThanOrEqual(DESCRIPTION_EXCERPT_MAX_CHARS + 1);
     expect(out.endsWith("word…")).toBe(true);
   });
 
   it("cuts one enormous word rather than dropping the excerpt", () => {
-    const out = assignmentDescriptionExcerpt("x".repeat(1000));
-    expect(out).toBe(`${"x".repeat(ASSIGNMENT_DESCRIPTION_MAX_CHARS)}…`);
+    const out = descriptionExcerpt("x".repeat(1000));
+    expect(out).toBe(`${"x".repeat(DESCRIPTION_EXCERPT_MAX_CHARS)}…`);
   });
 
   it("leaves a description at exactly the cap untouched", () => {
-    const exact = "y".repeat(ASSIGNMENT_DESCRIPTION_MAX_CHARS);
-    expect(assignmentDescriptionExcerpt(exact)).toBe(exact);
+    const exact = "y".repeat(DESCRIPTION_EXCERPT_MAX_CHARS);
+    expect(descriptionExcerpt(exact)).toBe(exact);
   });
 });
 
@@ -404,20 +404,24 @@ describe("buildPromotionEmails", () => {
   it("notifies watchers + reporter, excludes the actor, dedupes", () => {
     const out = buildPromotionEmails({
       eirLabel: "EIR_2026-0042",
+      task: { title: "T5-276-Pump seal", url: "https://arc.example/task/77" },
       watchers: [BOB, SARAH, ACTOR], // actor watching → dropped
       reporter: SARAH, // also a watcher → deduped
       actor: ACTOR,
     });
     const emails = out.map((e) => e.email).sort();
     expect(emails).toEqual(["bob@x.com", "sarah@x.com"]);
-    expect(out[0].subject).toBe("EIR_2026-0042 was promoted to a task");
-    expect(out[0].headlineHtml).toContain("promoted EIR");
-    expect(out[0].headlineHtml).toContain("EIR_2026-0042");
+    expect(out[0].subject).toBe("EIR_2026-0042 was promoted to task T5-276-Pump seal");
+    // The new task is named, and linked, in the headline.
+    expect(out[0].headlineHtml).toContain("promoted this EIR to task");
+    expect(out[0].headlineHtml).toContain('href="https://arc.example/task/77"');
+    expect(out[0].headlineHtml).toContain("T5-276-Pump seal");
   });
 
   it("returns [] when only the actor would be notified", () => {
     const out = buildPromotionEmails({
       eirLabel: "EIR_2026-0042",
+      task: { title: "T5-276-Pump seal", url: "https://arc.example/task/77" },
       watchers: [ACTOR],
       reporter: ACTOR,
       actor: ACTOR,

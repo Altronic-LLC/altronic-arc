@@ -69,6 +69,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
+import { taskEmailTarget } from "@/lib/emailContext";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
 import { mergeTaskIntoList } from "@/lib/taskGraph";
@@ -417,7 +418,7 @@ export function useSetStatus() {
       });
       if (ctx?.prevTask && prev) {
         fireFieldChangeAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           fieldLabel: "status",
           from: prev,
           to: status,
@@ -506,7 +507,7 @@ export function useUpdateTaskFields() {
       // diffing the checklist items below.
       if ("Status" in fields && ctx?.prevTask) {
         fireFieldChangeAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           fieldLabel: "status",
           from: ctx.prevTask.status,
           to: String(fields.Status ?? ""),
@@ -517,7 +518,7 @@ export function useUpdateTaskFields() {
       }
       if ("Description" in fields && ctx?.prevTask) {
         fireChecklistToggleAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           toggles: diffChecklistToggles(
             ctx.prevTask.description ?? "",
             String(fields.Description ?? ""),
@@ -804,12 +805,13 @@ export function useSetAssigned() {
       });
       if (ctx?.prevTask) {
         fireAssigneeChangeAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           prev,
           next: people,
           actor,
           watchers: ctx.prevTask.watchers,
-          details: { dueDate: ctx.prevTask.dueDate, description: ctx.prevTask.description },
+          // The description rides in the target's context (its own block).
+          details: { dueDate: ctx.prevTask.dueDate },
         });
       }
     },
@@ -981,7 +983,7 @@ export function useAddComment() {
         void notifyMentions({
           recipients,
           sender,
-          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          target: taskEmailTarget(task),
           commentExcerpt: htmlToPlainText(comment.bodyHtml),
           attachments: comment.attachments ?? [],
         });
@@ -1135,7 +1137,7 @@ export function useEditComment() {
           void notifyMentions({
             recipients,
             sender,
-            target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+            target: taskEmailTarget(task),
             commentExcerpt: htmlToPlainText(newBodyHtml),
             attachments: prevComment.attachments ?? [],
           });
@@ -1156,7 +1158,7 @@ export function useEditComment() {
           void notifyMentions({
             recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
             sender,
-            target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+            target: taskEmailTarget(task),
             commentExcerpt: htmlToPlainText(newBodyHtml),
             attachments: prevComment.attachments ?? [],
           });
@@ -1195,17 +1197,16 @@ export function useCreateTask() {
       const assignees = variables.assigned ?? [];
       if (assignees.length > 0) {
         fireAssigneeChangeAlert({
-          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          // The description off the input, like the due date below: it's what
+          // the creator typed, and the create response may not carry it.
+          target: taskEmailTarget({ ...task, description: variables.description ?? task.description }),
           prev: [],
           next: assignees,
           actor,
           watchers: [],
           // Off the mutation input, like the assignees: the input is exactly
           // what the creator typed, and the response's copy adds nothing.
-          details: {
-            dueDate: variables.dueDate ?? null,
-            description: variables.description ?? "",
-          },
+          details: { dueDate: variables.dueDate ?? null },
         });
       }
       // Seed the new task into the cache immediately — TaskFormModal

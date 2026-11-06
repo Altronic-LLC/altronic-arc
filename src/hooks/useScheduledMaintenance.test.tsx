@@ -153,6 +153,21 @@ describe("owning a schedule", () => {
     expect(result.current.data?.watchers.some((w) => w.email === ME.email)).toBe(true);
     await waitFor(() => expect(fireAssigneeChangeAlert).toHaveBeenCalled());
   });
+
+  it("sends the alert as a PM SCHEDULE, not a work order", async () => {
+    // As kind maintenanceTask the email said "this work order" and its button
+    // opened the WORK ORDER that happened to share the schedule's id.
+    const wrap = wrapper();
+    const rows = await loaded(wrap);
+    const { result } = renderHook(() => useSetScheduleAssignedTo(), { wrapper: wrap });
+    await act(async () => {
+      await result.current.mutateAsync({ id: rows[0].id, person: ME });
+    });
+    await waitFor(() => expect(fireAssigneeChangeAlert).toHaveBeenCalled());
+    const { target } = fireAssigneeChangeAlert.mock.calls[0][0];
+    expect(target).toMatchObject({ kind: "scheduledMaintenance", id: rows[0].id });
+    expect(target.title).toMatch(/^PM schedule: /);
+  });
 });
 
 describe("creating a schedule", () => {

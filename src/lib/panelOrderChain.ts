@@ -100,6 +100,26 @@ export function chainTasksReadyToOpen<T extends ChainTask>(orderId: number, task
 }
 
 /**
+ * The step a task was waiting on, now done — what its "Ready to start" email
+ * names: the finished chained task of its order at the highest step below its
+ * own (lowest id first among a tie). Null for a task outside a chain. Used when
+ * an order comes off hold, where no single task "just finished"; the email used
+ * to say "An earlier step is done" instead.
+ */
+export function chainStepBefore<T extends ChainTask>(task: ChainTask, tasks: readonly T[]): T | null {
+  const orderId = task.orderRef?.lookupId;
+  const step = task.chainStep;
+  if (!orderId || step === null) return null;
+  const before = tasks
+    .filter(
+      (t) =>
+        inOrder(t, orderId) && t.chainStep !== null && t.chainStep < step && isPanelTaskDone(t.status),
+    )
+    .sort((a, b) => (b.chainStep as number) - (a.chainStep as number) || a.id - b.id);
+  return before[0] ?? null;
+}
+
+/**
  * The earlier steps a waiting task is waiting for — what its page names.
  * Empty when it isn't a chained task waiting its turn.
  */
