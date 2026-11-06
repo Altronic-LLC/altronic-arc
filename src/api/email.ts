@@ -26,6 +26,7 @@ import type {
 import { appItemUrl } from "@/lib/appUrl";
 import { attachmentOnlyFileNames } from "@/lib/htmlText";
 import {
+  descriptionExcerpt,
   buildAssigneeChangeEmails,
   buildChecklistToggleEmails,
   buildFieldChangeEmails,
@@ -37,6 +38,7 @@ import {
   type EmailAction,
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
+import type { EmailContext } from "@/lib/emailContext";
 import {
   buildEirClosedEmails,
   buildEirResolvedEmails,
@@ -145,11 +147,14 @@ export interface MentionTarget {
     | "mcn"
     | "crimpCheck"
     | "coatingCheck"
-    | "harnessPartNumber";
+    | "harnessPartNumber"
+    | "scheduledMaintenance";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
   thread?: EmailThread | null;
+  /** Parent / linked task, description or details — the three-block layout (lib/emailContext.ts). */
+  context?: EmailContext;
 }
 
 /** Per-kind copy for the email templates — one row per notification target type. */
@@ -286,6 +291,15 @@ const KIND_COPY: Record<
     phrase: "a harness part number",
     calloutLabel: "Part Number",
     buttonText: "Open the part numbers",
+  },
+  // A PM schedule has no detail page; its link opens the PM library filtered
+  // to it (/operations/maintenance/schedules/:id). Until 2026-11-06 schedule
+  // emails went out as kind maintenanceTask, so the button opened the WORK
+  // ORDER with the schedule's id — an unrelated record, or none.
+  scheduledMaintenance: {
+    phrase: "a PM schedule",
+    calloutLabel: "PM Schedule",
+    buttonText: "Open this PM schedule",
   },
 };
 
@@ -619,11 +633,12 @@ export function describeFailure(email: string, err: unknown): MailSendFailure {
  */
 export function reportSendFailures(
   result: MailSendResult,
-  what: "comment" | "change",
+  what: "comment" | "change" | "sample",
 ): void {
   if (result.failed.length === 0) return;
 
-  const saved = what === "comment" ? "Your comment saved" : "Your change saved";
+  const saved =
+    what === "comment" ? "Your comment saved" : what === "sample" ? "The sample saved" : "Your change saved";
   const denied = result.failed.filter((f) => f.kind === "permission");
   const others = result.failed.filter((f) => f.kind === "other");
 
@@ -697,6 +712,7 @@ async function sendComment(input: {
     commentExcerpt: input.commentExcerpt,
     attachmentNames,
     url,
+    context: target.context,
   });
 
   const message: Record<string, unknown> = {
@@ -812,6 +828,7 @@ export async function notifyChangeEmails(input: {
             itemTitle: input.target.title,
             url,
             buttonText: input.link?.buttonText,
+            context: input.target.context,
           });
           await postMail({
             ...threadedMessage(threading, e.subject, bodyHtml),
@@ -829,6 +846,65 @@ export async function notifyChangeEmails(input: {
   });
 
   reportSendFailures(result, "change");
+  return result;
+}
+
+/**
+ * An alert to a LIST of people who are meant to reply to each other — the
+ * coil potting sample out of limit. Everyone in To (not Bcc) so Reply all
+ * reaches the whole list, no button, its own subject (not a conversation),
+ * otherwise the standard ARC layout. A failed send is reported like any other.
+ */
+export async function sendOpenAlert(input: {
+  subject: string;
+  recipients: Array<{ email: string; displayName: string }>;
+  calloutLabel: string;
+  calloutTitle: string;
+  introHtml: string;
+  messageHtml: string;
+}): Promise<MailSendResult> {
+  const people = input.recipients.filter((r) => !!r.email);
+  if (people.length === 0) return NOTHING_SENT;
+
+  if (USE_MOCK) {
+    // eslint-disable-next-line no-console
+    console.info("[email mock] open alert:", {
+      from: SHARED_MAILBOX ?? "(no shared mailbox configured)",
+      subject: input.subject,
+      to: people.map((p) => p.email),
+    });
+    return { sent: people.map((p) => p.email), failed: [] };
+  }
+  if (!SHARED_MAILBOX) {
+    console.warn("[email] VITE_SHARED_MAILBOX is not set — skipping the alert.");
+    return NOTHING_SENT;
+  }
+
+  const result: MailSendResult = { sent: [], failed: [] };
+  await whileSending(async () => {
+    for (const batch of inBatches(people)) {
+      try {
+        const bodyHtml = renderEmailShell({
+          recipientName: batch.length === 1 ? batch[0].displayName : null,
+          introHtml: input.introHtml,
+          calloutLabel: input.calloutLabel,
+          calloutTitle: input.calloutTitle,
+          messageHtml: input.messageHtml,
+          replyAll: true,
+        });
+        await postMail({
+          subject: input.subject,
+          body: { contentType: "HTML", content: bodyHtml },
+          toRecipients: batch.map((p) => ({ emailAddress: { address: p.email, name: p.displayName || p.email } })),
+        });
+        result.sent.push(...batch.map((p) => p.email));
+      } catch (err) {
+        console.error(`[email] Failed to send "${input.subject}":`, err);
+        result.failed.push(...batch.map((p) => describeFailure(p.email, err)));
+      }
+    }
+  });
+  reportSendFailures(result, "sample");
   return result;
 }
 
@@ -1251,8 +1327,8 @@ type BrForAlert = Pick<
   "id" | "brNo" | "title" | "engineerAssigned" | "requestor" | "watchers"
 >;
 
-function buildRequestTarget(br: BrForAlert): ChangeTarget {
-  return { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br) };
+function buildRequestTarget(br: BrForAlert, context?: EmailContext): ChangeTarget {
+  return { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br), context };
 }
 
 /**
@@ -1262,10 +1338,12 @@ function buildRequestTarget(br: BrForAlert): ChangeTarget {
  */
 export function fireBuildRequestReadyForProductionAlert(args: {
   buildRequest: BrForAlert;
+  /** The linked task + details block (lib/emailContext.ts buildRequestEmailContext). */
+  context?: EmailContext;
   actor: Person;
 }): void {
   const br = args.buildRequest;
-  const target = buildRequestTarget(br);
+  const target = buildRequestTarget(br, args.context);
   const emails = buildBrReadyForProductionEmails({
     target,
     queue: parseRecipientList(BUILD_REQUEST_PRODUCTION_ALERTS),
@@ -1315,9 +1393,10 @@ export function fireBuildRequestPartProductionCompleteAlert(args: {
  */
 export function fireBuildRequestProductionCompleteAlert(args: {
   buildRequest: BrForAlert;
+  context?: EmailContext;
   actor: Person;
 }): void {
-  const target = buildRequestTarget(args.buildRequest);
+  const target = buildRequestTarget(args.buildRequest, args.context);
   const emails = buildBrProductionCompleteReviewEmails({
     target,
     reviewers: parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS),
@@ -1334,10 +1413,11 @@ export function fireBuildRequestProductionCompleteAlert(args: {
  */
 export function fireBuildRequestCompleteAlert(args: {
   buildRequest: BrForAlert;
+  context?: EmailContext;
   actor: Person;
 }): void {
   const br = args.buildRequest;
-  const target = buildRequestTarget(br);
+  const target = buildRequestTarget(br, args.context);
   const emails = buildBrCompleteEmails({
     target,
     queue: parseRecipientList(BUILD_REQUEST_FINAL_ALERTS),
@@ -1351,30 +1431,38 @@ export function fireBuildRequestCompleteAlert(args: {
 }
 
 export function firePromotionAlert(args: {
-  eir: { id: number; eirNo: string; title: string; watchers: Person[]; reporter?: Person | null };
+  eir: {
+    id: number;
+    eirNo: string;
+    title: string;
+    description?: string;
+    watchers: Person[];
+    reporter?: Person | null;
+  };
   task: { id: number; numberedTitle: string; title: string };
   actor: Person;
 }): void {
+  const taskUrl = appItemUrl("task", args.task.id);
   const emails = buildPromotionEmails({
     eirLabel: args.eir.eirNo || `EIR #${args.eir.id}`,
+    task: { title: args.task.numberedTitle || args.task.title, url: taskUrl },
     watchers: args.eir.watchers,
     reporter: args.eir.reporter,
     actor: args.actor,
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({
+    // The EIR's people, so the EIR's card, the EIR's conversation (its default
+    // thread — subject = eirTargetTitle in useEirs.ts) and its description. The
+    // button opens the NEW task: that's where the work goes next.
     target: {
-      kind: "task",
-      id: args.task.id,
-      title: args.task.numberedTitle || args.task.title,
-      // Told to the EIR's people, so it joins the EIR's conversation — the
-      // subject is the EIR's own emails' (eirTargetTitle in useEirs.ts).
-      thread: {
-        key: `eir:${args.eir.id}`,
-        subject: [args.eir.eirNo, args.eir.title].filter(Boolean).join(" — ") || args.eir.title,
-      },
+      kind: "eir",
+      id: args.eir.id,
+      title: [args.eir.eirNo, args.eir.title].filter(Boolean).join(" — ") || args.eir.title,
+      context: { description: args.eir.description ?? "" },
     },
     emails,
+    link: { url: taskUrl, buttonText: "Open the new task" },
   });
 }
 
@@ -1389,6 +1477,7 @@ interface MentionEmailContext {
   /** Set when the comment is ONLY attached files — see attachmentOnlyFileNames. */
   attachmentNames?: string[] | null;
   url: string;
+  context?: EmailContext;
 }
 
 /**
@@ -1414,19 +1503,41 @@ function renderEmailShell(ctx: {
   messageHtml?: string;
   /** Answer buttons above the main one — outlined, so the main button stays the obvious "just open it". */
   actions?: Array<{ label: string; url: string }>;
-  buttonText: string;
-  url: string;
+  /** The main button. Omitted together with `url` = no button (the potting alert). */
+  buttonText?: string;
+  url?: string;
+  /** Present = the three-block layout (number/title, what's new, description). */
+  context?: EmailContext;
+  /** The recipients are meant to Reply all (the potting alert) — the footer says so instead of "Do not reply". */
+  replyAll?: boolean;
 }): string {
   const greeting = ctx.recipientName
     ? `Hello <strong>${escapeHtml(ctx.recipientName)}</strong>,`
     : "Hello,";
   const calloutTitle = escapeHtml(ctx.calloutTitle);
-  const url = escapeHtml(ctx.url);
-  const messageBlock = ctx.messageHtml
-    ? `<div style="margin:0 0 22px 0;padding:14px 16px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;color:#374151;">
+  const url = ctx.url ? escapeHtml(ctx.url) : "";
+  const body = ctx.context
+    ? contextBlocks({ ...ctx, calloutTitle, context: ctx.context })
+    : `<p style="margin:0 0 18px 0;">${ctx.introHtml}</p>
+            ${calloutHtml(ctx.calloutLabel, calloutTitle, undefined)}
+            ${ctx.messageHtml ? `<div style="${BOX_STYLE}">
               ${ctx.messageHtml}
-            </div>`
-    : "";
+            </div>` : ""}`;
+  const buttonRow =
+    ctx.buttonText && url
+      ? `
+        <tr>
+          <td align="center" style="padding:${ctx.actions?.length ? "8px" : "0"} 28px 28px 28px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td align="center" style="background:#CB2C30;border-radius:6px;">
+                  <a href="${url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">${ctx.buttonText}</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`
+      : "";
   // One button per row: three long labels side by side don't fit a phone,
   // and Outlook can't wrap table cells the way a browser wraps flex items.
   const actionsBlock = (ctx.actions ?? [])
@@ -1459,36 +1570,85 @@ function renderEmailShell(ctx: {
           </td>
         </tr>
         <tr>
-          <td style="padding:28px 28px 8px 28px;color:#111827;font-size:15px;line-height:1.55;">
+          <td style="padding:28px 28px ${buttonRow ? "8px" : "6px"} 28px;color:#111827;font-size:15px;line-height:1.55;">
             <p style="margin:0 0 14px 0;font-size:16px;">${greeting}</p>
-            <p style="margin:0 0 18px 0;">${ctx.introHtml}</p>
-            <div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
-              <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${escapeHtml(ctx.calloutLabel)}</div>
-              <div style="font-weight:600;color:#111827;">${calloutTitle}</div>
-            </div>
-            ${messageBlock}
+            ${body}
           </td>
-        </tr>${actionsBlock}
-        <tr>
-          <td align="center" style="padding:${ctx.actions?.length ? "8px" : "0"} 28px 28px 28px;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-              <tr>
-                <td align="center" style="background:#CB2C30;border-radius:6px;">
-                  <a href="${url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">${ctx.buttonText}</a>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
+        </tr>${actionsBlock}${buttonRow}
         <tr>
           <td style="padding:14px 28px;background:#fafafa;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:11px;line-height:1.5;text-align:center;">
-            Do not reply to this email &mdash; it was automatically sent via ARC (Altronic Resource Center).
+            ${
+              ctx.replyAll
+                ? "Sent automatically by ARC (Altronic Resource Center). Reply all to discuss it with everyone on the list."
+                : "Do not reply to this email &mdash; it was automatically sent via ARC (Altronic Resource Center)."
+            }
           </td>
         </tr>
       </table>
     </td>
   </tr>
 </table>`.trim();
+}
+
+/** The white box a message sits in — and, in the three-block layout, each block. */
+const BOX_STYLE =
+  "margin:0 0 22px 0;padding:14px 16px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;color:#374151;";
+const BLOCK_LABEL_STYLE =
+  "font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;";
+
+/** The item's card: its type, an optional line above the title, the title. `title` is escaped already. */
+function calloutHtml(label: string, title: string, above: EmailContext["above"]): string {
+  const aboveHtml = above
+    ? `<div style="font-size:13px;color:#6b7280;margin-bottom:3px;">${escapeHtml(above.label)}: ` +
+      `<a href="${escapeHtml(above.url)}" style="color:#6b7280;">${escapeHtml(above.title)}</a> &rarr;</div>`
+    : "";
+  return `<div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
+              <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${escapeHtml(label)}</div>
+              ${aboveHtml}<div style="font-weight:600;color:#111827;">${title}</div>
+            </div>`;
+}
+
+/**
+ * The three-block layout (BusinessIT#67): the card, then What's new (the
+ * headline and the comment / change), then the description — or a build
+ * request's details. What changed always comes before the description, so a
+ * phone shows it first and the description is a scroll away.
+ */
+function contextBlocks(ctx: {
+  introHtml: string;
+  calloutLabel: string;
+  /** Escaped already. */
+  calloutTitle: string;
+  messageHtml?: string;
+  url?: string;
+  context: EmailContext;
+}): string {
+  const { context } = ctx;
+  const whatsNew =
+    `<div style="${BOX_STYLE}"><div style="${BLOCK_LABEL_STYLE}">What's new</div>` +
+    `<div style="color:#111827;${ctx.messageHtml ? "margin-bottom:10px;" : ""}">${ctx.introHtml}</div>` +
+    `${ctx.messageHtml ?? ""}</div>`;
+
+  let third = "";
+  const excerpt = descriptionExcerpt(context.description ?? "");
+  if (excerpt) {
+    const cut = excerpt.endsWith("…") && !!ctx.url;
+    third =
+      `<div style="${BOX_STYLE}"><div style="${BLOCK_LABEL_STYLE}">Description</div>` +
+      `<div style="font-size:14px;">${escapeHtml(excerpt).replace(/\n/g, "<br/>")}</div>` +
+      (cut
+        ? `<div style="font-size:13px;margin-top:8px;"><a href="${escapeHtml(ctx.url!)}" style="color:#CB2C30;">Read the full description in ARC &rarr;</a></div>`
+        : "") +
+      `</div>`;
+  } else if (context.details && context.details.length > 0) {
+    third =
+      `<div style="${BOX_STYLE}"><div style="${BLOCK_LABEL_STYLE}">Details</div>` +
+      context.details
+        .map((d) => `<div style="font-size:14px;">${escapeHtml(d.label)}: <strong>${escapeHtml(d.value)}</strong></div>`)
+        .join("") +
+      `</div>`;
+  }
+  return calloutHtml(ctx.calloutLabel, ctx.calloutTitle, context.above) + whatsNew + third;
 }
 
 /** Build the @-mention / watching comment email body from the shared shell. */
@@ -1517,6 +1677,7 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
       messageHtml: files.map((f) => `📎 ${escapeHtml(f)}`).join("<br/>"),
       buttonText: copy.buttonText,
       url: ctx.url,
+      context: ctx.context,
     });
   }
   const intro =
@@ -1540,6 +1701,7 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
     messageHtml: excerpt || '<em style="color:#9ca3af;">(no message body)</em>',
     buttonText: copy.buttonText,
     url: ctx.url,
+    context: ctx.context,
   });
 }
 
@@ -1553,6 +1715,7 @@ function renderChangeEmail(ctx: {
   itemTitle: string;
   url: string;
   buttonText?: string;
+  context?: EmailContext;
 }): string {
   const copy = KIND_COPY[ctx.kind];
   return renderEmailShell({
@@ -1564,6 +1727,7 @@ function renderChangeEmail(ctx: {
     actions: ctx.actions?.map((a) => ({ label: a.label, url: withQuery(ctx.url, a.query) })),
     buttonText: ctx.buttonText ?? copy.buttonText,
     url: ctx.url,
+    context: ctx.context,
   });
 }
 

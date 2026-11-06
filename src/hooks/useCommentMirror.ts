@@ -9,6 +9,13 @@ import {
 import { buildRequestForTask, taskLabel } from "@/lib/buildRequestFromTask";
 import { buildRequestEmailTitle, buildRequestPartEmailTitle } from "@/lib/buildRequestAlerts";
 import { commentNotifyRecipients } from "@/lib/mentions";
+import {
+  buildRequestEmailContext,
+  eirEmailContext,
+  taskEmailContext,
+  type EmailContext,
+  type LinkedTaskRef,
+} from "@/lib/emailContext";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { notifyMentions } from "@/api/email";
 import { pushToast } from "@/components/Toast";
@@ -205,12 +212,19 @@ async function resolveLinkage(
   };
 }
 
+/** The task a build request is linked to, for its email card. */
+function linkedTask(qc: QueryClient, id: number | null): LinkedTaskRef | null {
+  if (!id) return null;
+  const t = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((x) => x.id === id);
+  return t ? { id: t.id, title: taskLabel(t) } : null;
+}
+
 /** Watchers + assignees of a mirror target, for its own notification. */
 function audienceFor(
   qc: QueryClient,
   kind: CommentOriginKind,
   id: number,
-): { watchers: Person[]; assignees: Person[]; title: string } | null {
+): { watchers: Person[]; assignees: Person[]; title: string; context?: EmailContext } | null {
   if (kind === "quote") {
     const quote = qc.getQueryData<Quote[]>(QUOTES_KEY)?.find((q) => q.id === id);
     if (!quote) return null;
@@ -231,6 +245,7 @@ function audienceFor(
       assignees: eir.assignedEngineers,
       // The EIR's own email title, so the copy joins its conversation.
       title: eirTargetTitle(eir),
+      context: eirEmailContext(eir),
     };
   }
   if (kind === "task") {
@@ -240,6 +255,7 @@ function audienceFor(
       watchers: task.watchers,
       assignees: task.assigned,
       title: taskLabel(task),
+      context: taskEmailContext(task),
     };
   }
   if (kind === "buildRequest") {
@@ -251,6 +267,7 @@ function audienceFor(
       // The EMAIL title, not the banner's brLabel: it is the subject, and it
       // must match the request's own emails to join their conversation.
       title: buildRequestEmailTitle(br),
+      context: buildRequestEmailContext(br, linkedTask(qc, br.taskReferenceLookupId)),
     };
   }
   const item = qc
@@ -374,6 +391,7 @@ export async function fanOutComment(args: {
         kind: target.kind,
         id: target.id,
         title: audience.title,
+        context: audience.context,
       },
       // The email describes the comment itself, so it carries the plain body
       // rather than the banner markup — the banner is a UI affordance for

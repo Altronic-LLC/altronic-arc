@@ -40,7 +40,8 @@ export type AppItemKind =
   | "mcn"
   | "crimpCheck"
   | "coatingCheck"
-  | "harnessPartNumber";
+  | "harnessPartNumber"
+  | "scheduledMaintenance";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -95,6 +96,9 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // A part number request has no item page — its email links to the list
   // with `link`, so this segment is only the fallback.
   harnessPartNumber: "harness/production-log/part-numbers",
+  // A PM schedule has no detail page: /operations/maintenance/schedules/:id is
+  // the PM library showing just that schedule (PmLibraryView reads the id).
+  scheduledMaintenance: "operations/maintenance/schedules",
 };
 
 /** Absolute URL to an item's detail page in this app. */

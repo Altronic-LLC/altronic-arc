@@ -100,3 +100,28 @@ describe("the order's hold", () => {
     expect(after.every((t) => t.statusBeforeHold === null)).toBe(true);
   });
 });
+
+describe("coming off hold", () => {
+  it("names the step that finished, not \"An earlier step\", in the Ready email", async () => {
+    const order = await newOrder();
+    const [drawing, bom] = tasksForOrder(await listPanelTasks(), order.id);
+    const tasks = renderHook(() => useUpdatePanelTaskFields(), { wrapper: wrapper() });
+    const orders = renderHook(() => useUpdatePanelOrderFields(), { wrapper: wrapper() });
+
+    // Hold the order, finish the first step while it's held, then release it.
+    await act(() => orders.result.current.mutateAsync({ id: order.id, fields: { Status: "On Hold" } }));
+    await waitFor(async () => expect(await statuses(order.id)).toEqual(Array(4).fill("On Hold - Internal")));
+    await primeCaches();
+    await act(() => tasks.result.current.mutateAsync({ id: drawing.id, fields: { Status: "Completed" } }));
+    await primeCaches();
+    mail.change.mockReset();
+    await act(() => orders.result.current.mutateAsync({ id: order.id, fields: { Status: "In Engineering" } }));
+
+    await waitFor(() =>
+      expect(mail.change.mock.calls.some(([arg]) => arg.target.id === bom.id)).toBe(true),
+    );
+    const call = mail.change.mock.calls.find(([arg]) => arg.target.id === bom.id)![0];
+    expect(call.emails[0].headlineHtml).toContain(drawing.title);
+    expect(call.emails[0].headlineHtml).not.toContain("An earlier step");
+  });
+});

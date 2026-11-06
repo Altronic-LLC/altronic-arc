@@ -5,6 +5,7 @@ import type { PanelTask, Person } from "@/types/task";
 import {
   buildChainOpenedEmails,
   CHAIN_OPEN_STATUS,
+  chainStepBefore,
   chainTasksReadyToOpen,
   holdWrites,
   releaseWrites,
@@ -46,11 +47,15 @@ function titlesOf(ids: readonly number[], tasks: readonly PanelTask[]): string {
   return ids.map((id) => `"${tasks.find((t) => t.id === id)?.title ?? `task ${id}`}"`).join(", ");
 }
 
-/** Open the given chained tasks (→ Ready) and email their assignees. */
+/**
+ * Open the given chained tasks (→ Ready) and email their assignees, naming the
+ * step that finished — `after` per task, since coming off hold can open tasks
+ * at different points in the chain.
+ */
 async function openTasks(
   qc: QueryClient,
   toOpen: readonly PanelTask[],
-  after: Pick<PanelTask, "title">,
+  after: (task: PanelTask) => Pick<PanelTask, "title">,
   actor: Person,
 ): Promise<void> {
   if (!toOpen.length) return;
@@ -58,7 +63,7 @@ async function openTasks(
     toOpen.map((t) => ({ id: t.id, fields: { Status: CHAIN_OPEN_STATUS, StatusBeforeHold: null } })),
   );
   for (const task of done) {
-    const emails = buildChainOpenedEmails({ task, after, actor });
+    const emails = buildChainOpenedEmails({ task, after: after(task), actor });
     if (emails.length) {
       void notifyChangeEmails({ target: { kind: "panelTask", id: task.id, title: task.title }, emails });
     }
@@ -97,7 +102,7 @@ export async function advanceChainAfter(qc: QueryClient, taskId: number, actor: 
   }
   const changed = tasks.find((t) => t.id === taskId);
   if (!changed) return;
-  await openTasks(qc, tasksOpenedBy(changed, tasks), changed, actor);
+  await openTasks(qc, tasksOpenedBy(changed, tasks), () => changed, actor);
 }
 
 /**
@@ -145,7 +150,12 @@ export async function applyOrderHold(
   }
   if (change === "release") {
     const after = tasks.map((t) => done.find((d) => d.id === t.id) ?? t);
-    await openTasks(qc, chainTasksReadyToOpen(order.id, after), { title: "An earlier step" }, actor);
+    await openTasks(
+      qc,
+      chainTasksReadyToOpen(order.id, after),
+      (task) => chainStepBefore(task, after) ?? { title: "An earlier step" },
+      actor,
+    );
   }
   qc.invalidateQueries({ queryKey: PANEL_TASKS_PREFIX });
 }

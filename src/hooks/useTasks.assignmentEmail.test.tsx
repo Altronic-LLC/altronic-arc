@@ -2,6 +2,10 @@
 // (BusinessIT #5 / #6). The wording is pinned in lib/changeAlerts.test.ts;
 // these pin that BOTH ways an Engineering task gets an assignee hand the
 // details over — assigning on an existing task, and assigning at creation.
+//
+// Since BusinessIT#67 the description travels in the target's CONTEXT (its
+// own block in the email, lib/emailContext.ts), and `details` carries only the
+// due date — so the description is never shown twice.
 
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import type { ReactNode } from "react";
@@ -76,13 +80,18 @@ describe("task-assigned email details", () => {
     expect(fireAssigneeChangeAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         next: [BOB],
-        details: { dueDate: DUE, description: "Fit the new sensor." },
+        details: { dueDate: DUE },
+        target: expect.objectContaining({
+          kind: "task",
+          context: expect.objectContaining({ description: "Fit the new sensor." }),
+        }),
       }),
     );
   });
 
   it("assigning at creation sends the due date and description that were entered", async () => {
-    (createTask as Mock).mockResolvedValue({ ...TARGET, id: 9001, assigned: [BOB] });
+    // The response carries no description: the one typed into the form is used.
+    (createTask as Mock).mockResolvedValue({ ...TARGET, id: 9001, assigned: [BOB], description: "" });
     const { wrapper } = harness();
     const { result } = renderHook(() => useCreateTask(), { wrapper });
 
@@ -98,20 +107,26 @@ describe("task-assigned email details", () => {
     expect(fireAssigneeChangeAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         next: [BOB],
-        details: { dueDate: DUE, description: "Fit the new sensor." },
+        details: { dueDate: DUE },
+        target: expect.objectContaining({
+          context: expect.objectContaining({ description: "Fit the new sensor." }),
+        }),
       }),
     );
   });
 
   it("a task created with no due date or description still says so", async () => {
-    (createTask as Mock).mockResolvedValue({ ...TARGET, id: 9002, assigned: [BOB] });
+    (createTask as Mock).mockResolvedValue({ ...TARGET, id: 9002, assigned: [BOB], description: "" });
     const { wrapper } = harness();
     const { result } = renderHook(() => useCreateTask(), { wrapper });
 
     await act(() => result.current.mutateAsync({ title: "Bare task", assigned: [BOB] }));
 
     expect(fireAssigneeChangeAlert).toHaveBeenCalledWith(
-      expect.objectContaining({ details: { dueDate: null, description: "" } }),
+      expect.objectContaining({
+        details: { dueDate: null },
+        target: expect.objectContaining({ context: expect.objectContaining({ description: "" }) }),
+      }),
     );
   });
 });

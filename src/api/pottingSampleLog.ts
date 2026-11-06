@@ -1,5 +1,5 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SHARED_MAILBOX, SITES, SP_POTTING_LIMIT_LIST_ID, SP_POTTING_SAMPLE_LOG_LIST_ID, SP_PSR_NOTIFICATION_LIST_ID, USE_MOCK } from "./config";
+import { SITES, SP_POTTING_LIMIT_LIST_ID, SP_POTTING_SAMPLE_LOG_LIST_ID, SP_PSR_NOTIFICATION_LIST_ID, USE_MOCK } from "./config";
 import type { GraphListItem } from "@/types/task";
 import {
   checkLimitBreach,
@@ -7,7 +7,8 @@ import {
   type PottingSampleEntry,
   type PsrNotificationPerson,
 } from "@/lib/pottingSampleLog";
-import { pottingLimitAlertHtml, pottingLimitAlertSubject } from "@/lib/pottingSampleAlerts";
+import { pottingLimitAlertContent, pottingLimitAlertSubject } from "@/lib/pottingSampleAlerts";
+import { sendOpenAlert } from "./email";
 import {
   POTTING_LIMIT_MOCK,
   POTTING_SAMPLE_MOCK_ENTRIES,
@@ -89,13 +90,12 @@ export async function createPottingSampleEntry(input: {
     created = toPottingSampleEntry(item);
   }
 
-  // Best-effort: a slow/failed notification shouldn't make the save look
-  // like it failed. The entry is already saved by this point either way.
-  try {
-    await notifyIfOutOfLimit(created);
-  } catch (err) {
+  // In the background: the entry is saved, and the save must not wait on mail
+  // (it used to). A send that fails says so itself (sendOpenAlert); this catch
+  // only covers reading the limits or the list.
+  void notifyIfOutOfLimit(created).catch((err) => {
     console.error("[pottingSampleLog] failed to send out-of-limit notification:", err);
-  }
+  });
 
   return created;
 }
@@ -230,38 +230,10 @@ async function notifyIfOutOfLimit(entry: PottingSampleEntry): Promise<void> {
   const recipients = people.filter((p) => !!p.email);
   if (recipients.length === 0) return;
 
-  const subject = pottingLimitAlertSubject(entry, breach);
-  const html = pottingLimitAlertHtml(entry, limits, breach);
-
-  if (USE_MOCK) {
-    // eslint-disable-next-line no-console
-    console.info("[email mock] potting sample out-of-limit alert:", {
-      to: recipients.map((r) => r.email),
-      subject,
-      entry,
-      limits,
-      breach,
-    });
-    return;
-  }
-
-  if (!SHARED_MAILBOX) {
-    console.warn(
-      "[pottingSampleLog] VITE_SHARED_MAILBOX is not set — cannot send the out-of-limit alert.",
-    );
-    return;
-  }
-
-  const message = {
-    subject,
-    body: { contentType: "HTML", content: html },
-    toRecipients: recipients.map((r) => ({
-      emailAddress: { address: r.email, name: r.displayName || r.email },
-    })),
-  };
-
-  await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX)}/sendMail`, {
-    method: "POST",
-    body: JSON.stringify({ message, saveToSentItems: false }),
+  await sendOpenAlert({
+    subject: pottingLimitAlertSubject(entry, breach),
+    recipients,
+    calloutLabel: "Potting Sample",
+    ...pottingLimitAlertContent(entry, limits, breach),
   });
 }
