@@ -2935,6 +2935,117 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "plant-map",
+    title: "Plant Map",
+    group: "Operations",
+    keywords: [
+      "plant map",
+      "plant layout",
+      "floor plan",
+      "layout",
+      "walls drawing",
+      "svg",
+      "machine layout",
+      "overlap",
+      "keep-out",
+      "aisle",
+      "plant map roles",
+    ],
+    searchText:
+      "The Plant Map shows the plant's layouts drawn to scale over each building's walls drawing, with every machine, bench and rack where it stands. Reach it from the Plant Map card in the Operations part of the Dashboard or the Departments menu. Each layout version is a row on the Layouts list: Draft, Published or Superseded. Columns sort and filter. Open one to see it drawn; scroll to zoom, drag the floor to pan, turn labels on or off, and click an item on the plan or in the list below it to see its symbol, size, rotation and where it stands. Editors choose Edit layout on a draft; on a published layout Edit starts a new draft version or opens the existing one. Each building has a tab on the Layouts list. In the editor draw aisles and no-go areas with the Aisle and No-go tools (A, N), label, move, resize and turn them; anything standing in one is flagged by name. Drag symbols from the palette onto the plan, drag items to move them (snapping to the grid, or lining up with a nearby item or area's edge or centre with a dotted guide line; Alt to place freely), drag the round handle to turn and a corner to resize, set exact values, lock, duplicate, remove and link an item to its equipment-register asset. Arrows nudge, R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z undoes, Ctrl+S saves. Save draft saves; leaving with unsaved changes asks first. The placement check lists anything that overlaps another item, sits on a wall, column, aisle, dock, door swing, electrical clearance or other keep-out area, or goes outside the building, and outlines it in red. A draft can have problems; it can't be published until they're fixed. Editors start a new layout with New layout: a name, an area, and the building. An existing building reuses its walls drawing and can start with its aisles and no-go areas; a new building needs its walls drawing as an SVG in inches, which is reviewed before it's saved: confirm the building's size, see what ARC can and can't check, and choose which of its keep-outs become editable aisles and no-go areas. A drawing ARC can't use is refused with the reason. Floor markings and zones never count as overlapping. The Symbols tab shows the symbol library; a Plant Map admin adds a symbol from an SVG, a DXF saved from CAD (its size is read from it) or a picture ARC traces to an outline, with its name, category, real footprint, and whether it is solid, can be turned and can be resized. Only the people on the Plant Map Roles list see the Plant Map at all — viewers look, editors also build layouts, and Plant Map admins also publish, manage symbols and the list; ARC admins manage the list from the Admin page.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Plant Map</strong> shows the plant's layouts drawn to scale over each
+          building's walls drawing, with every machine, bench and rack where it stands. Reach
+          it from the <strong>Plant Map</strong> card in the Operations part of the Dashboard,
+          or the <strong>Departments</strong> menu.
+        </P>
+        <H3>Layouts</H3>
+        <UL>
+          <LI>Each version of a layout is its own row: <strong>Draft</strong>, <strong>Published</strong> or <strong>Superseded</strong>. Every column sorts and filters from its header.</LI>
+          <LI>A tab across the top for each building narrows the list to that building's layouts.</LI>
+          <LI>Open one to see it drawn. Scroll the mouse wheel (or use the + button) to zoom where the pointer is, and click and drag the floor to pan; names appear as items get big enough on screen. Turn them off with <strong>Show labels</strong>, and click an item — on the plan or in the list below it — to see its symbol, size, rotation and where it stands.</LI>
+        </UL>
+        <H3>The placement check</H3>
+        <P>
+          Every layout is checked against its walls drawing. Anything that overlaps another
+          item, sits on a wall, a column or a keep-out area (an aisle, a dock, a door swing,
+          electrical clearance, an exit route), or goes outside the building is outlined in
+          red and listed beside the plan. Floor markings and zones never count as
+          overlapping. A draft can have problems; it can't be published until they're fixed.
+        </P>
+        <H3>Editing a layout</H3>
+        <P>
+          Editors see <strong>Edit layout</strong> on a draft. On a published layout the
+          button starts a new draft version (or opens the draft that already exists) — a
+          published layout itself is never changed.
+        </P>
+        <UL>
+          <LI>Drag a symbol from the palette on the left onto the plan. A preview follows the pointer and turns red where the item won't fit. Clicking a symbol drops one in the middle of the view.</LI>
+          <LI>Drag an item to move it; it snaps to the grid chosen under <strong>Snap</strong> (hold Alt to place it freely). When its edge or centre comes close to another item's or area's, across or down, it snaps into line and a dotted guide shows what it lined up with — handy for rows of desks and machines. Symbols dragged in from the palette line up the same way. Drag the round handle to turn it in 15° steps (Shift for single degrees). Drag a corner to resize it, where the symbol allows.</LI>
+          <LI>The panel on the right sets the label, the exact position, size and rotation, and links the item to its asset in the equipment register. <strong>Lock</strong> stops an item being moved by accident.</LI>
+          <LI>Keys: arrows nudge (Shift for one inch), R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctrl+Shift+Z undo and redo, Ctrl+S saves. Scroll to zoom where the pointer is; click and drag empty floor (or drag with the middle button) to pan.</LI>
+          <LI><strong>Aisle</strong> and <strong>No-go</strong> in the toolbar (or A and N) draw an area: drag a rectangle on the plan. Give it a label, and move, resize or turn it like equipment. Machines and benches can't stand in one — anything that does is flagged by the area's name; floor zones can. The walls drawing's own keep-outs can't be changed here.</LI>
+          <LI>The placement check updates as you drag. Nothing is saved until <strong>Save draft</strong>; leaving with unsaved changes asks first.</LI>
+        </UL>
+        <H3>Starting a layout</H3>
+        <P>
+          Editors see <strong>New layout</strong>: pick the building — or type a new name, which
+          starts a new building with its own tab — and give it a name and an area. A building
+          that already has layouts uses the walls drawing it already has, so there is nothing
+          to upload, and the new layout starts with that building's aisles and no-go areas
+          (untick the box to leave them out). Choose <strong>Upload a different drawing</strong>{" "}
+          if the building has changed. A new building needs its walls drawing — an SVG exported
+          from CAD, in inches, with a viewBox of the building's size. A drawing ARC can't use is
+          refused with the reason. A drawing it can use is shown for review before anything is
+          saved: the walls and columns ARC will check against are highlighted, anything it can't
+          check is listed, and you tick to confirm the building's size (every symbol is drawn to
+          scale against it). Its keep-out areas are listed too — ticked ones come off the drawing
+          and start as aisles and no-go areas on the layout, which you can label, move and resize
+          later; unticked ones stay part of the drawing. Door swings stay by default. The new layout starts with no equipment on it.
+        </P>
+        <Tip>
+          The check can only see walls, columns and keep-outs drawn as rectangles in groups
+          named walls, columns and keepout. A drawing without them still shows; the check
+          then only keeps items inside the building.
+        </Tip>
+        <H3>Symbols</H3>
+        <P>
+          The <strong>Symbols</strong> tab shows the library a layout is built from — every machine,
+          bench, rack and desk, by category, at its real size. Search it by name or category.
+        </P>
+        <UL>
+          <LI>
+            A Plant Map admin adds one with <strong>Add symbol</strong>: pick the drawing, give it a
+            name, a category and its real width and depth in inches, and say whether it is solid or a
+            floor marking, can be turned and can be resized. The preview shows the symbol exactly as it
+            will be saved.
+          </LI>
+          <LI>
+            The drawing can be an SVG; a DXF saved from CAD — its real size is read from it, and text,
+            dimensions and hatching are left out; or a picture (PNG or JPG) of the machine seen from
+            above, which ARC traces to an outline — move the threshold until it looks right. A DWG has
+            to be saved as a DXF first, and a PDF exported as SVG or DXF, or saved as a picture.
+          </LI>
+          <LI>
+            The drawing is fitted into the footprint, keeping its proportions or stretched, and a small
+            notch marks the front (the bottom edge), so you can see which way it faces once turned.
+          </LI>
+        </UL>
+        <H3>Roles</H3>
+        <P>
+          Only the people on the Plant Map Roles list see the Plant Map at all — anyone else
+          has no card on the Dashboard and no menu entry. <strong>Viewers</strong> look;{" "}
+          <strong>editors</strong> also start layouts and edit drafts; <strong>Plant Map
+          admins</strong> also publish layouts, manage the symbol library and choose who is on
+          the list, from the <strong>Roles</strong> tab. ARC admins manage the list too, from the
+          Admin page, without being on it themselves.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "reports",
     title: "Reports",
     group: "Reports",

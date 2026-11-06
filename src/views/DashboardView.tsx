@@ -43,6 +43,7 @@ import {
   Timer,
   Users,
   Loader2,
+  Map as MapIcon,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
@@ -64,7 +65,8 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
-import { MCNS_CONFIGURED, PANEL_BOM_LIVE } from "@/api/config";
+import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PLANT_MAP_CONFIGURED } from "@/api/config";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -1066,6 +1068,8 @@ export function DashboardView() {
         {/* MCNs — a real card once live (or for the pilot team), "Coming soon"
             for everyone else, so the pilot stays private. */}
         <McnCard onOpen={() => navigate("/operations/mcns")} />
+        {/* Only people on Plant Map Roles see this card — no "Coming soon" for anyone else. */}
+        <PlantMapCard onOpen={() => navigate("/operations/plant-map")} />
         <McnPlaceholder />
       </DeptSection>
 
@@ -1702,6 +1706,30 @@ function McnPlaceholder() {
   const { rights, resolving } = useMyMcnAccess();
   if (resolving || (MCNS_CONFIGURED && rights.canOpen)) return null;
   return <PlaceholderCard name="MCNs" icon={<Factory className="h-5 w-5" />} />;
+}
+
+/**
+ * Plant Map — shown to whoever can open it (people on Plant Map Roles and ARC
+ * admins until it goes live). A description card, no count: the Dashboard
+ * reads no layout.
+ *
+ * ajax-yellow is repeated on purpose: the Operations section already uses all
+ * four tones, and yellow pairs the map with Maintenance — the asset register
+ * whose machines it will show.
+ */
+function PlantMapCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyPlantMapAccess();
+  if (!PLANT_MAP_CONFIGURED || !rights.canOpen) return null;
+  return (
+    <TypeCard
+      name="Plant Map"
+      icon={<MapIcon className="h-5 w-5" />}
+      tone="ajax-yellow"
+      description="The plant's layouts drawn to scale — every machine, bench and rack where it stands."
+      to={"/operations/plant-map"}
+      onClick={onOpen}
+    />
+  );
 }
 
 /** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */

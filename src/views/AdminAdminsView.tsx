@@ -134,6 +134,12 @@ export function AdminAdminsView() {
             Operations — Who's notified →
           </Link>
           <Link
+            to="/operations/plant-map/roles"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Operations — Plant Map Roles →
+          </Link>
+          <Link
             to="/operations/coating-checks/specs"
             className="text-xs text-accent underline-offset-2 hover:underline"
           >

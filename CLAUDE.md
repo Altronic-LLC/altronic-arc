@@ -507,6 +507,10 @@ src/
 │   ├── operationsAlertRecipients.ts Operations Alert Recipients — who each Operations email goes to; admin-managed list, read fresh at send
 │   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
+│   ├── plantLayouts.ts           Plant Layouts — one row per VERSION, the layout as JSON; never writes a Published row or over JSON it can't read
+│   ├── layoutComponents.ts       Layout Components — the Plant Map symbol library; add (Plant Map admin, key checked fresh), retired, never deleted
+│   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/, read through the download link, never overwritten
+│   ├── plantMapRoles.ts          Plant Map Roles CRUD (viewer / editor / admin) — only people on it see the Plant Map
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
@@ -580,6 +584,9 @@ src/
 │   ├── crimpMockData.ts          Sample crimp specs + checks — INVENTED terminals/applicators, one out of spec, one spec with no height
 │   ├── coatingMockData.ts        Sample coating specs + checks — INVENTED machines, mm and inch checks, one out of spec, one retired spec
 │   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
+│   ├── plantMockData.ts          Plant Map demo — three INVENTED buildings, the seeded symbols, layouts built from the two sample layouts
+│   ├── plantComponentSeed.json   The 12 starter symbols — seeds the Layout Components list (script) and the mock
+│   ├── plantMock/                The invented walls drawings (.svg, imported ?raw) and the clean / three-problem sample layouts
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
@@ -629,6 +636,8 @@ src/
 │   ├── useRememberedView.tsx     List or Kanban remembered per browser (#51) — saved in the switcher, applied by a list route wrapper
 │   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
+│   ├── usePlantLayouts.ts        Plant layouts, the symbol library and the walls drawings (read + sanitised once) as queries; start, save, copy-to-draft (editor-gated)
+│   ├── usePlantMapRoles.ts       Plant Map Roles CRUD (manage-gated) + useMyPlantMapAccess / useResolvePlantMapAccess
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -899,6 +908,14 @@ src/
 │   ├── mcnRoles.ts               MCN role tags → rights + the raise / approve / manage gates (pure)
 │   ├── mcnWorkflow.ts            The MCN workflow — actions per status, submit rules, which card is editable when (pure)
 │   ├── mcnAlerts.ts              MCN emails — submitted, approved, rejected, implemented; distribution prefill (pure)
+│   ├── plantGeometry.ts          Plant Map geometry (pure, inches) — rotated boxes, the separating-axis overlap test, the placement check and its wording
+│   ├── plantSvg.ts               Walls drawings + symbols — sanitiseSvg (drawn ONLY as images), the walls rules (viewBox in inches, obstacle groups)
+│   ├── plantEditor.ts            The layout editor's state (pure) — one action per edit with undo / redo, snap, size limits, placing a symbol
+│   ├── plantDrawingReview.ts     Reviewing an uploaded walls drawing (pure) — size / no-walls / unreadable-shape warnings, keep-outs offered as editable areas
+│   ├── plantSymbolImport.ts      A new symbol from an SVG, a DXF (read here, units from $INSUNITS) or a traced picture → the library's SVG (pure)
+│   ├── plantAlign.ts             Alignment guides (pure) — a dragged box snaps onto a neighbour's edge or centre line, and the dotted guides to draw
+│   ├── plantLayoutDoc.ts         The LayoutJson column — parse (corrupt is never overwritten), serialize (refuses past the column's limit)
+│   ├── plantMapRoles.ts          Plant Map role tags → rights + the edit / publish / manage gates (pure)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
 │   ├── monthTrend.ts             Reports' this-month-vs-last-month rule — rates not counts, good ≠ up, too-early threshold (pure)
@@ -931,6 +948,7 @@ src/
 │   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
 │   ├── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
+│   ├── plant.ts                  Plant Map types + constants (roles, component categories, layout statuses, the layout doc)
 │   └── panelBom.ts               Panel SAP BOM Builder types + PANEL_BOM_CLUSTERS (the ten clusters, which drive item numbers)
 │
 ├── components/
@@ -1078,6 +1096,12 @@ src/
 │   ├── McnFields.tsx             MCN dialog shell, scope-line editor, single-person picker, distribution ticks
 │   ├── McnFormModal.tsx          New MCN — saved as a Draft, number previewed; staged attachments upload after the create
 │   ├── McnDialogs.tsx            MCN card editors (description, scope, items, distribution) + approve / reject-reopen / implement
+│   ├── plantMapAtoms.tsx         Plant Map status chip, the Layouts / Symbols / Roles nav, PlantMapAccessGate (configured? on the roles list?)
+│   ├── PlantCanvas.tsx           THE plan, viewing and editing — a viewBox window (wheel zoom, drag to pan), walls + symbols as sanitised <image>s; editing adds move / rotate / resize drags and the palette ghost
+│   ├── PlantEditorPanels.tsx     The editor's symbol palette (drag or click) and the selected item's inspector (commit on Enter / blur)
+│   ├── NewPlantLayoutModal.tsx   Start a layout — name, area, building; an existing building reuses its drawing, a new one uploads it, reviewed BEFORE anything is written
+│   ├── NewPlantSymbolModal.tsx   Add a symbol — SVG, DXF or a traced picture + name, category, footprint, solid / turn / resize; the preview IS what's saved
+│   ├── PlantDrawingReview.tsx    New layout's review of an uploaded drawing — preview of what ARC found, warnings, confirm the size, keep-outs → editable areas
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
@@ -1158,6 +1182,11 @@ src/
 │   ├── McnsView.tsx              MCN register (/operations/mcns) — opens on open MCNs, sortable, cards on a phone
 │   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
 │   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
+│   ├── PlantLayoutsView.tsx      Plant Map (/operations/plant-map) — every layout version, sortable; New layout for editors
+│   ├── PlantLayoutView.tsx       One layout (/operations/plant-map/:id) — the plan, the placement check, the selected item, every item sortable; Edit
+│   ├── PlantLayoutEditView.tsx   The layout editor (/operations/plant-map/:id/edit, DRAFTS only) — palette, canvas, inspector, keyboard, live check, Save draft
+│   ├── PlantSymbolsView.tsx      Plant Map → Symbols (/operations/plant-map/symbols) — the library by category; Add symbol for a Plant Map admin
+│   ├── PlantMapRolesView.tsx     Plant Map → Roles (/operations/plant-map/roles) — viewer / editor / admin; a Plant Map admin, or an ARC admin from the Admin page, manages it
 │   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
 │   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
 │   ├── TeradyneDefectBreakdownReportView.tsx  Teradyne Defect Breakdown — latest month's donut, grouped by remark
@@ -8532,6 +8561,256 @@ Still to do (the roadmap): run the script and verify each column by write and
 read-back, plus the behavioural Communication check (FAIT 89); import the eight
 MCNs; Dave names the approver delegate and the group members; pilot; go live.
 Phase 2: the MFGFRM-021 print layout and MFGFRM-001 Information Requests.
+
+### Plant Map (Operations, PMO site)
+
+Started 2026-11-06 (Tim). The plant's layouts, drawn to scale over each
+building's walls drawing, with the equipment placed on them; later an overlay
+of live status (a kiosk entry). The design and the phases are in Tim's folder
+OUTSIDE the repo: `C:\Working_Dir\ProcessImprovement\Arc\plant manager\`
+(`plant-layout-options.md`, and `test-svgs/` — the invented plans the demo
+data came from, with the Python that generated them). Tim's decisions: under
+**Operations**, its own **Plant Map Roles** list, **inches**, the **PMO site**.
+
+**Phases 1 and 2 are built (v0.219.0)**: the lists, the data layer, the
+plan, the placement check, New layout, Roles, and the layout EDITOR (Tim tried
+the read-only first cut in demo mode and asked for drag and drop the same day;
+he also called it "a bit clunky", which is why the plan became a pan/zoom
+canvas and the editor works on the plan rather than through forms). Next:
+Phase 3 Publish (validate, the composite SVG to the library, Plant Tags rows
+for Power BI — "Edit as a new draft" already makes the next version), Phase 4
+overlays, Phase 5 live status (CMMS AssetStatus
+first, then Fabric), Phase 6 Power BI. **The Plant Overlays and Plant Tags
+lists don't exist yet**; the script adds them in their phase. Still open from
+the design doc: where live machine state comes from, Ray's sign-off on a
+"builder" beside the code-defined Reports decision, and whether every placed
+machine must be a CMMS asset.
+
+Three lists and a document library on `SITES.pmo`, created by
+`scripts/create-plant-map-lists.ps1` (idempotent, `-WhatIf`, write/read-back
+check; its internal names are the contract). **No defaults**, the MCN
+arrangement. `PLANT_MAP_CONFIGURED` needs all four:
+
+| List | env | Holds |
+|---|---|---|
+| Plant Map Roles | `VITE_SP_PLANT_MAP_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles` (editor / admin CSV), `Note` |
+| Layout Components | `VITE_SP_LAYOUT_COMPONENTS_LIST_ID` | the symbol library: `SvgMarkup`, `FootprintW/D` (in), `Collides`, `Clearance`, `IsActive`… seeded from `src/data/plantComponentSeed.json` only while EMPTY |
+| Plant Layouts | `VITE_SP_PLANT_LAYOUTS_LIST_ID` | one row per VERSION: `Building`, `LayoutKey`, `Status`, `Version`, `WallsFile` (drive item id), `LayoutJson` (items AND drawn areas), `SupersedesId` |
+| Plant Layout Files | `VITE_SP_PLANT_LAYOUT_FILES_LIST_ID` | the LIBRARY's list id; walls drawings in `walls/`; its drive is looked up from it once per session |
+
+**Only the people on Plant Map Roles see it** (Tim, 2026-11-06) — no
+Dashboard card, no menu row, and NOT "Coming soon" for anyone else; a link
+reaching somebody else says who to ask. There is no live switch (the
+`VITE_PLANT_MAP_LIVE` pilot switch was removed): opening it to everyone would
+be a change to `plantMapRightsFrom`. Rights (`lib/plantMapRoles.ts`, asked by
+every control and inside every mutationFn): any tag opens it (`canOpen`);
+`viewer` only looks; `editor` starts layouts and edits drafts; `admin`
+(implies editor) also publishes, manages the symbol library and the roles
+list. **An ARC admin gets ONLY the roles list** — not even `canOpen` — reached
+from the Admin page; `PlantMapAccessGate roleManagers` lets them into Roles
+alone, and the section nav then shows only Roles. Unset list = nobody.
+
+Eight things that are load-bearing:
+
+- **Inches, origin top-left, north up.** An item's x / y is its CENTRE, `rot`
+  degrees clockwise, and it stores its REAL size (w × d), never a scale.
+- **A walls drawing's viewBox IS the building** (`0 0 W H`, inches,
+  `data-units="in"` or absent). Walls, columns and keep-outs are axis-aligned
+  `<rect>`s in `<g id="walls">`, `columns`, `keepout` (keep-outs name
+  themselves in `data-kind`); that is what the check reads. A transformed
+  rect is skipped, not guessed. A drawing without the groups still shows.
+- **Every SVG read from SharePoint goes through `sanitiseSvg`**, and is drawn
+  ONLY as an `<image href="data:image/svg+xml…">`. It is never injected, so
+  there's no `dangerouslySetInnerHTML` (invariant #5), and a drawing runs no
+  script even if one slipped through. `<metadata>` is cut out first, contents
+  and all (the test plans carried C2PA blobs). `SANITIZE_DOM` is off because
+  the result is never in the page, and it would strip ids like "body".
+- **The placement check** (`findLayoutProblems`): no corner outside the
+  building; a COLLIDING item may not overlap a wall, column, keep-out or
+  another colliding item; touching is not overlapping. Floor zones don't
+  collide. `Clearance` is carried but NOT applied yet. Pinned against the two
+  sample layouts the generator checked: the clean one has none, the other
+  flags exactly i_bad1–3 plus VMC-1 and VMC-2 (the bad mill lands between them).
+- **The whole layout is ONE JSON column**, so a save is one write (no
+  transactions). `serializeLayoutDoc` refuses past 63,000 characters rather
+  than let SharePoint truncate it; `parseLayoutDoc` calls anything unreadable
+  CORRUPT, and **ARC never writes over a corrupt layout**.
+- **A Published row is never written.** `savePlantLayoutDraft` re-reads the
+  row and refuses anything but a Draft (`LayoutNotDraftError`). Changing a
+  published layout will be "copy to a new draft".
+- **New layout uploads the walls file FIRST** (the row needs its id), with
+  `conflictBehavior: rename` (never overwrite), and stores the SANITISED
+  drawing. If the row is then refused, the error names the file left behind.
+  The drawing is checked in the form before anything is written.
+- **The drawing's size wins over the stored extent** when showing a layout.
+
+The editor (`views/PlantLayoutEditView.tsx`, `components/PlantCanvas.tsx`,
+`lib/plantEditor.ts`):
+
+- **ONE canvas for viewing and editing** (`PlantCanvas`). Its viewBox is a
+  WINDOW onto the building (`x, y, px-per-inch`), sized to the box, so a
+  screen point maps to inches with one number and the drawing stays sharp.
+  **The wheel ZOOMS at the pointer, with no modifier** (Tim, 2026-11-06 — the
+  opposite of the About page's ER diagram, where a plain scroll must scroll
+  the page; here the canvas is a work surface). A NON-passive listener stops
+  the page scrolling under it; line/page deltas are normalised, and a
+  trackpad pinch (Ctrl + small deltas) gets a faster rate. Click and drag
+  empty floor to pan; a middle-button drag pans from anywhere and never
+  moves an item. It fits on the
+  first real measurement and when the building changes, never on a later
+  resize. Labels, handles and outlines are sized in SCREEN pixels; a label
+  shows only when its item is wide enough on screen to hold it (or selected).
+- **A drag is a PREVIEW until release**, then ONE `update` — so one drag is one
+  undo step. The preview is passed up (`onPreview`) so the placement check
+  follows the drag live. Moves snap to the chosen grid (Alt = to the inch);
+  **alignment guides** (Tim, 2026-11-06) come first: `lib/plantAlign.ts`
+  compares the dragged box's left / centre / right and top / middle / bottom
+  (rotated things by their bounds) with every other item's and area's, snaps
+  each axis to the closest within `ALIGN_SNAP_PX` (8 screen px, turned into
+  inches by the caller so it feels the same at any zoom), falls back to the
+  grid on an axis with no match, and returns magenta dotted guides spanning
+  everything on the line. Alt turns both off. Palette drops use the same rule
+  in the edit view (`placeAt`), passing the ghost's guides in as
+  `editing.ghostGuides` — and the drop lands where the ghost showed;
+  the handle turns in 15° steps (Shift = 1°); corners resize about the centre
+  within the symbol's `sizeLimits`. A locked item doesn't move and gets no
+  handles; the reducer refuses to move it too.
+- **The palette drags with pointer events, not HTML5 drag-and-drop**, so a
+  ghost (red where it won't fit) follows the pointer and it works with touch.
+  A press that doesn't move is a click: it drops one in the middle of the
+  view. Released off the plan = cancelled. The drop happens OUTSIDE a state
+  updater (a ref holds the drag) — an updater runs twice in development and
+  would place two.
+- **Keyboard** on `window`, ignored while typing in a box (the target may be
+  the window itself, so check `instanceof Element` before `.closest`).
+- **Nothing is written until Save draft**; `beforeunload` and Done ask first
+  when there are unsaved changes. The editor refuses anything but a Draft. A
+  published layout's **Edit** goes through `copyLayoutToDraft`: a new Draft
+  row, version max + 1, same walls and items, `SupersedesId` = the source —
+  or the draft that already exists for that `LayoutKey`, so there is only
+  ever one.
+
+**Aisles and no-go areas drawn ON the layout** (Tim, 2026-11-06: "edit the
+aisles or no-go areas … shouldn't need to touch the wall no-go, just draw areas
+and add labels"). `PlantLayoutDoc.areas` — `{ uid "a_…", kind aisle|no-go, x, y,
+w, d, rot, label, locked }`, in the same LayoutJson as the items, so a save is
+still one write. Added after the first layouts, so a missing `areas` reads as
+none; an unknown kind reads as no-go (the safe direction). `areaObstacles`
+turns them into keep-outs beside the walls drawing's own, which ARC never
+edits; the problem sentence names the area ("sits in an aisle (Main
+walkway)"). In the editor the Aisle / No-go tools (A / N, V or Esc back) make
+a drag on the plan DRAW one — items and areas let the pointer through while a
+tool is picked — and the tool drops back to Select after each, ready to label
+it. A drag under a foot either way is a stray click and draws nothing. Areas
+move, turn and resize with the same handles as items (at least a foot,
+`clampAreaSize`); no-go areas are hatched, so they don't rely on colour. In
+the viewer areas are part of the floor: a drag on one pans.
+
+**Buildings are a FIELD, not a list** (`Building` on Plant Layouts, indexed).
+The Layouts list has a tab per distinct building plus All (`?building=`);
+New layout offers the existing buildings in a SuggestInput and a new name
+starts a new building — its tab appears once its first layout exists. A row
+saved without the column reads its Title. New layout now opens the EDITOR.
+
+**An existing building REUSES its walls drawing** (Tim, 2026-11-06).
+`NewPlantLayoutInput.walls` is `{ kind: "upload", svg, fileName }` or
+`{ kind: "existing", fileId }`; the second uploads nothing, so the library
+doesn't fill with copies of one building. `buildingSource` (lib/plantLayoutDoc)
+picks the drawing: the building's PUBLISHED layout, else its newest; its
+extent and a COPY of its areas come too (a corrupt layout lends no areas), and
+the form's "Start with its N aisles and no-go areas" box (on by default) says
+whether they're used. A file picked always wins over the building's, and
+"Upload a different drawing" asks for one — leaving it unpicked is refused,
+never a quiet fallback.
+
+**An uploaded drawing is REVIEWED before it's saved** (Tim, 2026-11-06 — a
+review, deliberately NOT a CAD cleanup: that's done once per building outside
+ARC, to the rules in lib/plantSvg.ts). `PlantDrawingReview` (rules in
+`lib/plantDrawingReview.ts`) shows the drawing with what ARC found
+(`PlantCanvas`'s `found` overlay: walls/columns amber, keep-outs dashed),
+warnings (a size under 20 ft or over 2,000 ft either way — wrong units; no
+walls group; `drawing.skipped`, the shapes in the obstacle groups that aren't
+plain un-transformed rects, counted by `scanObstacles`), a REQUIRED "The
+building is W × H" tick, and every keep-out with tick / label / Aisle or No-go.
+Ticked ones are cut from the SAVED file (`removeKeepouts`, matched by
+`obstacleId` — an unnamed rect by its place in the group) and start as the
+layout's areas (`keepoutsToAreas`, centre-based, uids `a_d001…`); door swings
+start unticked. Text labels in the drawing beside a removed keep-out stay —
+ARC can't tell which label belongs to which shape.
+The dialog grows taller than the window with the review open, so it is
+centred by the form's `my-auto`, NOT the backdrop's `items-center` — that
+pushed its top above the scroll area, out of reach (Tim, 2026-11-06). The
+same `sm:items-center` pattern is in ~23 other dialogs; fix one the same way
+if it ever grows that tall. The preview passes `wheelZoom={false}` so the
+wheel scrolls the dialog rather than zooming the plan under the pointer.
+
+The demo has four layouts: Main Plant v1 Published (clean) and v2 Draft (five
+problems, plus a "Forklift charging" no-go area), Panel Plant (empty draft)
+and Engineering & Sales (a clean office draft with a "Main walkway" aisle —
+`views/PlantMap.views.test.tsx` pins that it has no problems, so a demo edit
+that breaks it fails a test).
+
+**The demo drawings carry only DOOR SWINGS as keep-outs** (Tim, 2026-11-06:
+"remove the aisles and no-go areas … add them back as editable"). Their
+aisles, exit routes, docks, the overhead-door clearance and the electrical
+clearances were moved onto the layouts as areas (`MAIN_PLANT_AREAS`,
+`PANEL_PLANT_AREAS`, `SAMPLE_ENG_SALES_AREAS`, via `rectArea`) at exactly the
+same place and size, with the drawings' small labels as the area labels; the
+paired panel-face + clearance rects became one area each. So the placement
+check finds the same problems, and `plantGeometry.test.ts` adds
+`areaObstacles(MAIN_PLANT_AREAS)` to the drawing's obstacles. Door swings
+stay in the drawing because they belong to the doors drawn there.
+
+**Adding a symbol** (Tim, 2026-11-06: "take a drawing in another format, fill
+out an info form, and ARC converts to SVG and adds the metadata"). Plant Map →
+Symbols (`PlantSymbolsView`, everyone who can open the Plant Map) → Add symbol
+(`manageSymbolsGate` = a Plant Map admin, the publish right; asked by the
+button and inside `useCreateLayoutComponent`'s mutationFn). Every source
+becomes ART in `lib/plantSymbolImport.ts`, and `buildSymbolSvg` makes the
+library's shape from it: `viewBox="0 0 W D"` inches, `data-component` = key,
+`data-units="in"`, `<title>`, a faint footprint, the drawing in a nested
+`<svg>` (`preserveAspectRatio` meet or none — "keep proportions" / "stretch"),
+and the front-edge notch. Sources:
+
+- **SVG** — sanitised and taken as drawn; real size known only from
+  `data-units="in"` or width/height with units, else asked for.
+- **DXF** — parsed here, no library: LINE, LWPOLYLINE (bulges as arcs),
+  POLYLINE/VERTEX, CIRCLE, ARC, ELLIPSE, SPLINE (through fit or control
+  points), INSERT (blocks moved, scaled, turned, 8 deep), everything as
+  straight segments, flipped (CAD's y runs up). Units from `$INSUNITS`
+  (in / ft / mm / cm / m); missing = inches, said in a note. Text, dimensions
+  and hatching are left out; anything else unknown is named. ASCII only — a
+  DWG or binary DXF is refused with what to do.
+- **Pictures** — drawn to a canvas at most `TRACE_MAX_PIXELS` (160) on the long
+  side, `inkFromRgba` by a threshold slider (a mostly-dark border inverts it),
+  `traceInk` as row runs stacked into rectangles. Never embedded as a picture:
+  `sanitiseSvg` refuses `<image>`. jsdom has no canvas, so the view test only
+  checks the refusal; the tracing is unit-tested.
+
+The key is `symbolKeyFor` (slug + `WxD`, not doubled, `-2…` on a clash) and
+`createLayoutComponent` re-checks it against a FRESH read; `SvgMarkup` over
+`MAX_SYMBOL_MARKUP_CHARS` (60,000) is refused. The name follows the picked file
+until it's typed over (`autoTitle`). Not built yet: editing or retiring a
+symbol, or a new version of one.
+
+**Check the editor in a real browser**, not only in jsdom:
+`scripts/screenshot-page.mjs` gained `SHOT_HEIGHT`, `SHOT_DRAGS` (real mouse
+drags over CDP — e.g. a palette symbol onto `svg[aria-label$="editing"]`) and
+`SHOT_EVAL` (prints an expression, e.g. the item count). A drag with
+`"hold": true` keeps the button down, to capture what shows mid-drag (guides). Don't target
+`svg[role=img]`: the header's Altronic mark matches first.
+
+**The demo data is invented** (`src/data/plantMock/`, safe for the public
+repo); the real plant's CAD drawing goes in the library, never in `src/`.
+`Architectural Floor Plan.svg` in Tim's folder is Openclipart public-domain
+clip art (2,440 traced paths, no units), not usable as a walls drawing.
+Pinned in `lib/plantGeometry.test.ts`, `lib/plantSvg.test.ts`,
+`lib/plantLayoutDoc.test.ts`, `lib/plantEditor.test.ts`, `lib/plantAlign.test.ts`, `lib/plantDrawingReview.test.ts`, `lib/plantSymbolImport.test.ts`, `views/PlantSymbolsView.test.tsx`,
+`api/plantLayouts.real.test.ts`, `hooks/usePlantMap.gate.test.tsx`,
+`components/PlantCanvas.test.tsx`, `views/PlantMap.views.test.tsx` and
+`views/PlantLayoutEditView.test.tsx`; the
+not-a-draft guard, the edit gate and the problem outlines were each verified by
+removing them.
 
 ### Build Request Items — Assembly / Operations / Testing are MULTI-choice
 

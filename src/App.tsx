@@ -256,6 +256,11 @@ const OperationsAlertRecipientsView = lazy(() =>
 const McnsView = lazy(() => import("@/views/McnsView").then((m) => ({ default: m.McnsView })));
 const McnDetailView = lazy(() => import("@/views/McnDetailView").then((m) => ({ default: m.McnDetailView })));
 const McnSettingsView = lazy(() => import("@/views/McnSettingsView").then((m) => ({ default: m.McnSettingsView })));
+const PlantLayoutsView = lazy(() => import("@/views/PlantLayoutsView").then((m) => ({ default: m.PlantLayoutsView })));
+const PlantLayoutView = lazy(() => import("@/views/PlantLayoutView").then((m) => ({ default: m.PlantLayoutView })));
+const PlantSymbolsView = lazy(() => import("@/views/PlantSymbolsView").then((m) => ({ default: m.PlantSymbolsView })));
+const PlantMapRolesView = lazy(() => import("@/views/PlantMapRolesView").then((m) => ({ default: m.PlantMapRolesView })));
+const PlantLayoutEditView = lazy(() => import("@/views/PlantLayoutEditView").then((m) => ({ default: m.PlantLayoutEditView })));
 
 // Reports — fixed KPI dashboards (a step up from Power BI for the numbers
 // people want live inside ARC). Its own small bundle, not part of any one
@@ -1214,6 +1219,46 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the MCN" />}>
                   <McnDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Plant Map" />}>
+                  <PlantLayoutsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/symbols"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the symbol library" />}>
+                  <PlantSymbolsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/roles"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Plant Map roles" />}>
+                  <PlantMapRolesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the layout" />}>
+                  <PlantLayoutView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/:id/edit"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the layout editor" />}>
+                  <PlantLayoutEditView />
                 </Suspense>
               }
             />

@@ -13,6 +13,18 @@
 // presses "Continue as Demo User", routes to the page in-app, waits for the
 // selector, and captures just that element. Mock mode only — it never signs
 // in to Microsoft. CHROME_PATH overrides the browser location.
+//
+// SHOT_HEIGHT sets the viewport height (default 1600) — a full-height screen
+// like the plant layout editor sizes itself to it.
+//
+// SHOT_DRAGS drags with the real mouse (CDP Input events, so the page sees
+// genuine pointer events), before the capture:
+//   SHOT_DRAGS='[{"from":"[aria-label=\"Add Press (generic)\"]","to":"svg[role=img]","dx":200,"dy":0}]'
+// Each drag goes from the centre of `from` to the centre of `to` plus dx / dy;
+// add "hold":true to capture before the button is released.
+//
+// SHOT_EVAL='<js expression>' prints the expression's value after the drags —
+// e.g. a count of items, to check a drag landed.
 
 import { spawn } from "node:child_process";
 import { writeFileSync, mkdtempSync, readFileSync } from "node:fs";
@@ -34,7 +46,7 @@ const chrome = spawn(CHROME, [
   // two runs back to back never collide on a port the last Chrome still holds.
   "--remote-debugging-port=0",
   // SHOT_WIDTH checks a layout at another width (default 1300).
-  `--window-size=${process.env.SHOT_WIDTH ?? "1300"},1600`,
+  `--window-size=${process.env.SHOT_WIDTH ?? "1300"},${process.env.SHOT_HEIGHT ?? "1600"}`,
   `--user-data-dir=${profile}`,
   "about:blank",
 ]);
@@ -93,7 +105,8 @@ const evalJs = async (expression) =>
 // window narrower than ~500px, so a phone width needs the DevTools override.
 await send("Runtime.enable");
 const width = Number(process.env.SHOT_WIDTH ?? "1300");
-await send("Emulation.setDeviceMetricsOverride", { width, height: 1600, deviceScaleFactor: 1, mobile: width < 640 });
+const height = Number(process.env.SHOT_HEIGHT ?? "1600");
+await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 640 });
 
 const target = new URL(url);
 await send("Page.navigate", { url: `${target.origin}/` });
@@ -167,6 +180,36 @@ if (process.env.SHOT_THEN_CLICK) {
   if (clicked === "disabled") console.log(`note: "${process.env.SHOT_THEN_CLICK}" was disabled when pressed`);
 }
 if (process.env.SHOT_WAIT_MS) await sleep(Number(process.env.SHOT_WAIT_MS));
+
+if (process.env.SHOT_DRAGS) {
+  await sleep(1500);
+  for (const drag of JSON.parse(process.env.SHOT_DRAGS)) {
+    const centre = (sel) =>
+      evalJs(`(() => {
+        const el = document.querySelector(${JSON.stringify(sel)});
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      })()`);
+    const a = await centre(drag.from);
+    const b = await centre(drag.to);
+    if (!a || !b) fail(`SHOT_DRAGS: couldn't find ${!a ? drag.from : drag.to}`);
+    const end = { x: b.x + (drag.dx ?? 0), y: b.y + (drag.dy ?? 0) };
+    const mouse = (type, p, extra = {}) =>
+      send("Input.dispatchMouseEvent", { type, x: p.x, y: p.y, button: "left", clickCount: 1, ...extra });
+    await mouse("mouseMoved", a, { button: "none" });
+    await mouse("mousePressed", a, { buttons: 1 });
+    for (let i = 1; i <= 12; i++) {
+      await mouse("mouseMoved", { x: a.x + ((end.x - a.x) * i) / 12, y: a.y + ((end.y - a.y) * i) / 12 }, { buttons: 1 });
+      await sleep(16);
+    }
+    // "hold": true leaves the button down, to capture what a drag shows mid-way (guides, a ghost).
+    if (!drag.hold) await mouse("mouseReleased", end);
+    await sleep(300);
+  }
+}
+
+if (process.env.SHOT_EVAL) console.log(`eval: ${JSON.stringify(await evalJs(process.env.SHOT_EVAL))}`);
 
 let rect = null;
 for (let i = 0; i < 60 && !rect; i++) {

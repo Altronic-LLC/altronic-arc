@@ -1418,6 +1418,33 @@ export const MCNS_CONFIGURED =
  */
 export const MCN_LIVE = USE_MOCK || import.meta.env.VITE_MCN_LIVE === "true";
 
+// =============================================================================
+// Plant Map — Operations. Plant layouts drawn to scale over a building's wall
+// drawing. Three lists and a document library on the PMO site, created by
+// scripts/create-plant-map-lists.ps1.
+//
+// **No defaults**, the MCN arrangement: an unset id shows "not set up yet",
+// and nobody could edit a plant layout before this, so there is no one to lock
+// out. `SP_PLANT_LAYOUT_FILES_LIST_ID` is the LIBRARY's list id; its drive is
+// looked up from it.
+// =============================================================================
+
+export const SP_PLANT_MAP_ROLES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PLANT_MAP_ROLES_LIST_ID || undefined;
+export const SP_LAYOUT_COMPONENTS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_LAYOUT_COMPONENTS_LIST_ID || undefined;
+export const SP_PLANT_LAYOUTS_LIST_ID: string | undefined = import.meta.env.VITE_SP_PLANT_LAYOUTS_LIST_ID || undefined;
+export const SP_PLANT_LAYOUT_FILES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PLANT_LAYOUT_FILES_LIST_ID || undefined;
+
+/** Are all four there? Mock mode always is. */
+export const PLANT_MAP_CONFIGURED =
+  USE_MOCK ||
+  (!!SP_PLANT_MAP_ROLES_LIST_ID &&
+    !!SP_LAYOUT_COMPONENTS_LIST_ID &&
+    !!SP_PLANT_LAYOUTS_LIST_ID &&
+    !!SP_PLANT_LAYOUT_FILES_LIST_ID);
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // =============================================================================

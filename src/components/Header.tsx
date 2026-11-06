@@ -50,6 +50,7 @@ import {
   CalendarOff,
   Package,
   Gauge,
+  Map as MapIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
@@ -57,6 +58,7 @@ import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -66,7 +68,7 @@ import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { rememberView } from "@/hooks/useRememberedView";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { MCNS_CONFIGURED, PANEL_BOM_LIVE, USE_MOCK } from "@/api/config";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PLANT_MAP_CONFIGURED, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -110,6 +112,12 @@ interface DepartmentItem {
    * the "Coming soon" row — to everyone else.
    */
   mcnAccess?: "with" | "without";
+  /**
+   * Plant Map: `"with"` shown only to someone who can open it (everyone once
+   * live; people on Plant Map Roles and ARC admins until then); `"without"` —
+   * the "Coming soon" row — to everyone else.
+   */
+  plantMapAccess?: "with";
   /**
    * Panel SAP BOM Builder (BusinessIT#59): `"with"` shown to whoever can open
    * it (panel Super Users during the limited demo, the panel team once live);
@@ -275,6 +283,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         mcnAccess: "with",
       },
       { ...soon("MCNs", <Factory className="h-4 w-4" />), mcnAccess: "without" },
+      {
+        to: "/operations/plant-map",
+        label: "Plant Map",
+        icon: <MapIcon className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/plant-map"),
+        // Only for people on Plant Map Roles — no "Coming soon" row for anyone else.
+        plantMapAccess: "with",
+      },
       {
         to: "/operations/coating-checks",
         label: "Conformal Coating Checks",
@@ -842,6 +858,8 @@ function DepartmentsMenu({
   const canSeePricing = pricingRights.canOpen;
   const mcnAccess = useMyMcnAccess();
   const canSeeMcns = MCNS_CONFIGURED && mcnAccess.rights.canOpen;
+  const plantMapAccess = useMyPlantMapAccess();
+  const canSeePlantMap = PLANT_MAP_CONFIGURED && plantMapAccess.rights.canOpen;
   const panelTeam = usePanelTeamAccess();
 
   useEffect(() => {
@@ -903,6 +921,12 @@ function DepartmentsMenu({
                       !item.mcnAccess ||
                       // Neither row while the roles list answers — no flash of "Coming soon".
                       (!mcnAccess.resolving && (item.mcnAccess === "with" ? canSeeMcns : !canSeeMcns)),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.plantMapAccess ||
+                      // Hidden while the roles list answers, and for anyone not on it.
+                      (!plantMapAccess.resolving && canSeePlantMap),
                   )
                   .filter(
                     (item) =>

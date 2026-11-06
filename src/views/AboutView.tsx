@@ -93,7 +93,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView · CoatingChecksView · CoatingSpecsView · OperationsAlertRecipientsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles · useCoatingChecks · useOperationsAlertRecipients — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles · coatingChecks · coatingSpecs · operationsAlertRecipients — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts · coatingCheck (coating thickness from three uncoated + three coated readings in mm or in, ÷ coated sides, judged in the spec's own unit; mm, in and mils shown) · coatingAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView · PlantLayoutsView · PlantLayoutView · PlantLayoutEditView · PlantSymbolsView · PlantMapRolesView · CoatingChecksView · CoatingSpecsView · OperationsAlertRecipientsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles · usePlantLayouts · usePlantMapRoles · useCoatingChecks · useOperationsAlertRecipients — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles · plantLayouts · layoutComponents · plantLayoutFiles · plantMapRoles · coatingChecks · coatingSpecs · operationsAlertRecipients — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts · plantEditor (the layout editor's undo-able edits, snapping, placing) · plantGeometry (placed items as rotated rectangles; overlap, wall, keep-out and outside-the-building checks) · plantSvg (walls drawings and symbols sanitised, drawn only as images) · plantSymbolImport (a new symbol from an SVG, a DXF or a traced picture) · plantMapRoles (editor / admin) · coatingCheck (coating thickness from three uncoated + three coated readings in mm or in, ÷ coated sides, judged in the spec's own unit; mm, in and mils shown) · coatingAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
         palette: "ui",
       },
       {
@@ -201,6 +201,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
       { label: "Manufacturing Change Notices", hint: "Altronic_PMO site — one row per MCN (MFGFRM-021 as fields), with MCN Roles (who raises, approves, manages) and MCN Distribution Groups (who an approved MCN goes to) beside it", palette: "list" },
+      { label: "Plant Layouts", hint: "Altronic_PMO site — one row per VERSION of a plant layout: Draft, Published or Superseded, the whole layout as JSON in one column (one write per save; SharePoint has no transactions), and the drive id of its walls drawing. A Published row is never written — ARC re-reads before a save and refuses. A layout ARC can't parse is never written over", palette: "list" },
+      { label: "Layout Components / Plant Map Roles", hint: "Altronic_PMO site — the symbol library (SVG drawn to its real footprint in inches; added by a Plant Map admin from an SVG, a DXF or a traced picture; retired, never deleted; seeded from src/data/plantComponentSeed.json only while empty) and who may see and edit the Plant Map (viewer / editor / admin — nobody else sees it)", palette: "list" },
+      { label: "Plant Layout Files", hint: "Altronic_PMO site — a document library holding each layout's walls drawing (walls/…svg, in inches, never overwritten). A file rather than a column because a cleaned CAD export can pass a list column's 64,000-character limit", palette: "list" },
       { label: "Coating Specs", hint: "Altronic_PMO site — conformal coating min / max thickness, stored in mm with the unit it was entered in (mm or in), and coated sides (1 or 2); ARC admins manage, delete only when unused", palette: "list" },
       { label: "Coating Checks", hint: "Altronic_PMO site — three uncoated + three coated readings per check (mm or in), the thickness judged in the spec's unit and stored in mm, in and mils, the spec's figures copied on; read a year at a time on the indexed MeasuredAt", palette: "list" },
       { label: "Operations Alert Recipients", hint: "Altronic_PMO site — who each Operations email goes to (out-of-spec coating checks); ARC admins pick people in ARC, no redeploy", palette: "list" },
@@ -1175,6 +1178,56 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "role (Title)", type: "text", kind: "field" },
       { name: "members (Name <email> lines)", type: "text", kind: "field" },
       { name: "sortOrder", type: "number", kind: "field" },
+    ],
+  },
+
+  // ---- Plant Map (Operations, Altronic_PMO site) -------------------------------
+  // A layout's placed items live in its LayoutJson, not in rows of their own,
+  // so the links below are to ids INSIDE that JSON — nothing in SharePoint
+  // enforces them.
+  {
+    name: "PlantLayout",
+    source: "Plant Layouts (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "building (the list's tabs)", type: "text", kind: "field" },
+      { name: "title / area", type: "text", kind: "field" },
+      { name: "layoutKey (groups versions)", type: "text", kind: "field" },
+      { name: "areas[] (LayoutJson: aisles, no-go areas)", type: "text", kind: "field" },
+      { name: "status (Draft / Published / Superseded)", type: "choice", kind: "field" },
+      { name: "version", type: "number", kind: "field" },
+      { name: "wallsFile (drive item id)", type: "text", kind: "field" },
+      { name: "items[].componentId (LayoutJson)", type: "int", kind: "fk", references: "LayoutComponent.id" },
+      { name: "items[].equipmentId (LayoutJson)", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "supersedesId", type: "int", kind: "fk", references: "PlantLayout.id" },
+    ],
+  },
+  {
+    name: "LayoutComponent",
+    source: "Layout Components (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title / componentKey / category", type: "text", kind: "field" },
+      { name: "svgMarkup", type: "text", kind: "field" },
+      { name: "footprintW / footprintD (in)", type: "number", kind: "field" },
+      { name: "collides / clearance", type: "bool", kind: "field" },
+      { name: "isActive", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PlantMapRole",
+    source: "Plant Map Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (viewer / editor / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
     ],
   },
 
@@ -2174,6 +2227,11 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "MCN", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "MCN", fromColumn: "operationsTask (OperationsTaskRef)", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "McnRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  // Plant Map — links held inside a layout's JSON.
+  { fromTable: "PlantLayout", fromColumn: "items[].componentId (LayoutJson)", toTable: "LayoutComponent", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PlantLayout", fromColumn: "items[].equipmentId (LayoutJson)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PlantLayout", fromColumn: "supersedesId", toTable: "PlantLayout", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "PlantMapRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Harness Production Log — one single lookup into the admin-managed part list.
   { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
   // Crimp Height Checks — one single lookup into the admin-managed specs.
