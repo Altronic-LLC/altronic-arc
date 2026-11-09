@@ -417,6 +417,7 @@ describe("the Harness department", () => {
       screen.getByRole("heading", { name, level: 2 }).closest("section") as HTMLElement;
     expect(within(section("Harness")).getByText("Harness Production Log")).toBeInTheDocument();
     expect(within(section("Harness")).getByText("Crimp Height Checks")).toBeInTheDocument();
+    expect(within(section("Harness")).getByText("Pull Tests")).toBeInTheDocument();
     expect(within(section("Operations")).queryByText("Harness Production Log")).toBeNull();
     expect(within(section("Operations")).queryByText("Crimp Height Checks")).toBeNull();
   });

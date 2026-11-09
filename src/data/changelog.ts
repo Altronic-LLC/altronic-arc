@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.219.0",
+    date: "2026-11-09",
+    changes: [
+      "New under Harness: Pull Tests, a log of pulls on the Mark-10 WT-205 tester at the start of a run, in process and at the end, judged against each terminal's minimum pull force",
+      "In Chrome or Edge, connect the tester over USB and each pull's peak fills the next box by itself; pulls can still be typed, and each test records whether they were read or typed",
+      "Pull Test Specs hold each terminal and wire gauge's minimum, from the manufacturer or an industry standard such as IPC/WHMA-A-620, which can cover any terminal on a gauge; ARC admins manage them",
+      "A test with any pull below its minimum emails the people chosen for failed pull tests on Harness → Who's notified",
+      "Each test records how it failed, such as the wire broke or it pulled out of the crimp, picked from the answers already used or typed new",
+      "After each reading from the tester the cursor moves to the next empty pull box, then to How it failed",
+      "The test form and the manual list the tester settings that work, and what to do for a pull under 10 lbF",
+    ],
+  },
+  {
     version: "0.218.0",
     date: "2026-11-06",
     changes: [

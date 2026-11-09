@@ -81,7 +81,7 @@ $specColumns = @(
 $recipientColumns = @(
     @{ name = "Email"; displayName = "Email"; text = @{} },
     @{ name = "Alert"; displayName = "Alert"
-       choice = @{ allowTextEntry = $false; displayAs = "dropDownMenu"; choices = @("Crimp out of spec", "Part number request") } }
+       choice = @{ allowTextEntry = $false; displayAs = "dropDownMenu"; choices = @("Crimp out of spec", "Pull test failed", "Part number request") } }
 )
 
 function Get-CheckColumns($specsListId) {

@@ -30,6 +30,7 @@ const MOCK_SEED: HarnessAlertRecipient[] = [
   { id: 1, name: "Demo Supervisor", email: "supervisor@example.com", alert: "Crimp out of spec" },
   { id: 2, name: "Demo Quality", email: "quality@example.com", alert: "Crimp out of spec" },
   { id: 3, name: "Demo Supervisor", email: "supervisor@example.com", alert: "Part number request" },
+  { id: 4, name: "Demo Supervisor", email: "supervisor@example.com", alert: "Pull test failed" },
 ];
 
 let mockStore: HarnessAlertRecipient[] = MOCK_SEED.map((r) => ({ ...r }));

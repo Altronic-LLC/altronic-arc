@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Cable,
   Ruler,
+  Weight,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -1091,6 +1092,15 @@ export function DashboardView() {
           // No count, like the production log.
           to={"/harness/crimp-checks"}
           onClick={() => navigate("/harness/crimp-checks")}
+        />
+        <TypeCard
+          name="Pull Tests"
+          icon={<Weight className="h-5 w-5" />}
+          tone="ajax-yellow"
+          description="Pulls on the Mark-10 tester, read straight off it over USB, against each terminal's minimum — failed pulls are emailed."
+          // No count, like the other Harness logs.
+          to={"/harness/pull-tests"}
+          onClick={() => navigate("/harness/pull-tests")}
         />
       </DeptSection>
 

@@ -301,6 +301,27 @@ describe("Crimp Height Checks", () => {
   });
 });
 
+describe("Pull Tests", () => {
+  it("re-orders its rows by Terminal, then reverses", async () => {
+    const { PullTestsView } = await import("./PullTestsView");
+    renderWithProviders(<PullTestsView />, { route: "/harness/pull-tests" });
+    await waitForTable();
+    const terminals = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.querySelectorAll("td")[2]?.textContent?.trim() ?? "");
+
+    await sortBy("Terminal");
+    const ascending = terminals();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+
+    await sortBy("Terminal");
+    expect(terminals()).toEqual([...ascending].reverse());
+  });
+});
+
 describe("the rows are actually re-ordered", () => {
   // Each case clicks a column and asserts the FIRST cell changed or the order
   // reversed. This is what catches a view whose <tbody> still maps the

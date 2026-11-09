@@ -235,6 +235,12 @@ const CrimpChecksView = lazy(() =>
 const CrimpSpecsView = lazy(() =>
   import("@/views/CrimpSpecsView").then((m) => ({ default: m.CrimpSpecsView })),
 );
+// Pull Tests (BusinessIT#64) — the Mark-10 WT-205 pull tester, the crimp
+// checks' arrangement. Its specs have their own admin-managed screen.
+const PullTestsView = lazy(() => import("@/views/PullTestsView").then((m) => ({ default: m.PullTestsView })));
+const PullTestSpecsView = lazy(() =>
+  import("@/views/PullTestSpecsView").then((m) => ({ default: m.PullTestSpecsView })),
+);
 // Who the Harness department's emails go to — ARC admins edit, no redeploy.
 const HarnessAlertRecipientsView = lazy(() =>
   import("@/views/HarnessAlertRecipientsView").then((m) => ({ default: m.HarnessAlertRecipientsView })),
@@ -1157,6 +1163,31 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the crimp height checks" />}>
                   <CrimpChecksView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/harness/pull-tests"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the pull tests" />}>
+                  <PullTestsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/harness/pull-tests/specs"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the pull test specs" />}>
+                  <PullTestSpecsView />
+                </Suspense>
+              }
+            />
+            {/* One test — the link in a failed-pull email (lib/appUrl.ts pullTest). */}
+            <Route
+              path="/harness/pull-tests/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the pull tests" />}>
+                  <PullTestsView />
                 </Suspense>
               }
             />

@@ -210,7 +210,7 @@ export function AdminNotificationRecipientsView() {
           which nobody reads.
         </p>
         <p className="max-w-3xl text-sm text-fg-muted">
-          The Harness department's emails (out-of-spec crimp checks, part number requests) aren't
+          The Harness department's emails (out-of-spec crimp checks, failed pull tests, part number requests) aren't
           set here: ARC admins pick those people on{" "}
           <Link to="/harness/alert-recipients" className="font-medium text-accent underline-offset-2 hover:underline">
             Harness — Who's notified

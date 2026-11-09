@@ -900,6 +900,19 @@ export const SP_CRIMP_SPECS_LIST_ID = import.meta.env.VITE_SP_CRIMP_SPECS_LIST_I
 /** "Crimp Height Checks" — one row per check of three readings. */
 export const SP_CRIMP_CHECKS_LIST_ID = import.meta.env.VITE_SP_CRIMP_CHECKS_LIST_ID || "";
 
+// =============================================================================
+// Pull Tests (BusinessIT#64) — TWO lists on the PMO site, Harness department:
+// pull tests off the Mark-10 WT-205 for the machined pins crimp height can't
+// judge. Created by scripts/create-pull-test-lists.ps1. No defaults, the crimp
+// checks' reasoning; an unset id shows "not set up yet".
+// =============================================================================
+
+/** "Pull Test Specs" — the minimum pull force per terminal + gauge. ARC admins manage it. */
+export const SP_PULL_TEST_SPECS_LIST_ID = import.meta.env.VITE_SP_PULL_TEST_SPECS_LIST_ID || "";
+
+/** "Pull Tests" — one row per test of up to five pulls. */
+export const SP_PULL_TESTS_LIST_ID = import.meta.env.VITE_SP_PULL_TESTS_LIST_ID || "";
+
 /**
  * "Harness Alert Recipients" — who the Harness department's emails go to
  * (an out-of-spec crimp check, a part number request), one row per person per

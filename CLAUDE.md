@@ -502,6 +502,9 @@ src/
 │   ├── crimpSpecs.ts             Crimp Specs (Harness, PMO site) — per terminal + applicator + gauge; admin writes, delete only when unused
 │   ├── crimpChecks.ts            Crimp Height Checks CRUD, year-scoped on the indexed CheckedAt — spec figures copied on, admin-gated delete
 │   ├── harnessAlertRecipients.ts Harness Alert Recipients — who each Harness email goes to; admin-managed list, read fresh at send
+│   ├── pullTestSpecs.ts          Pull Test Specs (Harness, PMO site) — minimum pull force per terminal + gauge (blank terminal = any); admin writes, delete only when unused
+│   ├── pullTests.ts              Pull Tests CRUD, year-scoped on the indexed TestedAt — spec minimum copied on, admin-gated delete
+│   ├── mark10Serial.ts           The Mark-10 WT-205 pull tester over Web Serial — choose/reopen the port, read lines, send "?"; no helper program
 │   ├── coatingSpecs.ts           Coating Specs (Operations, PMO site) — min / max stored in mm + the unit entered in + coated sides; admin writes, delete only when unused
 │   ├── coatingChecks.ts          Conformal Coating Checks CRUD, year-scoped on the indexed MeasuredAt — spec figures copied on, admin-gated delete
 │   ├── operationsAlertRecipients.ts Operations Alert Recipients — who each Operations email goes to; admin-managed list, read fresh at send
@@ -578,6 +581,7 @@ src/
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── harnessMockData.ts        Sample harness log rows (this year + last) + part numbers, one retired
 │   ├── crimpMockData.ts          Sample crimp specs + checks — INVENTED terminals/applicators, one out of spec, one spec with no height
+│   ├── pullTestMockData.ts       Sample pull test specs + tests — INVENTED, an any-terminal spec, one in N, one failed, one with no minimum
 │   ├── coatingMockData.ts        Sample coating specs + checks — INVENTED machines, mm and inch checks, one out of spec, one retired spec
 │   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
@@ -623,6 +627,8 @@ src/
 │   ├── useHarnessProductionLog.ts Harness log + part-number queries/mutations; delete and every part write are ARC-admin only
 │   ├── useCrimpChecks.ts         Crimp checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
 │   ├── useHarnessAlertRecipients.ts Who's notified CRUD (ARC admins) + readHarnessRecipients (fresh) + the part number request
+│   ├── usePullTests.ts           Pull tests + specs queries/mutations; the failed-pull email + its toast; admin-only delete and spec writes
+│   ├── useMark10Tester.ts        The pull tester for an open form — connect, reconnect to the one granted port, baud (remembered), each line parsed
 │   ├── useCoatingChecks.ts       Coating checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
 │   ├── useOperationsAlertRecipients.ts Operations Who's notified CRUD (ARC admins) + readOperationsRecipients (fresh)
 │   ├── useRequireArcAdmin.ts     "Only ARC admins can…" asked INSIDE a mutationFn, awaiting the Admins list (Harness + Crimp)
@@ -889,6 +895,10 @@ src/
 │   ├── crimpCheck.ts             Crimp height rules (pure) — limits inclusive, any reading out = out of spec, mm detection, when to email, labels
 │   ├── crimpMapper.ts            Graph item ⇄ Crimp Spec / Crimp Check; Average, OutOfSpec and Title derived on write
 │   ├── crimpAlerts.ts            The out-of-spec crimp email (pure)
+│   ├── pullTest.ts               Pull test rules (pure) — a pull AT the minimum passes, judged in the spec's unit, any pull low = failed, labels
+│   ├── pullTestMapper.ts         Graph item ⇄ Pull Test Spec / Pull Test; LowestPull, Failed and Title derived on write; five pull columns
+│   ├── pullTestAlerts.ts         The failed pull test email (pure)
+│   ├── mark10.ts                 The WT-205's serial output as text (pure) — "124.8 lbF" lines, units, baud rates, errors in words
 │   ├── coatingCheck.ts           Conformal coating rules (pure) — averages, thickness ÷ coated sides, judged in the SPEC'S unit (mm or in), limits inclusive, labels
 │   ├── coatingMapper.ts          Graph item ⇄ Coating Spec / Coating Check; averages, both thicknesses, OutOfSpec and Title derived on write
 │   ├── coatingAlerts.ts          The out-of-spec conformal coating email (pure)
@@ -927,6 +937,7 @@ src/
 │   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
 │   ├── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
 │   ├── crimp.ts                  Crimp Height Checks types + constants (CrimpSpec, CrimpCheck, check points)
+│   ├── pullTest.ts               Pull Tests types + constants (force units, spec sources, PULLS_REQUIRED / MAX_PULLS)
 │   ├── coating.ts                Conformal Coating Checks types + constants (units — mm first, coated sides, spec, check)
 │   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
@@ -1071,6 +1082,8 @@ src/
 │   ├── HarnessLogFormModal.tsx   Create/edit a harness log entry — part picked from the list, never typed
 │   ├── CrimpCheckFormModal.tsx   Record/correct a crimp check — spec picked, readings judged live, Enter-as-Tab for the micrometer, mm refused
 │   ├── CrimpSpecFormModal.tsx    Add/edit a crimp spec (ARC admins)
+│   ├── PullTestFormModal.tsx     Record/correct a pull test — spec picked, the tester panel (connect, Read now), pulls judged live, Enter-as-Tab
+│   ├── PullTestSpecFormModal.tsx Add/edit a pull test spec — source, terminal (blank = any for a standard), minimum + unit (ARC admins)
 │   ├── CoatingCheckFormModal.tsx Record/correct a coating check — spec picked, mm/in, six readings, thickness judged live in the spec's unit, Enter-as-Tab
 │   ├── CoatingSpecFormModal.tsx  Add/edit a coating spec in mm or inches, with coated sides (ARC admins)
 │   ├── HarnessPartRequestDialog.tsx  Request a new or retired harness part number — portalled, emails the part-request recipients
@@ -1151,6 +1164,8 @@ src/
 │   ├── HarnessPartNumbersView.tsx    Harness Part Numbers — readable by all, ARC admins add/rename/retire
 │   ├── CrimpChecksView.tsx       Crimp Height Checks (/harness/crimp-checks, /:id opens one) — year picker, out-of-spec filter, cards on a phone
 │   ├── CrimpSpecsView.tsx        Crimp Specs — readable by all, ARC admins add/edit/retire, delete only when unused
+│   ├── PullTestsView.tsx         Pull Tests (/harness/pull-tests, /:id opens one) — year picker, terminal + failed filters, cards on a phone
+│   ├── PullTestSpecsView.tsx     Pull Test Specs — readable by all, ARC admins add/edit/retire, delete only when unused
 │   ├── HarnessAlertRecipientsView.tsx  Harness → Who's notified (/harness/alert-recipients) — people per alert, picked from the directory, ARC admins edit
 │   ├── CoatingChecksView.tsx     Conformal Coating Checks (/operations/coating-checks, /:id opens one) — year picker, machine + out-of-spec filters, cards on a phone
 │   ├── CoatingSpecsView.tsx      Coating Specs — readable by all, ARC admins add/edit/retire, delete only when unused; cards on a phone
@@ -8322,6 +8337,155 @@ numbers screen. `HarnessPartRequestDialog` is **portalled to `<body>`** — it
 opens inside the entry form, and a form in a form is invalid. Escape is
 handled on the document (after a send the focused button is gone), and the
 entry form ignores Escape while it's open — pinned, verified by removing it.
+
+### Pull Tests (Harness, PMO site)
+
+BusinessIT#64 (David Bulkley via Feature Request #38; built with Tim,
+2026-11-09). Crimp height and crimp force can't judge the MACHINED pins
+(DriveCOM), so those are pull tested on a **Mark-10 WT-205** wire crimp pull
+tester, and stamped terminals can be too. The Crimp Height Checks
+arrangement, copied on purpose (Tim: "yes copy that") — anyone records and
+corrects a test, ARC admins delete tests and manage specs, a failed test
+emails the "Pull test failed" people on Harness Alert Recipients. Pieces:
+`types/pullTest.ts`, `lib/pullTest.ts` (the rules), `lib/pullTestMapper.ts`,
+`lib/pullTestAlerts.ts`, `lib/mark10.ts`, `api/pullTestSpecs.ts`,
+`api/pullTests.ts`, `api/mark10Serial.ts`, `hooks/usePullTests.ts`,
+`hooks/useMark10Tester.ts`, the two `PullTest*FormModal`s, `PullTestsView`
+(`/harness/pull-tests`, `/:id` opens one) and `PullTestSpecsView`
+(`/harness/pull-tests/specs`).
+
+Two lists on `SITES.pmo`, created by `scripts/create-pull-test-lists.ps1`
+(idempotent, `-WhatIf`, write/read-back check; its internal names are the
+contract with `lib/pullTestMapper.ts`). **No defaults** — unset shows "not
+set up yet":
+
+| List | env | Holds |
+|---|---|---|
+| Pull Test Specs | `VITE_SP_PULL_TEST_SPECS_LIST_ID` | Title = terminal (blank = any), WireGauge, MinimumForce + ForceUnit, SpecSource, SpecReference |
+| Pull Tests | `VITE_SP_PULL_TESTS_LIST_ID` | one row per test; `TestedAt` indexed; Pull1–Pull5; the spec's minimum copied on |
+
+The same script ADDS "Pull test failed" to Harness Alert Recipients' strict
+`Alert` choice (keeping any choice added by hand) — **run it before the
+deploy**, or nobody can be picked for the alert. `HARNESS_ALERTS` and
+`create-crimp-lists.ps1` carry the third choice too.
+
+Tim's decisions, 2026-11-09:
+- **Specs are a table**, some a manufacturer's figure, some an industry
+  standard (IPC/WHMA-A-620). An industry-standard spec may leave the terminal
+  BLANK — the standard's table goes by wire size — and the test then asks
+  which terminal was pulled. A manufacturer spec must name its terminal
+  (checked in the API, not just the form). One spec per terminal + gauge; an
+  any-terminal spec is one per gauge + REFERENCE (`pullSpecKey`), because a
+  standard gives several minimums per gauge — IPC/WHMA-A-620 Table 19-8 has
+  machined contacts (silver/tin and nickel plated wire), crimp splices, and
+  stamped and formed terminals, and the reference names which. A terminal's
+  own spec and the IPC rows for its gauge can all exist; the operator picks.
+- **The IPC table is loaded by `scripts/load-pull-test-specs.ps1`** from a
+  CSV kept OUT of the repo (a standard's table, and the repo is public).
+  Pounds are loaded (lbF, the tester's default); the table's N column goes in
+  Notes, and the script flags rows where the two disagree by more than 1%
+  (the table has a few, e.g. 6 AWG machined silver/tin 300 lb vs 1235.0 N).
+  ADD-ONLY, keyed like `pullSpecKey`; `-ParseOnly` needs no sign-in. Gauges
+  are stored as the label reads: "20" (shown "20 AWG"), "1/0 AWG",
+  "250 kcmil".
+- **Start / In process / End, three pulls**, like crimp, until the floor
+  decides how many per setup. `PULLS_REQUIRED` (3) is what a test needs and
+  `MAX_PULLS` (5) is how many columns exist, so changing the count is a
+  constant, not a list change. "Add a pull" adds boxes up to five.
+- **Read the tester straight into ARC** (option a), typing as the fallback.
+
+Rules that are load-bearing (all in `lib/pullTest.ts`, pinned in
+`pullTest.test.ts`):
+- **A pull passes when it holds AT LEAST the minimum**; there is no upper
+  limit. Any single pull below fails the test — never an average.
+- **Judged in the SPEC's unit**: a reading is converted, then rounded to 3
+  decimals before comparing (finer than the tester's 0.1 lbF / 0.5 N), so a
+  pull converted back to exactly the minimum isn't failed by float noise.
+- **A test copies its spec's minimum and unit** (and its terminal and
+  reference) as well as `SpecRef` (a SINGLE lookup, bare integer), so an
+  edited spec never re-judges an old test. Delete a spec only while no test
+  uses it, asked FRESH in `useDeletePullTestSpec`; otherwise retire it.
+- **`LowestPull`, `Failed` and `Title` are derived on every write**, and
+  `ReadingSource` records Tester / Typed / Mixed per test (a pull typed over
+  stops counting as the tester's).
+- **The email goes when a test BECOMES failed** (`shouldAlertPullFailed`), not
+  on re-saving one that already failed — the crimp rule.
+
+#### The tester — Web Serial, no helper program
+
+The WT-205's USB port is a serial port once Mark-10's USB driver is installed
+(User's Guide §3.2), and Chrome and Edge can open one from a web page. So the
+bench PC's browser reads it directly; ARC needs no server and no install.
+From the User's Guide §12 (`lib/mark10.ts`): 8 data bits, 1 stop bit, no
+parity, baud set on the tester (up to 115,200); a reading is `124.8 lbF` +
+CR LF (or the number alone, "Numeric Only"); it is sent on DATA, by itself
+after a break when **Auto Settings → RS232/USB Output** is ticked (the peak,
+plus a date/time stamp if installed), and in answer to `?` + CR. Units: lbF,
+ozF, kgF, N, kN.
+
+- **`parseMark10Line` takes the first number and the word after it**, ignores
+  the rest (the date/time stamp), and REFUSES a negative reading, an unknown
+  unit, `*10` (the tester's "illegal command") and noise — shown in the
+  panel, never guessed into a number. `takeLines` copes with CR and LF
+  arriving in different chunks.
+- **The Web Serial types are declared locally** in `api/mark10Serial.ts`
+  (`SerialPortLike`), not by augmenting the global `Navigator` — they aren't
+  in TypeScript's DOM lib, and a later lib that adds them must not collide.
+- **Connect needs a click** (the browser's port chooser); after that
+  `useMark10Tester` REOPENS the port by itself when a form opens, if the
+  browser remembers exactly ONE granted port. It closes the port when the form
+  closes — only one program can hold it, so leaving it open would lock out
+  Mark-10's MESUR software and the next form alike. `describeSerialError` says
+  which it is (in use, lost, blocked).
+- **A reading fills the first EMPTY box**, then grows a box, up to five; a
+  sixth is reported, not written over anything. The test's unit is the
+  tester's: the first reading sets it, and a reading in a different unit once
+  pulls exist is refused (`handleReading`'s guard, verified by removing it).
+  With "Numeric Only" the form's unit is assumed and the panel says to switch
+  the tester to Numeric + Units.
+- **The baud rate is a choice remembered per browser** (`arc-mark10-baud`,
+  default 9,600), because it must match the tester and nothing can detect it.
+- **Demo mode has "Simulate a pull"**, feeding a made-up line through the same
+  parser, so the screen can be shown without the tester.
+- **Verified on the real tester** (Tim, 2026-11-10, dev server against the
+  live lists). The bench setup that works: **Peak** mode, **Break Detection**
+  enabled, **Auto Settings → Enabled + RS232/USB Output + Auto Zero**, Data
+  Format **Numeric + Units**, baud matching ARC's panel. If readings don't
+  arrive, check those before suspecting ARC.
+- **The break threshold can't go below 5% on this firmware** — the manual
+  says 1–90%, the tester refuses under 5%, which is **10 lbF** of the 200 lbF
+  full scale. A pull that never passes 10 lbF isn't a break, so nothing is
+  sent by itself: the operator presses DATA (or Read now) and then ZERO. The
+  form's help text and the manual say so.
+- **A reading moves the cursor on** (`focusRequest` in `PullTestFormModal`):
+  to the next empty pull box, then to How it failed — unless somebody is
+  typing in another field (`typingElsewhere`), when the reading still lands
+  but the cursor stays. Pull boxes carry `data-pull-box` for this.
+
+Pinned in `lib/pullTest.test.ts`, `lib/mark10.test.ts`,
+`lib/pullTestMapper.test.ts`, `api/pullTests.real.test.ts` (request shapes,
+real mode), `api/mark10Serial.test.ts` (the read loop against a fake port),
+`hooks/usePullTests.test.tsx` and `components/PullTestFormModal.test.tsx`
+(the tester is a fake `api/mark10Serial` the test feeds lines to).
+
+**How it failed** (`HowFailed`, text, one per test — Tim, 2026-11-09) is a
+`SuggestInput`, the Harness Built By arrangement: free text, offered as the
+answers already used. `failureModeSuggestions` (`lib/pullTest.ts`) is the
+rule:
+- **The loaded tests' answers, most-used first**, with case and spacing
+  differences counted as one answer and shown the way it's written most.
+- **Then `STANDARD_FAILURE_MODES`** (Wire broke, Wire pulled out of crimp,
+  Terminal broke) not yet used, so the box is useful on day one.
+- **The box opens on the top `FAILURE_MODE_SHORT_LIST` (10)**; typing searches
+  every answer (`searchOptions`). A new answer typed today is a suggestion the
+  next time the log loads it. Nothing is stored apart from the test's own
+  value — no list to maintain.
+- **Optional, and asked on every test**, not only a failed one: a pull test is
+  destructive, so every pull ends somehow, and a passing test's answer ("wire
+  broke") is the healthy case worth comparing against. It is in the failed
+  email, the list (a column with a value filter, and search) and the phone card.
+
+Open question (David / Tim): how many pulls per setup.
 
 ### Conformal Coating Checks (Operations, PMO site)
 

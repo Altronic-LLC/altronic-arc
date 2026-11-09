@@ -2632,7 +2632,7 @@ const SECTIONS: ManualSection[] = [
       "alert recipients",
     ],
     searchText:
-      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the terminal (each spec is a terminal, wire gauge and applicator), pick Start, In process or End, enter your clock number and the three readings in inches. The micrometer's Bluetooth transmitter types each reading and presses Enter, which moves to the next box. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with how many checks used it; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
+      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the terminal (each spec is a terminal, wire gauge and applicator), pick Start, In process or End, enter your clock number and the three readings in inches. The micrometer's Bluetooth transmitter types each reading and presses Enter, which moves to the next box. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks, failed pull tests and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with how many checks used it; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
     render: () => (
       <>
         <P>
@@ -2690,7 +2690,7 @@ const SECTIONS: ManualSection[] = [
           The <strong>Who's notified</strong> button, shown to{" "}
           <strong>ARC admins</strong> on both Harness logs (and listed on the
           Admin page), shows who each Harness email goes to: out-of-spec crimp
-          checks, and part number requests. ARC admins add people from the staff
+          checks, failed pull tests, and part number requests. ARC admins add people from the staff
           directory and remove them. A change applies to the very next email.
         </P>
         <P>
@@ -2726,6 +2726,163 @@ const SECTIONS: ManualSection[] = [
             the checks already taken keep it.
           </LI>
         </UL>
+      </>
+    ),
+  },
+  {
+    id: "pull-tests",
+    title: "Pull Tests",
+    group: "Harness",
+    keywords: [
+      "pull test",
+      "pull tests",
+      "pull force",
+      "wire pull",
+      "mark-10",
+      "mark 10",
+      "wt-205",
+      "tester",
+      "usb",
+      "serial",
+      "machined pin",
+      "drivecom",
+      "terminal",
+      "wire gauge",
+      "minimum",
+      "ipc/whma-a-620",
+      "ipc",
+      "pull test spec",
+      "failed",
+      "how it failed",
+      "failure mode",
+      "wire broke",
+      "who's notified",
+    ],
+    searchText:
+      "Pull Tests log the pulls taken on the Mark-10 WT-205 wire crimp pull tester, for the machined pins crimp height can't judge and for stamped terminals too. Reach it from the Pull Tests card on the Dashboard or the Departments menu under Harness. Click New test, pick the spec (a terminal and wire gauge with its minimum pull force, from the manufacturer or an industry standard such as IPC/WHMA-A-620), pick Start, In process or End, enter your clock number, and take three pulls. An industry-standard spec can cover any terminal on its gauge; then type the terminal you pulled. A standard can give several minimums for one gauge, such as machined contacts, crimp splices, or stamped and formed terminals; the spec's name says which, so pick the one for what you crimped. To read the tester straight into ARC, use Chrome or Edge on the computer the tester is plugged into by USB, with Mark-10's USB driver installed. Press Connect tester and pick the tester's port the first time; after that ARC reconnects by itself whenever the form opens. On the tester, use Peak mode, turn on Break Detection, and under Auto Settings tick Enabled, RS232/USB Output and Auto Zero, so it sends the peak each time a crimp lets go and zeroes itself for the next pull. A pull that never reaches 10 lbF doesn't count as a break, so nothing is sent: press DATA on the tester or Read now in ARC, then ZERO. Set the tester's Data Format to Numeric + Units. After each reading the cursor moves to the next empty pull box, then to How it failed. The baud rate in ARC must match the tester's. Each reading fills the next empty pull box and is marked from tester; a fourth or fifth pull adds a box. The unit comes from the tester; a reading in a different unit from the pulls already taken is refused. You can always type pulls instead, and ARC records whether they were read by the tester, typed, or mixed. Each pull shows Holds or Below minimum; a pull exactly at the minimum passes, and readings in another unit are converted to the spec's unit first. Say how it failed, such as the wire broke or it pulled out of the crimp: pick an answer already used, most used first, or type a new one. Enter the work order the run is for, which is required. If any single pull is below the minimum, saving emails the people chosen for failed pull tests and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. ARC admins choose who is emailed on Who's notified. Every test keeps the minimum it was judged by, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show failed tests only, or search; columns sort and filter from their headers; on a phone the log is cards. Anyone signed in can record and correct a test; only ARC admins can delete one. The Specs screen lists every spec with how many tests used it; ARC admins add, edit, retire or delete specs, and a spec that has been used can't be deleted: retire it instead.",
+    render: () => (
+      <>
+        <P>
+          <strong>Pull Tests</strong> log the pulls taken on the{" "}
+          <strong>Mark-10 WT-205</strong> wire crimp pull tester: for the
+          machined pins that crimp height can't judge, and for stamped terminals
+          too. Reach it from the <strong>Pull Tests</strong> card on the
+          Dashboard, or the Departments menu under Harness.
+        </P>
+        <H3>Recording a test</H3>
+        <UL>
+          <LI>
+            Click <strong>New test</strong> and pick the <strong>spec</strong>: a
+            terminal and wire gauge with its <strong>minimum pull force</strong>,
+            from the manufacturer or an industry standard such as
+            IPC/WHMA-A-620.
+          </LI>
+          <LI>
+            An industry-standard spec can cover <strong>any terminal</strong> on
+            its gauge. Then type the terminal you pulled. A standard can give
+            several minimums for one gauge (IPC/WHMA-A-620 has machined
+            contacts by plating, crimp splices, and stamped and formed
+            terminals); the spec's name says which it is, so pick the one for
+            what you crimped.
+          </LI>
+          <LI>
+            Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
+            <strong>End</strong>, enter your <strong>clock number</strong>, and
+            take <strong>three pulls</strong>. Add a fourth or fifth with{" "}
+            <em>Add a pull</em>.
+          </LI>
+          <LI>
+            Each pull shows <strong>Holds</strong> or{" "}
+            <strong>Below minimum</strong>. A pull <strong>exactly at</strong>{" "}
+            the minimum passes. A reading in another unit is converted to the
+            spec's unit before it's judged.
+          </LI>
+          <LI>
+            Say <strong>how it failed</strong>: the wire broke, it pulled out of
+            the crimp, the terminal broke. Open the box to pick an answer
+            already used, most used first, or type a new one; a new answer is
+            offered the next time.
+          </LI>
+          <LI>
+            Enter the <strong>work order</strong> the run is for (required) and
+            the harness or assembly if you have it.
+          </LI>
+        </UL>
+        <H3>Reading the tester into ARC</H3>
+        <P>
+          ARC can read the pulls straight off the tester, so nobody copies a
+          number by hand. It needs <strong>Chrome or Edge</strong> on the
+          computer the tester is plugged into by USB, with Mark-10's USB driver
+          installed. On a phone or iPad, or in another browser, type the pulls
+          instead.
+        </P>
+        <UL>
+          <LI>
+            Press <strong>Connect tester</strong> and pick the tester's port the
+            first time. After that ARC <strong>reconnects by itself</strong>{" "}
+            whenever the form opens.
+          </LI>
+          <LI>
+            On the tester, use <strong>Peak</strong> mode, turn on{" "}
+            <strong>Break Detection</strong>, and under{" "}
+            <strong>Auto Settings</strong> tick <strong>Enabled</strong>,{" "}
+            <strong>RS232/USB Output</strong> and <strong>Auto Zero</strong>.
+            The tester then sends the <strong>peak</strong> each time a crimp lets
+            go and zeroes itself for the next pull. The reading lands in the next
+            empty pull box, marked <em>from tester</em>, and the cursor moves on
+            to the next empty box (then to <em>How it failed</em>), unless you're
+            typing in another field.
+          </LI>
+          <LI>
+            A pull that never reaches <strong>10 lbF</strong> doesn't count as a
+            break (5% of the tester's 200 lbF is the lowest threshold it allows),
+            so nothing is sent by itself. Press <strong>DATA</strong> on the
+            tester, or <strong>Read now</strong> in ARC, then{" "}
+            <strong>ZERO</strong>. Set the tester's Data Format to{" "}
+            <strong>Numeric + Units</strong> so ARC gets the unit too.
+          </LI>
+          <LI>
+            The <strong>baud rate</strong> in ARC must match the tester's{" "}
+            (Serial/USB Settings on the tester). ARC remembers it on that
+            computer.
+          </LI>
+          <LI>
+            The <strong>unit</strong> comes from the tester. A reading in a
+            different unit from the pulls already taken is refused, so switch
+            the tester back or clear the pulls.
+          </LI>
+          <LI>
+            Only one program can use the tester at a time. If Mark-10's own
+            software or another ARC tab has it open, close that first.
+          </LI>
+          <LI>
+            You can always type a pull, or correct one. ARC records whether a
+            test's pulls were read by the tester, typed, or mixed.
+          </LI>
+        </UL>
+        <H3>A failed test</H3>
+        <P>
+          If <strong>any single pull</strong> is below the minimum, saving the
+          test <strong>emails the people chosen for failed pull tests</strong>,
+          and a message tells you how many were emailed. If nobody is set up
+          yet, it asks you to tell your supervisor. ARC admins choose who is
+          emailed on <strong>Who's notified</strong>. Correcting a test that had
+          already failed doesn't email them again.
+        </P>
+        <H3>The log and the specs</H3>
+        <P>
+          The log opens on the current year. Filter by terminal, show failed
+          tests only, or search; columns sort and filter from their headers, and
+          on a phone the log is cards. <strong>Anyone can record and correct a
+          test</strong>; only <strong>ARC admins can delete</strong> one.
+        </P>
+        <P>
+          The <strong>Specs</strong> button lists every spec with how many tests
+          used it. <strong>ARC admins</strong> add, edit, retire or delete specs.{" "}
+          <strong>Every test keeps the minimum it was judged by</strong>, so
+          changing a spec never changes an old result, and a spec that has been
+          used can't be deleted: <strong>retire</strong> it instead.
+        </P>
       </>
     ),
   },

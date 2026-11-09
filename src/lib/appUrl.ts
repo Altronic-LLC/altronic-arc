@@ -40,6 +40,7 @@ export type AppItemKind =
   | "mcn"
   | "crimpCheck"
   | "coatingCheck"
+  | "pullTest"
   | "harnessPartNumber"
   | "scheduledMaintenance";
 
@@ -93,6 +94,9 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // Conformal Coating Checks (BusinessIT#60) — the crimp arrangement: the log
   // opens the check's edit form from /operations/coating-checks/:id.
   coatingCheck: "operations/coating-checks",
+  // Pull Tests (BusinessIT#64) — the crimp arrangement: the log opens the
+  // test's edit form from /harness/pull-tests/:id.
+  pullTest: "harness/pull-tests",
   // A part number request has no item page — its email links to the list
   // with `link`, so this segment is only the fallback.
   harnessPartNumber: "harness/production-log/part-numbers",

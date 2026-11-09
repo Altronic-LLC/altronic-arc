@@ -33,6 +33,8 @@ import {
   SP_COST_IMPACT_NOTICES_LIST_ID,
   SP_CRIMP_CHECKS_LIST_ID,
   SP_CRIMP_SPECS_LIST_ID,
+  SP_PULL_TEST_SPECS_LIST_ID,
+  SP_PULL_TESTS_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
   SP_CUSTOMER_NOTES_LIST_ID,
   SP_ECNS_LIST_ID,
@@ -242,6 +244,8 @@ export const APPS: AppSpec[] = [
   { path: "/harness/production-log", label: "Harness Production Log", site: "pmo", lists: ids(SP_HARNESS_PRODUCTION_LOG_LIST_ID) },
   { path: "/harness/crimp-checks/specs", label: "Crimp Specs", site: "pmo", lists: ids(SP_CRIMP_SPECS_LIST_ID) },
   { path: "/harness/crimp-checks", label: "Crimp Height Checks", site: "pmo", lists: ids(SP_CRIMP_CHECKS_LIST_ID) },
+  { path: "/harness/pull-tests/specs", label: "Pull Test Specs", site: "pmo", lists: ids(SP_PULL_TEST_SPECS_LIST_ID) },
+  { path: "/harness/pull-tests", label: "Pull Tests", site: "pmo", lists: ids(SP_PULL_TESTS_LIST_ID) },
   { path: "/harness/alert-recipients", label: "Harness — Who's notified", site: "pmo", lists: ids(SP_HARNESS_ALERT_RECIPIENTS_LIST_ID) },
 
   // Coils ----------------------------------------------------------------
