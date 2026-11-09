@@ -314,6 +314,52 @@ describe("publishing", () => {
   });
 });
 
+describe("deleting a layout", () => {
+  it("deletes a draft and KEEPS the walls drawing the published version still uses", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/2", routePattern: "/operations/plant-map/:id" });
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Delete Main Plant v2?");
+    await waitFor(() => expect(dialog).toHaveTextContent("Its walls drawing is kept, because Main Plant v1 (Published) still uses it."));
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(async () => expect((await listPlantLayouts()).some((l) => l.id === 2)).toBe(false));
+    expect(await readWallsFile("mock-walls-main")).toContain("<svg");
+  });
+
+  it("deletes the walls drawing too when no other layout uses it", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/3", routePattern: "/operations/plant-map/:id" });
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    const dialog = screen.getByRole("dialog");
+    await waitFor(() => expect(dialog).toHaveTextContent("Its walls drawing is deleted too — no other layout uses it."));
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(async () => expect((await listPlantLayouts()).some((l) => l.id === 3)).toBe(false));
+    await expect(readWallsFile("mock-walls-panel")).rejects.toThrow(/isn't in the Plant Layout Files library/);
+  });
+
+  it("can be cancelled, and nothing changes", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/3", routePattern: "/operations/plant-map/:id" });
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Keep it" }));
+    expect((await listPlantLayouts()).some((l) => l.id === 3)).toBe(true);
+  });
+
+  it("isn't offered on the published layout", async () => {
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/1", routePattern: "/operations/plant-map/:id" });
+    expect(await screen.findByRole("button", { name: "Edit the draft (v2)" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  });
+
+  it("isn't offered to an editor", async () => {
+    who.email = "riley.sample@example.com";
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/3", routePattern: "/operations/plant-map/:id" });
+    expect(await screen.findByRole("button", { name: "Edit layout" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  });
+});
+
 describe("PlantMapRolesView", () => {
   it("lets a Plant Map admin tick a role", async () => {
     const user = userEvent.setup();

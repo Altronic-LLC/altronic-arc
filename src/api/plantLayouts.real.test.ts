@@ -40,6 +40,7 @@ import {
   LayoutNotDraftError,
   copyLayoutToDraft,
   createPlantLayout,
+  deletePlantLayout,
   getPlantLayout,
   listPlantLayouts,
   publishPlantLayout,
@@ -289,5 +290,76 @@ describe("publishPlantLayout", () => {
     graphFetch.mockResolvedValue(row("9", { ...draft.fields, LayoutJson: "{not json" }));
     await expect(publishPlantLayout(9)).rejects.toThrow(/couldn't be read/);
     expect(patches()).toEqual([]);
+  });
+});
+
+describe("deletePlantLayout", () => {
+  const draft = row("9", { Title: "Main", LayoutKey: "main-x", Status: "Draft", Version: 4, WallsFile: "F1", LayoutJson: serializeLayoutDoc(DOC) });
+  const live = row("4", { Title: "Main", LayoutKey: "main-x", Status: "Published", Version: 3, WallsFile: "F1" });
+  const deletes = () =>
+    graphFetch.mock.calls.filter(([, i]) => i?.method === "DELETE").map(([path]) => String(path));
+  const routeGets = (layout: unknown) =>
+    graphFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") return undefined;
+      if (String(path).includes("/drive?")) return { id: "drive-1" };
+      return layout;
+    });
+
+  it("deletes the row, then KEEPS a walls drawing another version still uses", async () => {
+    routeGets(draft);
+    graphFetchAll.mockResolvedValue([live]); // the row is gone; v3 still points at F1
+    const result = await deletePlantLayout(9);
+    expect(deletes()).toEqual([expect.stringMatching(/\/lists\/layouts-list\/items\/9$/)]);
+    expect(result).toMatchObject({ wallsDeleted: false, warnings: [] });
+    expect(result.wallsKeptFor.map((l) => l.id)).toEqual([4]);
+  });
+
+  it("deletes the walls drawing too when nothing else uses it — row FIRST, file second", async () => {
+    routeGets(draft);
+    graphFetchAll.mockResolvedValue([row("5", { Title: "Other", Status: "Published", WallsFile: "F2" })]);
+    const result = await deletePlantLayout(9);
+    expect(deletes()).toEqual([
+      expect.stringMatching(/\/lists\/layouts-list\/items\/9$/),
+      "/drives/drive-1/items/F1",
+    ]);
+    expect(result).toMatchObject({ wallsDeleted: true, wallsKeptFor: [], warnings: [] });
+  });
+
+  it("refuses a Published layout, and deletes nothing", async () => {
+    routeGets(live);
+    await expect(deletePlantLayout(4)).rejects.toThrow(/published layout can't be deleted/);
+    expect(deletes()).toEqual([]);
+  });
+
+  it("still deletes the row when the file is refused, and says which file to remove", async () => {
+    graphFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "DELETE" && String(path).startsWith("/drives/")) throw new GraphError(403, "Forbidden", "accessDenied", "u");
+      if (init?.method === "DELETE") return undefined;
+      if (String(path).includes("/drive?")) return { id: "drive-1" };
+      return draft;
+    });
+    graphFetchAll.mockResolvedValue([]);
+    const result = await deletePlantLayout(9);
+    expect(result.wallsDeleted).toBe(false);
+    expect(result.warnings).toEqual([expect.stringMatching(/layout was deleted, but its walls drawing couldn't be.*walls\//)]);
+  });
+
+  it("keeps the drawing when it can't check who else uses it", async () => {
+    routeGets(draft);
+    graphFetchAll.mockRejectedValue(new Error("throttled"));
+    const result = await deletePlantLayout(9);
+    expect(deletes()).toHaveLength(1);
+    expect(result.warnings).toEqual([expect.stringMatching(/couldn't check whether its walls drawing is still used.*kept/)]);
+  });
+
+  it("treats a file that's already gone as deleted", async () => {
+    graphFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (init?.method === "DELETE" && String(path).startsWith("/drives/")) throw new GraphError(404, "Not Found", "itemNotFound", "u");
+      if (init?.method === "DELETE") return undefined;
+      if (String(path).includes("/drive?")) return { id: "drive-1" };
+      return draft;
+    });
+    graphFetchAll.mockResolvedValue([]);
+    expect(await deletePlantLayout(9)).toMatchObject({ wallsDeleted: true, warnings: [] });
   });
 });

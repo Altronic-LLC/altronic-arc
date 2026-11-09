@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   copyLayoutToDraft,
   createPlantLayout,
+  deletePlantLayout,
   getPlantLayout,
   listPlantLayouts,
   publishPlantLayout,
@@ -12,7 +13,7 @@ import { createLayoutComponent, listLayoutComponents } from "@/api/layoutCompone
 import { readWallsFile } from "@/api/plantLayoutFiles";
 import type { LayoutComponent, NewLayoutComponentInput, NewPlantLayoutInput, PlantLayout, PlantLayoutDoc } from "@/types/plant";
 import { readWallsSvg, type WallsCheck } from "@/lib/plantSvg";
-import { editLayoutGate, manageSymbolsGate, publishLayoutGate } from "@/lib/plantMapRoles";
+import { deleteLayoutGate, editLayoutGate, manageSymbolsGate, publishLayoutGate } from "@/lib/plantMapRoles";
 import { checkLayout } from "@/lib/plantGeometry";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { requirePlantMapGate, useResolvePlantMapAccess } from "./usePlantMapRoles";
@@ -179,6 +180,41 @@ export function useSavePlantLayoutDraft() {
     onError: (err) =>
       pushToast({
         message: describeListWriteFailure(err, { action: "save the layout", site: "Altronic_PMO", permission: "editing" }),
+        variant: "error",
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: PLANT_LAYOUTS_KEY }),
+  });
+}
+
+/**
+ * Delete a Draft or Superseded layout — a Plant Map admin, asked inside the
+ * mutationFn. The API deletes the row, then the walls drawing only if no other
+ * layout still uses it (read fresh); a file it couldn't delete is a warning.
+ */
+export function useDeletePlantLayout() {
+  const qc = useQueryClient();
+  const resolve = useResolvePlantMapAccess();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      requirePlantMapGate(deleteLayoutGate(await resolve()));
+      return deletePlantLayout(id);
+    },
+    onSuccess: ({ layout, wallsDeleted, wallsKeptFor, warnings }) => {
+      qc.setQueryData<PlantLayout[]>(PLANT_LAYOUTS_KEY, (old) => old?.filter((l) => l.id !== layout.id));
+      qc.setQueryData(plantLayoutKey(layout.id), null);
+      if (wallsDeleted) qc.removeQueries({ queryKey: wallsKey(layout.wallsFileId) });
+      const name = `${layout.title || `Layout #${layout.id}`} v${layout.version}`;
+      const walls = wallsDeleted
+        ? " Its walls drawing was deleted too."
+        : wallsKeptFor.length > 0
+          ? " Its walls drawing was kept — other layouts use it."
+          : "";
+      pushToast({ message: `Deleted ${name}.${walls}` });
+      for (const w of warnings) pushToast({ message: w, variant: "error" });
+    },
+    onError: (err) =>
+      pushToast({
+        message: describeListWriteFailure(err, { action: "delete the layout", site: "Altronic_PMO", permission: "deleting" }),
         variant: "error",
       }),
     onSettled: () => qc.invalidateQueries({ queryKey: PLANT_LAYOUTS_KEY }),

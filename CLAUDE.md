@@ -509,7 +509,7 @@ src/
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── plantLayouts.ts           Plant Layouts — one row per VERSION, the layout as JSON; never writes a Published row or over JSON it can't read
 │   ├── layoutComponents.ts       Layout Components — the Plant Map symbol library; add (Plant Map admin, key checked fresh), retired, never deleted
-│   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/, read through the download link, never overwritten
+│   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/, read through the download link, never overwritten; deleted only when no layout uses them
 │   ├── plantMapRoles.ts          Plant Map Roles CRUD (viewer / editor / admin) — only people on it see the Plant Map
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
@@ -914,7 +914,7 @@ src/
 │   ├── plantDrawingReview.ts     Reviewing an uploaded walls drawing (pure) — size / no-walls / unreadable-shape warnings, keep-outs offered as editable areas
 │   ├── plantSymbolImport.ts      A new symbol from an SVG, a DXF (read here, units from $INSUNITS) or a traced picture → the library's SVG (pure)
 │   ├── plantAlign.ts             Alignment guides (pure) — a dragged box snaps onto a neighbour's edge or centre line, and the dotted guides to draw
-│   ├── plantLayoutDoc.ts         The LayoutJson column — parse (corrupt is never overwritten), serialize (refuses past the column's limit)
+│   ├── plantLayoutDoc.ts         The LayoutJson column — parse (corrupt is never overwritten), serialize (refuses past the column's limit); which layouts share a walls drawing
 │   ├── plantMapRoles.ts          Plant Map role tags → rights + the edit / publish / manage gates (pure)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
@@ -1183,7 +1183,7 @@ src/
 │   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
 │   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
 │   ├── PlantLayoutsView.tsx      Plant Map (/operations/plant-map) — every layout version, sortable; New layout for editors
-│   ├── PlantLayoutView.tsx       One layout (/operations/plant-map/:id) — the plan, the placement check, the selected item, every item sortable; Edit
+│   ├── PlantLayoutView.tsx       One layout (/operations/plant-map/:id) — the plan, the placement check, the selected item, every item sortable; Edit, Publish, Delete
 │   ├── PlantLayoutEditView.tsx   The layout editor (/operations/plant-map/:id/edit, DRAFTS only) — palette, canvas, inspector, keyboard, live check, Save draft
 │   ├── PlantSymbolsView.tsx      Plant Map → Symbols (/operations/plant-map/symbols) — the library by category; Add symbol for a Plant Map admin
 │   ├── PlantMapRolesView.tsx     Plant Map → Roles (/operations/plant-map/roles) — viewer / editor / admin; a Plant Map admin, or an ARC admin from the Admin page, manages it
@@ -8650,6 +8650,19 @@ Eight things that are load-bearing:
   by hand — the other order could leave nothing published. The button is
   `aria-disabled` with the reason as its title, and confirms first
   (`RichTextWarningDialog`). No email.
+- **Delete** (`deletePlantLayout` + `useDeletePlantLayout`, Tim, 2026-11-09):
+  a Plant Map admin (`deleteLayoutGate`, asked in the mutationFn), on a
+  **Draft or Superseded** version only — the API refuses a Published one. The
+  button is HIDDEN from everyone else. **A walls drawing is SHARED** — every
+  version keeps it (copy to draft) and every layout in a building reuses it —
+  so the ROW is deleted first, then the file ONLY if `layoutsSharingWalls`
+  (lib/plantLayoutDoc) finds no other row using it, on a FRESH list read. A
+  refused file delete, or a list that can't be read, KEEPS the file and is a
+  warning naming `walls/`; the row is already gone, and a spare file breaks
+  nothing (the other order could leave a layout on a missing drawing). Both
+  DELETEs go to the PMO recycle bin; a 404 counts as done. The confirm says
+  which layouts keep the drawing. A deleted Superseded row may leave a later
+  version's `SupersedesId` pointing at nothing — it's only stored, never read.
 - **New layout uploads the walls file FIRST** (the row needs its id), with
   `conflictBehavior: rename` (never overwrite), and stores the SANITISED
   drawing. If the row is then refused, the error names the file left behind.

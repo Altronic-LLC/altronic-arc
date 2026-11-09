@@ -10,6 +10,7 @@ import { PLANT_MAP_ROLES, type PlantMapRole } from "@/types/plant";
 //   | See the Plant Map at all, view layouts       | —          | yes    | yes    | yes   |
 //   | Start a layout, edit drafts                  | —          | —      | yes    | yes   |
 //   | Publish a layout, manage the symbol library  | —          | —      | —      | yes   |
+//   | Delete a Draft / Superseded layout           | —          | —      | —      | yes   |
 //   | Manage the Plant Map Roles list              | —          | —      | —      | yes   |
 //
 //   * **Only people on the Plant Map Roles list see it** (Tim, 2026-11-06) —
@@ -112,6 +113,16 @@ export function publishLayoutGate(access: PlantMapAccess): PlantMapGate {
     (r) => r.canPublish,
     "You can publish layouts and manage the symbol library.",
     "Only a Plant Map admin can publish a layout or change the symbol library.",
+  );
+}
+
+/** May they delete a Draft or Superseded layout version? (A Plant Map admin — the publish right.) */
+export function deleteLayoutGate(access: PlantMapAccess): PlantMapGate {
+  return decide(
+    access,
+    (r) => r.canPublish,
+    "You can delete draft and superseded layouts.",
+    "Only a Plant Map admin can delete a layout.",
   );
 }
 

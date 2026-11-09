@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, Map as MapIcon, Pencil, Send } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Map as MapIcon, Pencil, Send, Trash2 } from "lucide-react";
 import {
   useCopyLayoutToDraft,
+  useDeletePlantLayout,
   useLayoutComponentMap,
   usePlantLayout,
   usePlantLayouts,
@@ -10,7 +11,8 @@ import {
   useWallsDrawing,
 } from "@/hooks/usePlantLayouts";
 import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
-import { editLayoutGate, publishLayoutGate } from "@/lib/plantMapRoles";
+import { deleteLayoutGate, editLayoutGate, publishLayoutGate } from "@/lib/plantMapRoles";
+import { layoutsSharingWalls } from "@/lib/plantLayoutDoc";
 import { pushToast } from "@/components/Toast";
 import type { PlantLayout, PlantLayoutItem } from "@/types/plant";
 import {
@@ -151,6 +153,7 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
           </label>
           <PublishButton layout={layout} problems={problems} />
           <EditButton layout={layout} />
+          <DeleteButton layout={layout} />
         </div>
       </header>
 
@@ -302,6 +305,60 @@ function EditButton({ layout }: { layout: PlantLayout }) {
       <Pencil className="h-4 w-4" />
       {copy.isPending ? "Starting a draft…" : label}
     </button>
+  );
+}
+
+/**
+ * Delete — a Plant Map admin, on a Draft or Superseded version (never the
+ * Published one). Hidden from everyone else. The dialog says what happens to
+ * the walls drawing: it goes too, or it's kept because other layouts use it.
+ * The API checks that again, fresh, before deleting the file.
+ */
+function DeleteButton({ layout }: { layout: PlantLayout }) {
+  const navigate = useNavigate();
+  const gate = deleteLayoutGate(useMyPlantMapAccess());
+  const remove = useDeletePlantLayout();
+  const { data: all } = usePlantLayouts();
+  const [asking, setAsking] = useState(false);
+  if (!gate.allowed || layout.status === "Published") return null;
+  const name = `${layout.title || `Layout #${layout.id}`} v${layout.version}`;
+  const sharing = all ? layoutsSharingWalls(all, layout.wallsFileId, layout.id) : null;
+  const wallsNote = !layout.wallsFileId
+    ? "It has no walls drawing."
+    : sharing === null
+      ? "Its walls drawing is deleted too, unless another layout still uses it."
+      : sharing.length === 0
+        ? "Its walls drawing is deleted too — no other layout uses it."
+        : `Its walls drawing is kept, because ${sharing
+            .map((l) => `${l.title || `Layout #${l.id}`} v${l.version} (${l.status})`)
+            .join(", ")} still ${sharing.length === 1 ? "uses" : "use"} it.`;
+  return (
+    <>
+      <button
+        type="button"
+        disabled={remove.isPending}
+        onClick={() => setAsking(true)}
+        className="inline-flex items-center gap-1.5 rounded-md border border-cooper-red px-3 py-1.5 text-sm font-medium text-cooper-red hover:bg-cooper-red/10 disabled:opacity-50"
+      >
+        <Trash2 className="h-4 w-4" />
+        {remove.isPending ? "Deleting…" : "Delete"}
+      </button>
+      {asking && (
+        <RichTextWarningDialog
+          title={`Delete ${name}?`}
+          detail={`This ${layout.status.toLowerCase()} version goes to the SharePoint recycle bin on Altronic_PMO, where it can be restored for 93 days.`}
+          notifyNote={wallsNote}
+          trailing="Nobody is emailed."
+          confirmLabel="Delete"
+          cancelLabel="Keep it"
+          onCancel={() => setAsking(false)}
+          onConfirm={() => {
+            setAsking(false);
+            remove.mutate(layout.id, { onSuccess: () => navigate("/operations/plant-map") });
+          }}
+        />
+      )}
+    </>
   );
 }
 

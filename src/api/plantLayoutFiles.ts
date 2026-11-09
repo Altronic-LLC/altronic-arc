@@ -1,4 +1,4 @@
-import { graphFetch } from "./graph";
+import { GraphError, graphFetch } from "./graph";
 import { SITES, SP_PLANT_LAYOUT_FILES_LIST_ID, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
 import { uploadToDriveTarget } from "./projectFiles";
@@ -69,6 +69,28 @@ export async function readWallsFile(fileId: string): Promise<string> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Couldn't read the walls drawing (${res.status}).`);
   return res.text();
+}
+
+/**
+ * Delete a walls drawing. Graph's DELETE moves it to the PMO site's recycle
+ * bin (restorable for 93 days), never a permanent delete. A 404 resolves: the
+ * file is already gone, which is what was asked for. The CALLER decides
+ * whether any layout still uses it (api/plantLayouts.ts → deletePlantLayout).
+ */
+export async function deleteWallsFile(fileId: string): Promise<void> {
+  if (USE_MOCK) {
+    const { [fileId]: _gone, ...rest } = mockFiles;
+    mockFiles = rest;
+    return mockDelay(undefined);
+  }
+  if (!fileId) return;
+  const driveId = await libraryDriveId();
+  try {
+    await graphFetch(`/drives/${driveId}/items/${encodeURIComponent(fileId)}`, { method: "DELETE" });
+  } catch (err) {
+    if (err instanceof GraphError && err.status === 404) return;
+    throw err;
+  }
 }
 
 /** A file name SharePoint will take: no `" * : < > ? / \ |`, ends in .svg. */

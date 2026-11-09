@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   createSymbol: vi.fn(),
   getLayout: vi.fn(),
   publish: vi.fn(),
+  remove: vi.fn(),
 }));
 
 vi.mock("@/api/config", async (importOriginal) => ({
@@ -32,6 +33,7 @@ vi.mock("@/api/plantLayouts", () => ({
   createPlantLayout: api.createLayout,
   getPlantLayout: api.getLayout,
   publishPlantLayout: api.publish,
+  deletePlantLayout: api.remove,
   listPlantLayouts: vi.fn(async () => []),
 }));
 vi.mock("@/api/layoutComponents", () => ({
@@ -45,7 +47,7 @@ vi.mock("./useCurrentUser", () => ({
 }));
 vi.mock("@/components/Toast", () => ({ pushToast: vi.fn() }));
 
-import { useCreateLayoutComponent, useCreatePlantLayout, usePublishPlantLayout } from "./usePlantLayouts";
+import { useCreateLayoutComponent, useCreatePlantLayout, useDeletePlantLayout, usePublishPlantLayout } from "./usePlantLayouts";
 import { useCreatePlantMapRoleEntry } from "./usePlantMapRoles";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -65,6 +67,7 @@ beforeEach(() => {
   api.createSymbol.mockReset();
   api.getLayout.mockReset();
   api.publish.mockReset().mockResolvedValue({ layout: { id: 5, version: 2 }, superseded: [], warnings: [] });
+  api.remove.mockReset().mockResolvedValue({ layout: { id: 5, version: 2, title: "Main", wallsFileId: "F1" }, wallsDeleted: true, wallsKeptFor: [], warnings: [] });
 });
 
 describe("starting a layout", () => {
@@ -172,5 +175,22 @@ describe("publishing a layout", () => {
     api.getLayout.mockResolvedValue(layout(50));
     await act(() => result.current.mutateAsync(5));
     expect(api.publish).toHaveBeenCalledWith(5);
+  });
+});
+
+describe("deleting a layout", () => {
+  it("is refused to an editor and to an ARC admin, and nothing is deleted", async () => {
+    roles.rows = [me(["editor"])];
+    admins.rows = [{ id: 1, email: "me@example.com", displayName: "Me" }];
+    const { result } = renderHook(() => useDeletePlantLayout(), { wrapper });
+    await act(() => expect(result.current.mutateAsync(5)).rejects.toThrow(/Only a Plant Map admin can delete a layout/));
+    expect(api.remove).not.toHaveBeenCalled();
+  });
+
+  it("goes through for a Plant Map admin", async () => {
+    roles.rows = [me(["admin"])];
+    const { result } = renderHook(() => useDeletePlantLayout(), { wrapper });
+    await act(() => result.current.mutateAsync(5));
+    expect(api.remove).toHaveBeenCalledWith(5);
   });
 });

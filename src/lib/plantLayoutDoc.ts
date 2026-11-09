@@ -210,3 +210,13 @@ export function layoutKeyFor(title: string, suffix: string): string {
     .slice(0, 40);
   return `${slug || "layout"}-${suffix}`;
 }
+
+/**
+ * The layouts that use `fileId` as their walls drawing, `exceptId` left out.
+ * One drawing is usually SHARED: every version of a layout keeps it (copy to
+ * draft), and every layout in a building reuses it (New layout).
+ */
+export function layoutsSharingWalls(layouts: readonly PlantLayout[], fileId: string, exceptId: number): PlantLayout[] {
+  if (!fileId) return [];
+  return layouts.filter((l) => l.id !== exceptId && l.wallsFileId === fileId);
+}

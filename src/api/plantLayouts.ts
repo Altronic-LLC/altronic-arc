@@ -1,7 +1,7 @@
 import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PLANT_LAYOUTS_LIST_ID, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
-import { uploadWallsFile } from "./plantLayoutFiles";
+import { deleteWallsFile, uploadWallsFile } from "./plantLayoutFiles";
 import type { GraphListItem } from "@/types/task";
 import {
   PLANT_LAYOUT_STATUSES,
@@ -11,7 +11,7 @@ import {
   type PlantLayoutStatus,
 } from "@/types/plant";
 import { toNumberOrNull } from "@/lib/graphValues";
-import { emptyLayoutDoc, layoutKeyFor, parseLayoutDoc, serializeLayoutDoc } from "@/lib/plantLayoutDoc";
+import { emptyLayoutDoc, layoutKeyFor, layoutsSharingWalls, parseLayoutDoc, serializeLayoutDoc } from "@/lib/plantLayoutDoc";
 import { MOCK_PLANT_LAYOUTS } from "@/data/plantMockData";
 
 // =============================================================================
@@ -257,6 +257,74 @@ export async function publishPlantLayout(id: number): Promise<PublishResult> {
   }
   const after = await getPlantLayout(id);
   return { layout: after ?? { ...current, status: "Published" }, superseded, warnings };
+}
+
+export interface DeleteLayoutResult {
+  /** The row as it was before it was deleted. */
+  layout: PlantLayout;
+  /** The walls drawing went too — nothing else pointed at it. */
+  wallsDeleted: boolean;
+  /** Other layout versions still drawn on the same walls file, so it was kept. */
+  wallsKeptFor: PlantLayout[];
+  /** Anything that couldn't be done after the row itself was deleted. */
+  warnings: string[];
+}
+
+/**
+ * Delete a Draft or Superseded layout version — never the Published one,
+ * which is the layout everyone sees (supersede it by publishing a draft).
+ *
+ * The ROW goes first, then the walls drawing, and only if no other row still
+ * uses it — read FRESH here, not from a cache, since someone may have started
+ * a layout on that building a minute ago. A file that can't be deleted is a
+ * warning naming it, never a failed delete: the row is already gone, and a
+ * spare file in `walls/` breaks nothing. (The other order could leave a
+ * layout pointing at a drawing that's gone.) Both go to the PMO recycle bin.
+ */
+export async function deletePlantLayout(id: number): Promise<DeleteLayoutResult> {
+  const current = await getPlantLayout(id);
+  if (!current) throw new Error("That layout has already been deleted.");
+  if (current.status === "Published") {
+    throw new Error("A published layout can't be deleted. Publish a newer draft first; this one then becomes Superseded.");
+  }
+
+  if (USE_MOCK) {
+    mockLayouts = mockLayouts.filter((l) => l.id !== id);
+  } else {
+    try {
+      await graphFetch(`${itemsPath()}/${id}`, { method: "DELETE" });
+    } catch (err) {
+      if (!(err instanceof GraphError && err.status === 404)) throw err;
+    }
+  }
+
+  const fileId = current.wallsFileId;
+  if (!fileId) return { layout: current, wallsDeleted: false, wallsKeptFor: [], warnings: [] };
+  let others: PlantLayout[];
+  try {
+    others = layoutsSharingWalls(await listPlantLayouts(), fileId, id);
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    return {
+      layout: current,
+      wallsDeleted: false,
+      wallsKeptFor: [],
+      warnings: [`The layout was deleted, but ARC couldn't check whether its walls drawing is still used, so the drawing was kept (${why}).`],
+    };
+  }
+  if (others.length > 0) return { layout: current, wallsDeleted: false, wallsKeptFor: others, warnings: [] };
+  try {
+    await deleteWallsFile(fileId);
+    return { layout: current, wallsDeleted: true, wallsKeptFor: [], warnings: [] };
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    return {
+      layout: current,
+      wallsDeleted: false,
+      wallsKeptFor: [],
+      warnings: [`The layout was deleted, but its walls drawing couldn't be — delete it from walls/ in Plant Layout Files (${why}).`],
+    };
+  }
 }
 
 /**
