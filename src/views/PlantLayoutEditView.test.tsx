@@ -42,7 +42,7 @@ describe("PlantLayoutEditView", () => {
   it("offers every sample symbol in the palette", async () => {
     openEditor(3);
     const palette = await screen.findByRole("region", { name: "Symbols" });
-    expect(within(palette).getAllByRole("button", { name: /^Add / })).toHaveLength(12);
+    expect(within(palette).getAllByRole("button", { name: /^Add / })).toHaveLength(15);
     expect(within(palette).getByRole("button", { name: "Add CNC Vertical Mill (generic)" })).toBeInTheDocument();
   });
 
@@ -70,6 +70,30 @@ describe("PlantLayoutEditView", () => {
     const saved = await getPlantLayout(3);
     expect(saved?.doc.items).toHaveLength(1);
     expect(saved?.doc.items[0]).toMatchObject({ label: "Workbench 72x30", w: 72, d: 30, rot: 0 });
+  });
+
+  it("puts a new extinguisher on the safety layer with the others, shows that layer, and saves it there", async () => {
+    const user = userEvent.setup();
+    openEditor(4);
+    const layers = await screen.findByRole("region", { name: "Layers" });
+    const safety = within(layers).getByRole("checkbox", { name: /^Safety/ });
+    expect(safety).not.toBeChecked();
+    const before = itemCount();
+
+    const add = await screen.findByRole("button", { name: "Add Fire extinguisher" });
+    fireEvent.keyDown(add, { key: "Enter" });
+    // The new one AND the four already on the layer are now drawn.
+    await waitFor(() => expect(itemCount()).toBe(before + 5));
+    expect(safety).toBeChecked();
+    const inspector = screen.getByRole("region", { name: "Selected item" });
+    expect(within(inspector).getByRole("button", { name: /^Layer/ })).toHaveTextContent("Safety");
+    expect(within(inspector).getByRole("button", { name: /^Group/ })).toHaveTextContent("Extinguishers");
+
+    await user.click(screen.getByRole("button", { name: /save draft/i }));
+    await waitFor(() => expect(screen.getByText("All changes saved")).toBeInTheDocument());
+    const saved = await getPlantLayout(4);
+    expect(saved?.doc.items.filter((i) => i.group === "extinguishers")).toHaveLength(3);
+    expect(saved?.doc.layers?.map((l) => l.key)).toEqual(["safety"]);
   });
 
   it("nudges, turns and duplicates the selected item from the keyboard", async () => {

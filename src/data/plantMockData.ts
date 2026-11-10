@@ -6,6 +6,7 @@ import cleanSample from "@/data/plantMock/sample-layout-main-plant.json";
 import collisionSample from "@/data/plantMock/sample-layout-main-plant-collisions.json";
 import type {
   LayoutComponent,
+  PlantLayer,
   PlantLayout,
   PlantLayoutArea,
   PlantLayoutDoc,
@@ -62,7 +63,89 @@ export const MOCK_LAYOUT_COMPONENTS: LayoutComponent[] = (seed as SeedRow[]).map
   active: row.IsActive,
 }));
 
+/**
+ * Three demo-only SAFETY symbols (ids 13…15), for the demo's safety layer.
+ * Not in the seed: the live library got its safety symbols from the CAD
+ * extract. Invented shapes, never collide.
+ */
+function safetySymbol(id: number, key: string, title: string, w: number, d: number, body: string): LayoutComponent {
+  return {
+    id,
+    key,
+    title,
+    category: "Safety",
+    svgMarkup: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${d}" data-component="${key}" data-units="in"><title>${title}</title><g id="body">${body}</g></svg>`,
+    footprintW: w,
+    footprintD: d,
+    allowResize: false,
+    allowRotate: true,
+    minScale: 1,
+    maxScale: 1,
+    collides: false,
+    clearance: 0,
+    collisionPolygon: null,
+    version: 1,
+    active: true,
+  };
+}
+MOCK_LAYOUT_COMPONENTS.push(
+  safetySymbol(13, "fire-extinguisher", "Fire extinguisher", 18, 18, '<circle cx="9" cy="9" r="8" fill="#dc2626" stroke="#7f1d1d" stroke-width="1"/><rect x="7.5" y="3" width="3" height="12" fill="#ffffff"/>'),
+  safetySymbol(14, "fire-exit", "Fire exit", 36, 18, '<rect x="1" y="1" width="34" height="16" fill="#16a34a" stroke="#14532d" stroke-width="1"/><path d="M8 9h16l-5-5M24 9l-5 5" fill="none" stroke="#ffffff" stroke-width="2"/>'),
+  safetySymbol(15, "first-aid", "First aid cabinet", 24, 12, '<rect x="1" y="1" width="22" height="10" fill="#ffffff" stroke="#16a34a" stroke-width="1"/><path d="M10.5 3h3v2.5h2.5v3h-2.5v1.5h-3v-1.5H8v-3h2.5Z" fill="#16a34a"/>'),
+);
+
 const ID_BY_KEY = new Map(MOCK_LAYOUT_COMPONENTS.map((c) => [c.key, c.id]));
+
+/** The demo's safety layer — starts hidden, like the real one from the CAD extract. */
+export const MOCK_SAFETY_LAYER: PlantLayer = {
+  key: "safety",
+  title: "Safety",
+  hiddenByDefault: true,
+  groups: [
+    { key: "extinguishers", title: "Extinguishers" },
+    { key: "fire-exits", title: "Fire exits" },
+    { key: "medical", title: "Medical" },
+  ],
+};
+
+/** Safety-layer items for a layout, placed at the given points (inches). */
+function safetyItems(prefix: string, points: [key: string, group: string, x: number, y: number, rot: number, label: string][]): PlantLayoutItem[] {
+  return points.map(([key, group, x, y, rot, label], n) => {
+    const c = MOCK_LAYOUT_COMPONENTS.find((m) => m.key === key)!;
+    return {
+      uid: `i_${prefix}s${String(n + 1).padStart(2, "0")}`,
+      componentId: c.id,
+      componentVersion: 1,
+      x,
+      y,
+      w: c.footprintW,
+      d: c.footprintD,
+      rot,
+      label,
+      equipmentId: null,
+      locked: false,
+      layer: "safety",
+      group,
+    };
+  });
+}
+
+/** Main Plant: extinguishers along the walls, an exit, a first-aid cabinet. */
+export const MAIN_PLANT_SAFETY_ITEMS = safetyItems("m", [
+  ["fire-extinguisher", "extinguishers", 300, 200, 0, "Fire extinguisher"],
+  ["fire-extinguisher", "extinguishers", 1440, 200, 0, "Fire extinguisher"],
+  ["fire-extinguisher", "extinguishers", 2600, 900, 0, "Fire extinguisher"],
+  ["fire-exit", "fire-exits", 1440, 1620, 0, "Fire exit"],
+  ["first-aid", "medical", 700, 1500, 0, "First aid"],
+]);
+
+/** Engineering & Sales: two extinguishers, the front-door exit, a first-aid cabinet. */
+export const ENG_SALES_SAFETY_ITEMS = safetyItems("e", [
+  ["fire-extinguisher", "extinguishers", 300, 120, 0, "Fire extinguisher"],
+  ["fire-extinguisher", "extinguishers", 1100, 800, 0, "Fire extinguisher"],
+  ["fire-exit", "fire-exits", 720, 920, 0, "Fire exit"],
+  ["first-aid", "medical", 1200, 120, 0, "First aid"],
+]);
 
 interface SampleItem {
   uid: string;
@@ -106,8 +189,14 @@ export const MOCK_WALLS_FILES: Record<string, { name: string; svg: string }> = {
   "mock-walls-eng": { name: "walls-eng-sales.svg", svg: engSalesWalls },
 };
 
-function doc(w: number, h: number, items: PlantLayoutItem[], areas: PlantLayoutArea[] = []): PlantLayoutDoc {
-  return { schema: 1, units: "in", extent: { w, h }, items, areas };
+function doc(
+  w: number,
+  h: number,
+  items: PlantLayoutItem[],
+  areas: PlantLayoutArea[] = [],
+  layers?: PlantLayer[],
+): PlantLayoutDoc {
+  return { schema: 1, units: "in", extent: { w, h }, items, areas, ...(layers ? { layers } : {}) };
 }
 
 /**
@@ -232,7 +321,7 @@ export const MOCK_PLANT_LAYOUTS: PlantLayout[] = [
     status: "Draft",
     version: 2,
     wallsFileId: "mock-walls-main",
-    doc: doc(2880, 1680, SAMPLE_COLLISION_ITEMS, SAMPLE_AREAS),
+    doc: doc(2880, 1680, [...SAMPLE_COLLISION_ITEMS, ...MAIN_PLANT_SAFETY_ITEMS], SAMPLE_AREAS, [MOCK_SAFETY_LAYER]),
     docCorrupt: false,
     supersedesId: 1,
     modifiedAt: daysAgo(1),
@@ -262,7 +351,7 @@ export const MOCK_PLANT_LAYOUTS: PlantLayout[] = [
     status: "Draft",
     version: 1,
     wallsFileId: "mock-walls-eng",
-    doc: doc(1440, 960, SAMPLE_ENG_SALES_ITEMS, SAMPLE_ENG_SALES_AREAS),
+    doc: doc(1440, 960, [...SAMPLE_ENG_SALES_ITEMS, ...ENG_SALES_SAFETY_ITEMS], SAMPLE_ENG_SALES_AREAS, [MOCK_SAFETY_LAYER]),
     docCorrupt: false,
     supersedesId: null,
     modifiedAt: daysAgo(2),

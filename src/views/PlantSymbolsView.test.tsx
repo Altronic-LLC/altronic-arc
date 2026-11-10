@@ -44,7 +44,9 @@ describe("PlantSymbolsView", () => {
     expect(within(machines).getByText("CNC Vertical Mill (generic)")).toBeInTheDocument();
     expect(within(machines).getByText("10 ft × 8 ft")).toBeInTheDocument();
     expect(screen.getAllByRole("img").filter((i) => i.tagName === "IMG").length).toBeGreaterThanOrEqual(12);
-    expect(screen.getByText("Floor marking")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Other" })).getByText("Floor marking")).toBeInTheDocument();
+    // The demo's safety symbols never collide either.
+    expect(within(screen.getByRole("region", { name: "Safety" })).getAllByText("Floor marking")).toHaveLength(3);
   });
 
   it("offers Add symbol to a Plant Map admin only", async () => {

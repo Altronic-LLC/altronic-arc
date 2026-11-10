@@ -1,6 +1,8 @@
 import {
   PLANT_AREA_KINDS,
   type PlantAreaKind,
+  type PlantLayer,
+  type PlantLayerGroup,
   type PlantLayout,
   type PlantLayoutArea,
   type PlantLayoutDoc,
@@ -71,7 +73,58 @@ function readItem(raw: unknown): PlantLayoutItem | null {
     label: typeof raw.label === "string" ? raw.label : "",
     equipmentId: equipmentId !== null && equipmentId > 0 ? equipmentId : null,
     locked: raw.locked === true,
+    ...layerFields(raw),
   };
+}
+
+/** An item's layer and group — only when they're non-empty text; a group needs a layer. */
+function layerFields(raw: Record<string, unknown>): { layer?: string; group?: string } {
+  const layer = typeof raw.layer === "string" ? raw.layer.trim() : "";
+  if (!layer) return {};
+  const group = typeof raw.group === "string" ? raw.group.trim() : "";
+  return group ? { layer, group } : { layer };
+}
+
+/** "fire-exits" → "Fire exits" — a title for a layer or group that doesn't give one. */
+export function titleFromKey(key: string): string {
+  const words = key.replace(/[-_]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
+}
+
+/**
+ * The declared layers. Tolerant: ARC's own list (`[{ key, title,
+ * hiddenByDefault, groups: [{ key, title }] }]`), or the CAD extract's map
+ * (`{ safety: { title, default: "hidden", groups: ["extinguishers"] } }`).
+ * Anything else, or a layer with no key, is skipped — layers are a display
+ * aid, so a bad one never makes the layout unreadable.
+ */
+function readLayers(raw: unknown): PlantLayer[] {
+  const entries: [string, unknown][] = Array.isArray(raw)
+    ? raw.map((l) => [isObject(l) && typeof l.key === "string" ? l.key : "", l])
+    : isObject(raw)
+      ? Object.entries(raw)
+      : [];
+  const out: PlantLayer[] = [];
+  const seen = new Set<string>();
+  for (const [rawKey, value] of entries) {
+    const key = rawKey.trim();
+    if (!key || seen.has(key) || !isObject(value)) continue;
+    seen.add(key);
+    const groups: PlantLayerGroup[] = [];
+    for (const g of Array.isArray(value.groups) ? value.groups : []) {
+      const gKey = (typeof g === "string" ? g : isObject(g) && typeof g.key === "string" ? g.key : "").trim();
+      if (!gKey || groups.some((x) => x.key === gKey)) continue;
+      const gTitle = isObject(g) && typeof g.title === "string" && g.title.trim() ? g.title.trim() : titleFromKey(gKey);
+      groups.push({ key: gKey, title: gTitle });
+    }
+    out.push({
+      key,
+      title: typeof value.title === "string" && value.title.trim() ? value.title.trim() : titleFromKey(key),
+      hiddenByDefault: value.hiddenByDefault === true || value.default === "hidden",
+      groups,
+    });
+  }
+  return out;
 }
 
 function readArea(raw: unknown): PlantLayoutArea | null {
@@ -135,6 +188,7 @@ export function parseLayoutDoc(raw: unknown, fallbackExtent: { w: number; h: num
     if (area) areas.push(area);
     else dropped += 1;
   }
+  const layers = readLayers(value.layers);
   return {
     ok: true,
     doc: {
@@ -143,6 +197,7 @@ export function parseLayoutDoc(raw: unknown, fallbackExtent: { w: number; h: num
       extent: w !== null && h !== null && w > 0 && h > 0 ? { w, h } : fallbackExtent,
       items,
       areas,
+      ...(layers.length > 0 ? { layers } : {}),
     },
     dropped,
   };
@@ -196,8 +251,12 @@ export function serializeLayoutDoc(doc: PlantLayoutDoc): string {
     schema: PLANT_LAYOUT_SCHEMA,
     units: "in",
     extent: doc.extent,
-    items: doc.items,
+    // A blank layer or group is the base plan: left out rather than stored empty.
+    items: doc.items.map(({ layer, group, ...rest }) =>
+      layer ? (group ? { ...rest, layer, group } : { ...rest, layer }) : rest,
+    ),
     areas: doc.areas ?? [],
+    ...(doc.layers && doc.layers.length > 0 ? { layers: doc.layers } : {}),
   });
   if (out.length > LAYOUT_JSON_MAX_CHARS) {
     throw new Error(

@@ -100,6 +100,36 @@ describe("editorReducer", () => {
   });
 });
 
+describe("layers in the editor", () => {
+  const base = { ...SAMPLE_CLEAN_ITEMS[0], uid: "a" };
+
+  it("moves an item onto a layer and back to the base plan, one undo step each", () => {
+    let s = initialEditorState([base]);
+    s = editorReducer(s, { type: "update", uid: "a", patch: { layer: "safety", group: "extinguishers" } });
+    expect(s.items[0]).toMatchObject({ layer: "safety", group: "extinguishers" });
+    s = editorReducer(s, { type: "update", uid: "a", patch: { layer: null, group: null } });
+    // Back on the base plan the keys are gone, so it matches what was saved.
+    expect(s.items[0]).not.toHaveProperty("layer");
+    expect(s.items[0]).not.toHaveProperty("group");
+    expect(sameItems(s.items, [base])).toBe(true);
+    expect(s.past).toHaveLength(2);
+  });
+
+  it("drops the group when the layer goes, and calls no layer → no layer no change", () => {
+    const s0 = initialEditorState([{ ...base, layer: "safety", group: "medical" }]);
+    const s1 = editorReducer(s0, { type: "update", uid: "a", patch: { layer: null } });
+    expect(s1.items[0]).not.toHaveProperty("group");
+    const plain = initialEditorState([base]);
+    expect(editorReducer(plain, { type: "update", uid: "a", patch: { layer: null, group: null } })).toBe(plain);
+  });
+
+  it("lets a LOCKED item change layer — it's not a move", () => {
+    const s0 = initialEditorState([{ ...base, locked: true }]);
+    const s1 = editorReducer(s0, { type: "update", uid: "a", patch: { layer: "safety", x: 999 } });
+    expect(s1.items[0]).toMatchObject({ layer: "safety", x: base.x });
+  });
+});
+
 describe("areas in the editor", () => {
   const area = (uid: string, extra: Partial<PlantLayoutArea> = {}): PlantLayoutArea => ({
     uid,

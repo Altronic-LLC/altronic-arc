@@ -114,6 +114,32 @@ export interface PlantLayoutItem {
   /** Altronic Equipment List item id, when the item is a real asset. */
   equipmentId: number | null;
   locked: boolean;
+  /**
+   * The layer it's drawn on ("safety"), shown and hidden as one. Absent = the
+   * base plan, which is always shown. See lib/plantLayers.ts.
+   */
+  layer?: string | null;
+  /** A group within its layer ("extinguishers"), toggled on its own. Ignored without a layer. */
+  group?: string | null;
+}
+
+/** A group within a layer — shown and hidden on its own. */
+export interface PlantLayerGroup {
+  /** Stored on the item ("fire-exits"). */
+  key: string;
+  title: string;
+}
+
+/**
+ * A layer declared on a layout: items carrying its key are drawn only while
+ * it's shown. Showing and hiding is per viewer and never saved; what's saved
+ * is whether it starts hidden.
+ */
+export interface PlantLayer {
+  key: string;
+  title: string;
+  hiddenByDefault: boolean;
+  groups: PlantLayerGroup[];
 }
 
 /**
@@ -151,6 +177,12 @@ export interface PlantLayoutDoc {
   items: PlantLayoutItem[];
   /** Added after the first layouts were saved; a layout without it has none. */
   areas: PlantLayoutArea[];
+  /**
+   * The layers it declares (2026-11-10). Optional: a layout without any has
+   * only the base plan, and a layer an item names but the list doesn't
+   * declare is still shown (lib/plantLayers.ts).
+   */
+  layers?: PlantLayer[];
 }
 
 export interface PlantLayout {

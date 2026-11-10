@@ -1,7 +1,14 @@
 import { useMemo, useState } from "react";
 import { Copy, Lock, RotateCcw, RotateCw, Trash2, Unlock } from "lucide-react";
 import type { Equipment } from "@/types/task";
-import { PLANT_AREA_KINDS, PLANT_AREA_KIND_LABELS, type LayoutComponent, type PlantLayoutArea, type PlantLayoutItem } from "@/types/plant";
+import {
+  PLANT_AREA_KINDS,
+  PLANT_AREA_KIND_LABELS,
+  type LayoutComponent,
+  type PlantLayer,
+  type PlantLayoutArea,
+  type PlantLayoutItem,
+} from "@/types/plant";
 import { sanitiseSvg, svgDataUrl } from "@/lib/plantSvg";
 import { feetLabel } from "@/lib/plantGeometry";
 import { clampAreaSize, clampSize, normaliseRotation, sizeLimits, type ItemPatch } from "@/lib/plantEditor";
@@ -152,6 +159,7 @@ export function PlantInspector({
   item,
   component,
   equipment,
+  layers = [],
   onPatch,
   onDuplicate,
   onDelete,
@@ -159,6 +167,8 @@ export function PlantInspector({
   item: PlantLayoutItem | null;
   component: LayoutComponent | undefined;
   equipment: readonly Equipment[];
+  /** The layout's layers — offered in a Layer picker when there are any. */
+  layers?: readonly PlantLayer[];
   onPatch: (patch: ItemPatch) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -222,6 +232,7 @@ export function PlantInspector({
           searchPlaceholder="Search the equipment register…"
         />
       </div>
+      {layers.length > 0 && <LayerFields item={item} layers={layers} onPatch={onPatch} />}
       <div className="grid grid-cols-2 gap-2">
         <CommitField
           label="From west"
@@ -303,6 +314,54 @@ export function PlantInspector({
         </button>
       </div>
     </section>
+  );
+}
+
+/**
+ * Which layer (and group) the item is on. The base plan is "no layer"; a
+ * group is only offered when its layer has some. Changing the layer drops a
+ * group the new layer doesn't have.
+ */
+function LayerFields({
+  item,
+  layers,
+  onPatch,
+}: {
+  item: PlantLayoutItem;
+  layers: readonly PlantLayer[];
+  onPatch: (patch: ItemPatch) => void;
+}) {
+  const layer = layers.find((l) => l.key === item.layer);
+  const groups = layer?.groups ?? [];
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Layer</span>
+        <SingleSelect
+          options={layers.map((l) => ({ value: l.key, label: l.title }))}
+          selected={item.layer ?? null}
+          onChange={(v) => {
+            const next = layers.find((l) => l.key === v);
+            const keepGroup = item.group && next?.groups.some((g) => g.key === item.group) ? item.group : null;
+            onPatch({ layer: v ?? null, group: keepGroup });
+          }}
+          allLabel="Base plan"
+          ariaLabel="Layer"
+        />
+      </div>
+      {groups.length > 0 && (
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Group</span>
+          <SingleSelect
+            options={groups.map((g) => ({ value: g.key, label: g.title }))}
+            selected={item.group ?? null}
+            onChange={(v) => onPatch({ layer: item.layer, group: v ?? null })}
+            allLabel="No group"
+            ariaLabel="Group"
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

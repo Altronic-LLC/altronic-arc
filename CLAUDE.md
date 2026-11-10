@@ -638,6 +638,7 @@ src/
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
 │   ├── usePlantLayouts.ts        Plant layouts, the symbol library and the walls drawings (read + sanitised once) as queries; start, save, copy-to-draft (editor-gated)
 │   ├── usePlantMapRoles.ts       Plant Map Roles CRUD (manage-gated) + useMyPlantMapAccess / useResolvePlantMapAccess
+│   ├── usePlantLayerVisibility.ts Which Plant Map layers are shown — per viewer, never saved; starts from each layer's default
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -914,6 +915,7 @@ src/
 │   ├── plantDrawingReview.ts     Reviewing an uploaded walls drawing (pure) — size / no-walls / unreadable-shape warnings, keep-outs offered as editable areas
 │   ├── plantSymbolImport.ts      A new symbol from an SVG, a DXF (read here, units from $INSUNITS) or a traced picture → the library's SVG (pure)
 │   ├── plantAlign.ts             Alignment guides (pure) — a dragged box snaps onto a neighbour's edge or centre line, and the dotted guides to draw
+│   ├── plantLayers.ts            Plant Map layers (pure) — the layout's layers, what's shown, revealing a picked item, counts, where a new copy goes
 │   ├── plantLayoutDoc.ts         The LayoutJson column — parse (corrupt is never overwritten), serialize (refuses past the column's limit); which layouts share a walls drawing
 │   ├── plantMapRoles.ts          Plant Map role tags → rights + the edit / publish / manage gates (pure)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
@@ -1098,7 +1100,8 @@ src/
 │   ├── McnDialogs.tsx            MCN card editors (description, scope, items, distribution) + approve / reject-reopen / implement
 │   ├── plantMapAtoms.tsx         Plant Map status chip, the Layouts / Symbols / Roles nav, PlantMapAccessGate (configured? on the roles list?)
 │   ├── PlantCanvas.tsx           THE plan, viewing and editing — a viewBox window (wheel zoom, drag to pan), walls + symbols as sanitised <image>s; editing adds move / rotate / resize drags and the palette ghost
-│   ├── PlantEditorPanels.tsx     The editor's symbol palette (drag or click) and the selected item's inspector (commit on Enter / blur)
+│   ├── PlantEditorPanels.tsx     The editor's symbol palette (drag or click) and the selected item's inspector (commit on Enter / blur; Layer / Group)
+│   ├── PlantLayersPanel.tsx      Show / hide a layout's layers and their groups, with counts — the viewer and the editor
 │   ├── NewPlantLayoutModal.tsx   Start a layout — name, area, building; an existing building reuses its drawing, a new one uploads it, reviewed BEFORE anything is written
 │   ├── NewPlantSymbolModal.tsx   Add a symbol — SVG, DXF or a traced picture + name, category, footprint, solid / turn / resize; the preview IS what's saved
 │   ├── PlantDrawingReview.tsx    New layout's review of an uploaded drawing — preview of what ARC found, warnings, confirm the size, keep-outs → editable areas
@@ -8851,9 +8854,15 @@ drags over CDP — e.g. a palette symbol onto `svg[aria-label$="editing"]`) and
 (Tim, 2026-11-10). The extract (walls SVG, `components-reduced.json`,
 `current-layout-<building>.json`) is built OUTSIDE the repo, in Tim's
 `plant manager\cad-extract` folder — it is real plant data. Order: create
-the layout in ARC (New layout, upload `walls-<building>-cad.svg`, so the
+the layout in ARC (New layout, upload the building's walls SVG, so the
 drawing is sanitised and reviewed like any other), then run the script
-(reports only until `-Apply`). Main Plant only so far; Eng/Sales is held back.
+(reports only until `-Apply`). Two buildings: `main-plant` (loaded live
+2026-11-10, base plan only) and `eng-sales` (its files in the `eng-sales\`
+subfolder: `walls-eng-sales.svg`, 2520 × 1631 in; `-Building eng-sales`;
+the Draft is found by "engineering" in its Building or Title, `-BuildingName`
+to change that). The Eng/Sales extract was checked 2026-11-10: 101 placements,
+every symbol in the library, only `hallway` (Zone, collides) not yet on the
+live list.
 
 - **Symbols are ADD-ONLY, matched on ComponentKey**, and only those the
   building uses. An existing symbol is never changed; its id is used.
@@ -8864,14 +8873,46 @@ drawing is sanitised and reviewed like any other), then run the script
   category the column doesn't allow STOPS the loader before any write. Re-run
   the list script with **`-NoSeed`** first, or an empty library gets the 12
   demo starter symbols mixed in with the CAD ones.
-- **Placements on a `layer` are left out** (the 77 safety items) until ARC has
-  layers; their symbols ARE added (Tim's call).
-- It fills only an EMPTY Draft of the extract's exact size, keeps any areas
-  on it, re-reads the row just before the write and compares the read-back
-  character for character.
-- `CollisionPolygon` is loaded and used (above). `IsLabel` / `TextBox` and
-  `layer` aren't read by ARC yet, so area labels draw as the pill with ARC's
-  text.
+- **Placements on a `layer` keep their `layer` and `group`**, and the
+  extract's `layers` map (`{ safety: { title, default: "hidden", groups } }`)
+  becomes the layout's `layers` list (see "Layers" below). The first Main
+  Plant load predates layers and left its 77 safety items out;
+  **`-AddLayers`** adds just the layered placements to a Draft that already
+  has the rest — every existing item and area kept, a uid already there
+  skipped (a re-run adds nothing), each existing item compared field by field
+  before the write. It needs PowerShell 7.5+ (`ConvertFrom-Json -DateKind
+  String`): older versions turn a date-like label into a DateTime on the way
+  through. A Published layout is refused: press Edit in ARC first for a Draft.
+- Otherwise it fills only an EMPTY Draft of the extract's exact size, keeps
+  any areas on it, re-reads the row just before the write and compares the
+  read-back character for character.
+- `CollisionPolygon` is loaded and used (above). `IsLabel` / `TextBox` aren't
+  read by ARC yet, so area labels draw as the pill with ARC's text.
+
+**Layers** (Tim, 2026-11-10) — `lib/plantLayers.ts` (pure),
+`hooks/usePlantLayerVisibility.ts`, `components/PlantLayersPanel.tsx`. An
+item may carry `layer` ("safety") and `group` ("extinguishers"); the doc may
+declare `layers: [{ key, title, hiddenByDefault, groups: [{ key, title }] }]`.
+No item layer = the BASE PLAN, always shown. Six rules:
+
+- **Showing and hiding is per viewer and never saved**; the doc saves only
+  whether a layer starts hidden. Hidden state is a set of keys: `safety`, or
+  `safety/extinguishers` for one group. Showing a group shows its layer.
+- **Hiding is display only.** The placement check reads EVERY item, shown or
+  not. The canvas is handed only the shown items, so hidden ones aren't
+  drawn, picked, nudged or lined up with — PlantCanvas knows nothing of layers.
+- **A layer an item names but the doc doesn't declare is still a layer**
+  (shown, titled from its key), so nothing becomes unreachable.
+- **Picking an item from a list reveals its layer** (`pick` in both views);
+  hiding the selected item's layer lets go of it.
+- **Read tolerantly, written lean.** `parseLayoutDoc` reads ARC's list or the
+  extract's map, and never calls a layout corrupt over its layers (a display
+  aid). An item's blank layer/group is omitted on write and removed in the
+  editor (`tidyLayer`), so "base plan and back" isn't an unsaved change.
+- **A new copy of a symbol joins the layer its other copies are ALL on**
+  (`placementLayerFor`), never a guess between two. The inspector's Layer /
+  Group pickers offer only existing layers; adding a new layer from the UI
+  isn't built yet. A locked item can still change layer.
 
 **The demo data is invented** (`src/data/plantMock/`, safe for the public
 repo); the real plant's CAD drawing goes in the library, never in `src/`.

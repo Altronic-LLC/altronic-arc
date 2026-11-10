@@ -31,7 +31,8 @@ export interface EditorState extends EditorDoc {
 
 /** A change to an item or an area. Keys one doesn't have are ignored for it. */
 export type ItemPatch = Partial<
-  Pick<PlantLayoutItem, "x" | "y" | "w" | "d" | "rot" | "label" | "locked" | "equipmentId"> & Pick<PlantLayoutArea, "kind">
+  Pick<PlantLayoutItem, "x" | "y" | "w" | "d" | "rot" | "label" | "locked" | "equipmentId" | "layer" | "group"> &
+    Pick<PlantLayoutArea, "kind">
 >;
 
 export type EditorAction =
@@ -61,7 +62,7 @@ function commit(state: EditorState, next: Partial<EditorDoc>): EditorState {
   return { items: next.items ?? state.items, areas: next.areas ?? state.areas, past, future: [] };
 }
 
-const ITEM_KEYS = ["x", "y", "w", "d", "rot", "label", "locked", "equipmentId"] as const;
+const ITEM_KEYS = ["x", "y", "w", "d", "rot", "label", "locked", "equipmentId", "layer", "group"] as const;
 const AREA_KEYS = ["x", "y", "w", "d", "rot", "label", "locked", "kind"] as const;
 
 /** The patch, keeping only keys this shape has and that were given. */
@@ -72,13 +73,29 @@ function relevant(patch: ItemPatch, keys: readonly (keyof ItemPatch)[]): ItemPat
 }
 
 function changes(shape: object, patch: ItemPatch): boolean {
-  return Object.entries(patch).some(([k, v]) => (shape as Record<string, unknown>)[k] !== v);
+  return Object.entries(patch).some(([k, v]) => {
+    const current = (shape as Record<string, unknown>)[k];
+    // No layer is no layer, whether it's absent, null or blank.
+    if ((k === "layer" || k === "group") && !current && !v) return false;
+    return current !== v;
+  });
 }
 
-/** A locked shape only takes the change that unlocks it, its label, kind or asset. */
+/** A locked shape only takes the change that unlocks it, its label, kind, asset or layer. */
 function lockFilter(locked: boolean, patch: ItemPatch): ItemPatch {
   if (!locked || patch.locked === false) return patch;
-  return relevant(patch, ["label", "equipmentId", "kind"]);
+  return relevant(patch, ["label", "equipmentId", "kind", "layer", "group"]);
+}
+
+/**
+ * An item with its layer fields tidied: a blank layer is the base plan (the
+ * key is removed, not left null), and a group needs a layer. Keeps "set to
+ * the base plan and back" from reading as an unsaved change.
+ */
+function tidyLayer(item: PlantLayoutItem): PlantLayoutItem {
+  const { layer, group, ...rest } = item;
+  if (!layer) return rest;
+  return group ? { ...rest, layer, group } : { ...rest, layer };
 }
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -92,7 +109,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (item) {
         const patch = lockFilter(item.locked, relevant(action.patch, ITEM_KEYS));
         if (!changes(item, patch)) return state;
-        return commit(state, { items: state.items.map((i) => (i.uid === action.uid ? { ...i, ...patch } : i)) });
+        return commit(state, {
+          items: state.items.map((i) => (i.uid === action.uid ? tidyLayer({ ...i, ...patch }) : i)),
+        });
       }
       const area = state.areas.find((a) => a.uid === action.uid);
       if (!area) return state;

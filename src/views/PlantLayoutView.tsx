@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Map as MapIcon, Pencil, Send, Trash2 } from "lucide-react";
 import {
@@ -14,7 +14,10 @@ import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { deleteLayoutGate, editLayoutGate, publishLayoutGate } from "@/lib/plantMapRoles";
 import { layoutsSharingWalls } from "@/lib/plantLayoutDoc";
 import { pushToast } from "@/components/Toast";
-import type { PlantLayout, PlantLayoutItem } from "@/types/plant";
+import type { PlantLayer, PlantLayout, PlantLayoutItem } from "@/types/plant";
+import { layerLabel, layoutLayers } from "@/lib/plantLayers";
+import { usePlantLayerVisibility } from "@/hooks/usePlantLayerVisibility";
+import { PlantLayersPanel } from "@/components/PlantLayersPanel";
 import {
   checkLayout,
   shapeOfComponent,
@@ -104,6 +107,21 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
   // The drawing's size wins: it IS the building. The stored size is the fallback.
   const extent = drawing?.extent ?? layout.doc.extent;
   const items = layout.doc.items;
+  const layers = useMemo(() => layoutLayers(layout.doc), [layout.doc]);
+  const visibility = usePlantLayerVisibility(layers);
+  const { isVisible, reveal } = visibility;
+  const shownItems = useMemo(() => items.filter(isVisible), [items, isVisible]);
+  // Picking an item from a list shows whatever layer hides it; hiding the
+  // selected item's layer lets go of it.
+  const pick = (uid: string | null) => {
+    const item = uid ? items.find((i) => i.uid === uid) : undefined;
+    if (item) reveal(item);
+    setSelected(uid);
+  };
+  const selectedItem = items.find((i) => i.uid === selected) ?? null;
+  useEffect(() => {
+    if (selectedItem && !isVisible(selectedItem)) setSelected(null);
+  }, [selectedItem, isVisible]);
   const labelOf = useMemo(() => {
     const labels = new Map(items.map((i) => [i.uid, i.label || "Unnamed item"]));
     return (uid: string) => labels.get(uid) ?? uid;
@@ -190,29 +208,37 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
               title={`${layout.title} plant layout`}
               extent={extent}
               wallsSvg={drawing?.svg ?? null}
-              items={items}
+              items={shownItems}
               areas={layout.doc.areas ?? []}
               components={byId}
               problemUids={problemUids}
               selectedUid={selected}
-              onSelect={setSelected}
+              onSelect={pick}
               showLabels={showLabels}
               height="65vh"
             />
           )}
         </section>
         <aside className="flex flex-col gap-4">
-          <ProblemsCard problems={problems} labelOf={labelOf} status={layout.status} onPick={setSelected} />
-          <SelectedCard item={items.find((i) => i.uid === selected) ?? null} componentTitle={(cid) => byId.get(cid)?.title} />
+          <ProblemsCard problems={problems} labelOf={labelOf} status={layout.status} onPick={pick} />
+          <SelectedCard item={selectedItem} layers={layers} componentTitle={(cid) => byId.get(cid)?.title} />
+          <PlantLayersPanel
+            layers={layers}
+            items={items}
+            hidden={visibility.hidden}
+            onLayer={visibility.setLayer}
+            onGroup={visibility.setGroup}
+          />
         </aside>
       </div>
 
       <ItemsTable
         items={items}
+        layers={layers}
         componentTitle={(cid) => byId.get(cid)?.title ?? `Component #${cid}`}
         problemUids={problemUids}
         selected={selected}
-        onPick={setSelected}
+        onPick={pick}
       />
     </Shell>
   );
@@ -410,9 +436,11 @@ function ProblemsCard({
 
 function SelectedCard({
   item,
+  layers,
   componentTitle,
 }: {
   item: PlantLayoutItem | null;
+  layers: readonly PlantLayer[];
   componentTitle: (componentId: number) => string | undefined;
 }) {
   return (
@@ -432,6 +460,12 @@ function SelectedCard({
           </dd>
           <dt className="text-fg-muted">Rotation</dt>
           <dd className="text-fg">{item.rot}°</dd>
+          {item.layer && (
+            <>
+              <dt className="text-fg-muted">Layer</dt>
+              <dd className="text-fg">{layerLabel(item, layers)}</dd>
+            </>
+          )}
           <dt className="text-fg-muted">Centre</dt>
           <dd className="text-fg">
             {feetLabel(item.x)} from the west wall, {feetLabel(item.y)} from the north
@@ -444,12 +478,14 @@ function SelectedCard({
 
 function ItemsTable({
   items,
+  layers,
   componentTitle,
   problemUids,
   selected,
   onPick,
 }: {
   items: readonly PlantLayoutItem[];
+  layers: readonly PlantLayer[];
   componentTitle: (componentId: number) => string;
   problemUids: ReadonlySet<string>;
   selected: string | null;
@@ -459,11 +495,14 @@ function ItemsTable({
     () => [
       { key: "label", label: "Label", value: (i) => i.label },
       { key: "symbol", label: "Symbol", value: (i) => componentTitle(i.componentId) },
+      ...(layers.length > 0
+        ? [{ key: "layer", label: "Layer", value: (i: PlantLayoutItem) => layerLabel(i, layers) || "Base plan" }]
+        : []),
       { key: "size", label: "Size", value: (i) => `${feetLabel(i.w)} × ${feetLabel(i.d)}`, noFilter: true },
       { key: "rot", label: "Rotation", kind: "number", value: (i) => `${i.rot}°`, sortValue: (i) => i.rot },
       { key: "check", label: "Check", value: (i) => (problemUids.has(i.uid) ? "Problem" : "OK") },
     ],
-    [componentTitle, problemUids],
+    [componentTitle, problemUids, layers],
   );
   const rows = useMemo(() => items.map((it, n) => ({ ...it, n })), [items]);
   const table = useSortableTable({ rows, columns, stableKey: (i) => -i.n, initialKey: "label" });
@@ -498,6 +537,7 @@ function ItemsTable({
                 >
                   <td className="px-4 py-2 font-medium text-fg">{it.label || "—"}</td>
                   <td className="px-4 py-2 text-fg-muted">{componentTitle(it.componentId)}</td>
+                  {layers.length > 0 && <td className="px-4 py-2 text-fg-muted">{layerLabel(it, layers) || "Base plan"}</td>}
                   <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg-muted">
                     {feetLabel(it.w)} × {feetLabel(it.d)}
                   </td>

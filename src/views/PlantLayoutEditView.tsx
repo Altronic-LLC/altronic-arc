@@ -41,6 +41,9 @@ import { PlantAreaInspector, PlantInspector, PlantPalette } from "@/components/P
 import { PlantLayoutStatusChip, PlantMapAccessGate } from "@/components/plantMapAtoms";
 import { cn } from "@/lib/cn";
 import { useFitToWindow } from "@/hooks/useFitToWindow";
+import { layoutLayers, placementLayerFor } from "@/lib/plantLayers";
+import { usePlantLayerVisibility } from "@/hooks/usePlantLayerVisibility";
+import { PlantLayersPanel } from "@/components/PlantLayersPanel";
 
 // =============================================================================
 // The plant layout editor (/operations/plant-map/:id/edit) — a DRAFT only.
@@ -177,19 +180,36 @@ function Editor({
   const dirty = !sameDoc({ items, areas }, saved);
   const componentMap = byId.size > 0 ? byId : new Map(components.map((c) => [c.id, c]));
 
+  // ---- layers: what's drawn, and what can be picked ------------------------
+  // Hiding a layer is display only: hidden items aren't drawn, picked, nudged
+  // or lined up with, but the placement check below still reads every item.
+  const layers = useMemo(() => layoutLayers({ items, layers: layout.doc.layers }), [items, layout.doc.layers]);
+  const visibility = usePlantLayerVisibility(layers);
+  const { isVisible, reveal } = visibility;
+  const shownItems = useMemo(() => items.filter(isVisible), [items, isVisible]);
+  const pick = useCallback(
+    (uid: string | null) => {
+      const item = uid ? items.find((i) => i.uid === uid) : undefined;
+      if (item) reveal(item);
+      setSelected(uid);
+    },
+    [items, reveal],
+  );
+
   // ---- placing a symbol: on the grid, or lined up with its neighbours --------
   // A symbol dropped from the palette lines up exactly as a dragged item does
   // (lib/plantAlign.ts) — the ghost shows the guides, and the drop lands where
   // the ghost was.
   const placeAt = useCallback(
     (component: LayoutComponent, point: { x: number; y: number }, align: boolean, random?: () => number) => {
-      const item = placeComponent(component, point, items, grid, random);
+      // A symbol every copy of which sits on one layer (an extinguisher) joins them there.
+      const item = { ...placeComponent(component, point, items, grid, random), ...placementLayerFor(component.id, items) };
       if (!align) return { item, guides: [] as AlignGuide[] };
       const tolerance = ALIGN_SNAP_PX / (canvas.current?.scale() || 1);
-      const aligned = alignToNeighbours({ ...item, x: point.x, y: point.y }, [...items, ...areas], tolerance, grid);
+      const aligned = alignToNeighbours({ ...item, x: point.x, y: point.y }, [...shownItems, ...areas], tolerance, grid);
       return { item: { ...item, x: aligned.x, y: aligned.y }, guides: aligned.guides };
     },
-    [items, areas, grid],
+    [items, shownItems, areas, grid],
   );
 
   // ---- the live placement check -------------------------------------------
@@ -233,11 +253,17 @@ function Editor({
     (component: LayoutComponent, point: { x: number; y: number }, align = false) => {
       const { item } = placeAt(component, point, align);
       dispatch({ type: "add", item });
+      reveal(item);
       setSelected(item.uid);
     },
-    [placeAt],
+    [placeAt, reveal],
   );
-  const patchSelected = (patch: ItemPatch) => selected && dispatch({ type: "update", uid: selected, patch });
+  const patchSelected = (patch: ItemPatch) => {
+    if (!selected) return;
+    dispatch({ type: "update", uid: selected, patch });
+    // Moved onto a hidden layer: show it, rather than let the item vanish under the pointer.
+    if (patch.layer) reveal({ layer: patch.layer, group: patch.group });
+  };
   const duplicateSelected = useCallback(() => {
     if (!selected) return;
     const isArea = areas.some((a) => a.uid === selected);
@@ -375,6 +401,10 @@ function Editor({
 
   const selectedItem = items.find((i) => i.uid === selected) ?? null;
   const selectedArea = areas.find((a) => a.uid === selected) ?? null;
+  // Hiding the selected item's layer lets go of it — no nudging what you can't see.
+  useEffect(() => {
+    if (selectedItem && !isVisible(selectedItem)) setSelected(null);
+  }, [selectedItem, isVisible]);
 
   return (
     <Shell>
@@ -483,12 +513,12 @@ function Editor({
             title={`${layout.title} plant layout, editing`}
             extent={extent}
             wallsSvg={wallsSvg}
-            items={items}
+            items={shownItems}
             areas={areas}
             components={componentMap}
             problemUids={problemUids}
             selectedUid={selected}
-            onSelect={setSelected}
+            onSelect={pick}
             showLabels={showLabels}
             height={columnHeight ?? "70vh"}
             editing={{
@@ -516,11 +546,19 @@ function Editor({
               item={selectedItem}
               component={selectedItem ? componentMap.get(selectedItem.componentId) : undefined}
               equipment={equipment}
+              layers={layers}
               onPatch={patchSelected}
               onDuplicate={duplicateSelected}
               onDelete={deleteSelected}
             />
           )}
+          <PlantLayersPanel
+            layers={layers}
+            items={items}
+            hidden={visibility.hidden}
+            onLayer={visibility.setLayer}
+            onGroup={visibility.setGroup}
+          />
           <section aria-label="Placement check" className="rounded-xl border border-border bg-surface p-4">
             <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Placement check</h2>
             {problems.length === 0 ? (
@@ -529,7 +567,7 @@ function Editor({
               <ul className="mt-2 space-y-1 text-sm">
                 {problems.map((p, i) => (
                   <li key={i}>
-                    <button type="button" onClick={() => setSelected(p.uid)} className="text-left text-fg hover:text-accent hover:underline">
+                    <button type="button" onClick={() => pick(p.uid)} className="text-left text-fg hover:text-accent hover:underline">
                       {describeLayoutProblem(p, labelOf)}
                     </button>
                   </li>

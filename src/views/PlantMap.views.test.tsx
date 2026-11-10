@@ -274,6 +274,47 @@ describe("PlantLayoutView", () => {
     expect(map.querySelector('[data-layer="areas"] [data-kind="aisle"] title')).toHaveTextContent("Main walkway");
   });
 
+  it("starts the safety layer hidden, and shows it — or one group of it — when ticked", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
+    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    const layers = screen.getByRole("region", { name: "Layers" });
+    const map = screen.getByRole("img", { name: "Engineering & Sales plant layout" });
+    const drawn = () => map.querySelectorAll('[data-layer="items"] > g').length;
+    expect(drawn()).toBe(17);
+
+    const safety = within(layers).getByRole("checkbox", { name: /^Safety/ });
+    expect(safety).not.toBeChecked();
+    await user.click(safety);
+    expect(drawn()).toBe(21);
+
+    await user.click(within(layers).getByRole("checkbox", { name: /^Extinguishers/ }));
+    expect(drawn()).toBe(19);
+    // Hiding is display only: the check still reads every item.
+    expect(screen.getByText("Nothing overlaps, and everything is inside the building.")).toBeInTheDocument();
+  });
+
+  it("lists layer items in the table, and picking a hidden one shows its layer", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
+    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    const table = screen.getByRole("region", { name: "Items on this layout" });
+    const exitRow = within(table).getByRole("cell", { name: "Safety · Fire exits" }).closest("tr")!;
+    const map = screen.getByRole("img", { name: "Engineering & Sales plant layout" });
+    expect(map.querySelector('[data-uid="i_es03"]')).toBeNull();
+
+    await user.click(exitRow);
+    expect(map.querySelector('[data-uid="i_es03"]')).not.toBeNull();
+    expect(within(screen.getByRole("region", { name: "Layers" })).getByRole("checkbox", { name: /^Safety/ })).toBeChecked();
+    expect(within(screen.getByRole("region", { name: "Selected item" })).getByText("Safety · Fire exits")).toBeInTheDocument();
+  });
+
+  it("shows no Layers panel on a layout without any", async () => {
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/1", routePattern: "/operations/plant-map/:id" });
+    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    expect(screen.queryByRole("region", { name: "Layers" })).toBeNull();
+  });
+
   it("says when a layout doesn't exist", async () => {
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/99", routePattern: "/operations/plant-map/:id" });
     expect(await screen.findByText("That layout doesn't exist.")).toBeInTheDocument();

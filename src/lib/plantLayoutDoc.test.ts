@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOCK_PLANT_LAYOUTS, SAMPLE_CLEAN_ITEMS } from "@/data/plantMockData";
+import { MAIN_PLANT_SAFETY_ITEMS, MOCK_PLANT_LAYOUTS, MOCK_SAFETY_LAYER, SAMPLE_CLEAN_ITEMS } from "@/data/plantMockData";
 import {
   LAYOUT_JSON_MAX_CHARS,
   buildingSource,
@@ -78,6 +78,87 @@ describe("parseLayoutDoc", () => {
   it("uses the fallback size when the stored extent is missing or nonsense", () => {
     const r = parseLayoutDoc('{"schema":1,"extent":{"w":-1},"items":[]}', EXTENT);
     expect(r).toMatchObject({ ok: true, doc: { extent: EXTENT } });
+  });
+});
+
+describe("layers in the saved layout", () => {
+  it("round-trips items on a layer and the layers declared", () => {
+    const doc = {
+      schema: 1 as const,
+      units: "in" as const,
+      extent: EXTENT,
+      items: [...SAMPLE_CLEAN_ITEMS, ...MAIN_PLANT_SAFETY_ITEMS],
+      areas: [],
+      layers: [MOCK_SAFETY_LAYER],
+    };
+    expect(parseLayoutDoc(serializeLayoutDoc(doc), { w: 1, h: 1 })).toEqual({ ok: true, doc, dropped: 0 });
+  });
+
+  it("leaves a blank layer and group out of what it writes, and a group without a layer", () => {
+    const [first] = SAMPLE_CLEAN_ITEMS;
+    const saved = JSON.parse(
+      serializeLayoutDoc({
+        ...emptyLayoutDoc(EXTENT),
+        items: [
+          { ...first, uid: "a", layer: null, group: null },
+          { ...first, uid: "b", layer: "", group: "x" },
+          { ...first, uid: "c", layer: "safety", group: null },
+        ],
+      }),
+    );
+    expect(Object.keys(saved.items[0])).not.toContain("layer");
+    expect(Object.keys(saved.items[1])).not.toContain("group");
+    expect(saved.items[2]).toMatchObject({ layer: "safety" });
+    expect(Object.keys(saved.items[2])).not.toContain("group");
+    expect(saved).not.toHaveProperty("layers");
+  });
+
+  it("reads the CAD extract's layer map as well as ARC's own list", () => {
+    const raw = JSON.stringify({
+      schema: 1,
+      extent: EXTENT,
+      items: [],
+      layers: {
+        safety: { title: "Safety", default: "hidden", groups: ["extinguishers", "fire-exits"], source: "Safety brochure" },
+        "": { title: "no key" },
+        bad: "not an object",
+      },
+    });
+    const read = parseLayoutDoc(raw, EXTENT);
+    expect(read.ok && read.doc.layers).toEqual([
+      {
+        key: "safety",
+        title: "Safety",
+        hiddenByDefault: true,
+        groups: [
+          { key: "extinguishers", title: "Extinguishers" },
+          { key: "fire-exits", title: "Fire exits" },
+        ],
+      },
+    ]);
+  });
+
+  it("never calls a layout corrupt over its layers — they're a display aid", () => {
+    const read = parseLayoutDoc(JSON.stringify({ schema: 1, extent: EXTENT, items: [], layers: "nonsense" }), EXTENT);
+    expect(read).toMatchObject({ ok: true });
+    expect(read.ok && read.doc.layers).toBeUndefined();
+  });
+
+  it("reads an item's layer only when it's text, and a group only with a layer", () => {
+    const [first] = SAMPLE_CLEAN_ITEMS;
+    const raw = JSON.stringify({
+      schema: 1,
+      extent: EXTENT,
+      items: [
+        { ...first, uid: "a", layer: 5, group: "x" },
+        { ...first, uid: "b", layer: " safety ", group: " medical " },
+      ],
+    });
+    const read = parseLayoutDoc(raw, EXTENT);
+    if (!read.ok) throw new Error(read.reason);
+    expect(read.doc.items[0]).not.toHaveProperty("layer");
+    expect(read.doc.items[0]).not.toHaveProperty("group");
+    expect(read.doc.items[1]).toMatchObject({ layer: "safety", group: "medical" });
   });
 });
 
