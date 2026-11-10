@@ -17,6 +17,7 @@ import { pushToast } from "@/components/Toast";
 import type { PlantLayout, PlantLayoutItem } from "@/types/plant";
 import {
   checkLayout,
+  shapeOfComponent,
   describeLayoutProblem,
   feetLabel,
   itemsWithProblems,
@@ -112,7 +113,7 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
     if (!drawing) return null;
     // The walls drawing's own keep-outs, plus the aisles and no-go areas drawn on the layout —
     // the same check Publish asks again before writing.
-    return checkLayout(layout.doc, (cid) => byId.get(cid)?.collides ?? true, drawing);
+    return checkLayout(layout.doc, (cid) => shapeOfComponent(byId.get(cid)), drawing);
   }, [drawing, byId, layout.doc]);
   const problemUids = useMemo(() => (problems ? itemsWithProblems(problems) : new Set<string>()), [problems]);
 

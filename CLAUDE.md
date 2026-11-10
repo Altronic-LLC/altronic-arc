@@ -8632,9 +8632,28 @@ Eight things that are load-bearing:
   collide. `Clearance` is carried but NOT applied yet. Pinned against the two
   sample layouts the generator checked: the clean one has none, the other
   flags exactly i_bad1–3 plus VMC-1 and VMC-2 (the bad mill lands between them).
+- **A symbol that isn't a rectangle is checked by its real shape** (Tim,
+  2026-11-10). `CollisionPolygon` on Layout Components holds `[[x, y], …]` in
+  the symbol's own inches (its viewBox frame); `itemPieces` stretches it to
+  the item's w × d and turns it with the item, so something in the notch of an
+  L isn't an overlap. A concave outline is cut into triangles by ear clipping
+  (`convexPieces`, cached per outline) and every pair of pieces gets the
+  separating-axis test; an outline it can't read or cut falls back to the
+  RECTANGLE — the safe direction. A bounds test skips nearly every pair
+  first: the Main Plant extract (948 items) checks in ~6 ms. Outlines reach
+  the check through `shapeOfComponent` (`checkLayout`'s second argument), the
+  same way on the layout page, in the editor and in Publish. On that extract
+  outlines took the problems from 18 to 2. The Add symbol form doesn't set
+  one yet; the CAD loader and the seed (the L-desk) do. The column was added
+  after the list, so a read that 400s retries without it and remembers (the
+  MRB Watchers arrangement), and a plain symbol's create leaves it out.
 - **The whole layout is ONE JSON column**, so a save is one write (no
-  transactions). `serializeLayoutDoc` refuses past 63,000 characters rather
-  than let SharePoint truncate it; `parseLayoutDoc` calls anything unreadable
+  transactions). `serializeLayoutDoc` refuses past 1,000,000 characters
+  (`LAYOUT_JSON_MAX_CHARS`) rather than let SharePoint truncate it. That
+  figure is MEASURED: `scripts/test-plant-layout-json-size.ps1` wrote up to
+  1,000,000 to the live column and read each back identical (2026-11-10). It
+  was 63,000, the UI's documented limit, which refused the Main Plant CAD
+  extract (~162,000); `parseLayoutDoc` calls anything unreadable
   CORRUPT, and **ARC never writes over a corrupt layout**.
 - **A Published row is never written** by a save. `savePlantLayoutDraft`
   re-reads the row and refuses anything but a Draft (`LayoutNotDraftError`).
@@ -8685,6 +8704,9 @@ The editor (`views/PlantLayoutEditView.tsx`, `components/PlantCanvas.tsx`,
   first real measurement and when the building changes, never on a later
   resize. Labels, handles and outlines are sized in SCREEN pixels; a label
   shows only when its item is wide enough on screen to hold it (or selected).
+  A label runs along its item's LONG side and turns with it, never upside down
+  (`labelAngle`, kept in [-90, 90) so vertical text reads bottom to top) —
+  Tim, 2026-11-10, when a turned area label kept its text level.
 - **A drag is a PREVIEW until release**, then ONE `update` — so one drag is one
   undo step. The preview is passed up (`onPreview`) so the placement check
   follows the drag live. Moves snap to the chosen grid (Alt = to the inch);
@@ -8824,6 +8846,32 @@ drags over CDP — e.g. a palette symbol onto `svg[aria-label$="editing"]`) and
 `SHOT_EVAL` (prints an expression, e.g. the item count). A drag with
 `"hold": true` keeps the button down, to capture what shows mid-drag (guides). Don't target
 `svg[role=img]`: the header's Altronic mark matches first.
+
+**Loading a building from CAD** — `scripts/load-plant-cad-extract.ps1`
+(Tim, 2026-11-10). The extract (walls SVG, `components-reduced.json`,
+`current-layout-<building>.json`) is built OUTSIDE the repo, in Tim's
+`plant manager\cad-extract` folder — it is real plant data. Order: create
+the layout in ARC (New layout, upload `walls-<building>-cad.svg`, so the
+drawing is sanitised and reviewed like any other), then run the script
+(reports only until `-Apply`). Main Plant only so far; Eng/Sales is held back.
+
+- **Symbols are ADD-ONLY, matched on ComponentKey**, and only those the
+  building uses. An existing symbol is never changed; its id is used.
+- **Categories are written as the extract has them.** `Safety`, `Utility` and
+  `Zone` were added to `LAYOUT_COMPONENT_CATEGORIES` for it (the live list
+  was still empty, so nothing needed mapping), and `create-plant-map-lists.ps1`
+  now ADDS missing choices to an existing column (never removes one). A
+  category the column doesn't allow STOPS the loader before any write. Re-run
+  the list script with **`-NoSeed`** first, or an empty library gets the 12
+  demo starter symbols mixed in with the CAD ones.
+- **Placements on a `layer` are left out** (the 77 safety items) until ARC has
+  layers; their symbols ARE added (Tim's call).
+- It fills only an EMPTY Draft of the extract's exact size, keeps any areas
+  on it, re-reads the row just before the write and compares the read-back
+  character for character.
+- `CollisionPolygon` is loaded and used (above). `IsLabel` / `TextBox` and
+  `layer` aren't read by ARC yet, so area labels draw as the pill with ARC's
+  text.
 
 **The demo data is invented** (`src/data/plantMock/`, safe for the public
 repo); the real plant's CAD drawing goes in the library, never in `src/`.

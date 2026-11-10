@@ -14,7 +14,9 @@
                           SvgMarkup (the symbol, viewBox in inches), FootprintW,
                           FootprintD, AllowResize, AllowRotate, MinScale,
                           MaxScale, Collides, Clearance, DefaultStroke,
-                          DefaultFill, Version, IsActive
+                          DefaultFill, Version, IsActive, CollisionPolygon
+                          (JSON [[x, y], ...] in the symbol's inches - its
+                          real shape when it isn't a rectangle)
       Plant Layouts       Title (shown "Layout"), Building (indexed; the
                           Layouts list's tabs), Area, LayoutKey (indexed;
                           groups a layout's versions), Status (choice: Draft /
@@ -29,15 +31,17 @@
 
     - The name column on Plant Map Roles is PersonName, never DisplayName:
       Graph silently drops a listItem field of that name.
-    - LayoutJson and SvgMarkup are PLAIN multi-line text with Append Changes
+    - LayoutJson, SvgMarkup and CollisionPolygon are PLAIN multi-line text with Append Changes
       OFF. ARC rewrites the whole value on every save; append mode would
       concatenate it into something unreadable. Graph's answer about that flag
       has been wrong before (FAIT 89), so after the first real save, open the
       row's version history and check the value was REPLACED.
     - Status and Category are strict choices (allowTextEntry off). Their
       choices are src/types/plant.ts PLANT_LAYOUT_STATUSES and
-      LAYOUT_COMPONENT_CATEGORIES - change both together.
-    - Layout Components is SEEDED from src/data/plantComponentSeed.json ONLY
+      LAYOUT_COMPONENT_CATEGORIES - change both together. A re-run ADDS
+      any choice listed here that the column is missing (and reads it back);
+      it never removes one.
+    - Layout Components is SEEDED (unless -NoSeed) from src/data/plantComponentSeed.json ONLY
       while it is EMPTY. After that the list is the source of truth, and a
       re-run must never put back a symbol somebody retired.
     - Every column is then WRITTEN AND READ BACK with a throwaway row (and the
@@ -49,14 +53,21 @@
 
     RUN IN YOUR OWN TERMINAL - the sign-in is interactive.
 
+.PARAMETER NoSeed
+    Don't seed the 12 starter symbols into an empty Layout Components list -
+    for a library that will be loaded from CAD instead
+    (load-plant-cad-extract.ps1).
+
 .EXAMPLE
     .\create-plant-map-lists.ps1 -WhatIf
     .\create-plant-map-lists.ps1
+    .\create-plant-map-lists.ps1 -NoSeed
 #>
 
 [CmdletBinding()]
 param(
     [switch]$WhatIf,
+    [switch]$NoSeed,
     [switch]$DeviceCode
 )
 
@@ -86,7 +97,7 @@ $componentColumns = @(
     @{ name = "ComponentKey"; displayName = "Key"; text = @{}
        description = "A stable text key, e.g. cnc-vmc-120x96." },
     @{ name = "Category"; displayName = "Category"; defaultValue = @{ value = "Other" }
-       choice = @{ allowTextEntry = $false; displayAs = "dropDownMenu"; choices = @("Desk", "Machine", "Bench", "Rack", "Storage", "Other") } },
+       choice = @{ allowTextEntry = $false; displayAs = "dropDownMenu"; choices = @("Desk", "Machine", "Bench", "Rack", "Storage", "Safety", "Utility", "Zone", "Other") } },
     @{ name = "SvgMarkup"; displayName = "Symbol (SVG)"; text = $plainNote
        description = "The symbol as SVG, viewBox 0 0 FootprintW FootprintD in inches. ARC sanitises it before drawing." },
     @{ name = "FootprintW"; displayName = "Width (in)"; number = $decimal },
@@ -102,7 +113,9 @@ $componentColumns = @(
     @{ name = "DefaultFill"; displayName = "Default Fill"; text = @{} },
     @{ name = "Version"; displayName = "Version"; number = $whole },
     @{ name = "IsActive"; displayName = "Active"; boolean = @{}
-       description = "Untick to retire a symbol. Layouts already using it keep it." }
+       description = "Untick to retire a symbol. Layouts already using it keep it." },
+    @{ name = "CollisionPolygon"; displayName = "Collision Outline"; text = $plainNote
+       description = "The symbol's real shape when it isn't a rectangle: JSON [[x, y], ...] in the symbol's inches. Blank = the footprint rectangle." }
 )
 
 $layoutColumns = @(
@@ -166,6 +179,23 @@ function Ensure-Columns($listId, $label, $columns) {
                 -Body (@{ indexed = $true } | ConvertTo-Json) -ContentType "application/json" | Out-Null
             Write-Host "    indexed    $label / $($c.name)" -ForegroundColor Green
         }
+        # A strict choice column refuses a value it doesn't declare, so a
+        # choice added here must reach a column created before it. Choices are
+        # only ever ADDED: one somebody added in SharePoint is kept.
+        if ($existing -and $c.choice -and $existing["choice"]) {
+            $haveChoices = @($existing["choice"]["choices"])
+            $missing = @($c.choice.choices | Where-Object { $haveChoices -notcontains $_ })
+            if ($missing.Count -gt 0) {
+                if ($WhatIf) { Write-Host "    WOULD ADD CHOICES  $label / $($c.name): $($missing -join ', ')" -ForegroundColor Cyan; continue }
+                $merged = @($haveChoices + $missing)
+                Invoke-MgGraphRequest -Method PATCH -Uri "$graph/lists/$listId/columns/$($existing["id"])" -ContentType "application/json" `
+                    -Body (@{ choice = @{ allowTextEntry = $false; displayAs = $existing["choice"]["displayAs"]; choices = $merged } } | ConvertTo-Json -Depth 4) | Out-Null
+                $after = @((Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$listId/columns/$($existing["id"])")["choice"]["choices"])
+                $still = @($missing | Where-Object { $after -notcontains $_ })
+                if ($still.Count -gt 0) { throw "$label / $($c.name): choices $($still -join ', ') did not stick." }
+                Write-Host "    choices    $label / $($c.name) + $($missing -join ', ')" -ForegroundColor Green
+            }
+        }
     }
 }
 
@@ -206,7 +236,9 @@ if ($filesId -and -not $WhatIf) {
 }
 
 # --- seed the symbol library, ONLY while it is empty --------------------------
-if ($componentsId -and -not $WhatIf) {
+if ($componentsId -and -not $WhatIf -and $NoSeed) {
+    Write-Host "`n  -NoSeed: not seeding the starter symbols." -ForegroundColor Yellow
+} elseif ($componentsId -and -not $WhatIf) {
     $any = Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$componentsId/items?`$top=1"
     if ($any.value.Count -gt 0) {
         Write-Host "`n  Layout Components already has symbols - not seeding (the list is the source of truth)." -ForegroundColor Yellow
@@ -220,6 +252,7 @@ if ($componentsId -and -not $WhatIf) {
                 MinScale = $s.MinScale; MaxScale = $s.MaxScale; Collides = $s.Collides; Clearance = $s.Clearance
                 DefaultStroke = $s.DefaultStroke; DefaultFill = $s.DefaultFill; Version = $s.Version; IsActive = $s.IsActive
             }
+            if ($s.CollisionPolygon) { $fields.CollisionPolygon = (ConvertTo-Json -InputObject @($s.CollisionPolygon) -Compress -Depth 3) }
             Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$componentsId/items" -ContentType "application/json" `
                 -Body (@{ fields = $fields } | ConvertTo-Json -Depth 4) | Out-Null
             Write-Host "    seeded     $($s.Title)" -ForegroundColor Green
@@ -261,6 +294,7 @@ if (-not $WhatIf -and $rolesId -and $componentsId -and $layoutsId) {
         Title = "ARC-VERIFY"; ComponentKey = "arc-verify"; Category = "Machine"; SvgMarkup = '<svg viewBox="0 0 10 5"><rect width="10" height="5"/></svg>'
         FootprintW = 10; FootprintD = 5; AllowResize = $true; AllowRotate = $true; MinScale = 0.5; MaxScale = 2; Collides = $false
         Clearance = 6; DefaultStroke = "#374151"; DefaultFill = "#f3f4f6"; Version = 1; IsActive = $false
+        CollisionPolygon = "[[0,0],[10,0],[10,2],[4,2],[4,5],[0,5]]"
     }
     $results += Test-ReadBack $layoutsId "layouts" @{
         Title = "ARC-VERIFY"; Building = "ARC-VERIFY"; Area = "verify"; LayoutKey = "arc-verify"; Status = "Superseded"; Version = 2

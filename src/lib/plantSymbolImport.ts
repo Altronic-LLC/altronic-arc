@@ -26,7 +26,11 @@ import { sanitiseSvg } from "./plantSvg";
 // symbol is always vectors, and every symbol is sanitised again when drawn.
 // =============================================================================
 
-/** SharePoint's plain multi-line column holds ~63,000 characters; leave room. */
+/**
+ * The column holds far more (tested to 1,000,000 on LayoutJson, 2026-11-10);
+ * this is kept because a symbol is drawn once per placement, and one this
+ * detailed already draws slowly.
+ */
 export const MAX_SYMBOL_MARKUP_CHARS = 60_000;
 /** A picture is traced at most this many pixels on its long side. */
 export const TRACE_MAX_PIXELS = 160;

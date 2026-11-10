@@ -38,6 +38,8 @@ interface SeedRow {
   Version: number;
   IsActive: boolean;
   SvgMarkup: string;
+  /** Only the L-desk has one — the demo's shaped symbol. */
+  CollisionPolygon?: [number, number][];
 }
 
 /** The seed rows as components, ids 1…12 in seed order. */
@@ -55,6 +57,7 @@ export const MOCK_LAYOUT_COMPONENTS: LayoutComponent[] = (seed as SeedRow[]).map
   maxScale: row.MaxScale,
   collides: row.Collides,
   clearance: row.Clearance,
+  collisionPolygon: row.CollisionPolygon ?? null,
   version: row.Version,
   active: row.IsActive,
 }));

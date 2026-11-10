@@ -51,6 +51,25 @@ function setup(items: PlantLayoutItem[], opts: { editing?: boolean; selected?: s
 }
 
 describe("PlantCanvas", () => {
+  it("turns an item's label with it, along its long side, never upside down", () => {
+    // Selected items always show their label, whatever the zoom.
+    const { container, rerender } = setup([item("a", { rot: 270 })], { selected: "a" });
+    const label = () => container.querySelector('[data-label-for="a"]')!;
+    expect(label().getAttribute("transform")).toBe("rotate(-90 450 770)");
+    rerender(
+      <PlantCanvas
+        title="Test plan"
+        extent={EXTENT}
+        wallsSvg={null}
+        items={[item("a", { rot: 180 })]}
+        components={components}
+        selectedUid="a"
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(label().getAttribute("transform")).toBe("rotate(0 450 770)");
+  });
+
   it("selects an item on press, and has no handles when only viewing", () => {
     const { g, onSelect, onCommit, container } = setup([item("a")], { selected: "a" });
     fireEvent.pointerDown(g("a"), { button: 0, clientX: 100, clientY: 100 });

@@ -14,7 +14,7 @@ import { readWallsFile } from "@/api/plantLayoutFiles";
 import type { LayoutComponent, NewLayoutComponentInput, NewPlantLayoutInput, PlantLayout, PlantLayoutDoc } from "@/types/plant";
 import { readWallsSvg, type WallsCheck } from "@/lib/plantSvg";
 import { deleteLayoutGate, editLayoutGate, manageSymbolsGate, publishLayoutGate } from "@/lib/plantMapRoles";
-import { checkLayout } from "@/lib/plantGeometry";
+import { checkLayout, shapeOfComponent } from "@/lib/plantGeometry";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { requirePlantMapGate, useResolvePlantMapAccess } from "./usePlantMapRoles";
 import { pushToast } from "@/components/Toast";
@@ -83,7 +83,7 @@ export function usePublishPlantLayout() {
         throw new Error(`The walls drawing can't be read (${walls.problem}), so the layout can't be checked or published.`);
       }
       const byId = new Map(components.map((c) => [c.id, c]));
-      const problems = checkLayout(layout.doc, (cid) => byId.get(cid)?.collides ?? true, walls?.ok ? walls.drawing : null);
+      const problems = checkLayout(layout.doc, (cid) => shapeOfComponent(byId.get(cid)), walls?.ok ? walls.drawing : null);
       if (problems.length > 0) {
         throw new Error(
           `Fix the ${problems.length} placement problem${problems.length === 1 ? "" : "s"} first — a layout with problems can't be published.`,

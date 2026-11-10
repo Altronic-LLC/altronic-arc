@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { Maximize2, Minus, Plus } from "lucide-react";
 import type { LayoutComponent, PlantAreaKind, PlantLayoutArea, PlantLayoutItem } from "@/types/plant";
 import { sanitiseSvg, svgDataUrl } from "@/lib/plantSvg";
-import type { Obstacle } from "@/lib/plantGeometry";
+import { labelAngle, type Obstacle } from "@/lib/plantGeometry";
 import { clampAreaSize, clampSize, normaliseRotation, snap, type ItemPatch } from "@/lib/plantEditor";
 import { ALIGN_SNAP_PX, alignToNeighbours, type AlignGuide } from "@/lib/plantAlign";
 import { cn } from "@/lib/cn";
@@ -622,8 +622,9 @@ export const PlantCanvas = forwardRef<PlantCanvasHandle, PlantCanvasProps>(funct
           )}
 
           {showLabels && (
-            // Upright whatever the item's rotation, a fixed size on screen, with a white halo.
-            // A label shows when its item is wide enough on screen to hold it, or is selected.
+            // Along the item's long side and turned with it, never upside down (labelAngle);
+            // a fixed size on screen, with a white halo. A label shows when its item is long
+            // enough on screen to hold it, or is selected.
             <g data-layer="labels" pointerEvents="none">
               {shownAreas.map((a) =>
                 a.label && (a.uid === selectedUid || Math.max(a.w, a.d) * v.scale >= a.label.length * 6.5) ? (
@@ -631,6 +632,7 @@ export const PlantCanvas = forwardRef<PlantCanvasHandle, PlantCanvasProps>(funct
                     key={a.uid}
                     x={a.x}
                     y={a.y}
+                    transform={`rotate(${labelAngle(a)} ${a.x} ${a.y})`}
                     fontSize={fontSize}
                     fontFamily="Arial, sans-serif"
                     fontStyle="italic"
@@ -650,8 +652,10 @@ export const PlantCanvas = forwardRef<PlantCanvasHandle, PlantCanvasProps>(funct
                 it.label && (it.uid === selectedUid || Math.max(it.w, it.d) * v.scale >= it.label.length * 6.5) ? (
                   <text
                     key={it.uid}
+                    data-label-for={it.uid}
                     x={it.x}
                     y={it.y}
+                    transform={`rotate(${labelAngle(it)} ${it.x} ${it.y})`}
                     fontSize={fontSize}
                     fontFamily="Arial, sans-serif"
                     textAnchor="middle"

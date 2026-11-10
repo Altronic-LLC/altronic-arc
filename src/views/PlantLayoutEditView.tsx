@@ -29,6 +29,7 @@ import {
   describeLayoutProblem,
   findLayoutProblems,
   itemsWithProblems,
+  shapeOfComponent,
   type CheckableItem,
   type Obstacle,
 } from "@/lib/plantGeometry";
@@ -203,7 +204,7 @@ function Editor({
 
   const checkable = useCallback(
     (list: readonly PlantLayoutItem[]): CheckableItem[] =>
-      list.map((it) => ({ ...it, collides: componentMap.get(it.componentId)?.collides ?? true })),
+      list.map((it) => ({ ...it, ...shapeOfComponent(componentMap.get(it.componentId)) })),
     [componentMap],
   );
   const live = useMemo(

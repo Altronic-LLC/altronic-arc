@@ -1215,6 +1215,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "svgMarkup", type: "text", kind: "field" },
       { name: "footprintW / footprintD (in)", type: "number", kind: "field" },
       { name: "collides / clearance", type: "bool", kind: "field" },
+      { name: "collisionPolygon (JSON points)", type: "text", kind: "field" },
       { name: "isActive", type: "bool", kind: "field" },
     ],
   },

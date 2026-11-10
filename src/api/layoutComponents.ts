@@ -1,10 +1,11 @@
-import { graphFetch, graphFetchAll } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_LAYOUT_COMPONENTS_LIST_ID, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem } from "@/types/task";
 import type { LayoutComponent, NewLayoutComponentInput } from "@/types/plant";
 import { MAX_SYMBOL_MARKUP_CHARS } from "@/lib/plantSymbolImport";
 import { toNumberOrNull } from "@/lib/graphValues";
+import { parseCollisionPolygon } from "@/lib/plantGeometry";
 import { MOCK_LAYOUT_COMPONENTS } from "@/data/plantMockData";
 
 // =============================================================================
@@ -16,6 +17,12 @@ import { MOCK_LAYOUT_COMPONENTS } from "@/data/plantMockData";
 // lib/plantSymbolImport.ts). Not edited or deleted yet: a component is RETIRED
 // (IsActive = No), never deleted — layouts point at it by id. `SvgMarkup` is
 // raw on READ — it is sanitised before anything draws it (lib/plantSvg.ts).
+//
+// `CollisionPolygon` (JSON `[[x, y], …]` in the symbol's inches) was added to
+// the list after it was created. Selecting a column a list hasn't got 400s the
+// WHOLE read, and the column is added by a script run separately from any
+// deploy — so a 400 retries once without it and remembers (the MRB Watchers
+// arrangement). Every symbol is then checked as its rectangle.
 // =============================================================================
 
 export const LAYOUT_COMPONENT_SELECT = [
@@ -34,6 +41,14 @@ export const LAYOUT_COMPONENT_SELECT = [
   "Version",
   "IsActive",
 ].join(",");
+
+const COLLISION_POLYGON_COLUMN = "CollisionPolygon";
+let collisionPolygonMissing = false;
+
+/** Tests only. */
+export function __resetCollisionPolygonFallback(): void {
+  collisionPolygonMissing = false;
+}
 
 function text(v: unknown): string {
   return typeof v === "string" ? v : v === null || v === undefined ? "" : String(v);
@@ -64,6 +79,8 @@ export function toLayoutComponent(item: GraphListItem): LayoutComponent {
     // A component that doesn't say is treated as solid — the safe direction.
     collides: yesNo(f.Collides, true),
     clearance: toNumberOrNull(f.Clearance) ?? 0,
+    // Unreadable = no shape: the symbol is checked as its rectangle.
+    collisionPolygon: parseCollisionPolygon(f.CollisionPolygon),
     version: toNumberOrNull(f.Version) ?? 1,
     // A missing IsActive reads as ACTIVE, or adding the column would hide them all.
     active: yesNo(f.IsActive, true),
@@ -81,10 +98,28 @@ export function __resetLayoutComponentsMockStore(): void {
 export async function listLayoutComponents(): Promise<LayoutComponent[]> {
   if (USE_MOCK) return mockDelay(mockComponents.map((c) => ({ ...c })));
   if (!SP_LAYOUT_COMPONENTS_LIST_ID) return [];
-  const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.pmo}/lists/${SP_LAYOUT_COMPONENTS_LIST_ID}/items?$expand=fields($select=${LAYOUT_COMPONENT_SELECT})&$top=500`,
-  );
-  return items.map(toLayoutComponent);
+  const read = (withPolygon: boolean) =>
+    graphFetchAll<GraphListItem>(
+      `/sites/${SITES.pmo}/lists/${SP_LAYOUT_COMPONENTS_LIST_ID}/items?$expand=fields($select=${LAYOUT_COMPONENT_SELECT}${
+        withPolygon ? `,${COLLISION_POLYGON_COLUMN}` : ""
+      })&$top=500`,
+    );
+  if (collisionPolygonMissing) return (await read(false)).map(toLayoutComponent);
+  try {
+    return (await read(true)).map(toLayoutComponent);
+  } catch (err) {
+    if (!(err instanceof GraphError && err.status === 400)) throw err;
+    // Only conclude the column is missing once the read WITHOUT it works;
+    // both failing is something else, and the original fault is reported.
+    let items: GraphListItem[];
+    try {
+      items = await read(false);
+    } catch {
+      throw err;
+    }
+    collisionPolygonMissing = true;
+    return items.map(toLayoutComponent);
+  }
 }
 
 /**
@@ -116,6 +151,7 @@ export async function createLayoutComponent(input: NewLayoutComponentInput): Pro
     maxScale: input.allowResize ? input.maxScale : 1,
     collides: input.collides,
     clearance: Math.max(0, input.clearance),
+    collisionPolygon: input.collisionPolygon ?? null,
     version: 1,
     active: true,
   };
@@ -143,6 +179,8 @@ export async function createLayoutComponent(input: NewLayoutComponentInput): Pro
         Clearance: row.clearance,
         Version: 1,
         IsActive: true,
+        // Only written when there is one, so a list without the column can still take a plain symbol.
+        ...(row.collisionPolygon ? { [COLLISION_POLYGON_COLUMN]: JSON.stringify(row.collisionPolygon) } : {}),
       },
     }),
   });

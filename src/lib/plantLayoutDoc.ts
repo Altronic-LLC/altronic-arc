@@ -25,8 +25,14 @@ import {
 
 export const PLANT_LAYOUT_SCHEMA = 1;
 
-/** A plain multi-line SharePoint column's limit, less a margin. */
-export const LAYOUT_JSON_MAX_CHARS = 63_000;
+/**
+ * The largest LayoutJson ARC will write. Measured, not assumed: on
+ * 2026-11-10 scripts/test-plant-layout-json-size.ps1 wrote values up to
+ * 1,000,000 characters to the live column and read each back identical. The
+ * old 63,000 was the UI's documented limit, which the API doesn't apply. A
+ * layout past this is refused rather than risk SharePoint cutting it off.
+ */
+export const LAYOUT_JSON_MAX_CHARS = 1_000_000;
 
 export type LayoutDocRead =
   | { ok: true; doc: PlantLayoutDoc; dropped: number }

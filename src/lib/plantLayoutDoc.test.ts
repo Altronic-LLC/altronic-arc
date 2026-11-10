@@ -84,10 +84,19 @@ describe("parseLayoutDoc", () => {
 describe("serializeLayoutDoc", () => {
   it("refuses a layout that won't fit the column, rather than letting SharePoint cut it off", () => {
     const item = SAMPLE_CLEAN_ITEMS[0];
-    const items = Array.from({ length: 1000 }, (_, i) => ({ ...item, uid: `i_${i}` }));
+    const label = "x".repeat(2000);
+    const items = Array.from({ length: 600 }, (_, i) => ({ ...item, uid: `i_${i}`, label }));
     expect(() => serializeLayoutDoc({ schema: 1, units: "in", extent: EXTENT, items, areas: [] })).toThrow(
       new RegExp(LAYOUT_JSON_MAX_CHARS.toLocaleString()),
     );
+  });
+
+  it("saves a layout the size of the Main Plant CAD extract (~1,000 items)", () => {
+    const item = SAMPLE_CLEAN_ITEMS[0];
+    const items = Array.from({ length: 1300 }, (_, i) => ({ ...item, uid: `i_${i}`, label: `Bench ${i}` }));
+    const json = serializeLayoutDoc({ schema: 1, units: "in", extent: EXTENT, items, areas: [] });
+    expect(json.length).toBeGreaterThan(63_000);
+    expect(parseLayoutDoc(json, EXTENT)).toMatchObject({ ok: true, dropped: 0 });
   });
 });
 

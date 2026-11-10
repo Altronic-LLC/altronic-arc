@@ -42,7 +42,25 @@ export interface PlantMapRoleInput {
 // Layout components — the symbol library
 // -----------------------------------------------------------------------------
 
-export const LAYOUT_COMPONENT_CATEGORIES = ["Desk", "Machine", "Bench", "Rack", "Storage", "Other"] as const;
+/**
+ * Must equal the Category column's choices on Layout Components (strict —
+ * a value it doesn't declare is refused); scripts/create-plant-map-lists.ps1
+ * carries the same list and adds any that are missing. Safety, Utility and
+ * Zone came with the Main Plant CAD extract (2026-11-10); Safety
+ * (extinguishers, exits, medical, severe-weather) is the group the safety
+ * layer will draw.
+ */
+export const LAYOUT_COMPONENT_CATEGORIES = [
+  "Desk",
+  "Machine",
+  "Bench",
+  "Rack",
+  "Storage",
+  "Safety",
+  "Utility",
+  "Zone",
+  "Other",
+] as const;
 export type LayoutComponentCategory = (typeof LAYOUT_COMPONENT_CATEGORIES)[number];
 
 export interface LayoutComponent {
@@ -64,6 +82,13 @@ export interface LayoutComponent {
   collides: boolean;
   /** Keep-out margin in inches (not applied yet). */
   clearance: number;
+  /**
+   * The symbol's real shape when it isn't a rectangle (an L-bench, a stepped
+   * line): `[x, y]` points in the symbol's own inches, the frame of its
+   * viewBox. The placement check uses it instead of the footprint rectangle.
+   * Null = the rectangle.
+   */
+  collisionPolygon: (readonly [number, number])[] | null;
   version: number;
   active: boolean;
 }
@@ -166,6 +191,8 @@ export interface NewLayoutComponentInput {
   maxScale: number;
   collides: boolean;
   clearance: number;
+  /** Optional real shape; the Add symbol form doesn't set one (a CAD load does). */
+  collisionPolygon?: (readonly [number, number])[] | null;
 }
 
 /** Where a new layout's walls drawing comes from. */
