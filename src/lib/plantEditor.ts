@@ -35,8 +35,23 @@ export type ItemPatch = Partial<
     Pick<PlantLayoutArea, "kind">
 >;
 
+/** An item moved onto another version of its symbol (lib/plantSymbolVersions.ts). */
+export interface SymbolSwap {
+  uid: string;
+  componentId: number;
+  componentVersion: number;
+  w: number;
+  d: number;
+}
+
 export type EditorAction =
   | { type: "add"; item: PlantLayoutItem }
+  /**
+   * Items moved onto a newer version of their symbol — ONE undo step however
+   * many. A locked item is updated too: the lock stops it being moved, and
+   * this changes what it is drawn as, not where it stands.
+   */
+  | { type: "swapSymbols"; swaps: readonly SymbolSwap[] }
   | { type: "addArea"; area: PlantLayoutArea }
   /** Finds the uid among the items, then the areas. */
   | { type: "update"; uid: string; patch: ItemPatch }
@@ -104,6 +119,18 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return commit(state, { items: [...state.items, action.item] });
     case "addArea":
       return commit(state, { areas: [...state.areas, action.area] });
+    case "swapSymbols": {
+      const by = new Map(action.swaps.map((s) => [s.uid, s]));
+      let changed = false;
+      const items = state.items.map((i) => {
+        const s = by.get(i.uid);
+        if (!s) return i;
+        if (i.componentId === s.componentId && i.componentVersion === s.componentVersion && i.w === s.w && i.d === s.d) return i;
+        changed = true;
+        return { ...i, componentId: s.componentId, componentVersion: s.componentVersion, w: s.w, d: s.d };
+      });
+      return changed ? commit(state, { items }) : state;
+    }
     case "update": {
       const item = state.items.find((i) => i.uid === action.uid);
       if (item) {
@@ -225,9 +252,17 @@ export function newItemUid(
   }
 }
 
-/** "CNC Lathe (generic) 3" — the component's name, numbered past the ones already placed. */
-export function nextItemLabel(component: LayoutComponent, items: readonly PlantLayoutItem[]): string {
-  const used = items.filter((i) => i.componentId === component.id).length;
+/**
+ * "CNC Lathe (generic) 3" — the component's name, numbered past the ones
+ * already placed. `sameSymbol` is every version's id (lib/plantSymbolVersions.ts),
+ * so copies on an older version still count; without it, just this row.
+ */
+export function nextItemLabel(
+  component: LayoutComponent,
+  items: readonly PlantLayoutItem[],
+  sameSymbol: ReadonlySet<number> = new Set([component.id]),
+): string {
+  const used = items.filter((i) => sameSymbol.has(i.componentId)).length;
   return used === 0 ? component.title : `${component.title} ${used + 1}`;
 }
 
@@ -238,6 +273,7 @@ export function placeComponent(
   items: readonly PlantLayoutItem[],
   grid: number,
   random?: () => number,
+  sameSymbol?: ReadonlySet<number>,
 ): PlantLayoutItem {
   return {
     uid: newItemUid(items, random),
@@ -248,7 +284,7 @@ export function placeComponent(
     w: component.footprintW,
     d: component.footprintD,
     rot: 0,
-    label: nextItemLabel(component, items),
+    label: nextItemLabel(component, items, sameSymbol),
     equipmentId: null,
     locked: false,
   };

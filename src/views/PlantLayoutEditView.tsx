@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, Ban, CheckCircle2, MousePointer2, Redo2, Rows3, Save, Undo2 } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, MousePointer2, Redo2, RefreshCw, Rows3, Save, Undo2 } from "lucide-react";
 import { useEquipment } from "@/hooks/useEquipment";
 import {
   useLayoutComponentMap,
@@ -43,6 +43,7 @@ import { cn } from "@/lib/cn";
 import { useFitToWindow } from "@/hooks/useFitToWindow";
 import { layoutLayers, placementLayerFor } from "@/lib/plantLayers";
 import { usePlantLayerVisibility } from "@/hooks/usePlantLayerVisibility";
+import { latestSymbols, outdatedItems, symbolVersionIds } from "@/lib/plantSymbolVersions";
 import { PlantLayersPanel } from "@/components/PlantLayersPanel";
 
 // =============================================================================
@@ -53,6 +54,11 @@ import { PlantLayersPanel } from "@/components/PlantLayersPanel";
 // and fine-tuned in the inspector. The placement check runs live, the drag in
 // progress included. Nothing is written until Save draft; leaving with unsaved
 // changes asks first.
+//
+// The palette offers each symbol's LATEST version. An item still on an older
+// version (lib/plantSymbolVersions.ts) is updated here — one at a time from the
+// inspector, or all at once from the notice above the plan — as an ordinary,
+// undoable edit that is saved with the draft.
 // =============================================================================
 
 const GRID_CHOICES = [
@@ -179,6 +185,9 @@ function Editor({
   const areas = state.areas;
   const dirty = !sameDoc({ items, areas }, saved);
   const componentMap = byId.size > 0 ? byId : new Map(components.map((c) => [c.id, c]));
+  const paletteSymbols = useMemo(() => latestSymbols(components), [components]);
+  /** Items with a newer version of their symbol waiting. */
+  const outdated = useMemo(() => outdatedItems(items, components), [items, components]);
 
   // ---- layers: what's drawn, and what can be picked ------------------------
   // Hiding a layer is display only: hidden items aren't drawn, picked, nudged
@@ -203,13 +212,18 @@ function Editor({
   const placeAt = useCallback(
     (component: LayoutComponent, point: { x: number; y: number }, align: boolean, random?: () => number) => {
       // A symbol every copy of which sits on one layer (an extinguisher) joins them there.
-      const item = { ...placeComponent(component, point, items, grid, random), ...placementLayerFor(component.id, items) };
+      // Copies on an older version of the symbol count, for the layer and the number.
+      const sameSymbol = symbolVersionIds(component, components);
+      const item = {
+        ...placeComponent(component, point, items, grid, random, sameSymbol),
+        ...placementLayerFor(sameSymbol, items),
+      };
       if (!align) return { item, guides: [] as AlignGuide[] };
       const tolerance = ALIGN_SNAP_PX / (canvas.current?.scale() || 1);
       const aligned = alignToNeighbours({ ...item, x: point.x, y: point.y }, [...shownItems, ...areas], tolerance, grid);
       return { item: { ...item, x: aligned.x, y: aligned.y }, guides: aligned.guides };
     },
-    [items, shownItems, areas, grid],
+    [items, shownItems, areas, grid, components],
   );
 
   // ---- the live placement check -------------------------------------------
@@ -401,6 +415,7 @@ function Editor({
 
   const selectedItem = items.find((i) => i.uid === selected) ?? null;
   const selectedArea = areas.find((a) => a.uid === selected) ?? null;
+  const selectedUpdate = selectedItem ? outdated.find((o) => o.item.uid === selectedItem.uid) : undefined;
   // Hiding the selected item's layer lets go of it — no nudging what you can't see.
   useEffect(() => {
     if (selectedItem && !isVisible(selectedItem)) setSelected(null);
@@ -489,6 +504,25 @@ function Editor({
           Drag on the plan to draw {tool === "aisle" ? "an aisle" : "a no-go area"}. Esc to stop.
         </p>
       )}
+      {outdated.length > 0 && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-superior-blue/40 bg-superior-blue/10 p-2 text-sm text-fg"
+        >
+          <span className="min-w-0 flex-1">
+            {outdated.length === 1 ? "1 item uses" : `${outdated.length} items use`} an older version of its symbol.
+            Updating keeps where each one stands; it's saved with the draft.
+          </span>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "swapSymbols", swaps: outdated.map((o) => o.swap) })}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-sm font-medium text-fg hover:bg-surface-2"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Update symbols
+          </button>
+        </div>
+      )}
       {wallsProblem && (
         <p role="alert" className="rounded-lg border border-ajax-yellow/50 bg-ajax-yellow/15 p-2 text-sm text-fg">
           The walls drawing can't be used ({wallsProblem}), so only the building's edge is checked.
@@ -498,7 +532,7 @@ function Editor({
       <div ref={fitRef} className="grid grid-cols-1 gap-3 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
         <div style={{ height: columnHeight }}>
           <PlantPalette
-            components={components}
+            components={paletteSymbols}
             onAdd={(c) => addAt(c, canvas.current?.centre() ?? { x: extent.w / 2, y: extent.h / 2 })}
             onPointerDownSymbol={(component, e) => {
               if (e.button !== 0) return;
@@ -545,6 +579,8 @@ function Editor({
             <PlantInspector
               item={selectedItem}
               component={selectedItem ? componentMap.get(selectedItem.componentId) : undefined}
+              newerVersion={selectedUpdate?.to}
+              onUpdateSymbol={() => selectedUpdate && dispatch({ type: "swapSymbols", swaps: [selectedUpdate.swap] })}
               equipment={equipment}
               layers={layers}
               onPatch={patchSelected}

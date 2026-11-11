@@ -242,10 +242,17 @@ if ($missingChoices.Count -gt 0) {
 }
 
 # --- symbols: which are new ----------------------------------------------------------
+# A symbol replaced in ARC has a row per VERSION, all with one key: placements
+# use the newest (highest Version; a tie goes to the higher id), as ARC's palette does.
 $existing = @{}
 foreach ($row in (Get-AllItems $componentsId "ComponentKey,Version")) {
     $k = "$($row.fields.ComponentKey)".Trim().ToLower()
-    if ($k) { $existing[$k] = @{ id = [int]$row.id; version = [int]($(if ($row.fields.Version) { $row.fields.Version } else { 1 })) } }
+    if (-not $k) { continue }
+    $candidate = @{ id = [int]$row.id; version = [int]($(if ($row.fields.Version) { $row.fields.Version } else { 1 })) }
+    $seen = $existing[$k]
+    if (-not $seen -or $candidate.version -gt $seen.version -or ($candidate.version -eq $seen.version -and $candidate.id -gt $seen.id)) {
+        $existing[$k] = $candidate
+    }
 }
 $toAdd = @($symbols | Where-Object { -not $existing.ContainsKey($_.key.ToLower()) })
 Write-Host "`nSymbols: $($symbols.Count - $toAdd.Count) already on '$COMPONENTS_NAME', $($toAdd.Count) to add ($(@($toAdd | Where-Object { $_.CollisionPolygon }).Count) with a collision outline)"

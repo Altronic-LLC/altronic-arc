@@ -117,10 +117,12 @@ export function layerLabel(item: Pick<PlantLayoutItem, "layer" | "group">, layer
  * otherwise the base plan. Never a guess between two.
  */
 export function placementLayerFor(
-  componentId: number,
+  /** The symbol's id — or every version's id, so copies on an older version count. */
+  componentId: number | ReadonlySet<number>,
   items: readonly PlantLayoutItem[],
 ): { layer: string; group?: string } | null {
-  const same = items.filter((i) => i.componentId === componentId);
+  const ids = typeof componentId === "number" ? new Set([componentId]) : componentId;
+  const same = items.filter((i) => ids.has(i.componentId));
   if (same.length === 0) return null;
   const first = same[0];
   if (!first.layer) return null;

@@ -227,6 +227,9 @@ export interface NewLayoutComponentInput {
   collisionPolygon?: (readonly [number, number])[] | null;
 }
 
+/** A symbol's next version — everything but its key, which never changes. */
+export type ReplaceLayoutComponentInput = Omit<NewLayoutComponentInput, "key">;
+
 /** Where a new layout's walls drawing comes from. */
 export type NewLayoutWalls =
   /** A drawing picked now, already read and checked (see lib/plantSvg.ts) — uploaded on create. */

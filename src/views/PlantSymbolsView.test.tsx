@@ -42,7 +42,7 @@ describe("PlantSymbolsView", () => {
     open();
     const machines = await screen.findByRole("region", { name: "Machine" });
     expect(within(machines).getByText("CNC Vertical Mill (generic)")).toBeInTheDocument();
-    expect(within(machines).getByText("10 ft × 8 ft")).toBeInTheDocument();
+    expect(within(machines).getByText("10 ft × 8 ft · v1")).toBeInTheDocument();
     expect(screen.getAllByRole("img").filter((i) => i.tagName === "IMG").length).toBeGreaterThanOrEqual(12);
     expect(within(screen.getByRole("region", { name: "Other" })).getByText("Floor marking")).toBeInTheDocument();
     // The demo's safety symbols never collide either.
@@ -112,5 +112,78 @@ describe("PlantSymbolsView", () => {
     const dialog = screen.getByRole("dialog", { name: "Add a symbol" });
     await user.upload(within(dialog).getByLabelText("Symbol drawing"), new File(["x"], "photo.png", { type: "image/png" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(/couldn't read that picture/);
+  });
+});
+
+// Replacing a symbol adds its NEXT VERSION — a new row with the same key — and
+// the page shows only the latest. Layouts keep the version they use.
+describe("PlantSymbolsView — replacing a symbol", () => {
+  const MILL = "CNC Vertical Mill (generic)";
+
+  it("is offered to a Plant Map admin only", async () => {
+    who.email = "morgan.example@example.com";
+    open();
+    await screen.findByRole("region", { name: "Machine" });
+    expect(screen.queryByRole("button", { name: `Replace ${MILL}` })).toBeNull();
+  });
+
+  it("saves new details as the next version, keeping the drawing and the footprint", async () => {
+    const user = userEvent.setup();
+    open();
+    const machines = await screen.findByRole("region", { name: "Machine" });
+    expect(within(machines).getByText("10 ft × 8 ft · v1")).toBeInTheDocument();
+    await user.click(within(machines).getByRole("button", { name: `Replace ${MILL}` }));
+    const dialog = screen.getByRole("dialog", { name: "Replace a symbol" });
+    expect(within(dialog).getByText(/Saves a new version, v2/)).toBeInTheDocument();
+    // The footprint follows the drawing, so it waits for a new one.
+    expect(within(dialog).getByRole("spinbutton", { name: "Width (in) *" })).toBeDisabled();
+    expect(within(dialog).getByRole("spinbutton", { name: "Width (in) *" })).toHaveValue(120);
+    expect(within(dialog).getByTestId("symbol-preview")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Save as v2" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Nothing has changed");
+
+    const name = within(dialog).getByPlaceholderText("e.g. CNC Router 5x10");
+    await user.clear(name);
+    await user.type(name, "CNC Vertical Mill");
+    await user.click(within(dialog).getByRole("button", { name: "Save as v2" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const versions = (await listLayoutComponents()).filter((c) => c.key === "cnc-vmc-120x96");
+    expect(versions.map((c) => [c.version, c.title])).toEqual([
+      [1, MILL],
+      [2, "CNC Vertical Mill"],
+    ]);
+    expect(versions[1]).toMatchObject({ footprintW: 120, footprintD: 96 });
+    expect(versions[1].svgMarkup).toMatch(/<title>CNC Vertical Mill<\/title>/);
+    // Only the latest version is listed.
+    expect(await within(machines).findByText("CNC Vertical Mill")).toBeInTheDocument();
+    expect(within(machines).getByText("10 ft × 8 ft · v2")).toBeInTheDocument();
+    expect(within(machines).queryByText(MILL)).toBeNull();
+  });
+
+  it("takes a new drawing at a new size", async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole("button", { name: `Replace ${MILL}` }));
+    const dialog = screen.getByRole("dialog", { name: "Replace a symbol" });
+    await user.upload(
+      within(dialog).getByLabelText("Symbol drawing"),
+      new File(['<svg viewBox="0 0 400 300"><rect x="5" y="5" width="390" height="290"/></svg>'], "mill-v2.svg", {
+        type: "image/svg+xml",
+      }),
+    );
+    // A new drawing doesn't rename the symbol.
+    expect(within(dialog).getByPlaceholderText("e.g. CNC Router 5x10")).toHaveValue(MILL);
+    const width = within(dialog).getByRole("spinbutton", { name: "Width (in) *" });
+    await waitFor(() => expect(width).toBeEnabled());
+    await user.clear(width);
+    await user.type(width, "132");
+    await user.click(within(dialog).getByRole("button", { name: "Save as v2" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const v2 = (await listLayoutComponents()).find((c) => c.key === "cnc-vmc-120x96" && c.version === 2)!;
+    expect(v2).toMatchObject({ footprintW: 132, footprintD: 96 });
+    expect(v2.svgMarkup).toMatch(/viewBox="0 0 132 96" data-component="cnc-vmc-120x96"/);
   });
 });

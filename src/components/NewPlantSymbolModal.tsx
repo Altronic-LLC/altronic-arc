@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { FileUp, Info, X } from "lucide-react";
-import { LAYOUT_COMPONENT_CATEGORIES, type LayoutComponentCategory, type NewLayoutComponentInput } from "@/types/plant";
+import {
+  LAYOUT_COMPONENT_CATEGORIES,
+  type LayoutComponent,
+  type LayoutComponentCategory,
+  type NewLayoutComponentInput,
+} from "@/types/plant";
 import {
   MAX_SYMBOL_MARKUP_CHARS,
   TRACE_MAX_PIXELS,
@@ -8,13 +13,14 @@ import {
   dxfToArt,
   inkFromRgba,
   proportionsDiffer,
+  retitleSymbolSvg,
   svgToArt,
   symbolKeyFor,
   tracedArt,
   type ArtResult,
   type SymbolArt,
 } from "@/lib/plantSymbolImport";
-import { svgDataUrl } from "@/lib/plantSvg";
+import { sanitiseSvg, svgDataUrl } from "@/lib/plantSvg";
 import { feetLabel } from "@/lib/plantGeometry";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { cn } from "@/lib/cn";
@@ -31,6 +37,11 @@ import { ChoicePills } from "./ChoicePills";
 // Nothing is written until Add symbol; a file ARC can't use is refused with the
 // reason. Pictures are traced in the browser (a canvas), at a threshold the
 // person moves until the silhouette looks right.
+//
+// With `replacing`, the same form REPLACES a symbol with its next version
+// (lib/plantSymbolVersions.ts): its details are filled in, a new drawing is
+// optional, and the footprint changes only with a new drawing — the current one
+// is drawn at its size. The key never changes.
 // =============================================================================
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -68,12 +79,14 @@ function titleFromFile(name: string): string {
 interface NewPlantSymbolModalProps {
   /** Keys already in the library — a new one never repeats them. */
   takenKeys: readonly string[];
+  /** Replace this symbol with its next version, instead of adding one. */
+  replacing?: LayoutComponent;
   busy: boolean;
   onClose: () => void;
   onCreate: (input: NewLayoutComponentInput) => Promise<void>;
 }
 
-export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewPlantSymbolModalProps) {
+export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCreate }: NewPlantSymbolModalProps) {
   const [fileName, setFileName] = useState("");
   const [art, setArt] = useState<SymbolArt | null>(null);
   const [raster, setRaster] = useState<Raster | null>(null);
@@ -81,18 +94,19 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
   const [problem, setProblem] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState("");
+  const r = replacing;
+  const [title, setTitle] = useState(r?.title ?? "");
   /** The name filled in from the last file — replaced by the next file's until the person types their own. */
   const [autoTitle, setAutoTitle] = useState("");
-  const [category, setCategory] = useState<LayoutComponentCategory>("Machine");
-  const [width, setWidth] = useState("");
-  const [depth, setDepth] = useState("");
-  const [collides, setCollides] = useState("yes");
-  const [clearance, setClearance] = useState("0");
-  const [rotate, setRotate] = useState("Yes");
-  const [resize, setResize] = useState("No");
-  const [minPct, setMinPct] = useState("80");
-  const [maxPct, setMaxPct] = useState("150");
+  const [category, setCategory] = useState<LayoutComponentCategory>((r?.category as LayoutComponentCategory) ?? "Machine");
+  const [width, setWidth] = useState(r ? String(r.footprintW) : "");
+  const [depth, setDepth] = useState(r ? String(r.footprintD) : "");
+  const [collides, setCollides] = useState(r && !r.collides ? "no" : "yes");
+  const [clearance, setClearance] = useState(r ? String(r.clearance) : "0");
+  const [rotate, setRotate] = useState(r && !r.allowRotate ? "No" : "Yes");
+  const [resize, setResize] = useState(r?.allowResize ? "Yes" : "No");
+  const [minPct, setMinPct] = useState(r?.allowResize ? String(Math.round(r.minScale * 100)) : "80");
+  const [maxPct, setMaxPct] = useState(r?.allowResize ? String(Math.round(r.maxScale * 100)) : "150");
   const [fit, setFit] = useState<"contain" | "stretch">("contain");
   const [frontMark, setFrontMark] = useState(true);
 
@@ -153,20 +167,26 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
     setProblem("Pick an SVG, a DXF from CAD, or a picture (PNG or JPG).");
   }
 
-  const w = Number(width);
-  const d = Number(depth);
+  // Replacing without a new drawing keeps the current one, drawn at its own size.
+  const sizeEditable = !r || !!art;
+  const w = r && !art ? r.footprintW : Number(width);
+  const d = r && !art ? r.footprintD : Number(depth);
   const sized = Number.isFinite(w) && Number.isFinite(d) && w > 0 && d > 0;
-  const key = useMemo(() => symbolKeyFor(title, w || 0, d || 0, takenKeys), [title, w, d, takenKeys]);
-  const svg = useMemo(
-    () => (art && sized ? buildSymbolSvg(art, { title: title.trim() || "Symbol", key, w, d, fit, frontMark }) : ""),
-    [art, sized, title, key, w, d, fit, frontMark],
-  );
+  const generatedKey = useMemo(() => symbolKeyFor(title, w || 0, d || 0, takenKeys), [title, w, d, takenKeys]);
+  const key = r ? r.key : generatedKey;
+  const svg = useMemo(() => {
+    if (art) return sized ? buildSymbolSvg(art, { title: title.trim() || "Symbol", key, w, d, fit, frontMark }) : "";
+    return r ? retitleSymbolSvg(r.svgMarkup, title.trim() || r.title) : "";
+  }, [art, sized, title, key, w, d, fit, frontMark, r]);
+  /** What the preview draws — a stored drawing is raw until sanitised. */
+  const previewSvg = useMemo(() => (art ? svg : svg ? sanitiseSvg(svg) : ""), [art, svg]);
+  const nextVersion = r ? r.version + 1 : 1;
   const tooBig = svg.length > MAX_SYMBOL_MARKUP_CHARS;
   const misfit = art && sized && proportionsDiffer(art, w, d);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!art) return setError("Pick the drawing for the symbol.");
+    if (!art && !r) return setError("Pick the drawing for the symbol.");
     if (!title.trim()) return setError("Give the symbol a name.");
     if (!sized) return setError("Enter the footprint — its real width and depth in inches.");
     if (w > 2400 || d > 2400) return setError("That footprint is over 200 ft. Check it's in inches.");
@@ -178,6 +198,20 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
       return setError("Smallest must be 100% or less and largest 100% or more.");
     }
     if (tooBig) return setError("That symbol is too detailed to store. Simplify the drawing, or lower the threshold.");
+    const allowResize = resize === "Yes";
+    if (
+      r &&
+      !art &&
+      title.trim() === r.title &&
+      category === r.category &&
+      (collides === "yes") === r.collides &&
+      clear === r.clearance &&
+      (rotate === "Yes") === r.allowRotate &&
+      allowResize === r.allowResize &&
+      (!allowResize || (min === r.minScale && max === r.maxScale))
+    ) {
+      return setError("Nothing has changed. Pick a new drawing, or change a detail.");
+    }
     setError(null);
     try {
       await onCreate({
@@ -193,9 +227,18 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
         maxScale: max,
         collides: collides === "yes",
         clearance: clear,
+        // A new drawing drops the old outline (it was traced round the old art);
+        // keeping the drawing keeps it.
+        collisionPolygon: r && !art ? r.collisionPolygon : null,
       });
     } catch (err) {
-      setError(describeListWriteFailure(err, { action: "add that symbol", site: "Altronic_PMO", permission: "editing" }));
+      setError(
+        describeListWriteFailure(err, {
+          action: r ? "replace that symbol" : "add that symbol",
+          site: "Altronic_PMO",
+          permission: "editing",
+        }),
+      );
     }
   }
 
@@ -210,18 +253,27 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
         onSubmit={submit}
         role="dialog"
         aria-modal="true"
-        aria-label="Add a symbol"
+        aria-label={r ? "Replace a symbol" : "Add a symbol"}
         className="my-auto flex w-full max-w-3xl flex-col gap-4 rounded-lg border border-border bg-surface p-5 shadow-xl"
       >
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold text-fg">Add a symbol</h2>
+          <h2 className="font-display text-lg font-semibold text-fg">
+            {r ? `Replace ${r.title} (v${r.version})` : "Add a symbol"}
+          </h2>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-sm p-1 text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
 
+        {r && (
+          <p className="rounded-md border border-superior-blue/40 bg-superior-blue/10 p-2 text-sm text-fg">
+            Saves a new version, v{nextVersion}. Layouts that use v{r.version} keep it until somebody updates them in a
+            draft (Update symbols, in the editor), and a published layout changes only when that draft is published.
+          </p>
+        )}
+
         <div className="flex flex-col gap-1.5">
-          <span className={label}>Drawing *</span>
+          <span className={label}>{r ? "New drawing (optional)" : "Drawing *"}</span>
           <label className="inline-flex cursor-pointer items-center gap-2 self-start rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2">
             <FileUp className="h-4 w-4" />
             {fileName ? "Choose a different file" : "Choose file"}
@@ -242,6 +294,13 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
           {problem && (
             <p role="alert" className="text-xs text-cooper-red">
               {problem}
+            </p>
+          )}
+          {r && !art && <p className="text-[11px] text-fg-muted">No new drawing picked — the current one is kept.</p>}
+          {r?.collisionPolygon && art && (
+            <p className="text-[11px] text-fg" data-testid="outline-dropped">
+              The current version has a traced outline the placement check uses. It belongs to the old drawing, so
+              the new version is checked as its rectangle.
             </p>
           )}
         </div>
@@ -270,9 +329,9 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
           <div className="flex flex-col gap-2">
             <span className={label}>Preview</span>
             <div className="flex min-h-48 items-center justify-center rounded-md border border-border bg-white p-3">
-              {svg ? (
+              {previewSvg ? (
                 <img
-                  src={svgDataUrl(svg)}
+                  src={svgDataUrl(previewSvg)}
                   alt={`${title || "Symbol"} preview`}
                   data-testid="symbol-preview"
                   className="max-h-56 max-w-full"
@@ -284,7 +343,7 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
                 </span>
               )}
             </div>
-            {svg && (
+            {previewSvg && (
               <p className="text-xs text-fg-muted">
                 {feetLabel(w)} × {feetLabel(d)} · key <span className="font-mono">{key}</span> · the notch marks the front
               </p>
@@ -322,7 +381,11 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
               <ChoiceSelect
                 value={category}
                 onChange={(v) => setCategory((v || "Other") as LayoutComponentCategory)}
-                options={[...LAYOUT_COMPONENT_CATEGORIES]}
+                options={
+                  (LAYOUT_COMPONENT_CATEGORIES as readonly string[]).includes(category)
+                    ? [...LAYOUT_COMPONENT_CATEGORIES]
+                    : [category, ...LAYOUT_COMPONENT_CATEGORIES]
+                }
                 clearable={false}
                 ariaLabel="Category"
                 emptyLabel="Pick a category"
@@ -332,13 +395,34 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
             <div className="flex gap-3">
               <label className="flex flex-1 flex-col gap-1.5">
                 <span className={label}>Width (in) *</span>
-                <input type="number" min={1} step="any" value={width} onChange={(e) => setWidth(e.target.value)} className="select" disabled={busy} />
+                <input
+                  type="number"
+                  min={1}
+                  step="any"
+                  value={sizeEditable ? width : String(w)}
+                  onChange={(e) => setWidth(e.target.value)}
+                  className="select disabled:opacity-60"
+                  disabled={busy || !sizeEditable}
+                />
               </label>
               <label className="flex flex-1 flex-col gap-1.5">
                 <span className={label}>Depth (in) *</span>
-                <input type="number" min={1} step="any" value={depth} onChange={(e) => setDepth(e.target.value)} className="select" disabled={busy} />
+                <input
+                  type="number"
+                  min={1}
+                  step="any"
+                  value={sizeEditable ? depth : String(d)}
+                  onChange={(e) => setDepth(e.target.value)}
+                  className="select disabled:opacity-60"
+                  disabled={busy || !sizeEditable}
+                />
               </label>
             </div>
+            {!sizeEditable && (
+              <p className="-mt-1 text-[11px] text-fg-muted">
+                To change the footprint, pick a new drawing — the current one is drawn at this size.
+              </p>
+            )}
             <div className="flex flex-col gap-1.5">
               <span className={label}>On the floor</span>
               <ChoicePills
@@ -379,24 +463,29 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
                 </label>
               </div>
             )}
-            <div className="flex flex-col gap-1.5">
-              <span className={label}>Fit the drawing</span>
-              <ChoicePills
-                label="Fit the drawing"
-                name="symbol-fit"
-                value={fit}
-                onChange={(v) => setFit(v as "contain" | "stretch")}
-                disabled={busy}
-                options={[
-                  { value: "contain", label: "Keep its proportions" },
-                  { value: "stretch", label: "Stretch to the footprint" },
-                ]}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-fg">
-              <input type="checkbox" checked={frontMark} onChange={(e) => setFrontMark(e.target.checked)} disabled={busy} />
-              Mark the front (the bottom edge) with a notch
-            </label>
+            {/* How a NEW drawing is fitted — nothing to fit while the current one is kept. */}
+            {sizeEditable && (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <span className={label}>Fit the drawing</span>
+                  <ChoicePills
+                    label="Fit the drawing"
+                    name="symbol-fit"
+                    value={fit}
+                    onChange={(v) => setFit(v as "contain" | "stretch")}
+                    disabled={busy}
+                    options={[
+                      { value: "contain", label: "Keep its proportions" },
+                      { value: "stretch", label: "Stretch to the footprint" },
+                    ]}
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-fg">
+                  <input type="checkbox" checked={frontMark} onChange={(e) => setFrontMark(e.target.checked)} disabled={busy} />
+                  Mark the front (the bottom edge) with a notch
+                </label>
+              </>
+            )}
           </div>
         </div>
 
@@ -420,7 +509,7 @@ export function NewPlantSymbolModal({ takenKeys, busy, onClose, onCreate }: NewP
             disabled={busy}
             className={cn("rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50")}
           >
-            {busy ? "Adding…" : "Add symbol"}
+            {r ? (busy ? "Saving…" : `Save as v${nextVersion}`) : busy ? "Adding…" : "Add symbol"}
           </button>
         </div>
       </form>

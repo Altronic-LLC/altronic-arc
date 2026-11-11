@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   createLayout: vi.fn(),
   createRole: vi.fn(),
   createSymbol: vi.fn(),
+  replaceSymbol: vi.fn(),
   getLayout: vi.fn(),
   publish: vi.fn(),
   remove: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("@/api/plantLayouts", () => ({
 }));
 vi.mock("@/api/layoutComponents", () => ({
   createLayoutComponent: api.createSymbol,
+  replaceLayoutComponent: api.replaceSymbol,
   listLayoutComponents: vi.fn(async () => []),
 }));
 vi.mock("@/api/admins", () => ({ listAdmins: vi.fn(async () => admins.rows) }));
@@ -47,7 +49,13 @@ vi.mock("./useCurrentUser", () => ({
 }));
 vi.mock("@/components/Toast", () => ({ pushToast: vi.fn() }));
 
-import { useCreateLayoutComponent, useCreatePlantLayout, useDeletePlantLayout, usePublishPlantLayout } from "./usePlantLayouts";
+import {
+  useCreateLayoutComponent,
+  useCreatePlantLayout,
+  useDeletePlantLayout,
+  usePublishPlantLayout,
+  useReplaceLayoutComponent,
+} from "./usePlantLayouts";
 import { useCreatePlantMapRoleEntry } from "./usePlantMapRoles";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -65,6 +73,7 @@ beforeEach(() => {
   api.createLayout.mockReset().mockResolvedValue({ id: 9, doc: { items: [] } });
   api.createRole.mockReset().mockImplementation(async (input) => ({ id: 2, ...input }));
   api.createSymbol.mockReset();
+  api.replaceSymbol.mockReset();
   api.getLayout.mockReset();
   api.publish.mockReset().mockResolvedValue({ layout: { id: 5, version: 2 }, superseded: [], warnings: [] });
   api.remove.mockReset().mockResolvedValue({ layout: { id: 5, version: 2, title: "Main", wallsFileId: "F1" }, wallsDeleted: true, wallsKeptFor: [], warnings: [] });
@@ -115,6 +124,21 @@ describe("the roles list", () => {
   });
 });
 
+const SYMBOL_BASE = {
+  title: "Router",
+  key: "router-96x48",
+  category: "Machine" as const,
+  svgMarkup: "<svg/>",
+  footprintW: 96,
+  footprintD: 48,
+  allowResize: false,
+  allowRotate: true,
+  minScale: 1,
+  maxScale: 1,
+  collides: true,
+  clearance: 0,
+};
+
 describe("adding a symbol", () => {
   const SYMBOL = {
     title: "Router",
@@ -135,7 +159,7 @@ describe("adding a symbol", () => {
     roles.rows = [me(["editor"])];
     admins.rows = [{ id: 1, email: "me@example.com", displayName: "Me" }];
     const { result } = renderHook(() => useCreateLayoutComponent(), { wrapper });
-    await act(() => expect(result.current.mutateAsync(SYMBOL)).rejects.toThrow(/Only a Plant Map admin can add symbols/));
+    await act(() => expect(result.current.mutateAsync(SYMBOL)).rejects.toThrow(/Only a Plant Map admin can add or replace symbols/));
     expect(api.createSymbol).not.toHaveBeenCalled();
   });
 
@@ -145,6 +169,27 @@ describe("adding a symbol", () => {
     const { result } = renderHook(() => useCreateLayoutComponent(), { wrapper });
     await act(() => result.current.mutateAsync(SYMBOL));
     expect(api.createSymbol).toHaveBeenCalledWith(SYMBOL);
+  });
+});
+
+describe("replacing a symbol", () => {
+  const { key: _key, ...INPUT } = { ...SYMBOL_BASE, key: "" };
+  const previous = { ...SYMBOL_BASE, id: 4, svgMarkup: "<svg/>", collisionPolygon: null, version: 1, active: true };
+
+  it("is refused to an editor and to an ARC admin, and nothing is written", async () => {
+    roles.rows = [me(["editor"])];
+    admins.rows = [{ id: 1, email: "me@example.com", displayName: "Me" }];
+    const { result } = renderHook(() => useReplaceLayoutComponent(), { wrapper });
+    await act(() => expect(result.current.mutateAsync({ previous, input: INPUT })).rejects.toThrow(/Only a Plant Map admin/));
+    expect(api.replaceSymbol).not.toHaveBeenCalled();
+  });
+
+  it("is allowed to a Plant Map admin", async () => {
+    roles.rows = [me(["admin"])];
+    api.replaceSymbol.mockResolvedValue({ ...previous, id: 14, version: 2 });
+    const { result } = renderHook(() => useReplaceLayoutComponent(), { wrapper });
+    await act(() => result.current.mutateAsync({ previous, input: INPUT }));
+    expect(api.replaceSymbol).toHaveBeenCalledWith(previous, INPUT);
   });
 });
 

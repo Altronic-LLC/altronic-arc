@@ -9,9 +9,16 @@ import {
   publishPlantLayout,
   savePlantLayoutDraft,
 } from "@/api/plantLayouts";
-import { createLayoutComponent, listLayoutComponents } from "@/api/layoutComponents";
+import { createLayoutComponent, listLayoutComponents, replaceLayoutComponent } from "@/api/layoutComponents";
 import { readWallsFile } from "@/api/plantLayoutFiles";
-import type { LayoutComponent, NewLayoutComponentInput, NewPlantLayoutInput, PlantLayout, PlantLayoutDoc } from "@/types/plant";
+import type {
+  LayoutComponent,
+  NewLayoutComponentInput,
+  NewPlantLayoutInput,
+  PlantLayout,
+  PlantLayoutDoc,
+  ReplaceLayoutComponentInput,
+} from "@/types/plant";
 import { readWallsSvg, type WallsCheck } from "@/lib/plantSvg";
 import { deleteLayoutGate, editLayoutGate, manageSymbolsGate, publishLayoutGate } from "@/lib/plantMapRoles";
 import { checkLayout, shapeOfComponent } from "@/lib/plantGeometry";
@@ -119,6 +126,30 @@ export function useCreateLayoutComponent() {
     onSuccess: (created) => {
       qc.setQueryData<LayoutComponent[]>(LAYOUT_COMPONENTS_KEY, (old) => (old ? [...old, created] : [created]));
       pushToast({ message: `${created.title} added to the symbol library.` });
+    },
+    // No error toast: the form stays open and says what went wrong.
+    onSettled: () => qc.invalidateQueries({ queryKey: LAYOUT_COMPONENTS_KEY }),
+  });
+}
+
+/**
+ * Replace a symbol with its next version — a Plant Map admin, asked inside the
+ * mutationFn. A new row is added; layouts keep the version they use until
+ * somebody updates them in a draft.
+ */
+export function useReplaceLayoutComponent() {
+  const qc = useQueryClient();
+  const resolve = useResolvePlantMapAccess();
+  return useMutation({
+    mutationFn: async ({ previous, input }: { previous: LayoutComponent; input: ReplaceLayoutComponentInput }) => {
+      requirePlantMapGate(manageSymbolsGate(await resolve()));
+      return replaceLayoutComponent(previous, input);
+    },
+    onSuccess: (created) => {
+      qc.setQueryData<LayoutComponent[]>(LAYOUT_COMPONENTS_KEY, (old) => (old ? [...old, created] : [created]));
+      pushToast({
+        message: `${created.title} is now v${created.version}. Layouts keep the version they use until it's updated in a draft.`,
+      });
     },
     // No error toast: the form stays open and says what went wrong.
     onSettled: () => qc.invalidateQueries({ queryKey: LAYOUT_COMPONENTS_KEY }),

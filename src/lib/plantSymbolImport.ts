@@ -560,3 +560,15 @@ export function symbolKeyFor(title: string, w: number, d: number, taken: Iterabl
   if (!used.has(base)) return base;
   for (let n = 2; ; n++) if (!used.has(`${base}-${n}`)) return `${base}-${n}`;
 }
+
+/**
+ * A stored symbol with a new name — its `<title>` replaced, or one added after
+ * the opening tag. Used when a symbol's next version keeps its drawing but
+ * changes its name, so the SVG doesn't keep announcing the old one.
+ */
+export function retitleSymbolSvg(svg: string, title: string): string {
+  const tag = `<title>${escapeXml(title)}</title>`;
+  // Function replacers: a "$" in a name is text, not a replacement pattern.
+  if (/<title>[\s\S]*?<\/title>/.test(svg)) return svg.replace(/<title>[\s\S]*?<\/title>/, () => tag);
+  return svg.replace(/<svg\b[^>]*>/, (open) => open + tag);
+}

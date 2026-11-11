@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Copy, Lock, RotateCcw, RotateCw, Trash2, Unlock } from "lucide-react";
+import { Copy, Lock, RefreshCw, RotateCcw, RotateCw, Trash2, Unlock } from "lucide-react";
 import type { Equipment } from "@/types/task";
 import {
   PLANT_AREA_KINDS,
@@ -160,12 +160,18 @@ export function PlantInspector({
   component,
   equipment,
   layers = [],
+  newerVersion,
+  onUpdateSymbol,
   onPatch,
   onDuplicate,
   onDelete,
 }: {
   item: PlantLayoutItem | null;
   component: LayoutComponent | undefined;
+  /** A newer version of the item's symbol, when there is one (lib/plantSymbolVersions.ts). */
+  newerVersion?: LayoutComponent;
+  /** Move the item onto `newerVersion`. */
+  onUpdateSymbol?: () => void;
   equipment: readonly Equipment[];
   /** The layout's layers — offered in a Layer picker when there are any. */
   layers?: readonly PlantLayer[];
@@ -218,8 +224,29 @@ export function PlantInspector({
     <section aria-label="Selected item" className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Selected</h2>
-        <span className="truncate text-xs text-fg-muted">{component?.title ?? `Component #${item.componentId}`}</span>
+        <span className="truncate text-xs text-fg-muted">
+          {component ? `${component.title} · v${component.version}` : `Component #${item.componentId}`}
+        </span>
       </div>
+      {newerVersion && onUpdateSymbol && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-superior-blue/40 bg-superior-blue/10 p-2 text-xs text-fg">
+          <span>
+            A newer version of this symbol is in the library (v{newerVersion.version}). It stays where it stands
+            {newerVersion.footprintW !== component?.footprintW || newerVersion.footprintD !== component?.footprintD
+              ? `; the new size is ${feetLabel(newerVersion.footprintW)} × ${feetLabel(newerVersion.footprintD)} unless it was resized`
+              : ""}
+            .
+          </span>
+          <button
+            type="button"
+            onClick={onUpdateSymbol}
+            className="inline-flex items-center gap-1 self-start rounded-md border border-border bg-surface px-2 py-1 font-medium text-fg hover:bg-surface-2"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Use v{newerVersion.version}
+          </button>
+        </div>
+      )}
       <CommitField label="Label" type="text" value={item.label} onCommit={(raw) => onPatch({ label: raw.trim() })} />
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Asset (CMMS)</span>

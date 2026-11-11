@@ -508,7 +508,7 @@ src/
 │   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── plantLayouts.ts           Plant Layouts — one row per VERSION, the layout as JSON; never writes a Published row or over JSON it can't read
-│   ├── layoutComponents.ts       Layout Components — the Plant Map symbol library; add (Plant Map admin, key checked fresh), retired, never deleted
+│   ├── layoutComponents.ts       Layout Components — the Plant Map symbol library; add (key checked fresh), replace = a NEW row per version (latest checked fresh), never deleted
 │   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/, read through the download link, never overwritten; deleted only when no layout uses them
 │   ├── plantMapRoles.ts          Plant Map Roles CRUD (viewer / editor / admin) — only people on it see the Plant Map
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
@@ -914,6 +914,7 @@ src/
 │   ├── plantEditor.ts            The layout editor's state (pure) — one action per edit with undo / redo, snap, size limits, placing a symbol
 │   ├── plantDrawingReview.ts     Reviewing an uploaded walls drawing (pure) — size / no-walls / unreadable-shape warnings, keep-outs offered as editable areas
 │   ├── plantSymbolImport.ts      A new symbol from an SVG, a DXF (read here, units from $INSUNITS) or a traced picture → the library's SVG (pure)
+│   ├── plantSymbolVersions.ts    Symbol versions (pure) — latest per key, what the palette shows, an item's newer version and the swap that updates it
 │   ├── plantAlign.ts             Alignment guides (pure) — a dragged box snaps onto a neighbour's edge or centre line, and the dotted guides to draw
 │   ├── plantLayers.ts            Plant Map layers (pure) — the layout's layers, what's shown, revealing a picked item, counts, where a new copy goes
 │   ├── plantLayoutDoc.ts         The LayoutJson column — parse (corrupt is never overwritten), serialize (refuses past the column's limit); which layouts share a walls drawing
@@ -1103,7 +1104,7 @@ src/
 │   ├── PlantEditorPanels.tsx     The editor's symbol palette (drag or click) and the selected item's inspector (commit on Enter / blur; Layer / Group)
 │   ├── PlantLayersPanel.tsx      Show / hide a layout's layers and their groups, with counts — the viewer and the editor
 │   ├── NewPlantLayoutModal.tsx   Start a layout — name, area, building; an existing building reuses its drawing, a new one uploads it, reviewed BEFORE anything is written
-│   ├── NewPlantSymbolModal.tsx   Add a symbol — SVG, DXF or a traced picture + name, category, footprint, solid / turn / resize; the preview IS what's saved
+│   ├── NewPlantSymbolModal.tsx   Add a symbol, or replace one with its next version — SVG, DXF or a traced picture + name, category, footprint, solid / turn / resize; the preview IS what's saved
 │   ├── PlantDrawingReview.tsx    New layout's review of an uploaded drawing — preview of what ARC found, warnings, confirm the size, keep-outs → editable areas
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
@@ -1188,7 +1189,7 @@ src/
 │   ├── PlantLayoutsView.tsx      Plant Map (/operations/plant-map) — every layout version, sortable; New layout for editors
 │   ├── PlantLayoutView.tsx       One layout (/operations/plant-map/:id) — the plan, the placement check, the selected item, every item sortable; Edit, Publish, Delete
 │   ├── PlantLayoutEditView.tsx   The layout editor (/operations/plant-map/:id/edit, DRAFTS only) — palette, canvas, inspector, keyboard, live check, Save draft
-│   ├── PlantSymbolsView.tsx      Plant Map → Symbols (/operations/plant-map/symbols) — the library by category; Add symbol for a Plant Map admin
+│   ├── PlantSymbolsView.tsx      Plant Map → Symbols (/operations/plant-map/symbols) — the latest version of each symbol, by category; Add symbol and Replace for a Plant Map admin
 │   ├── PlantMapRolesView.tsx     Plant Map → Roles (/operations/plant-map/roles) — viewer / editor / admin; a Plant Map admin, or an ARC admin from the Admin page, manages it
 │   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
 │   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
@@ -8897,8 +8898,43 @@ and the front-edge notch. Sources:
 The key is `symbolKeyFor` (slug + `WxD`, not doubled, `-2…` on a clash) and
 `createLayoutComponent` re-checks it against a FRESH read; `SvgMarkup` over
 `MAX_SYMBOL_MARKUP_CHARS` (60,000) is refused. The name follows the picked file
-until it's typed over (`autoTitle`). Not built yet: editing or retiring a
-symbol, or a new version of one.
+until it's typed over (`autoTitle`). Not built yet: retiring a symbol from
+ARC, or a drawing tool to edit one in place (Tim parked it, 2026-11-11 —
+replace the file instead).
+
+**Replacing a symbol makes a NEW VERSION** (Tim, 2026-11-11) —
+`lib/plantSymbolVersions.ts` (pure), `replaceLayoutComponent`,
+`useReplaceLayoutComponent`, and Replace on a Symbols card (the Add symbol form
+with `replacing`). Seven rules:
+
+- **A version is a NEW ROW** with the same `ComponentKey` and `Version` + 1. The
+  row being replaced is never written. A placed item points at a ROW id, so
+  every layout keeps the version it was drawn with — a published layout never
+  changes under anyone. `ComponentKey` is NOT unique in SharePoint, which is
+  what allows this; don't make it unique.
+- **A symbol is its key, case-insensitively; its latest is the highest
+  Version** (a tie goes to the higher id). The Symbols page and the palette
+  show only the latest (`latestSymbols`). The CAD loader picks the latest the
+  same way.
+- **Replace re-reads the library** and refuses if the symbol was replaced
+  meanwhile, so two admins can't both make v2. A symbol with no key is refused.
+- **The footprint changes only with a new drawing** — the current one is
+  drawn at its size. Without a new drawing, the details change and the stored
+  SVG's `<title>` is renamed (`retitleSymbolSvg`). A new drawing DROPS the
+  collision outline (it was traced round the old art) and says so; keeping the
+  drawing keeps it. Nothing changed is refused.
+- **Items move to the latest only in a draft**: the editor's Update symbols
+  (all) or Use vN in the inspector (one) — one `swapSymbols` action, one undo
+  step, saved with the draft. An item keeps where it stands, its turn, label,
+  asset, lock and layer. One still at the OLD footprint takes the new one; one
+  that was resized keeps its size, clamped to the new version's limits
+  (`symbolSwap`). A locked item is updated too.
+- **A retired latest version offers no update** (`newerVersionFor`).
+- **Copies on an older version count** when numbering a new copy and choosing
+  its layer (`symbolVersionIds` → `nextItemLabel` / `placementLayerFor`).
+
+The layout page tells an EDITOR when items are on an older version (a draft:
+open the editor; published: Edit makes a draft). Viewers aren't told.
 
 **Check the editor in a real browser**, not only in jsdom:
 `scripts/screenshot-page.mjs` gained `SHOT_HEIGHT`, `SHOT_DRAGS` (real mouse

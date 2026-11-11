@@ -131,8 +131,8 @@ export function manageSymbolsGate(access: PlantMapAccess): PlantMapGate {
   return decide(
     access,
     (r) => r.canPublish,
-    "You can add symbols to the library.",
-    "Only a Plant Map admin can add symbols to the library. Ask one to add it, or to add you under Roles.",
+    "You can add and replace symbols in the library.",
+    "Only a Plant Map admin can add or replace symbols in the library. Ask one to do it, or to add you under Roles.",
   );
 }
 

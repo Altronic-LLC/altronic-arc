@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Plus, Shapes } from "lucide-react";
-import { useCreateLayoutComponent, useLayoutComponents } from "@/hooks/usePlantLayouts";
+import { Plus, Replace, Shapes } from "lucide-react";
+import { useCreateLayoutComponent, useLayoutComponents, useReplaceLayoutComponent } from "@/hooks/usePlantLayouts";
 import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { manageSymbolsGate } from "@/lib/plantMapRoles";
 import { sanitiseSvg, svgDataUrl } from "@/lib/plantSvg";
 import { feetLabel } from "@/lib/plantGeometry";
+import { latestSymbols } from "@/lib/plantSymbolVersions";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
 import type { LayoutComponent } from "@/types/plant";
 import { LAYOUT_COMPONENT_CATEGORIES } from "@/types/plant";
@@ -17,9 +18,11 @@ import { PlantMapAccessGate, PlantMapNav } from "@/components/plantMapAtoms";
 // =============================================================================
 // Plant Map → Symbols (/operations/plant-map/symbols): the library a layout is
 // built from, by category. Anyone who can open the Plant Map can look; a Plant
-// Map admin adds symbols (NewPlantSymbolModal — SVG, DXF or a traced picture).
-// Retired symbols are hidden unless asked for; nothing is edited or deleted
-// here yet.
+// Map admin adds symbols (NewPlantSymbolModal — SVG, DXF or a traced picture)
+// and REPLACES one with its next version (the same form; a new row, so layouts
+// keep the version they use — lib/plantSymbolVersions.ts). Only each symbol's
+// latest version is shown. Retired symbols are hidden unless asked for;
+// nothing is deleted.
 // =============================================================================
 
 export function PlantSymbolsView() {
@@ -31,10 +34,13 @@ export function PlantSymbolsView() {
 }
 
 function PlantSymbols() {
-  const { data: components = [], isLoading, error, refetch } = useLayoutComponents();
+  const { data: everyVersion = [], isLoading, error, refetch } = useLayoutComponents();
+  const components = useMemo(() => latestSymbols(everyVersion), [everyVersion]);
   const gate = manageSymbolsGate(useMyPlantMapAccess());
   const create = useCreateLayoutComponent();
+  const replace = useReplaceLayoutComponent();
   const [adding, setAdding] = useState(false);
+  const [replacing, setReplacing] = useState<LayoutComponent | null>(null);
   const [query, setQuery] = useState("");
   const [showRetired, setShowRetired] = useState(false);
 
@@ -123,16 +129,29 @@ function PlantSymbols() {
             </h2>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {list.map((c) => (
-                <SymbolCard key={c.id} component={c} />
+                <SymbolCard key={c.id} component={c} onReplace={gate.allowed ? () => setReplacing(c) : undefined} />
               ))}
             </ul>
           </section>
         ))
       )}
 
+      {replacing && (
+        <NewPlantSymbolModal
+          takenKeys={everyVersion.map((c) => c.key)}
+          replacing={replacing}
+          busy={replace.isPending}
+          onClose={() => setReplacing(null)}
+          onCreate={async ({ key: _key, ...input }) => {
+            await replace.mutateAsync({ previous: replacing, input });
+            setReplacing(null);
+          }}
+        />
+      )}
+
       {adding && (
         <NewPlantSymbolModal
-          takenKeys={components.map((c) => c.key)}
+          takenKeys={everyVersion.map((c) => c.key)}
           busy={create.isPending}
           onClose={() => setAdding(false)}
           onCreate={async (input) => {
@@ -145,7 +164,7 @@ function PlantSymbols() {
   );
 }
 
-function SymbolCard({ component: c }: { component: LayoutComponent }) {
+function SymbolCard({ component: c, onReplace }: { component: LayoutComponent; onReplace?: () => void }) {
   const src = useMemo(() => {
     const clean = sanitiseSvg(c.svgMarkup);
     return clean ? svgDataUrl(clean) : null;
@@ -164,7 +183,7 @@ function SymbolCard({ component: c }: { component: LayoutComponent }) {
           {c.title}
         </p>
         <p className="text-xs text-fg-muted">
-          {feetLabel(c.footprintW)} × {feetLabel(c.footprintD)}
+          {feetLabel(c.footprintW)} × {feetLabel(c.footprintD)} · v{c.version}
         </p>
         <p className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium">
           {!c.collides && <span className="rounded-sm bg-surface-2 px-1.5 py-0.5 text-fg-muted">Floor marking</span>}
@@ -172,6 +191,17 @@ function SymbolCard({ component: c }: { component: LayoutComponent }) {
           {!c.active && <span className="rounded-sm bg-cooper-red/10 px-1.5 py-0.5 text-cooper-red">Retired</span>}
         </p>
       </div>
+      {onReplace && (
+        <button
+          type="button"
+          onClick={onReplace}
+          aria-label={`Replace ${c.title}`}
+          className="mt-auto inline-flex items-center justify-center gap-1 self-start rounded-md border border-border px-2 py-1 text-xs font-medium text-fg hover:bg-surface-2"
+        >
+          <Replace className="h-3.5 w-3.5" />
+          Replace
+        </button>
+      )}
     </li>
   );
 }

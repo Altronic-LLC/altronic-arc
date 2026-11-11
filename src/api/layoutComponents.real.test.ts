@@ -26,7 +26,7 @@ vi.mock("./config", async (importOriginal) => {
 });
 
 import { GraphError } from "./graph";
-import { __resetCollisionPolygonFallback, createLayoutComponent, listLayoutComponents } from "./layoutComponents";
+import { __resetCollisionPolygonFallback, createLayoutComponent, listLayoutComponents, replaceLayoutComponent } from "./layoutComponents";
 
 const L_SHAPE = [
   [0, 0],
@@ -123,5 +123,60 @@ describe("createLayoutComponent and CollisionPolygon", () => {
     const created = await createLayoutComponent({ ...input, collisionPolygon: L_SHAPE as [number, number][] });
     expect(JSON.parse(JSON.parse(String(graphFetch.mock.calls[0][1].body)).fields.CollisionPolygon)).toEqual(L_SHAPE);
     expect(created.collisionPolygon).toEqual(L_SHAPE);
+  });
+});
+
+// Replacing a symbol is a NEW row — the same key, the next version — never a
+// write to the row layouts already point at.
+describe("replaceLayoutComponent", () => {
+  const v1 = {
+    id: 4,
+    title: "Mill",
+    key: "mill",
+    category: "Machine",
+    svgMarkup: "<svg/>",
+    footprintW: 100,
+    footprintD: 50,
+    allowResize: false,
+    allowRotate: true,
+    minScale: 1,
+    maxScale: 1,
+    collides: true,
+    clearance: 0,
+    collisionPolygon: L_SHAPE as [number, number][],
+    version: 1,
+    active: true,
+  };
+  const { id: _id, key: _key, version: _v, active: _a, ...input } = { ...v1, title: "Mill (new)", category: "Machine" as const };
+
+  beforeEach(() => {
+    graphFetch.mockImplementation(async (_p: string, init?: RequestInit) => row("12", JSON.parse(String(init?.body)).fields));
+  });
+
+  it("POSTs a new row with the same key and the next version, and never PATCHes the old one", async () => {
+    graphFetchAll.mockResolvedValue([row("4", { Title: "Mill", ComponentKey: "mill", Version: 1, FootprintW: 100, FootprintD: 50 })]);
+    const created = await replaceLayoutComponent(v1, input);
+    expect(graphFetch).toHaveBeenCalledTimes(1);
+    const [path, init] = graphFetch.mock.calls[0];
+    expect(path).toMatch(/\/lists\/components-list\/items$/);
+    expect(init.method).toBe("POST");
+    const fields = JSON.parse(String(init.body)).fields;
+    expect(fields).toMatchObject({ Title: "Mill (new)", ComponentKey: "mill", Version: 2, IsActive: true });
+    expect(JSON.parse(fields.CollisionPolygon)).toEqual(L_SHAPE);
+    expect(created).toMatchObject({ id: 12, key: "mill", version: 2 });
+  });
+
+  it("refuses when somebody replaced it meanwhile, writing nothing", async () => {
+    graphFetchAll.mockResolvedValue([
+      row("4", { Title: "Mill", ComponentKey: "mill", Version: 1 }),
+      row("7", { Title: "Mill", ComponentKey: "Mill", Version: 2 }),
+    ]);
+    await expect(replaceLayoutComponent(v1, input)).rejects.toThrow(/replaced meanwhile \(it's now v2\)/);
+    expect(graphFetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a symbol with no key — its versions couldn't be kept together", async () => {
+    await expect(replaceLayoutComponent({ ...v1, key: " " }, input)).rejects.toThrow(/no key/);
+    expect(graphFetch).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ import {
 } from "@/hooks/usePlantLayouts";
 import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { deleteLayoutGate, editLayoutGate, publishLayoutGate } from "@/lib/plantMapRoles";
+import { outdatedItems } from "@/lib/plantSymbolVersions";
 import { layoutsSharingWalls } from "@/lib/plantLayoutDoc";
 import { pushToast } from "@/components/Toast";
 import type { PlantLayer, PlantLayout, PlantLayoutItem } from "@/types/plant";
@@ -134,6 +135,10 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
     return checkLayout(layout.doc, (cid) => shapeOfComponent(byId.get(cid)), drawing);
   }, [drawing, byId, layout.doc]);
   const problemUids = useMemo(() => (problems ? itemsWithProblems(problems) : new Set<string>()), [problems]);
+  // Items on an older version of their symbol. Said only to editors — they're
+  // the ones who can update them (in a draft; a published layout never changes).
+  const canEdit = editLayoutGate(useMyPlantMapAccess()).allowed;
+  const outdated = useMemo(() => outdatedItems(items, [...byId.values()]).length, [items, byId]);
 
   return (
     <Shell>
@@ -191,6 +196,14 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
         <p role="alert" className="rounded-lg border border-ajax-yellow/50 bg-ajax-yellow/15 p-3 text-sm text-fg">
           Couldn't load the walls drawing: {walls.error instanceof Error ? walls.error.message : "unknown error"}. The items
           are drawn on a blank plan.
+        </p>
+      )}
+      {canEdit && outdated > 0 && layout.status !== "Superseded" && !layout.docCorrupt && (
+        <p role="status" className="rounded-lg border border-superior-blue/40 bg-superior-blue/10 p-3 text-sm text-fg">
+          {outdated === 1 ? "1 item uses" : `${outdated} items use`} an older version of its symbol.{" "}
+          {layout.status === "Draft"
+            ? "Open the editor and press Update symbols."
+            : "This published version keeps it as it is — Edit makes a new draft, where Update symbols moves it to the latest."}
         </p>
       )}
       {componentsError ? (

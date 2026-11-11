@@ -31,6 +31,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Plant Map: a Plant Map admin can delete a draft or superseded layout version. Its walls drawing goes too unless another layout still uses it, and the confirmation says which",
       "Plant Map: the Layouts list has a tab per building. A new layout in an existing building reuses its walls drawing; a new building's drawing is reviewed before it's saved — confirm its size and pick which keep-outs become editable areas",
       "Plant Map: a Symbols tab shows the symbol library, and a Plant Map admin can add a symbol from an SVG, a CAD DXF or a picture ARC traces to an outline",
+      "Plant Map: a Plant Map admin can replace a symbol with a new version — new details, or a new drawing at a new size. Layouts keep the version they were drawn with; in a draft, Update symbols moves them to the latest",
       "Plant Map: symbols can also be Safety (extinguishers, exits, first aid, severe-weather shelters), Utility or Zone",
       "Plant Map: a symbol that isn't a rectangle, such as an L-shaped bench, is checked by its real outline, so something tucked into its corner no longer counts as an overlap",
       "Plant Map: an item's label runs along its long side and turns with it, and is never upside down",

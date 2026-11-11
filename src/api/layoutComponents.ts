@@ -2,10 +2,11 @@ import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_LAYOUT_COMPONENTS_LIST_ID, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem } from "@/types/task";
-import type { LayoutComponent, NewLayoutComponentInput } from "@/types/plant";
+import type { LayoutComponent, NewLayoutComponentInput, ReplaceLayoutComponentInput } from "@/types/plant";
 import { MAX_SYMBOL_MARKUP_CHARS } from "@/lib/plantSymbolImport";
 import { toNumberOrNull } from "@/lib/graphValues";
 import { parseCollisionPolygon } from "@/lib/plantGeometry";
+import { latestByKey, symbolKey } from "@/lib/plantSymbolVersions";
 import { MOCK_LAYOUT_COMPONENTS } from "@/data/plantMockData";
 
 // =============================================================================
@@ -14,9 +15,13 @@ import { MOCK_LAYOUT_COMPONENTS } from "@/data/plantMockData";
 // src/data/plantComponentSeed.json (only while the list is EMPTY).
 //
 // Symbols are ADDED from Plant Map → Symbols (an admin; the SVG is built by
-// lib/plantSymbolImport.ts). Not edited or deleted yet: a component is RETIRED
-// (IsActive = No), never deleted — layouts point at it by id. `SvgMarkup` is
-// raw on READ — it is sanitised before anything draws it (lib/plantSvg.ts).
+// lib/plantSymbolImport.ts) and REPLACED there too — never edited in place: a
+// replacement is a NEW row with the same ComponentKey and Version + 1, so
+// every layout keeps the row (version) it was drawn with until somebody
+// updates it in a draft (lib/plantSymbolVersions.ts). Nothing is deleted: a
+// component is RETIRED (IsActive = No) — layouts point at it by id.
+// `SvgMarkup` is raw on READ — it is sanitised before anything draws it
+// (lib/plantSvg.ts).
 //
 // `CollisionPolygon` (JSON `[[x, y], …]` in the symbol's inches) was added to
 // the list after it was created. Selecting a column a list hasn't got 400s the
@@ -122,25 +127,18 @@ export async function listLayoutComponents(): Promise<LayoutComponent[]> {
   }
 }
 
-/**
- * Add a symbol. Its key must be new — checked against a FRESH read, since the
- * library may have changed since the form opened — and its SVG must fit the
- * column. Version 1, active.
- */
-export async function createLayoutComponent(input: NewLayoutComponentInput): Promise<LayoutComponent> {
-  const title = input.title.trim();
-  if (!title) throw new Error("Give the symbol a name.");
+function checkInput(input: { title: string; footprintW: number; footprintD: number; svgMarkup: string }): void {
+  if (!input.title.trim()) throw new Error("Give the symbol a name.");
   if (!(input.footprintW > 0 && input.footprintD > 0)) throw new Error("The footprint needs a width and a depth.");
   if (input.svgMarkup.length > MAX_SYMBOL_MARKUP_CHARS) {
     throw new Error("That symbol is too detailed to store. Simplify the drawing, or trace the picture smaller.");
   }
-  const existing = await listLayoutComponents();
-  if (existing.some((c) => c.key.toLowerCase() === input.key.toLowerCase())) {
-    throw new Error(`A symbol with the key "${input.key}" was added meanwhile. Change the name and try again.`);
-  }
-  const row: Omit<LayoutComponent, "id"> = {
-    title,
-    key: input.key,
+}
+
+function rowFor(input: ReplaceLayoutComponentInput, key: string, version: number): Omit<LayoutComponent, "id"> {
+  return {
+    title: input.title.trim(),
+    key,
     category: input.category,
     svgMarkup: input.svgMarkup,
     footprintW: input.footprintW,
@@ -152,9 +150,13 @@ export async function createLayoutComponent(input: NewLayoutComponentInput): Pro
     collides: input.collides,
     clearance: Math.max(0, input.clearance),
     collisionPolygon: input.collisionPolygon ?? null,
-    version: 1,
+    version,
     active: true,
   };
+}
+
+/** Write one row — the mock store, or a POST. */
+async function addRow(row: Omit<LayoutComponent, "id">): Promise<LayoutComponent> {
   if (USE_MOCK) {
     const created = { ...row, id: Math.max(0, ...mockComponents.map((c) => c.id)) + 1 };
     mockComponents = [...mockComponents, created];
@@ -177,12 +179,45 @@ export async function createLayoutComponent(input: NewLayoutComponentInput): Pro
         MaxScale: row.maxScale,
         Collides: row.collides,
         Clearance: row.clearance,
-        Version: 1,
-        IsActive: true,
+        Version: row.version,
+        IsActive: row.active,
         // Only written when there is one, so a list without the column can still take a plain symbol.
         ...(row.collisionPolygon ? { [COLLISION_POLYGON_COLUMN]: JSON.stringify(row.collisionPolygon) } : {}),
       },
     }),
   });
   return toLayoutComponent(item);
+}
+
+/**
+ * Add a symbol. Its key must be new — checked against a FRESH read, since the
+ * library may have changed since the form opened — and its SVG must fit the
+ * column. Version 1, active.
+ */
+export async function createLayoutComponent(input: NewLayoutComponentInput): Promise<LayoutComponent> {
+  checkInput(input);
+  const existing = await listLayoutComponents();
+  if (existing.some((c) => c.key.toLowerCase() === input.key.toLowerCase())) {
+    throw new Error(`A symbol with the key "${input.key}" was added meanwhile. Change the name and try again.`);
+  }
+  return addRow(rowFor(input, input.key, 1));
+}
+
+/**
+ * Replace a symbol: a NEW row with the same key and the next version. The row
+ * being replaced is never written, so layouts that use it are unchanged. It
+ * must still be the symbol's latest version — checked on a FRESH read, so two
+ * admins replacing one symbol can't both make "v2".
+ */
+export async function replaceLayoutComponent(
+  previous: LayoutComponent,
+  input: ReplaceLayoutComponentInput,
+): Promise<LayoutComponent> {
+  checkInput(input);
+  if (!previous.key.trim()) throw new Error("This symbol has no key, so ARC can't keep its versions together.");
+  const latest = latestByKey(await listLayoutComponents()).get(symbolKey(previous));
+  if (latest && latest.id !== previous.id) {
+    throw new Error(`${previous.title} was replaced meanwhile (it's now v${latest.version}). Close this and replace the latest version.`);
+  }
+  return addRow(rowFor(input, previous.key, previous.version + 1));
 }

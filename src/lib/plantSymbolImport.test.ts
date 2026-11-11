@@ -210,3 +210,17 @@ describe("proportionsDiffer and symbolKeyFor", () => {
     expect(symbolKeyFor("***", 10, 10, [])).toBe("symbol-10x10");
   });
 });
+
+describe("retitleSymbolSvg", () => {
+  it("replaces the title, escaped, and treats a $ in the name as text", async () => {
+    const { retitleSymbolSvg } = await import("./plantSymbolImport");
+    expect(retitleSymbolSvg('<svg viewBox="0 0 1 1"><title>Old</title><g/></svg>', "Mill & $& co")).toBe(
+      '<svg viewBox="0 0 1 1"><title>Mill &amp; $&amp; co</title><g/></svg>',
+    );
+  });
+
+  it("adds one after the opening tag when the drawing has none", async () => {
+    const { retitleSymbolSvg } = await import("./plantSymbolImport");
+    expect(retitleSymbolSvg('<svg viewBox="0 0 1 1"><g/></svg>', "Desk")).toBe('<svg viewBox="0 0 1 1"><title>Desk</title><g/></svg>');
+  });
+});
