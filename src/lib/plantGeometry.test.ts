@@ -17,7 +17,6 @@ import {
   feetLabel,
   findLayoutProblems,
   itemsWithProblems,
-  outsideExtent,
   quadBounds,
   quadsOverlap,
   rectQuad,
@@ -75,34 +74,35 @@ describe("quadsOverlap", () => {
   });
 });
 
-describe("outsideExtent", () => {
-  it("is false for a box inside the building and true when a corner leaves it", () => {
-    expect(outsideExtent(rectQuad(0, 0, 100, 50), { w: 100, h: 50 })).toBe(false);
-    expect(outsideExtent(boxCorners({ x: 95, y: 25, w: 20, d: 20, rot: 45 }), { w: 100, h: 50 })).toBe(true);
-  });
-});
-
 describe("findLayoutProblems", () => {
   const wall: Obstacle = { id: "wall-1", kind: "wall", detail: "", quad: rectQuad(50, 0, 5, 100) };
 
   it("reports an overlap once, against the earlier item", () => {
-    const problems = findLayoutProblems([box("a", 10, 10, 10, 10), box("b", 15, 10, 10, 10)], [], { w: 100, h: 100 });
+    const problems = findLayoutProblems([box("a", 10, 10, 10, 10), box("b", 15, 10, 10, 10)], []);
     expect(problems).toEqual([{ kind: "overlap", uid: "a", other: "b" }]);
     expect([...itemsWithProblems(problems)].sort()).toEqual(["a", "b"]);
   });
 
   it("lets a non-colliding item (a floor zone) sit under others and over obstacles", () => {
     const zone = box("zone", 50, 50, 40, 40, 0, false);
-    expect(findLayoutProblems([zone, box("bench", 38, 50, 10, 10)], [wall], { w: 100, h: 100 })).toEqual([]);
+    expect(findLayoutProblems([zone, box("bench", 38, 50, 10, 10)], [wall])).toEqual([]);
   });
 
-  it("still refuses a non-colliding item outside the building", () => {
-    const zone = box("zone", 99, 50, 10, 10, 0, false);
-    expect(findLayoutProblems([zone], [], { w: 100, h: 100 })).toEqual([{ kind: "outside", uid: "zone" }]);
+  it("lets an item sit outside the building — an extinguisher on an outside wall, an exit", () => {
+    const outside = [box("zone", 99, 50, 10, 10, 0, false), box("extinguisher", -20, 50, 10, 10), box("exit", 50, 130, 20, 10)];
+    expect(findLayoutProblems(outside, [])).toEqual([]);
+  });
+
+  it("still checks a colliding item outside the building against walls and other items", () => {
+    const outerWall: Obstacle = { id: "wall-2", kind: "wall", detail: "", quad: rectQuad(-5, 0, 5, 100) };
+    expect(findLayoutProblems([box("a", -10, 50, 20, 10), box("b", -25, 50, 20, 10)], [outerWall])).toEqual([
+      { kind: "obstacle", uid: "a", obstacle: outerWall },
+      { kind: "overlap", uid: "a", other: "b" },
+    ]);
   });
 
   it("reports a colliding item through a wall", () => {
-    expect(findLayoutProblems([box("a", 52, 50, 10, 10)], [wall], { w: 100, h: 100 })).toEqual([
+    expect(findLayoutProblems([box("a", 52, 50, 10, 10)], [wall])).toEqual([
       { kind: "obstacle", uid: "a", obstacle: wall },
     ]);
   });
@@ -121,11 +121,11 @@ describe("the sample layouts on the made-up Main Plant", () => {
     items.map((it) => ({ ...it, ...shapeOfComponent(byId.get(it.componentId)) }));
 
   it("finds nothing wrong with the clean layout", () => {
-    expect(findLayoutProblems(checkable(SAMPLE_CLEAN_ITEMS), obstacles, walls.drawing.extent)).toEqual([]);
+    expect(findLayoutProblems(checkable(SAMPLE_CLEAN_ITEMS), obstacles)).toEqual([]);
   });
 
   it("finds exactly the three bad items in the other", () => {
-    const problems = findLayoutProblems(checkable(SAMPLE_COLLISION_ITEMS), obstacles, walls.drawing.extent);
+    const problems = findLayoutProblems(checkable(SAMPLE_COLLISION_ITEMS), obstacles);
     const bad = [...itemsWithProblems(problems)].filter((uid) => uid.startsWith("i_bad")).sort();
     expect(bad).toEqual(["i_bad1", "i_bad2", "i_bad3"]);
     // i_bad1 lands between VMC-1 and VMC-2 and overlaps both — the only good items dragged in.
@@ -135,7 +135,6 @@ describe("the sample layouts on the made-up Main Plant", () => {
     expect(sentences).toContain("VMC-1 overlaps Overlaps VMC-1.");
     expect(sentences).toContain("VMC-2 overlaps Overlaps VMC-1.");
     expect(sentences).toContain("Sits in N-S aisle sits in an aisle (N-S aisle north).");
-    expect(sentences).toContain("Through east wall goes outside the building.");
     expect(sentences).toContain("Through east wall goes through a wall.");
   });
 });
@@ -144,19 +143,19 @@ describe("areaObstacles", () => {
   it("makes a drawn area a keep-out that a colliding item may not sit in, named by its label", () => {
     const area = { uid: "a_1", kind: "aisle", x: 50, y: 50, w: 40, d: 10, rot: 0, label: "Main aisle" };
     const [obstacle] = areaObstacles([area]);
-    const problems = findLayoutProblems([box("bench", 50, 50, 10, 10)], [obstacle], { w: 100, h: 100 });
+    const problems = findLayoutProblems([box("bench", 50, 50, 10, 10)], [obstacle]);
     expect(problems).toHaveLength(1);
     expect(describeLayoutProblem(problems[0], (u) => u)).toBe("bench sits in an aisle (Main aisle).");
-    expect(findLayoutProblems([box("zone", 50, 50, 10, 10, 0, false)], [obstacle], { w: 100, h: 100 })).toEqual([]);
+    expect(findLayoutProblems([box("zone", 50, 50, 10, 10, 0, false)], [obstacle])).toEqual([]);
   });
 
   it("follows the area's rotation, and leaves an unlabelled no-go area unnamed", () => {
     const area = { uid: "a_2", kind: "no-go", x: 50, y: 50, w: 80, d: 4, rot: 90, label: " " };
     const [obstacle] = areaObstacles([area]);
     // Turned 90°, the long thin area runs north–south: a box at (50, 15) is in it, (15, 50) isn't.
-    expect(findLayoutProblems([box("n", 50, 15, 2, 2)], [obstacle], { w: 100, h: 100 })).toHaveLength(1);
-    expect(findLayoutProblems([box("w", 15, 50, 2, 2)], [obstacle], { w: 100, h: 100 })).toHaveLength(0);
-    const [p] = findLayoutProblems([box("n", 50, 15, 2, 2)], [obstacle], { w: 100, h: 100 });
+    expect(findLayoutProblems([box("n", 50, 15, 2, 2)], [obstacle])).toHaveLength(1);
+    expect(findLayoutProblems([box("w", 15, 50, 2, 2)], [obstacle])).toHaveLength(0);
+    const [p] = findLayoutProblems([box("n", 50, 15, 2, 2)], [obstacle]);
     expect(describeLayoutProblem(p, (u) => u)).toBe("n sits in a no-go area.");
   });
 });
@@ -257,68 +256,62 @@ describe("convexPieces", () => {
 });
 
 describe("findLayoutProblems with collision outlines", () => {
-  const EXTENT = { w: 1000, h: 1000 };
   // The L centred at (100, 100) covers 64..136; its notch is x 94..136, y 94..136.
   const IN_NOTCH = box("cart", 115, 115, 20, 20);
 
   it("lets an item sit in the notch of an L, which its rectangle would refuse", () => {
-    expect(findLayoutProblems([shaped("desk", 100, 100), IN_NOTCH], [], EXTENT)).toEqual([]);
-    expect(findLayoutProblems([shaped("desk", 100, 100, 0, 72, null), IN_NOTCH], [], EXTENT)).toHaveLength(1);
+    expect(findLayoutProblems([shaped("desk", 100, 100), IN_NOTCH], [])).toEqual([]);
+    expect(findLayoutProblems([shaped("desk", 100, 100, 0, 72, null), IN_NOTCH], [])).toHaveLength(1);
   });
 
   it("still flags an item on the L's arm", () => {
-    expect(findLayoutProblems([shaped("desk", 100, 100), box("cart", 115, 75, 20, 20)], [], EXTENT)).toEqual([
+    expect(findLayoutProblems([shaped("desk", 100, 100), box("cart", 115, 75, 20, 20)], [])).toEqual([
       { kind: "overlap", uid: "desk", other: "cart" },
     ]);
   });
 
   it("treats touching the inside corner as touching, not overlapping", () => {
     // Its top-left corner sits exactly on the L's inside corner (94, 94).
-    expect(findLayoutProblems([shaped("desk", 100, 100), box("cart", 104, 104, 20, 20)], [], EXTENT)).toEqual([]);
+    expect(findLayoutProblems([shaped("desk", 100, 100), box("cart", 104, 104, 20, 20)], [])).toEqual([]);
   });
 
   it("turns the outline with the item", () => {
     // Turned 90 degrees clockwise, the notch moves to the bottom LEFT.
     const turned = shaped("desk", 100, 100, 90);
-    expect(findLayoutProblems([turned, box("cart", 85, 115, 20, 20)], [], EXTENT)).toEqual([]);
-    expect(findLayoutProblems([turned, IN_NOTCH], [], EXTENT)).toHaveLength(1);
+    expect(findLayoutProblems([turned, box("cart", 85, 115, 20, 20)], [])).toEqual([]);
+    expect(findLayoutProblems([turned, IN_NOTCH], [])).toHaveLength(1);
   });
 
   it("stretches the outline to the item's size", () => {
     // At 144 x 144 around (200, 200) the notch is x 188..272, y 188..272.
     const big = shaped("desk", 200, 200, 0, 144);
-    expect(findLayoutProblems([big, box("cart", 220, 220, 30, 30)], [], EXTENT)).toEqual([]);
-    expect(findLayoutProblems([big, box("cart", 150, 150, 10, 10)], [], EXTENT)).toHaveLength(1);
+    expect(findLayoutProblems([big, box("cart", 220, 220, 30, 30)], [])).toEqual([]);
+    expect(findLayoutProblems([big, box("cart", 150, 150, 10, 10)], [])).toHaveLength(1);
   });
 
   it("flags two identical shaped items stacked on top of each other", () => {
-    expect(findLayoutProblems([shaped("a", 100, 100), shaped("b", 100, 100)], [], EXTENT)).toHaveLength(1);
+    expect(findLayoutProblems([shaped("a", 100, 100), shaped("b", 100, 100)], [])).toHaveLength(1);
   });
 
   it("lets two Ls turned towards each other share space their boxes would fight over", () => {
-    expect(findLayoutProblems([shaped("a", 100, 100), shaped("b", 142, 142, 180)], [], EXTENT)).toEqual([]);
+    expect(findLayoutProblems([shaped("a", 100, 100), shaped("b", 142, 142, 180)], [])).toEqual([]);
     expect(
-      findLayoutProblems([shaped("a", 100, 100, 0, 72, null), shaped("b", 142, 142, 180, 72, null)], [], EXTENT),
+      findLayoutProblems([shaped("a", 100, 100, 0, 72, null), shaped("b", 142, 142, 180, 72, null)], []),
     ).toHaveLength(1);
   });
 
   it("checks walls and keep-outs against the outline too", () => {
     const keepout: Obstacle = { id: "k", kind: "keepout", detail: "aisle", quad: rectQuad(110, 110, 20, 20) };
-    expect(findLayoutProblems([shaped("desk", 100, 100)], [keepout], EXTENT)).toEqual([]);
-    expect(findLayoutProblems([shaped("desk", 100, 100, 0, 72, null)], [keepout], EXTENT)).toHaveLength(1);
+    expect(findLayoutProblems([shaped("desk", 100, 100)], [keepout])).toEqual([]);
+    expect(findLayoutProblems([shaped("desk", 100, 100, 0, 72, null)], [keepout])).toHaveLength(1);
   });
 
   it("falls back to the rectangle when the outline can't be used", () => {
     const crossing: CollisionOutline = { points: [[0, 0], [72, 72], [72, 0], [0, 72]], w: 72, d: 72 };
     expect(itemPieces(shaped("desk", 100, 100, 0, 72, crossing))).toEqual([boxCorners({ x: 100, y: 100, w: 72, d: 72, rot: 0 })]);
-    expect(findLayoutProblems([shaped("desk", 100, 100, 0, 72, crossing), IN_NOTCH], [], EXTENT)).toHaveLength(1);
+    expect(findLayoutProblems([shaped("desk", 100, 100, 0, 72, crossing), IN_NOTCH], [])).toHaveLength(1);
   });
 
-  it("flags a shaped item that goes outside the building", () => {
-    const desk = shaped("desk", 64, 64);
-    expect(findLayoutProblems([desk], [], { w: 100, h: 100 })).toEqual([]);
-    expect(findLayoutProblems([desk], [], { w: 99, h: 99 })).toEqual([{ kind: "outside", uid: "desk" }]);
-  });
 });
 
 describe("shapeOfComponent and checkLayout", () => {

@@ -8687,10 +8687,13 @@ Eight things that are load-bearing:
   script even if one slipped through. `<metadata>` is cut out first, contents
   and all (the test plans carried C2PA blobs). `SANITIZE_DOM` is off because
   the result is never in the page, and it would strip ids like "body".
-- **The placement check** (`findLayoutProblems`): no corner outside the
-  building; a COLLIDING item may not overlap a wall, column, keep-out or
-  another colliding item; touching is not overlapping. Floor zones don't
-  collide. `Clearance` is carried but NOT applied yet. Pinned against the two
+- **The placement check** (`findLayoutProblems`): a COLLIDING item may not
+  overlap a wall, column, keep-out or another colliding item; touching is not
+  overlapping. Floor zones don't collide. **Outside the building is allowed**
+  (Tim, 2026-11-11): exits and extinguishers on the safety layer sit outside
+  the walls, so the check takes no extent and has no "outside" problem — an
+  item out there is still checked against walls and other items. Don't put
+  the rule back, even for the base plan, without asking. `Clearance` is carried but NOT applied yet. Pinned against the two
   sample layouts the generator checked: the clean one has none, the other
   flags exactly i_bad1–3 plus VMC-1 and VMC-2 (the bad mill lands between them).
 - **A symbol that isn't a rectangle is checked by its real shape** (Tim,

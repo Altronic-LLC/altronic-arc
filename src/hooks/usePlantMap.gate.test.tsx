@@ -194,12 +194,16 @@ describe("replacing a symbol", () => {
 });
 
 describe("publishing a layout", () => {
-  // No walls file, so the check is against the layout's own extent: 100 × 50.
+  // No walls file, so the only keep-out is the layout's own no-go area at x 80…100.
   const layout = (x: number) => ({
     id: 5,
     status: "Draft",
     wallsFileId: "",
-    doc: { extent: { w: 100, h: 50 }, items: [{ uid: "i1", componentId: 1, x, y: 25, w: 10, d: 10, rot: 0, label: "Bench" }], areas: [] },
+    doc: {
+      extent: { w: 100, h: 50 },
+      items: [{ uid: "i1", componentId: 1, x, y: 25, w: 10, d: 10, rot: 0, label: "Bench" }],
+      areas: [{ uid: "a_1", kind: "no-go", x: 90, y: 25, w: 20, d: 20, rot: 0, label: "" }],
+    },
   });
 
   it("is refused to an editor, and nothing is written", async () => {
@@ -212,12 +216,20 @@ describe("publishing a layout", () => {
 
   it("checks the layout AGAIN before writing — a problem refuses it, whatever the page showed", async () => {
     roles.rows = [me(["admin"])];
-    api.getLayout.mockResolvedValue(layout(98)); // half the bench is outside the building
+    api.getLayout.mockResolvedValue(layout(88)); // the bench sits in the no-go area
     const { result } = renderHook(() => usePublishPlantLayout(), { wrapper });
     await act(() => expect(result.current.mutateAsync(5)).rejects.toThrow(/Fix the 1 placement problem first/));
     expect(api.publish).not.toHaveBeenCalled();
 
     api.getLayout.mockResolvedValue(layout(50));
+    await act(() => result.current.mutateAsync(5));
+    expect(api.publish).toHaveBeenCalledWith(5);
+  });
+
+  it("publishes with an item outside the building — an extinguisher or an exit out there is fine", async () => {
+    roles.rows = [me(["admin"])];
+    api.getLayout.mockResolvedValue(layout(-30));
+    const { result } = renderHook(() => usePublishPlantLayout(), { wrapper });
     await act(() => result.current.mutateAsync(5));
     expect(api.publish).toHaveBeenCalledWith(5);
   });

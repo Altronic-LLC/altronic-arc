@@ -16,12 +16,15 @@
 // an outline that can't be cut (crossing edges, fewer than three points) falls
 // back to the rectangle — the safe direction, since the box covers the shape.
 //
-// The rules a layout is checked against (the ones Publish will enforce):
-//   * No part of an item may fall outside the building.
+// The rules a layout is checked against (the ones Publish enforces):
 //   * An item whose component COLLIDES may not overlap a wall, a column or a
 //     keep-out (aisle, dock, door swing, electrical clearance…), nor another
 //     colliding item. Floor markings and zones don't collide.
 //   * `Clearance` is carried on the component but not applied yet.
+//   * An item MAY sit outside the building (Tim, 2026-11-11): emergency exits
+//     and fire extinguishers on the safety layer are placed outside the walls,
+//     so being outside the drawing's extent is not a problem. A colliding item
+//     out there is still checked against walls, keep-outs and other items.
 // These match the generator that built the test plans (gen_samples.py), and
 // the two sample layouts pin them: the clean one has no problems, the other
 // exactly three.
@@ -98,11 +101,6 @@ export function quadBounds(q: readonly Point[]): { minX: number; minY: number; m
   const xs = q.map((p) => p[0]);
   const ys = q.map((p) => p[1]);
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
-}
-
-/** Does any corner fall outside a building `w × h` inches? */
-export function outsideExtent(q: readonly Point[], extent: { w: number; h: number }): boolean {
-  return q.some(([px, py]) => px < -EPSILON || py < -EPSILON || px > extent.w + EPSILON || py > extent.h + EPSILON);
 }
 
 // -----------------------------------------------------------------------------
@@ -305,7 +303,6 @@ export interface CheckableItem extends OrientedBox {
 }
 
 export type LayoutProblem =
-  | { kind: "outside"; uid: string }
   | { kind: "obstacle"; uid: string; obstacle: Obstacle }
   | { kind: "overlap"; uid: string; other: string };
 
@@ -316,7 +313,6 @@ export type LayoutProblem =
 export function findLayoutProblems(
   items: readonly CheckableItem[],
   obstacles: readonly Obstacle[],
-  extent: { w: number; h: number },
 ): LayoutProblem[] {
   const problems: LayoutProblem[] = [];
   // Each item's pieces and their bounds, worked out once. The bounds test
@@ -325,7 +321,6 @@ export function findLayoutProblems(
   const bounds = pieces.map((ps) => quadBounds(ps.flat()));
   const obstacleBounds = obstacles.map((o) => quadBounds(o.quad));
   items.forEach((it, i) => {
-    if (pieces[i].some((p) => outsideExtent(p, extent))) problems.push({ kind: "outside", uid: it.uid });
     if (!it.collides) return;
     obstacles.forEach((obstacle, k) => {
       if (boundsApart(bounds[i], obstacleBounds[k])) return;
@@ -365,7 +360,6 @@ const OBSTACLE_WORDS: Record<string, string> = {
 /** One problem as a sentence, naming items by label. */
 export function describeLayoutProblem(p: LayoutProblem, labelOf: (uid: string) => string): string {
   const name = labelOf(p.uid);
-  if (p.kind === "outside") return `${name} goes outside the building.`;
   if (p.kind === "overlap") return `${name} overlaps ${labelOf(p.other)}.`;
   const { obstacle } = p;
   if (obstacle.kind === "wall") return `${name} goes through a wall.`;
@@ -416,19 +410,18 @@ export function shapeOfComponent(
 /**
  * A saved layout's placement check — the ONE recipe, used by the layout page
  * and by Publish (which asks it again on fresh data before writing): its items
- * against the walls drawing's obstacles plus its own drawn areas, inside the
- * drawing's extent (the layout's own extent when there's no drawing).
+ * against the walls drawing's obstacles plus its own drawn areas. Where an item
+ * sits relative to the building's extent doesn't matter (see the header).
  */
 export function checkLayout(
   doc: {
     items: readonly (OrientedBox & { uid: string; label: string; componentId: number })[];
     areas?: Parameters<typeof areaObstacles>[0];
-    extent: { w: number; h: number };
   },
   shapeOf: (componentId: number) => ItemShape,
-  drawing: { obstacles: readonly Obstacle[]; extent: { w: number; h: number } } | null,
+  drawing: { obstacles: readonly Obstacle[] } | null,
 ): LayoutProblem[] {
   const items: CheckableItem[] = doc.items.map((it) => ({ ...it, ...shapeOf(it.componentId) }));
   const obstacles = [...(drawing?.obstacles ?? []), ...areaObstacles(doc.areas ?? [])];
-  return findLayoutProblems(items, obstacles, drawing?.extent ?? doc.extent);
+  return findLayoutProblems(items, obstacles);
 }

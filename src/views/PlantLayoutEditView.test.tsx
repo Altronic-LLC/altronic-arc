@@ -119,7 +119,7 @@ describe("PlantLayoutEditView", () => {
     openEditor(2);
     const check = await screen.findByRole("region", { name: "Placement check" });
     await waitFor(() => expect(within(check).getByText("Sits in N-S aisle sits in an aisle (N-S aisle north).")).toBeInTheDocument());
-    expect(screen.getByText("5 problems")).toBeInTheDocument();
+    expect(screen.getByText("4 problems")).toBeInTheDocument();
   });
 
   it("draws an aisle by dragging on the plan, then edits it in its own panel", async () => {

@@ -326,7 +326,7 @@ describe("publishing", () => {
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/2", routePattern: "/operations/plant-map/:id" });
     await screen.findByRole("region", { name: "Placement check" });
     const button = await screen.findByRole("button", { name: "Publish" });
-    await waitFor(() => expect(button).toHaveAttribute("title", "Fix the 5 placement problems first."));
+    await waitFor(() => expect(button).toHaveAttribute("title", "Fix the 4 placement problems first."));
     expect(button).toHaveAttribute("aria-disabled", "true");
     await userEvent.setup().click(button);
     expect(screen.queryByRole("dialog")).toBeNull();

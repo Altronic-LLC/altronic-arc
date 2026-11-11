@@ -24,7 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-11-11",
     changes: [
       "Operations: new Plant Map — the plant's layouts drawn to scale over each building's walls, with every machine, bench, rack and desk where it stands. Only the people on its roles list see it",
-      "Plant Map: open a layout to see it to scale — scroll to zoom, drag to pan, click an item for its details; each layout is checked for anything that overlaps, sits on a wall, aisle or no-go area, or goes outside the building, and problems are outlined in red",
+      "Plant Map: open a layout to see it to scale — scroll to zoom, drag to pan, click an item for its details; each layout is checked for anything that overlaps, or sits on a wall, aisle or no-go area, and problems are outlined in red. Items may sit outside the building, such as fire extinguishers and emergency exits on an outside wall",
       "Plant Map: editors drag symbols from the palette onto the plan, then move, turn and resize them; they snap to a grid and line up with nearby items along a dotted guide. Lock, duplicate, link to the equipment register, undo and keyboard shortcuts are all there",
       "Plant Map: draw your own aisles and no-go areas on a layout and label them; anything placed in one is flagged by name",
       "Plant Map: a Plant Map admin publishes a draft once its placement check passes, and the version it replaces becomes Superseded; a published layout is never changed — Edit starts a new draft version of it",

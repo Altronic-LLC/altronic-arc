@@ -252,14 +252,14 @@ function Editor({
   // The walls drawing's own keep-outs, plus the aisles and no-go areas drawn here.
   const allObstacles = useMemo(() => [...obstacles, ...areaObstacles(liveAreas)], [obstacles, liveAreas]);
   const problems = useMemo(
-    () => findLayoutProblems(checkable(live), allObstacles, extent),
-    [checkable, live, allObstacles, extent],
+    () => findLayoutProblems(checkable(live), allObstacles),
+    [checkable, live, allObstacles],
   );
   const problemUids = useMemo(() => itemsWithProblems(problems), [problems]);
   const ghostProblem = useMemo(() => {
     if (!ghost) return false;
-    return itemsWithProblems(findLayoutProblems(checkable([...items, ghost]), allObstacles, extent)).has(ghost.uid);
-  }, [ghost, items, checkable, allObstacles, extent]);
+    return itemsWithProblems(findLayoutProblems(checkable([...items, ghost]), allObstacles)).has(ghost.uid);
+  }, [ghost, items, checkable, allObstacles]);
   const labelOf = useCallback((uid: string) => live.find((i) => i.uid === uid)?.label || "Unnamed item", [live]);
 
   // ---- actions ---------------------------------------------------------------
