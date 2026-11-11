@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import type { MrbEntry } from "@/types/task";
 
@@ -20,6 +21,7 @@ import type { MrbEntry } from "@/types/task";
 
 const listMrbEntries = vi.hoisted(() => vi.fn());
 const mrbWatchersAvailable = vi.hoisted(() => vi.fn(() => true));
+const updateMrbEntry = vi.hoisted(() => vi.fn());
 vi.mock("@/api/mrb", () => ({
   listMrbEntries,
   mrbWatchersAvailable,
@@ -27,7 +29,7 @@ vi.mock("@/api/mrb", () => ({
   editMrbComment: vi.fn(),
   setMrbWatchers: vi.fn(),
   createMrbEntry: vi.fn(),
-  updateMrbEntry: vi.fn(),
+  updateMrbEntry,
 }));
 
 // Mocked wholesale, so every member a rendered view touches must be here —
@@ -63,6 +65,7 @@ function entry(over: Partial<MrbEntry> = {}): MrbEntry {
     pricePerUnit: 85,
     pricePerIssue: 85,
     notes: "Raw material# 1013-8626-00 from Newark",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -86,6 +89,7 @@ function render(e: MrbEntry) {
 
 beforeEach(() => {
   listMrbEntries.mockReset();
+  updateMrbEntry.mockReset();
   mrbWatchersAvailable.mockReturnValue(true);
 });
 
@@ -159,5 +163,49 @@ describe("MrbDetailView — the cost mismatch warning", () => {
     render(entry({ quantity: 2, pricePerUnit: 50, pricePerIssue: 100 }));
     await screen.findByText("Can Machining");
     expect(screen.queryByText(/unit × qty/i)).not.toBeInTheDocument();
+  });
+});
+
+// BusinessIT#71 — the entry came from the panel department.
+describe("MrbDetailView — the Panel department flag", () => {
+  /** The Nonconformance card, found by its heading. */
+  async function nonconformanceCard() {
+    const heading = await screen.findByRole("heading", { name: "Nonconformance" });
+    return heading.closest("section")!;
+  }
+
+  it("shows No on an entry that isn't from the panel department", async () => {
+    render(entry());
+    const card = await nonconformanceCard();
+    const row = within(card).getByText("Panel department").closest("div")!;
+    expect(row).toHaveTextContent("No");
+  });
+
+  it("shows Yes on one that is", async () => {
+    render(entry({ panelDepartment: true }));
+    const card = await nonconformanceCard();
+    const row = within(card).getByText("Panel department").closest("div")!;
+    expect(row).toHaveTextContent("Yes");
+  });
+
+  it("is set from the card's Edit, and saves as a boolean", async () => {
+    const user = userEvent.setup();
+    const e = entry();
+    updateMrbEntry.mockResolvedValue({ ...e, panelDepartment: true });
+    render(e);
+    const card = await nonconformanceCard();
+
+    await user.click(within(card).getByRole("button", { name: /Edit/ }));
+    const dialog = await screen.findByRole("dialog");
+    const pills = within(dialog).getByRole("radiogroup", { name: "Panel department" });
+    await user.click(within(pills).getByRole("radio", { name: "Yes" }));
+    await user.click(within(dialog).getByRole("button", { name: /Save changes/ }));
+
+    await waitFor(() => expect(updateMrbEntry).toHaveBeenCalled());
+    const [id, input] = updateMrbEntry.mock.calls[0];
+    expect(id).toBe(42);
+    expect(input.panelDepartment).toBe(true);
+    // Nothing else on the card moved.
+    expect(input.whereCaused).toBe("Operator Error");
   });
 });

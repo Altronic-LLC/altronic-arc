@@ -45,6 +45,7 @@ function entry(over: Partial<MrbEntry>): MrbEntry {
     pricePerUnit: null,
     pricePerIssue: null,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -89,7 +90,7 @@ describe("MrbExportModal", () => {
     const user = userEvent.setup();
     renderWithProviders(<MrbExportModal entries={ENTRIES} onClose={() => {}} />);
     await user.click(screen.getByRole("checkbox"));
-    expect(screen.getByRole("status")).toHaveTextContent("1 need a disposition · 1 decided · $45.00");
+    expect(screen.getByRole("status")).toHaveTextContent("1 needs a disposition · 1 decided · $45.00");
   });
 
   it("can't export an empty window", async () => {
@@ -120,6 +121,22 @@ describe("MrbExportModal", () => {
     await act(async () => {});
     expect(generateMrbWorkbook).toHaveBeenCalledTimes(1);
     expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), "MRB 2026-09-21 to 2026-10-20.xlsx");
+  });
+
+  // Tim, 2026-11-11: a pack with only the backlog in it.
+  it("Needs disposition only leaves the decided entries out of the export", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MrbExportModal entries={ENTRIES} onClose={() => {}} />);
+    await user.click(screen.getByRole("radio", { name: "Needs disposition only" }));
+    expect(screen.getByRole("status")).toHaveTextContent("2 need a disposition · $50.00");
+    expect(screen.getByRole("status")).not.toHaveTextContent("decided");
+
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    await act(async () => {});
+    const model = generateMrbPdf.mock.calls[0][0];
+    expect(model.needsOnly).toBe(true);
+    expect(model.decided).toEqual([]);
+    expect(model.needs).toHaveLength(2);
   });
 
   it("keeps the dialog open and says so when the build fails", async () => {

@@ -9,6 +9,7 @@ import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import { ChoiceSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { DateField } from "./DateField";
+import { YES, YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
@@ -56,6 +57,8 @@ export function MrbFormModal({ onClose, onSaved }: MrbFormModalProps) {
   const [whereCaused, setWhereCaused] = useState("");
   const [disposition, setDisposition] = useState("");
   const [notes, setNotes] = useState("");
+  /** "Yes" or "" — a real boolean column, so No is blank. Starts at No. */
+  const [panelDepartment, setPanelDepartment] = useState("");
   const [quantity, setQuantity] = useState("");
   const [pricePerUnit, setPricePerUnit] = useState("");
   const [pricePerIssue, setPricePerIssue] = useState("");
@@ -106,6 +109,7 @@ export function MrbFormModal({ onClose, onSaved }: MrbFormModalProps) {
       whereCaused,
       disposition,
       notes,
+      panelDepartment: panelDepartment === YES,
       quantity: toNumberOrNull(quantity),
       pricePerUnit: toNumberOrNull(pricePerUnit),
       pricePerIssue: toNumberOrNull(pricePerIssue),
@@ -228,6 +232,20 @@ export function MrbFormModal({ onClose, onSaved }: MrbFormModalProps) {
                 ariaLabel="Where Caused"
               />
             </Field>
+            {/* A pill group can't sit inside a <label> — its options carry
+                their own labels, which nest and steal the click. */}
+            <Field label={MRB_FIELD_BY_KEY.panelDepartment.label} plain>
+              <YesNoField
+                label={MRB_FIELD_BY_KEY.panelDepartment.label}
+                name="mrb-new-panel-department"
+                value={panelDepartment}
+                onChange={setPanelDepartment}
+                disabled={busy}
+              />
+              <span className="mt-1 block text-[11px] text-fg-muted">
+                {MRB_FIELD_BY_KEY.panelDepartment.hint}
+              </span>
+            </Field>
             <Field label="Disposition">
               <ChoiceSelect
                 value={disposition}
@@ -347,20 +365,24 @@ function Field({
   label,
   required,
   className,
+  plain,
   children,
 }: {
   label: string;
   required?: boolean;
   className?: string;
+  /** Render a <div>, not a <label> — for a control that names itself. */
+  plain?: boolean;
   children: React.ReactNode;
 }) {
+  const Wrapper = plain ? "div" : "label";
   return (
-    <label className={`block ${className ?? ""}`}>
+    <Wrapper className={`block ${className ?? ""}`}>
       <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
         {label}
         {required && <span className="ml-1 text-cooper-red">*</span>}
       </span>
       {children}
-    </label>
+    </Wrapper>
   );
 }
