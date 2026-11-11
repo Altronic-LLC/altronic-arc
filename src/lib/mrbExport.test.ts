@@ -6,10 +6,14 @@ import {
   buildMrbWorkbook,
   mrbCostTotal,
   mrbExportFileName,
+  mrbExportSummary,
+  mrbPlant,
   mrbPresetRange,
   mrbRangeProblem,
+  mrbShortDate,
   mrbWindowLabel,
   selectMrbExport,
+  splitByPlant,
 } from "./mrbExport";
 
 // =============================================================================
@@ -36,6 +40,7 @@ function entry(over: Partial<MrbEntry> = {}): MrbEntry {
     pricePerUnit: null,
     pricePerIssue: null,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -194,5 +199,112 @@ describe("buildMrbWorkbook", () => {
     const total = sheet.getRow(10);
     expect(total.getCell(1).value).toBe("Total");
     expect(total.getCell(9).value).toBe(175.5);
+  });
+});
+
+// BusinessIT#71 + Tim, 2026-11-11: each section is a Main plant table and a
+// Panels table, the flag itself isn't a printed column, and the pack can be
+// the backlog alone.
+describe("Main plant and Panels, and Needs disposition only", () => {
+  const PANEL_OPEN = entry({ id: 50, sapNumber: "PANEL-OPEN", mrbDate: day("2026-10-02"), panelDepartment: true, pricePerIssue: 7 });
+  const PLANT_OPEN = entry({ id: 51, sapNumber: "PLANT-OPEN", mrbDate: day("2026-10-03"), pricePerIssue: 3 });
+  const PANEL_DONE = entry({ id: 52, sapNumber: "PANEL-DONE", mrbDate: day("2026-10-04"), panelDepartment: true, disposition: "Scrap" });
+  const SET = [PANEL_OPEN, PLANT_OPEN, PANEL_DONE];
+  const ANY = { from: "", to: "", includeAllOpen: true };
+
+  it("splits a section into Main plant then Panels, order kept", () => {
+    const model = selectMrbExport(SET, ANY, AT);
+    expect(splitByPlant(model.needs).map((g) => [g.plant, ids(g.entries)])).toEqual([
+      ["Main plant", ["PLANT-OPEN"]],
+      ["Panels", ["PANEL-OPEN"]],
+    ]);
+    expect(mrbPlant(PANEL_OPEN)).toBe("Panels");
+    expect(mrbPlant(PLANT_OPEN)).toBe("Main plant");
+  });
+
+  it("Needs disposition only leaves every decided entry out", () => {
+    const model = selectMrbExport(SET, { ...ANY, needsOnly: true }, AT);
+    expect(model.needsOnly).toBe(true);
+    expect(ids(model.needs)).toEqual(["PANEL-OPEN", "PLANT-OPEN"]);
+    expect(model.decided).toEqual([]);
+    expect(mrbExportSummary(model)).toBe("2 need a disposition");
+  });
+
+  it("the summary counts decided entries otherwise, and says 1 needs", () => {
+    expect(mrbExportSummary(selectMrbExport(SET, ANY, AT))).toBe("2 need a disposition · 1 decided");
+    expect(mrbExportSummary(selectMrbExport([PLANT_OPEN], ANY, AT))).toBe("1 needs a disposition · 0 decided");
+  });
+
+  it("the PDF prints a Main plant and a Panels table per section, with no Panel column", async () => {
+    const model = selectMrbExport(SET, ANY, AT);
+    const text = pdfText((await buildMrbPdf(model, { compress: false, logo: false })).output());
+    expect(text).toContain("NEEDS DISPOSITION (2)");
+    expect(text).toContain("DECIDED (1)");
+    // Needs: one of each. Decided: Panels only, so Main plant says None.
+    expect(text.match(/Main plant \(1\)/g)).toHaveLength(1);
+    expect(text.match(/Panels \(1\)/g)).toHaveLength(2);
+    expect(text).toContain("Main plant (0)");
+    // No "Panel" header cell, and no Yes / No column under it.
+    expect(text.split(/\n/)).not.toContain("Panel");
+    // Main plant's table comes before Panels' in the section.
+    expect(text.indexOf("PLANT-OPEN")).toBeLessThan(text.indexOf("PANEL-OPEN"));
+  });
+
+  it("dates are mm/dd/yy, read in UTC", () => {
+    expect(mrbShortDate(day("2026-10-05"))).toBe("10/05/26");
+    expect(mrbShortDate(new Date("2026-01-09T23:30:00Z"))).toBe("01/09/26");
+    expect(mrbShortDate(null)).toBe("");
+  });
+
+  it("the PDF has its own SAP Number and Old Material columns, and short dates", async () => {
+    const withOld = [{ ...PLANT_OPEN, oldPartNumber: "672291" }];
+    const model = selectMrbExport(withOld, ANY, AT);
+    const lines = pdfText((await buildMrbPdf(model, { compress: false, logo: false })).output()).split(/\n/);
+    expect(lines).toContain("SAP Number");
+    // A header can wrap between its words, so "Old Material" may be two runs.
+    expect(lines.join(" ")).toMatch(/Old\s+Material/);
+    expect(lines).toContain("PLANT-OPEN");
+    expect(lines).toContain("672291");
+    expect(lines).toContain("10/03/26");
+  });
+
+  it("the PDF keeps a Disposition column normally, and drops it for Needs disposition only", async () => {
+    const both = pdfText((await buildMrbPdf(selectMrbExport(SET, ANY, AT), { compress: false, logo: false })).output());
+    expect(both.split(/\n/)).toContain("Disposition");
+
+    const needs = pdfText(
+      (await buildMrbPdf(selectMrbExport(SET, { ...ANY, needsOnly: true }, AT), { compress: false, logo: false })).output(),
+    );
+    expect(needs.split(/\n/)).not.toContain("Disposition");
+  });
+
+  it("the PDF has no DECIDED section when only the backlog is exported", async () => {
+    const model = selectMrbExport(SET, { ...ANY, needsOnly: true }, AT);
+    const text = pdfText((await buildMrbPdf(model, { compress: false, logo: false })).output());
+    expect(text).toContain("NEEDS DISPOSITION (2)");
+    expect(text).not.toContain("DECIDED");
+    expect(text).not.toContain("PANEL-DONE");
+  });
+
+  it("the workbook has a Plant column after Where Caused, Main plant rows first", async () => {
+    const model = selectMrbExport(SET, ANY, AT);
+    const buffer = await buildMrbWorkbook(ExcelJS, model);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const sheet = wb.getWorksheet("MRB")!;
+
+    const headers: string[] = [];
+    sheet.getRow(4).eachCell((cell) => headers.push(String(cell.value)));
+    const col = headers.indexOf("Plant") + 1;
+    expect(col).toBeGreaterThan(0);
+    expect(headers[col - 2]).toBe("Where Caused");
+    expect(headers).not.toContain("Panel department");
+
+    const rows = [5, 6, 7].map((n) => sheet.getRow(n));
+    expect(rows.map((r) => [r.getCell(3).value, r.getCell(col).value])).toEqual([
+      ["PLANT-OPEN", "Main plant"],
+      ["PANEL-OPEN", "Panels"],
+      ["PANEL-DONE", "Panels"],
+    ]);
   });
 });

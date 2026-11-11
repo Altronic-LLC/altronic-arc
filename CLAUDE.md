@@ -3924,6 +3924,27 @@ Seven things that shape this feature:
   record a disposition (Tim, 2026-09-21), matching Visit Reports and QC Time
   Tracking. SharePoint's list permissions remain the real boundary.
 
+- **Panel department is a real boolean column, `PanelDepartment`**
+  (BusinessIT#71, Tim, 2026-11-11) — marks an entry as coming from the panel
+  department, for sorting and filtering in reporting. Added by
+  `scripts/add-mrb-panel-column.ps1`, which writes and reads back Yes and No
+  on a throwaway row. **It must run BEFORE the deploy that ships it**: it is
+  an ordinary `MRB_FIELDS` descriptor, so it is in the `$select`, and
+  selecting a column the list hasn't got 400s the whole read. (It is NOT in
+  the Watchers fallback — folding it in would read a missing Panel column as
+  a missing Watchers column.) Rules:
+  - **Blank is No.** Every row from before the column reads false; there is
+    no third "not answered" state, so the pills are `YesNoField` without
+    `allowUnset`, and New Entry starts at No.
+  - **A create always SENDS it**, `false` included (`buildMrbCreateFields`
+    drops only `""` / `null`), so SharePoint's views read No, not blank. An
+    edit sends it only when it changed (the diff).
+  - **It shows as Yes / No everywhere**: the Nonconformance card, the
+    register's Panel column (sort + value filter), the phone card, and both
+    export formats. `?panel=yes|no` is the URL filter; anything else is
+    ignored rather than matching nothing.
+  Pinned in real mode in `api/mrb.panelDepartment.test.ts`.
+
 **No delete**, in the UI or the module — an MRB entry records material that
 was rejected and what was decided, and most of the list is retained history.
 `mrb.test.ts` asserts the module exports nothing matching /delete|remove/.
@@ -3939,16 +3960,52 @@ landscape PDF to print or an xlsx. Five rules, each pinned in
 - **Every undecided live entry goes in by default, WHATEVER its date** — the
   backlog is what the meeting is for; a window-only pack would let an old
   undecided entry sit for ever. A checkbox keeps it to the window.
-- **Decided entries go in only inside the window**, bounds inclusive.
+- **Decided entries go in only inside the window**, bounds inclusive — and
+  not at all under **Needs disposition only** (`needsOnly`, Tim,
+  2026-11-11), which leaves the Decided section out of the PDF entirely.
 - **Archive rows never go in**, and the export ignores the tab and filters on
   screen — it reads the whole register.
 - **Dates compare as `yyyy-mm-dd` keys** (`toDateInputValue`, UTC — MRB dates
   are midday UTC); the presets are LOCAL days ending today.
 
-On the PDF the undecided rows are taller with Disposition blank, so the
-decision can be written in; `rowPageBreak: "avoid"` keeps a row on one page.
+On the PDF the undecided rows leave Disposition blank, so the decision can be
+written in; `rowPageBreak: "avoid"` keeps a row on one page.
 The workbook has a Status column, real dates and numbers, a frozen header and
 an autofilter.
+
+**Each section is a Main plant table then a Panels table** (`splitByPlant`,
+by the Panel department flag), and the PDF has NO Panel column; the workbook
+has a **Plant** column ("Main plant" / "Panels") to filter on instead, rows
+in the same order. An empty table is one line ("Panels (0) None."), never a
+header over nothing.
+
+**The PDF is laid out for the fewest pages that stay readable** (Tim,
+2026-11-11) — `pdfColumns` / `pdfColumnWidths`:
+- **Only the Reason wraps.** Every other column is MEASURED (`getTextWidth`
+  at the table's own font, over every entry in the export, so all tables
+  line up) and sized to its longest value up to a `cap`; Reason gets the
+  rest. A value past its cap wraps, never truncates. If the others leave
+  Reason under `MIN_REASON_WIDTH` (150pt), Description then Vendor give way.
+  A header may wrap between words, never inside one; the column before Cost
+  fits the foot's bold "Total".
+- **No minimum row height**, so a row is exactly as tall as its Reason.
+  (Write-in rows were 30pt, then 24pt; Tim chose short rows over them.)
+- **Dates are mm/dd/yy** (`mrbShortDate`, UTC). The Altronic Part Number has
+  its own column headed **"Old Material"** — the PDF only; screens keep the
+  `MRB_FIELDS` label.
+- **Needs disposition only drops the Disposition column** as well as the
+  Decided section; with both sections, Disposition is a fixed 64pt.
+- 28pt margins, a two-line page header, 7.5pt text.
+A 34-backlog / 42-decided pack went from 5 pages to 4, and 2 with Needs only.
+Check a change by rendering the PDF and LOOKING at it (PyMuPDF into the
+scratchpad) — a test can't see a wrap.
+
+**The register fits without scrolling sideways** (Tim, 2026-11-11):
+`COLUMN_CLASS` in `MrbView`, shared by header and cell. Description takes the
+width the others leave (`w-full` header, `max-w-0` cell) and truncates;
+Vendor and Where Caused truncate at a fixed width; below `xl` Altronic Part
+Number and Where Caused are hidden (they stay on the card, the entry and the
+export). Checked by eye at 1100, 1280 and 1500px.
 
 **On a phone the list is CARDS, not the table** — `MrbView` renders two
 siblings over the same `shown` rows, a `sm:hidden` card list and a
