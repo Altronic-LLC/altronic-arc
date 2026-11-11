@@ -1821,6 +1821,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "description (field_4)", type: "text", kind: "field" },
       { name: "reason (field_5)", type: "text", kind: "field" },
       { name: "whereCaused (field_6)", type: "choice", kind: "field" },
+      { name: "panelDepartment (PanelDepartment)", type: "bool", kind: "field" },
       { name: "disposition (field_7)", type: "choice", kind: "field" },
       { name: "vendorName (field_8)", type: "text", kind: "field" },
       { name: "pricePerUnit / pricePerIssue", type: "currency", kind: "field" },

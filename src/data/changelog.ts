@@ -20,8 +20,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.219.0",
-    date: "2026-11-09",
+    version: "0.220.0",
+    date: "2026-11-11",
     changes: [
       "New under Harness: Pull Tests, a log of pulls on the Mark-10 WT-205 tester at the start of a run, in process and at the end, judged against each terminal's minimum pull force",
       "In Chrome or Edge, connect the tester over USB and each pull's peak fills the next box by itself; pulls can still be typed, and each test records whether they were read or typed",
@@ -30,6 +30,18 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Each test records how it failed, such as the wire broke or it pulled out of the crimp, picked from the answers already used or typed new",
       "After each reading from the tester the cursor moves to the next empty pull box, then to How it failed",
       "The test form and the manual list the tester settings that work, and what to do for a pull under 10 lbF",
+    ],
+  },
+  {
+    version: "0.219.0",
+    date: "2026-11-11",
+    changes: [
+      "MRB entries can be marked as coming from the panel department: a Panel department Yes/No on New Entry and on the Nonconformance card, starting at No",
+      "The MRB register has a Panel column you can sort and filter, and a Panel department filter that works on a phone too and can be shared as a link",
+      "The MRB meeting export splits each section into a Main plant table and a Panels table; the Excel workbook has a Plant column to filter on",
+      "The MRB export can be just the entries needing a disposition: pick Needs disposition only and the Decided section and the Disposition column are left out",
+      "The MRB export PDF fits on fewer pages: dates as mm/dd/yy, the Altronic Part Number column headed Old Material, every column but Reason kept to one line, and each row only as tall as its Reason",
+      "The MRB list fits the screen without scrolling sideways: long descriptions and vendors are shortened (hover for the full text), and on narrower screens Altronic Part Number and Where Caused are hidden",
     ],
   },
   {

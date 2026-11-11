@@ -198,6 +198,10 @@ export function MrbDetailView() {
           <Row label={label("reason")} value={entry.reason} multiline />
           <Row label={label("whereCaused")} value={entry.whereCaused} />
           <Row
+            label={label("panelDepartment")}
+            value={entry.panelDepartment ? "Yes" : "No"}
+          />
+          <Row
             label={label("disposition")}
             node={
               <MrbDispositionChip disposition={entry.disposition} archived={archived} />
@@ -367,6 +371,7 @@ function editableFields(card: CardId, entry: MrbEntry): EditableFieldSpec[] {
       spec("whereCaused", {
         choices: mrbChoiceOptions(MRB_WHERE_CAUSED, entry.whereCaused),
       }),
+      spec("panelDepartment"),
       spec("disposition", {
         choices: mrbChoiceOptions(MRB_DISPOSITIONS, entry.disposition),
       }),
@@ -400,6 +405,8 @@ function editableValues(card: CardId, entry: MrbEntry): Record<string, string> {
     return {
       reason: entry.reason,
       whereCaused: entry.whereCaused,
+      // The modal's Yes/No pills carry a boolean column as "Yes" / "".
+      panelDepartment: entry.panelDepartment ? "Yes" : "",
       disposition: entry.disposition,
       notes: entry.notes,
     };
@@ -446,6 +453,9 @@ export function applyChanges(
         break;
       case "pricePerIssue":
         input.pricePerIssue = num(value);
+        break;
+      case "panelDepartment":
+        input.panelDepartment = value.trim().toLowerCase() === "yes";
         break;
       default:
         if (key in input) {

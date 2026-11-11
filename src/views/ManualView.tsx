@@ -5401,7 +5401,7 @@ const SECTIONS: ManualSection[] = [
       "quarantine",
     ],
     searchText:
-      "MRB — the Material Review Board register — at /supply-chain/mrb, under Supply Chain in the Departments menu, backed by the MRB Data list on the Altronic_PMO SharePoint site. An MRB entry records nonconforming material: the part, how much of it, why it was rejected, where the problem was caused, and what the board decided to do with it. The list opens on Needs disposition — live entries where the disposition is blank or still To be Determined — with tabs for Decided, Archive and All, each carrying its count. Archive holds several thousand rows of history imported from the old Excel workbooks; they are kept so they stay searchable but they are not live entries and nothing there is waiting on a decision. The list leads with the SAP Number and the Altronic Part Number side by side — the field SharePoint calls Old Part Number — so an entry can be found by either. Filter by Vendor, Where Caused or Year, and the search box matches every field including the Reason text and the comments. The header line shows the total cost of whatever is on screen. Columns sort and filter like the other registers. On a phone the list is a set of tappable cards rather than a wide table, and the Search and filters panel starts collapsed so the entries fill the screen — it opens on a tap, and opens by itself with a count whenever a filter is already narrowing the list. New Entry asks for the SAP Number, MRB date and Reason; Where Caused and Disposition are optional, and leaving Disposition blank is what puts the entry in the Needs disposition queue. Price Per Issue fills itself in as Price Per Unit times Quantity and can be typed over if the invoice disagrees. An entry's detail page reads, with one Edit button per card — Part, Nonconformance, Cost — and Save changes writes only the fields you touched. Archive rows show an extra read-only card with the columns that came from the source workbook, and that card only appears on archive rows. Entries carry attachments, a Discussion thread with @-mentions, and watchers: mentioning someone emails them and starts them watching, and watchers are emailed about later comments. A screenshot pasted into a comment is saved as an attachment. The thread is called Discussion rather than Comments because this list already has a Comments field inside the Nonconformance card, which is a plain notes box on the record that notifies nobody. There is no assignee on this list, so comments reach watchers and anyone mentioned. MRB entries cannot be deleted from ARC.",
+      "MRB — the Material Review Board register — at /supply-chain/mrb, under Supply Chain in the Departments menu, backed by the MRB Data list on the Altronic_PMO SharePoint site. An MRB entry records nonconforming material: the part, how much of it, why it was rejected, where the problem was caused, and what the board decided to do with it. The list opens on Needs disposition — live entries where the disposition is blank or still To be Determined — with tabs for Decided, Archive and All, each carrying its count. Archive holds several thousand rows of history imported from the old Excel workbooks; they are kept so they stay searchable but they are not live entries and nothing there is waiting on a decision. The list leads with the SAP Number and the Altronic Part Number side by side — the field SharePoint calls Old Part Number — so an entry can be found by either. Filter by Vendor, Where Caused, Year or Panel department, and the search box matches every field including the Reason text and the comments. The header line shows the total cost of whatever is on screen. Columns sort and filter like the other registers. On a phone the list is a set of tappable cards rather than a wide table, and the Search and filters panel starts collapsed so the entries fill the screen — it opens on a tap, and opens by itself with a count whenever a filter is already narrowing the list. New Entry asks for the SAP Number, MRB date and Reason; Where Caused and Disposition are optional, and leaving Disposition blank is what puts the entry in the Needs disposition queue. Panel department is a Yes/No that starts at No — set it to Yes when the entry came from the panel department, so those entries can be sorted and filtered in the register and print as their own Panels table in the meeting export. The export can also be Needs disposition only, leaving the Decided section out. Price Per Issue fills itself in as Price Per Unit times Quantity and can be typed over if the invoice disagrees. An entry's detail page reads, with one Edit button per card — Part, Nonconformance, Cost — and Save changes writes only the fields you touched. Archive rows show an extra read-only card with the columns that came from the source workbook, and that card only appears on archive rows. Entries carry attachments, a Discussion thread with @-mentions, and watchers: mentioning someone emails them and starts them watching, and watchers are emailed about later comments. A screenshot pasted into a comment is saved as an attachment. The thread is called Discussion rather than Comments because this list already has a Comments field inside the Nonconformance card, which is a plain notes box on the record that notifies nobody. There is no assignee on this list, so comments reach watchers and anyone mentioned. MRB entries cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -5439,6 +5439,14 @@ const SECTIONS: ManualSection[] = [
           Quantity as you type; type over it if the invoice says something
           different, and it stops following.
         </P>
+        <P>
+          <strong>Panel department</strong> is a Yes / No that starts at{" "}
+          <strong>No</strong>. Set it to Yes when the entry came from the panel
+          department, so the panel team&rsquo;s entries can be sorted and
+          filtered — in the register&rsquo;s <strong>Panel</strong> column, the{" "}
+          <strong>Panel department</strong> filter, and the meeting export. It
+          can be changed later on the <strong>Nonconformance</strong> card.
+        </P>
         <Tip>
           Leave <strong>Disposition</strong> blank until the board actually
           decides. That is what puts the entry in the{" "}
@@ -5466,13 +5474,18 @@ const SECTIONS: ManualSection[] = [
           The list leads with the <strong>SAP Number</strong> and the{" "}
           <strong>Altronic Part Number</strong> side by side, so an entry can
           be found by either. Filter by <strong>Vendor</strong>,{" "}
-          <strong>Where Caused</strong> or <strong>Year</strong>; the search
+          <strong>Where Caused</strong>, <strong>Year</strong> or{" "}
+          <strong>Panel department</strong>; the search
           box matches every field, so a part number, a failure mode or a
           vendor all find the entry. The line above
           the table totals the cost of everything currently shown, so narrowing
           to one vendor or one year answers &ldquo;what did this cost
           us?&rdquo; directly. Columns sort and filter like the other
-          registers.
+          registers. The table fits the screen without scrolling sideways:
+          long descriptions and vendor names are shortened (hover one for the
+          full text), and on a narrower screen the Altronic Part Number and
+          Where Caused columns are hidden — they are still on the entry
+          itself and in the export.
         </P>
         <P>
           <strong>On a phone</strong> the list is a set of tappable cards
@@ -5504,8 +5517,21 @@ const SECTIONS: ManualSection[] = [
           The export has two sections: <strong>Needs disposition</strong>{" "}
           first, then the entries in those dates that were already{" "}
           <strong>Decided</strong>. Each is oldest first, with a cost total.
-          On the PDF the undecided rows are taller, with the Disposition left
-          blank, so the board&rsquo;s decision can be written in by hand.
+          On the PDF the undecided rows leave the Disposition blank, so the
+          board&rsquo;s decision can be written in by hand.
+          Each section is split into a <strong>Main plant</strong> table and a{" "}
+          <strong>Panels</strong> table, using each entry&rsquo;s Panel
+          department; in the Excel workbook that is a{" "}
+          <strong>Plant</strong> column you can filter on. Pick{" "}
+          <strong>Needs disposition only</strong> under What to export to leave
+          the Decided section and the Disposition column out and print just
+          the backlog.
+        </P>
+        <P>
+          The PDF is laid out to fit on as few pages as it can: dates print as
+          mm/dd/yy, the Altronic Part Number column is headed{" "}
+          <strong>Old Material</strong>, every column except Reason stays on
+          one line, and each row is only as tall as its Reason needs.
         </P>
         <Tip>
           By default every entry still needing a disposition is included,
