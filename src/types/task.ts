@@ -3659,6 +3659,13 @@ export interface MrbEntry {
    */
   notes: string;
   /**
+   * `PanelDepartment`, a real boolean column (BusinessIT#71) — the entry came
+   * from the panel department, so it can be sorted and filtered in reporting.
+   * Blank is No; every row predating the column reads false. Added by
+   * `scripts/add-mrb-panel-column.ps1`.
+   */
+  panelDepartment: boolean;
+  /**
    * The comment thread, from the `Communications` column.
    *
    * **Note the PLURAL internal name** — every other list in ARC calls this
@@ -3713,6 +3720,7 @@ export interface MrbEntryInput {
   pricePerUnit: number | null;
   pricePerIssue: number | null;
   notes: string;
+  panelDepartment: boolean;
 }
 
 // =============================================================================

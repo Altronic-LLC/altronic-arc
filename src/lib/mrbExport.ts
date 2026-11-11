@@ -22,6 +22,19 @@ import { parseIsoDate, toIsoDate } from "./dateInput";
 //   Decided            live entries IN the window that already have one —
 //                      the record of what was decided since last time.
 //
+// "Needs disposition only" (Tim, 2026-11-11) leaves the Decided section out
+// altogether — the pack for a meeting that only works the backlog.
+//
+// Each section is split into a MAIN PLANT table and a PANELS table, by the
+// Panel department flag (BusinessIT#71), so the flag itself isn't printed as
+// a column. In the workbook it is a Plant column instead, to filter on.
+//
+// The PDF is laid out to fit on as few pages as possible while staying
+// readable (Tim, 2026-11-11): narrow margins, a short page header, mm/dd/yy
+// dates, every column but Reason sized to its longest value so it stays on
+// one line, no minimum row height, and no Disposition column at all when only
+// the entries needing one are exported. A row is as tall as its Reason wraps.
+//
 // Archive rows (the old Excel import) are never exported: they are retained
 // history, not work. Oldest first within each section, undated last.
 //
@@ -40,12 +53,15 @@ export interface MrbExportOptions {
   to: string;
   /** Include undecided entries dated outside the window (and undated ones). */
   includeAllOpen: boolean;
+  /** Leave the Decided section out altogether. */
+  needsOnly?: boolean;
 }
 
 export interface MrbExportModel {
   from: string;
   to: string;
   includeAllOpen: boolean;
+  needsOnly: boolean;
   generatedAt: Date;
   needs: MrbEntry[];
   decided: MrbEntry[];
@@ -108,6 +124,7 @@ export function selectMrbExport(
   generatedAt: Date = new Date(),
 ): MrbExportModel {
   const { from, to, includeAllOpen } = options;
+  const needsOnly = options.needsOnly ?? false;
   const needs: MrbEntry[] = [];
   const decided: MrbEntry[] = [];
   for (const entry of entries) {
@@ -115,13 +132,34 @@ export function selectMrbExport(
     const key = toDateInputValue(entry.mrbDate);
     if (needsDisposition(entry)) {
       if (includeAllOpen || inWindow(key, from, to)) needs.push(entry);
-    } else if (mrbState(entry) === "decided" && inWindow(key, from, to)) {
+    } else if (!needsOnly && mrbState(entry) === "decided" && inWindow(key, from, to)) {
       decided.push(entry);
     }
   }
   needs.sort(oldestFirst);
   decided.sort(oldestFirst);
-  return { from, to, includeAllOpen, generatedAt, needs, decided };
+  return { from, to, includeAllOpen, needsOnly, generatedAt, needs, decided };
+}
+
+/** Which table an entry goes in. */
+export type MrbPlant = "Main plant" | "Panels";
+
+export function mrbPlant(entry: MrbEntry): MrbPlant {
+  return entry.panelDepartment ? "Panels" : "Main plant";
+}
+
+/** A section's entries split into its two tables, order kept. */
+export function splitByPlant(entries: MrbEntry[]): { plant: MrbPlant; entries: MrbEntry[] }[] {
+  return (["Main plant", "Panels"] as const).map((plant) => ({
+    plant,
+    entries: entries.filter((e) => mrbPlant(e) === plant),
+  }));
+}
+
+/** The one-line count the dialog, the PDF and the workbook all show. */
+export function mrbExportSummary(model: Pick<MrbExportModel, "needs" | "decided" | "needsOnly">): string {
+  const needs = `${model.needs.length} need${model.needs.length === 1 ? "s" : ""} a disposition`;
+  return model.needsOnly ? needs : `${needs} · ${model.decided.length} decided`;
 }
 
 /** Σ Price Per Issue. A blank price adds nothing — it is unknown, not free. */
@@ -159,6 +197,7 @@ function quantity(value: number | null): string {
 
 const ALTRONIC_PART_LABEL = MRB_FIELD_BY_KEY.oldPartNumber.label;
 
+
 // ---------------------------------------------------------------------------
 // PDF — landscape letter, real text, jsPDF + AutoTable dynamically imported.
 // ---------------------------------------------------------------------------
@@ -167,34 +206,93 @@ type AutoTableFn = (doc: jsPDF, options: UserOptions) => void;
 
 const PAGE_W = 792;
 const PAGE_H = 612;
-const MARGIN = 36;
+const MARGIN = 28;
 
-const PDF_HEAD = [
-  "MRB Date",
-  "SAP Number",
-  ALTRONIC_PART_LABEL,
-  "Description",
-  "Vendor",
-  "Qty",
-  "Cost",
-  "Where Caused",
-  "Reason",
-  "Disposition",
-];
+const FONT_SIZE = 7.5;
+const PAD_X = 2.5;
+/** The least the Reason may be squeezed to before other columns give way. */
+const MIN_REASON_WIDTH = 150;
 
-function pdfRow(entry: MrbEntry): string[] {
-  return [
-    entry.mrbDate ? formatSpDate(entry.mrbDate) : "",
-    entry.sapNumber,
-    entry.oldPartNumber,
-    entry.description,
-    entry.vendorName,
-    quantity(entry.quantity),
-    money(entry.pricePerIssue),
-    entry.whereCaused,
-    entry.reason,
-    dispositionText(entry),
+/** `10/05/26` — an MRB date is midday UTC, so it's read in UTC. */
+export function mrbShortDate(date: Date | null): string {
+  if (!date) return "";
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(date.getUTCMonth() + 1)}/${two(date.getUTCDate())}/${two(date.getUTCFullYear() % 100)}`;
+}
+
+/**
+ * One PDF column.
+ *
+ * **Every column but Reason is sized to its longest value**, up to `cap`, so
+ * it stays on one line and the row is only as tall as the Reason's wrap
+ * (Tim, 2026-11-11). A value past its cap still wraps rather than being cut —
+ * nothing on the page is hidden. Reason takes the width that is left.
+ */
+interface PdfColumn {
+  head: string;
+  value: (entry: MrbEntry) => string;
+  align?: "right";
+  /** Widest it may grow to fit its values; omitted = Reason, the rest. */
+  cap?: number;
+  /** A fixed width, whatever its values (the write-in Disposition). */
+  fixed?: number;
+}
+
+function pdfColumns(needsOnly: boolean): PdfColumn[] {
+  const columns: PdfColumn[] = [
+    { head: "MRB Date", value: (e) => mrbShortDate(e.mrbDate), cap: 40 },
+    { head: "SAP Number", value: (e) => e.sapNumber, cap: 72 },
+    // "Old Material", for short — the field ARC calls the Altronic Part
+    // Number (its SharePoint column is Old Part Number). The PDF only.
+    { head: "Old Material", value: (e) => e.oldPartNumber, cap: 76 },
+    { head: "Description", value: (e) => e.description, cap: 200 },
+    { head: "Vendor", value: (e) => e.vendorName, cap: 110 },
+    { head: "Qty", value: (e) => quantity(e.quantity), align: "right", cap: 30 },
+    { head: "Cost", value: (e) => money(e.pricePerIssue), align: "right", cap: 60 },
+    { head: "Where Caused", value: (e) => e.whereCaused, cap: 76 },
+    { head: "Reason", value: (e) => e.reason },
   ];
+  // Needs disposition only: every row would be blank there, so the column
+  // goes altogether rather than costing the Reason its width.
+  if (!needsOnly) columns.push({ head: "Disposition", value: dispositionText, fixed: 64 });
+  return columns;
+}
+
+/**
+ * Each column's width, measured with the PDF's own font over every entry in
+ * the export, so all its tables line up. `undefined` is the Reason.
+ */
+function pdfColumnWidths(doc: jsPDF, columns: PdfColumn[], entries: MrbEntry[], totals: string[]): (number | undefined)[] {
+  const widest = (texts: string[], bold: boolean) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(FONT_SIZE);
+    return Math.max(0, ...texts.map((t) => doc.getTextWidth(t)));
+  };
+  const costCol = columns.findIndex((c) => c.head === "Cost");
+  const widths = columns.map((column, i) => {
+    if (column.fixed) return column.fixed;
+    if (column.cap === undefined) return undefined;
+    // A header may wrap between words, but never inside one.
+    const headWord = widest(column.head.split(" "), true);
+    // The foot puts "Total" in the column before Cost, and the totals in
+    // Cost — both bold, both on one line.
+    const extra = i === costCol ? widest(totals, true) : i === costCol - 1 ? widest(["Total"], true) : 0;
+    const body = widest(entries.map(column.value), false);
+    return Math.ceil(Math.min(column.cap, Math.max(headWord, body, extra)) + PAD_X * 2 + 1);
+  });
+
+  // Keep the Reason readable: if the others leave it too little, the two
+  // widest free-text columns give way first (they then wrap, never cut).
+  const avail = PAGE_W - MARGIN * 2;
+  const used = () => widths.reduce<number>((sum, w) => sum + (w ?? 0), 0);
+  for (const head of ["Description", "Vendor"]) {
+    const short = MIN_REASON_WIDTH - (avail - used());
+    if (short <= 0) break;
+    const i = columns.findIndex((c) => c.head === head);
+    const w = widths[i] as number;
+    widths[i] = Math.max(60, w - short);
+  }
+  return widths;
 }
 
 export async function buildMrbPdf(model: MrbExportModel, opts: { compress?: boolean; logo?: boolean } = {}): Promise<jsPDF> {
@@ -213,11 +311,11 @@ export function renderMrbPdf(doc: jsPDF, autoTable: AutoTableFn, model: MrbExpor
   const span = mrbWindowLabel(model.from, model.to);
   doc.setProperties({ title: `Material Review Board — ${span}`, creator: "Altronic ARC" });
   const right = PAGE_W - MARGIN;
-  let y = 32;
+  let y = 24;
 
   if (logo) {
     try {
-      doc.addImage(`data:image/png;base64,${ALTRONIC_WORDMARK_BLACK_PNG}`, "PNG", MARGIN, y, 130, 130 / ALTRONIC_WORDMARK_ASPECT);
+      doc.addImage(`data:image/png;base64,${ALTRONIC_WORDMARK_BLACK_PNG}`, "PNG", MARGIN, y, 110, 110 / ALTRONIC_WORDMARK_ASPECT);
     } catch {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
@@ -227,65 +325,82 @@ export function renderMrbPdf(doc: jsPDF, autoTable: AutoTableFn, model: MrbExpor
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(0, 0, 0);
-  doc.text("MATERIAL REVIEW BOARD", right, y + 14, { align: "right" });
+  doc.text("MATERIAL REVIEW BOARD", right, y + 12, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(64, 64, 64);
-  doc.text(`Entries dated ${span}`, right, y + 28, { align: "right" });
   doc.text(
-    `Generated ${model.generatedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`,
+    `Entries dated ${span} · generated ${model.generatedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`,
     right,
-    y + 40,
+    y + 25,
     { align: "right" },
   );
 
-  y += 52;
+  y += 33;
   doc.setDrawColor(0xcb, 0xa0, 0x52);
   doc.setLineWidth(0.75);
   doc.line(MARGIN, y, right, y);
-  y += 18;
+  y += 14;
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(0, 0, 0);
   doc.text(
-    `${model.needs.length} need a disposition · ${model.decided.length} decided · ${money(
-      mrbCostTotal([...model.needs, ...model.decided]),
-    )} total cost`,
+    `${mrbExportSummary(model)} · ${money(mrbCostTotal([...model.needs, ...model.decided]))} total cost`,
     MARGIN,
     y,
   );
   y += 18;
 
-  const section = (title: string, note: string, entries: MrbEntry[], writeIn: boolean) => {
-    if (y > PAGE_H - 110) {
+  /** Start a new page if fewer than `need` points are left. */
+  const room = (need: number) => {
+    if (y > PAGE_H - need) {
       doc.addPage();
-      y = MARGIN + 10;
+      y = MARGIN + 8;
     }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`${title} (${entries.length})`, MARGIN, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(115, 115, 115);
-    doc.text(note, MARGIN, y + 11);
-    y += 18;
+  };
 
+  const columns = pdfColumns(model.needsOnly);
+  const all = [...model.needs, ...model.decided];
+  const totals = [model.needs, model.decided].flatMap((section) =>
+    splitByPlant(section).map((g) => money(mrbCostTotal(g.entries))),
+  );
+  const widths = pdfColumnWidths(doc, columns, all, totals);
+  const costCol = columns.findIndex((c) => c.head === "Cost");
+  const columnStyles = Object.fromEntries(
+    columns.map((column, i) => [
+      i,
+      { cellWidth: widths[i] ?? "auto", ...(column.align ? { halign: column.align } : {}) },
+    ]),
+  ) as UserOptions["columnStyles"];
+
+  const plantTable = (plant: MrbPlant, entries: MrbEntry[]) => {
+    // An empty table is one line saying so, never a header row over nothing.
+    room(entries.length ? 70 : 30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    const heading = `${plant} (${entries.length})`;
+    doc.text(heading, MARGIN, y);
     if (entries.length === 0) {
-      doc.setFontSize(9);
-      doc.setTextColor(64, 64, 64);
-      doc.text("None.", MARGIN, y + 8);
-      y += 28;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(115, 115, 115);
+      doc.text("None.", MARGIN + doc.getTextWidth(heading) + 6, y);
+      y += 14;
       return;
     }
+    y += 4;
+
+    const foot = columns.map(() => "");
+    foot[costCol - 1] = "Total";
+    foot[costCol] = money(mrbCostTotal(entries));
 
     autoTable(doc, {
       startY: y,
-      margin: { left: MARGIN, right: MARGIN, top: MARGIN, bottom: 40 },
-      head: [PDF_HEAD],
-      body: entries.map(pdfRow),
-      foot: [["", "", "", "", "", "Total", money(mrbCostTotal(entries)), "", "", ""]],
+      margin: { left: MARGIN, right: MARGIN, top: MARGIN, bottom: 30 },
+      head: [columns.map((c) => c.head)],
+      body: entries.map((entry) => columns.map((c) => c.value(entry))),
+      foot: [foot],
       showFoot: "lastPage",
       // An entry never splits across a page — half a row on each sheet is
       // unreadable at the meeting table.
@@ -293,38 +408,43 @@ export function renderMrbPdf(doc: jsPDF, autoTable: AutoTableFn, model: MrbExpor
       theme: "grid",
       styles: {
         font: "helvetica",
-        fontSize: 7.5,
-        cellPadding: 3,
+        fontSize: FONT_SIZE,
+        cellPadding: { top: 2, bottom: 2, left: PAD_X, right: PAD_X },
         textColor: [0, 0, 0],
         lineColor: [190, 190, 190],
         lineWidth: 0.5,
         valign: "top",
-        // Room to write the board's decision by hand.
-        minCellHeight: writeIn ? 30 : 0,
+        // No minimum height: a row is exactly as tall as its Reason wraps.
       },
-      headStyles: { fontStyle: "bold", fillColor: [235, 235, 235], minCellHeight: 0 },
-      footStyles: { fontStyle: "bold", fillColor: [255, 255, 255], minCellHeight: 0 },
-      columnStyles: {
-        0: { cellWidth: 52 },
-        1: { cellWidth: 66 },
-        2: { cellWidth: 58 },
-        3: { cellWidth: 100 },
-        4: { cellWidth: 70 },
-        5: { cellWidth: 30, halign: "right" },
-        6: { cellWidth: 56, halign: "right" },
-        7: { cellWidth: 60 },
-        8: { cellWidth: "auto" },
-        9: { cellWidth: 82 },
-      },
+      headStyles: { fontStyle: "bold", fillColor: [235, 235, 235] },
+      footStyles: { fontStyle: "bold", fillColor: [255, 255, 255] },
+      columnStyles,
       // columnStyles reach the body only; line the Qty / Cost headings and
       // the total up with the figures beneath them.
       didParseCell: (data) => {
-        if (data.section !== "body" && (data.column.index === 5 || data.column.index === 6)) {
+        if (data.section !== "body" && columns[data.column.index]?.align === "right") {
           data.cell.styles.halign = "right";
         }
       },
     });
-    y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y) + 24;
+    y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y) + 14;
+  };
+
+  const section = (title: string, note: string, entries: MrbEntry[]) => {
+    room(90);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    const heading = `${title} (${entries.length})`;
+    doc.text(heading, MARGIN, y);
+    const headingWidth = doc.getTextWidth(heading);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(115, 115, 115);
+    doc.text(note, MARGIN + headingWidth + 8, y);
+    y += 14;
+    for (const group of splitByPlant(entries)) plantTable(group.plant, group.entries);
+    y += 6;
   };
 
   section(
@@ -333,9 +453,10 @@ export function renderMrbPdf(doc: jsPDF, autoTable: AutoTableFn, model: MrbExpor
       ? "Every live entry still waiting on a decision, whatever its date."
       : "Live entries in this window still waiting on a decision.",
     model.needs,
-    true,
   );
-  section("DECIDED", "Live entries in this window that already have a disposition.", model.decided, false);
+  if (!model.needsOnly) {
+    section("DECIDED", "Live entries in this window that already have a disposition.", model.decided);
+  }
 
   const pages = doc.getNumberOfPages();
   for (let p = 1; p <= pages; p++) {
@@ -343,7 +464,7 @@ export function renderMrbPdf(doc: jsPDF, autoTable: AutoTableFn, model: MrbExpor
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(115, 115, 115);
-    doc.text(`MRB · ${span} · Page ${p} of ${pages}`, right, PAGE_H - 20, { align: "right" });
+    doc.text(`MRB · ${span} · Page ${p} of ${pages}`, right, PAGE_H - 14, { align: "right" });
   }
 }
 
@@ -377,6 +498,7 @@ export async function buildMrbWorkbook(excel: typeof ExcelJS, model: MrbExportMo
     { header: "Price Per Unit", width: 14 },
     { header: "Cost", width: 14 },
     { header: "Where Caused", width: 18 },
+    { header: "Plant", width: 12 },
     { header: "Disposition", width: 18 },
     { header: "Reason", width: 48 },
     { header: "Comments", width: 40 },
@@ -386,7 +508,7 @@ export async function buildMrbWorkbook(excel: typeof ExcelJS, model: MrbExportMo
   const title = sheet.addRow(["Material Review Board", mrbWindowLabel(model.from, model.to)]);
   title.font = { bold: true, size: 13 };
   sheet.addRow([
-    `${model.needs.length} need a disposition · ${model.decided.length} decided`,
+    mrbExportSummary(model),
     `Generated ${model.generatedAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`,
   ]);
   sheet.addRow([]);
@@ -398,7 +520,12 @@ export async function buildMrbWorkbook(excel: typeof ExcelJS, model: MrbExportMo
   });
   const headerRow = header.number;
 
-  for (const entry of [...model.needs, ...model.decided]) {
+  // Main plant, then Panels, within each section — the PDF's order — with a
+  // Plant column to filter on rather than a Yes / No.
+  const ordered = [model.needs, model.decided].flatMap((section) =>
+    splitByPlant(section).flatMap((group) => group.entries),
+  );
+  for (const entry of ordered) {
     const row = sheet.addRow([
       statusLabel(entry),
       entry.mrbDate,
@@ -410,6 +537,7 @@ export async function buildMrbWorkbook(excel: typeof ExcelJS, model: MrbExportMo
       entry.pricePerUnit,
       entry.pricePerIssue,
       entry.whereCaused,
+      mrbPlant(entry),
       dispositionText(entry),
       entry.reason,
       entry.notes,

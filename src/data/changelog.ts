@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.219.0",
+    date: "2026-11-11",
+    changes: [
+      "MRB entries can be marked as coming from the panel department: a Panel department Yes/No on New Entry and on the Nonconformance card, starting at No",
+      "The MRB register has a Panel column you can sort and filter, and a Panel department filter that works on a phone too and can be shared as a link",
+      "The MRB meeting export splits each section into a Main plant table and a Panels table; the Excel workbook has a Plant column to filter on",
+      "The MRB export can be just the entries needing a disposition: pick Needs disposition only and the Decided section and the Disposition column are left out",
+      "The MRB export PDF fits on fewer pages: dates as mm/dd/yy, the Altronic Part Number column headed Old Material, every column but Reason kept to one line, and each row only as tall as its Reason",
+      "The MRB list fits the screen without scrolling sideways: long descriptions and vendors are shortened (hover for the full text), and on narrower screens Altronic Part Number and Where Caused are hidden",
+    ],
+  },
+  {
     version: "0.218.0",
     date: "2026-11-06",
     changes: [

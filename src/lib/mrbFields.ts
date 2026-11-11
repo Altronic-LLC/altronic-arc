@@ -46,7 +46,8 @@ export type MrbFieldKind =
   | "number"
   | "currency"
   | "date"
-  | "choice";
+  | "choice"
+  | "boolean";
 
 export interface MrbField {
   /** Domain key — a property of `MrbEntry`, or a key of `entry.provenance`. */
@@ -112,6 +113,20 @@ export const MRB_FIELDS: MrbField[] = [
     kind: "choice",
     choices: MRB_WHERE_CAUSED,
     section: "Nonconformance",
+  },
+  {
+    // BusinessIT#71 (Tim, 2026-11-11): marks an entry as coming from the
+    // panel department, for sorting and filtering in reporting. A real
+    // boolean column, so blank is No — every row predating it reads No.
+    // **The column must exist before the deploy that selects it** — run
+    // scripts/add-mrb-panel-column.ps1. Selecting a column the list hasn't
+    // got 400s the whole read.
+    key: "panelDepartment",
+    column: "PanelDepartment",
+    label: "Panel department",
+    kind: "boolean",
+    section: "Nonconformance",
+    hint: "Yes if this entry came from the panel department.",
   },
   {
     key: "disposition",

@@ -157,6 +157,7 @@ export async function createMrbEntry(input: MrbEntryInput): Promise<MrbEntry> {
       pricePerUnit: input.pricePerUnit,
       pricePerIssue: input.pricePerIssue,
       notes: input.notes.trim(),
+      panelDepartment: input.panelDepartment,
       comments: [],
       watchers: [],
       // ARC only ever creates live entries — the import owns "Legacy".
@@ -211,6 +212,7 @@ export async function updateMrbEntry(
       pricePerUnit: input.pricePerUnit,
       pricePerIssue: input.pricePerIssue,
       notes: input.notes.trim(),
+      panelDepartment: input.panelDepartment,
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];

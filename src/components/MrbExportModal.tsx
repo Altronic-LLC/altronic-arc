@@ -7,6 +7,7 @@ import {
   generateMrbWorkbook,
   mrbCostTotal,
   mrbExportFileName,
+  mrbExportSummary,
   mrbPresetRange,
   mrbRangeProblem,
   selectMrbExport,
@@ -28,6 +29,12 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // whatever its date — the board's backlog is the point of the meeting.
 // =============================================================================
 
+// "Needs disposition only" leaves the Decided section out (Tim, 2026-11-11).
+const SCOPES = [
+  { value: "all", label: "Needs disposition + decided" },
+  { value: "needs", label: "Needs disposition only" },
+];
+
 const FORMATS = [
   { value: "pdf", label: "PDF (to print)" },
   { value: "xlsx", label: "Excel" },
@@ -38,6 +45,7 @@ export function MrbExportModal({ entries, onClose }: { entries: MrbEntry[]; onCl
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [includeAllOpen, setIncludeAllOpen] = useState(true);
+  const [needsOnly, setNeedsOnly] = useState(false);
   const [format, setFormat] = useState<MrbExportFormat>("pdf");
   const [busy, setBusy] = useState(false);
 
@@ -53,8 +61,8 @@ export function MrbExportModal({ entries, onClose }: { entries: MrbEntry[]; onCl
 
   const problem = mrbRangeProblem(from, to);
   const model = useMemo(
-    () => selectMrbExport(entries, { from, to, includeAllOpen }),
-    [entries, from, to, includeAllOpen],
+    () => selectMrbExport(entries, { from, to, includeAllOpen, needsOnly }),
+    [entries, from, to, includeAllOpen, needsOnly],
   );
   const count = model.needs.length + model.decided.length;
 
@@ -150,6 +158,20 @@ export function MrbExportModal({ entries, onClose }: { entries: MrbEntry[]; onCl
             {problem && <p className="mt-1 text-xs text-cooper-red">{problem}</p>}
           </div>
 
+          <div>
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+              What to export
+            </span>
+            <ChoicePills
+              label="What to export"
+              name="mrb-export-scope"
+              options={SCOPES}
+              value={needsOnly ? "needs" : "all"}
+              onChange={(v) => setNeedsOnly(v === "needs")}
+              disabled={busy}
+            />
+          </div>
+
           <label className="flex items-start gap-2 text-sm text-fg">
             <input
               type="checkbox"
@@ -186,9 +208,11 @@ export function MrbExportModal({ entries, onClose }: { entries: MrbEntry[]; onCl
               "Nothing to export for these dates."
             ) : (
               <>
-                {model.needs.length} need a disposition · {model.decided.length} decided ·{" "}
+                {mrbExportSummary(model)} ·{" "}
                 {formatMoney(mrbCostTotal([...model.needs, ...model.decided]))}
-                <span className="block text-xs text-fg-muted">Archive entries are never included.</span>
+                <span className="block text-xs text-fg-muted">
+                  Main plant and Panels print as separate tables. Archive entries are never included.
+                </span>
               </>
             )}
           </p>
