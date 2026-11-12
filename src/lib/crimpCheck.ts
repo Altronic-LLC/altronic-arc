@@ -67,7 +67,7 @@ export function parseCrimpReading(raw: string): number | null {
 /**
  * Does this reading look like MILLIMETRES?
  *
- * The 342-271-30 measures 0–20 mm or 0–0.8", switchable, so a micrometer left
+ * The 342-371-32 measures 0–20 mm or 0–0.8", switchable, so a micrometer left
  * in mm sends 0.99 where 0.039 was meant. Against a known nominal that's ~25×;
  * anything 10× the nominal or more isn't a crimp. With no nominal, nothing on
  * these sheets is half an inch tall.
@@ -124,11 +124,15 @@ export function snapshotOf(spec: CrimpSpec): CrimpSpecSnapshot {
 // Labels
 // -----------------------------------------------------------------------------
 
-/** A crimp height for display: 3 decimals, a 4th only when it means something (0.0386). */
+/**
+ * A crimp height for display: 3 decimals, then a 4th and 5th only when they
+ * mean something (0.0386, 0.03875). The 342-371-32 reads to 0.00005", so 4
+ * decimals rounded a reading the micrometer showed: 0.04205 against .040 ±
+ * .002 is judged High and printed "0.042", which reads as in spec.
+ */
 export function formatCrimp(value: number | null): string {
   if (value === null) return "—";
-  const four = value.toFixed(4);
-  return four.endsWith("0") ? value.toFixed(3) : four;
+  return value.toFixed(5).replace(/(\.\d{3}\d*?)0+$/, "$1");
 }
 
 /** "0.040 ± 0.002", or a sentence when the spec has no figure yet. */
