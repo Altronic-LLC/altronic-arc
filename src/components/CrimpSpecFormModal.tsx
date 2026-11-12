@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
-import type { CrimpSpec, CrimpSpecInput } from "@/types/crimp";
+import type { CrimpMachineRef, CrimpSpec, CrimpSpecInput } from "@/types/crimp";
 import { crimpLimits, formatCrimp } from "@/lib/crimpCheck";
+import { crimpMachineOptions } from "@/lib/crimpMachines";
+import { useCrimpMachines } from "@/hooks/useCrimpChecks";
+import { MultiSelect } from "./SearchableSelect";
 
 interface CrimpSpecFormModalProps {
   /** Omit to add; pass one to edit it. */
@@ -37,7 +40,20 @@ export function CrimpSpecFormModal({ spec, busy, onClose, onSave }: CrimpSpecFor
   const [crimpHeight, setCrimpHeight] = useState(spec?.crimpHeight == null ? "" : String(spec.crimpHeight));
   const [tolerance, setTolerance] = useState(spec?.tolerance == null ? "" : String(spec.tolerance));
   const [notes, setNotes] = useState(spec?.notes ?? "");
+  const [machineIds, setMachineIds] = useState<string[]>(() => (spec?.machines ?? []).map((m) => String(m.id)));
   const [error, setError] = useState<string | null>(null);
+
+  const { data: allMachines = [], isLoading: machinesLoading, error: machinesError } = useCrimpMachines();
+  const machineOptions = useMemo(
+    () => crimpMachineOptions(allMachines, spec?.machines ?? []),
+    [allMachines, spec],
+  );
+  /** Picked ids → refs, named from the register (or the spec's own copy). */
+  const pickedMachines: CrimpMachineRef[] = machineIds.map((id) => {
+    const n = Number(id);
+    const name = allMachines.find((m) => m.id === n)?.name ?? spec?.machines.find((m) => m.id === n)?.name ?? "";
+    return { id: n, name };
+  });
 
   const height = parseInches(crimpHeight);
   const tol = parseInches(tolerance);
@@ -67,6 +83,7 @@ export function CrimpSpecFormModal({ spec, busy, onClose, onSave }: CrimpSpecFor
         crimpHeight: height,
         tolerance: tol,
         notes,
+        machines: pickedMachines,
         active: spec?.active ?? true,
       });
     } catch (err) {
@@ -117,6 +134,23 @@ export function CrimpSpecFormModal({ spec, busy, onClose, onSave }: CrimpSpecFor
           {text("Manufacturer part #", manufacturerPartNumber, setManufacturerPartNumber, { mono: true })}
           {text("Applicator S/N or colour", applicator, setApplicator, { mono: true, placeholder: "e.g. L91410" })}
           {text("Wire gauge (AWG)", wireGauge, setWireGauge, { placeholder: "e.g. 18" })}
+        </div>
+
+        <div className="flex flex-col gap-1.5" role="group" aria-label="Machines">
+          <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">Machines</span>
+          <MultiSelect
+            allLabel={machinesLoading ? "Loading machines…" : "No machine picked"}
+            searchPlaceholder="Search presses…"
+            options={machineOptions}
+            selected={machineIds}
+            onChange={setMachineIds}
+            variant="chips"
+          />
+          <span className="text-[11px] text-fg-muted">
+            {machinesError
+              ? "Couldn't read the asset list, so no machines can be picked right now. The spec still saves."
+              : "Every machine this spec runs on, from the asset list (presses in a Harness location, and the Schleuniger crimp center). A spec with no machine is offered on every machine."}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">

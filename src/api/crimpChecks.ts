@@ -27,6 +27,10 @@ import { MOCK_CRIMP_CHECKS } from "@/data/crimpMockData";
 // `SpecRef` is a SINGLE lookup into Crimp Specs: read as a bare
 // `SpecRefLookupId`, written as a bare integer. The spec's figures are COPIED
 // onto the check as well, so an edited spec never re-judges old checks.
+//
+// `MachineRef` is the press the check was taken on — a SINGLE lookup into the
+// Altronic Equipment List, a bare integer both ways — with its name copied
+// into `Machine`.
 // =============================================================================
 
 export type CrimpCheckScope = { kind: "year"; year: number } | { kind: "all" };
@@ -130,6 +134,7 @@ function mockCheck(id: number, input: CrimpCheckInput, prev?: CrimpCheck): Crimp
     verifierClock: input.verifierClock.trim().toUpperCase(),
     harnessOrAssembly: input.harnessOrAssembly.trim(),
     workOrder: input.workOrder.trim(),
+    machine: input.machine ? { ...input.machine } : null,
     notes: input.notes,
     createdAt: prev?.createdAt ?? now,
     modifiedAt: now,

@@ -1,4 +1,6 @@
 import { toLookupId, toNumberOrNull } from "./graphValues";
+import { multiLookupField } from "./graphFields";
+import { parseMachineRefs } from "./crimpMachines";
 import {
   buildCrimpCheckTitle,
   crimpAverage,
@@ -25,12 +27,12 @@ import {
 
 export const CRIMP_SPEC_SELECT =
   "Title,ManufacturerPartNumber,Applicator,WireGauge,TableHeight,WireSetting," +
-  "InsulationSetting,CrimpHeight,Tolerance,Notes,Active";
+  "InsulationSetting,CrimpHeight,Tolerance,Notes,Active,Machines";
 
 export const CRIMP_CHECK_SELECT =
   "Title,CheckedAt,CheckPoint,ClockNumber,SpecRefLookupId,Terminal,WireGauge,Applicator," +
   "CrimpHeight,Tolerance,Reading1,Reading2,Reading3,Average,OutOfSpec,ApplicatorChange," +
-  "VerifierClock,HarnessOrAssembly,WorkOrder,Notes";
+  "VerifierClock,HarnessOrAssembly,WorkOrder,Machine,MachineRefLookupId,Notes";
 
 function text(raw: unknown): string {
   return typeof raw === "string" ? raw : raw === null || raw === undefined ? "" : String(raw);
@@ -60,6 +62,9 @@ export function toCrimpSpec(item: GraphListItem): CrimpSpec {
     crimpHeight: toNumberOrNull(f.CrimpHeight),
     tolerance: toNumberOrNull(f.Tolerance),
     notes: text(f.Notes),
+    // A MULTI lookup into the Altronic Equipment List. Names may be missing;
+    // the API fills them from the register.
+    machines: parseMachineRefs(f.Machines, f.MachinesLookupId),
     active: bool(f.Active, true),
   };
 }
@@ -78,6 +83,11 @@ export function buildCrimpSpecFields(input: CrimpSpecInput): Record<string, unkn
     Tolerance: input.tolerance,
     Notes: input.notes,
     Active: input.active,
+    // The annotated two-key shape — a bare array is a 400. [] clears it.
+    ...multiLookupField(
+      "Machines",
+      input.machines.map((m) => m.id),
+    ),
   };
 }
 
@@ -119,6 +129,7 @@ export function toCrimpCheck(item: GraphListItem): CrimpCheck {
     verifierClock: text(f.VerifierClock),
     harnessOrAssembly: text(f.HarnessOrAssembly),
     workOrder: text(f.WorkOrder).trim(),
+    machine: toMachine(f.MachineRefLookupId, f.Machine),
     notes: text(f.Notes),
     createdAt: new Date(item.createdDateTime),
     modifiedAt: new Date(item.lastModifiedDateTime),
@@ -154,8 +165,20 @@ export function buildCrimpCheckFields(input: CrimpCheckInput): Record<string, un
     VerifierClock: input.verifierClock.trim().toUpperCase(),
     HarnessOrAssembly: input.harnessOrAssembly.trim(),
     WorkOrder: input.workOrder.trim(),
+    // A bare integer — MachineRef is a SINGLE lookup — plus the name copied,
+    // so the check still says which press after the asset is renamed.
+    MachineRefLookupId: input.machine?.id ?? null,
+    Machine: input.machine?.name ?? "",
     Notes: input.notes,
   };
+}
+
+/** A check's press: the lookup id with its copied name; a name alone still counts. */
+function toMachine(rawId: unknown, rawName: unknown): CrimpCheck["machine"] {
+  const id = toLookupId(rawId);
+  const name = text(rawName).trim();
+  if (id === null && !name) return null;
+  return { id: id ?? 0, name: name || `Asset #${id}` };
 }
 
 /** Newest first; undated last. */

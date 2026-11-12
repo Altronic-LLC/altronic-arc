@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.223.0",
+    date: "2026-11-12",
+    changes: [
+      "Crimp specs now list the machines they run on, picked from the crimp presses in the asset list; one spec can name several presses",
+      "A new crimp height check starts by picking the press, and then offers only that press's specs, plus any spec with no machine set yet",
+      "ARC remembers the press you last recorded a check on, on that computer",
+      "The crimp log and the out-of-spec email show the press a check was taken on, and the log's Machine column sorts and filters",
+    ],
+  },
+  {
     version: "0.219.0",
     date: "2026-11-11",
     changes: [

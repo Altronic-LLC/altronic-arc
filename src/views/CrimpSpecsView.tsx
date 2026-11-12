@@ -20,6 +20,7 @@ import { CrimpSpecFormModal } from "@/components/CrimpSpecFormModal";
 import type { SortColumn } from "@/lib/tableSort";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
 import { formatCrimp, gaugeLabel, specText } from "@/lib/crimpCheck";
+import { machineNames } from "@/lib/crimpMachines";
 import { cn } from "@/lib/cn";
 import type { CrimpSpec } from "@/types/crimp";
 
@@ -38,6 +39,9 @@ const SPEC_COLUMNS = (usage: Map<number, number>): SortColumn<CrimpSpec>[] => [
   { key: "terminal", label: "Terminal", value: (s) => s.terminal },
   { key: "wireGauge", label: "Gauge", value: (s) => gaugeLabel(s.wireGauge) },
   { key: "applicator", label: "Applicator", value: (s) => s.applicator },
+  // One value per spec (the names joined), so the column filter offers each
+  // combination of presses as it appears in the cell.
+  { key: "machines", label: "Machines", value: (s) => machineNames(s.machines) || "Not set" },
   { key: "manufacturerPartNumber", label: "Mfr part #", value: (s) => s.manufacturerPartNumber, noFilter: true },
   {
     key: "crimpHeight",
@@ -84,11 +88,14 @@ export function CrimpSpecsView() {
 
   const retiredCount = specs.filter((s) => !s.active).length;
   const noHeightCount = specs.filter((s) => s.active && s.crimpHeight === null).length;
+  const noMachineCount = specs.filter((s) => s.active && s.machines.length === 0).length;
   const filtered = useMemo(() => {
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     return specs.filter((s) => {
       if (!showRetired && !s.active) return false;
-      const hay = [s.terminal, s.applicator, s.wireGauge, s.manufacturerPartNumber, s.notes].join(" ").toLowerCase();
+      const hay = [s.terminal, s.applicator, s.wireGauge, s.manufacturerPartNumber, machineNames(s.machines), s.notes]
+        .join(" ")
+        .toLowerCase();
       return tokens.every((t) => hay.includes(t));
     });
   }, [specs, query, showRetired]);
@@ -122,7 +129,7 @@ export function CrimpSpecsView() {
           <div className="min-w-0">
             <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">Crimp Specs</h1>
             <p className="text-xs text-fg-muted">
-              What each terminal's crimp should measure, by applicator and wire gauge, in inches. The limits count as in spec.
+              What each terminal's crimp should measure, by applicator and wire gauge, in inches, and the presses it runs on. The limits count as in spec.
             </p>
           </div>
         </div>
@@ -152,8 +159,14 @@ export function CrimpSpecsView() {
             Show {retiredCount.toLocaleString()} retired
           </label>
         )}
+        {noMachineCount > 0 && (
+          <span className="text-xs font-medium text-fg-muted sm:ml-auto">
+            {noMachineCount} {noMachineCount === 1 ? "spec has" : "specs have"} no machine set, so{" "}
+            {noMachineCount === 1 ? "it's" : "they're"} offered on every press.
+          </span>
+        )}
         {noHeightCount > 0 && (
-          <span className="text-xs font-medium text-ajax-yellow sm:ml-auto">
+          <span className={cn("text-xs font-medium text-ajax-yellow", noMachineCount === 0 && "sm:ml-auto")}>
             {noHeightCount} {noHeightCount === 1 ? "spec has" : "specs have"} no crimp height yet, so checks against{" "}
             {noHeightCount === 1 ? "it" : "them"} can't be judged.
           </span>
@@ -181,7 +194,7 @@ export function CrimpSpecsView() {
         </div>
       ) : (
         <div className="scroll-elegant overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[900px] border-collapse text-sm">
+          <table className="w-full min-w-[1050px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-2 text-left">
                 {columns.map((c) => (
@@ -200,6 +213,9 @@ export function CrimpSpecsView() {
                     <td className="px-3 py-2 font-mono text-[13px] font-medium">{s.terminal}</td>
                     <td className="whitespace-nowrap px-3 py-2">{gaugeLabel(s.wireGauge) || "—"}</td>
                     <td className="px-3 py-2 font-mono text-[12px]">{s.applicator || "—"}</td>
+                    <td className={cn("px-3 py-2 text-[12px]", s.machines.length === 0 && "text-fg-muted")}>
+                      {machineNames(s.machines) || "Not set"}
+                    </td>
                     <td className="px-3 py-2 font-mono text-[12px] text-fg-muted">{s.manufacturerPartNumber || "—"}</td>
                     <td className={cn("whitespace-nowrap px-3 py-2 font-mono text-[12px]", s.crimpHeight === null && "text-ajax-yellow")}>
                       {s.crimpHeight === null ? "Not set" : `${formatCrimp(s.crimpHeight)} ± ${formatCrimp(s.tolerance)}`}
