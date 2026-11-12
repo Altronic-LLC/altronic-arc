@@ -51,6 +51,7 @@ export function buildCrimpOutOfSpecEmails(args: {
     line("Terminal", c.terminal, true),
     line("Wire gauge", gaugeLabel(c.wireGauge)),
     line("Applicator", c.applicator),
+    line("Machine", c.machine?.name ?? ""),
     line("Spec", `${specText(c.crimpHeight, c.tolerance)} in`, true),
     `<div style="font-size:14px;">Readings: ${readings}</div>`,
     line("Average", formatCrimp(c.average)),
