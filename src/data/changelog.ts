@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.223.0",
+    version: "0.220.0",
     date: "2026-11-12",
     changes: [
       "Crimp specs now list the machines they run on, picked from the crimp presses in the asset list; one spec can name several presses",
