@@ -11,7 +11,33 @@
 //                          at the start of a run, every 100 terminations, or
 //                          the end of the run (Tim, 2026-10-27: one entry per
 //                          check, not one per paper column).
+//
+// Machines (Tim and the Harness manager, 2026-11-12): a spec names the crimp
+// PRESSES it runs on — picked from the Altronic Equipment List (the CMMS asset
+// register), filtered to presses in a Harness location. One terminal can run
+// on different applicators on different machines; the check form asks which
+// press first and offers only that press's specs.
 // =============================================================================
+
+/** A press a spec runs on — an Altronic Equipment List row, by its item id. */
+export interface CrimpMachineRef {
+  id: number;
+  /** The asset's `Title`, e.g. "AMP PRESS #1". */
+  name: string;
+}
+
+/**
+ * An Altronic Equipment List row as the crimp screens see it. Every asset is
+ * read (a spec may point at one that has since moved or retired); only
+ * `isCrimpMachine` ones are OFFERED in a picker.
+ */
+export interface CrimpMachine extends CrimpMachineRef {
+  equipmentType: string;
+  serialNo: string;
+  /** The Maintenance Location's title, or the legacy Location choice. */
+  location: string;
+  retired: boolean;
+}
 
 /** One row of the Crimp Specs list. Measurements are INCHES. */
 export interface CrimpSpec {
@@ -32,6 +58,12 @@ export interface CrimpSpec {
   /** ± tolerance, inches. */
   tolerance: number | null;
   notes: string;
+  /**
+   * `Machines` — a MULTI lookup into the Altronic Equipment List: every press
+   * this spec runs on. Empty = not assigned yet, and then the check form
+   * offers it under every machine rather than hiding it.
+   */
+  machines: CrimpMachineRef[];
   /** A missing `Active` reads as active — a row created outside ARC must not vanish. */
   active: boolean;
 }
@@ -80,6 +112,13 @@ export interface CrimpCheck extends CrimpSpecSnapshot {
   harnessOrAssembly: string;
   /** The production work order the run is for — free text, optional. */
   workOrder: string;
+  /**
+   * The press the check was taken on: `MachineRef` (a SINGLE lookup into the
+   * Altronic Equipment List) and `Machine`, its name COPIED at save so the
+   * check still says which press after the asset is renamed. Null on checks
+   * recorded before machines existed.
+   */
+  machine: CrimpMachineRef | null;
   notes: string;
   createdAt: Date;
   modifiedAt: Date;
@@ -95,5 +134,6 @@ export interface CrimpCheckInput {
   verifierClock: string;
   harnessOrAssembly: string;
   workOrder: string;
+  machine: CrimpMachineRef | null;
   notes: string;
 }

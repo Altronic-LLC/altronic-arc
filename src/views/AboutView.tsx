@@ -98,7 +98,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Harness department (lazy-loaded)",
-        hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · PullTestsView · PullTestSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · usePullTests · useMark10Tester · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · pullTests · pullTestSpecs · mark10Serial (Web Serial, the tester over USB) · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpAlerts · pullTest (a pull at the minimum passes) · mark10 · pullTestAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
+        hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · PullTestsView · PullTestSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · usePullTests · useMark10Tester · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · crimpMachines (its own read of the asset register's presses — no Operations import) · pullTests · pullTestSpecs · mark10Serial (Web Serial, the tester over USB) · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpMachines (presses in a Harness location, plus SCHCC36S by name; a spec with no machine is offered on every press) · crimpAlerts · pullTest (a pull at the minimum passes) · mark10 · pullTestAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
         palette: "ui",
       },
       {
@@ -206,7 +206,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Operations Alert Recipients", hint: "Altronic_PMO site — who each Operations email goes to (out-of-spec coating checks); ARC admins pick people in ARC, no redeploy", palette: "list" },
       { label: "Harness Production Log", hint: "Altronic_PMO site — one row per harness built, imported from the old Access database; read a year at a time on the indexed ProductionDate", palette: "list" },
       { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
-      { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge; ARC admins manage, delete only when unused", palette: "list" },
+      { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge, and the presses it runs on (a multi lookup into the Altronic Equipment List); ARC admins manage, delete only when unused", palette: "list" },
       { label: "Crimp Height Checks", hint: "Altronic_PMO site — three micrometer readings per check, the spec's figures copied on; read a year at a time on the indexed CheckedAt", palette: "list" },
       { label: "Pull Test Specs", hint: "Altronic_PMO site — minimum pull force per terminal + gauge, a manufacturer's or an industry standard's (blank terminal = any); ARC admins manage", palette: "list" },
       { label: "Pull Tests", hint: "Altronic_PMO site — up to five pulls per test off the Mark-10 WT-205, the spec's minimum copied on; read a year at a time on the indexed TestedAt", palette: "list" },
@@ -1289,6 +1289,8 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "reading1–3 / average", type: "number", kind: "field" },
       { name: "outOfSpec", type: "bool", kind: "field" },
       { name: "applicatorChange / harnessOrAssembly / workOrder / notes", type: "text", kind: "field" },
+      { name: "machineId (MachineRef)", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "machine (copied)", type: "text", kind: "field" },
     ],
   },
   {
@@ -1317,6 +1319,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "manufacturerPartNumber", type: "text", kind: "field" },
       { name: "crimpHeight / tolerance", type: "number", kind: "field" },
       { name: "wire / insulation setting, table height", type: "text", kind: "field" },
+      { name: "machines (Machines)", type: "int[]", kind: "fk", references: "AltronicEquipment.id" },
       { name: "notes", type: "text", kind: "field" },
       { name: "active", type: "bool", kind: "field" },
     ],
@@ -2221,6 +2224,9 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "CrimpCheck", fromColumn: "specId (SpecRef)", toTable: "CrimpSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // Pull Tests — the same shape, into their own specs.
   { fromTable: "PullTest", fromColumn: "specId (SpecRef)", toTable: "PullTestSpec", toColumn: "id", fromCard: "many", toCard: "one" },
+  // The presses: a spec names several, a check the one it was taken on.
+  { fromTable: "CrimpSpec", fromColumn: "machines (Machines)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "CrimpCheck", fromColumn: "machineId (MachineRef)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
   // Conformal Coating Checks — one single lookup into the admin-managed specs.
   { fromTable: "CoatingCheck", fromColumn: "specId (SpecRef)", toTable: "CoatingSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.

@@ -9,13 +9,16 @@
 
       Crimp Specs           Title (shown "Terminal"), ManufacturerPartNumber,
                             Applicator, WireGauge, TableHeight, WireSetting,
-                            InsulationSetting, CrimpHeight, Tolerance, Notes, Active
+                            InsulationSetting, CrimpHeight, Tolerance, Notes, Active,
+                            Machines (MULTI LOOKUP -> Altronic Equipment List)
       Crimp Height Checks   Title (app-derived), CheckedAt, CheckPoint,
                             ClockNumber, SpecRef (LOOKUP -> Crimp Specs),
                             Terminal, WireGauge, Applicator, CrimpHeight,
                             Tolerance (copied from the spec), Reading1-3,
                             Average, OutOfSpec, ApplicatorChange,
-                            VerifierClock, HarnessOrAssembly, WorkOrder, Notes
+                            VerifierClock, HarnessOrAssembly, WorkOrder,
+                            MachineRef (LOOKUP -> Altronic Equipment List),
+                            Machine (the press's name, copied), Notes
       Harness Alert Recipients
                             Title (shown "Name"), Email, Alert (choice:
                             "Crimp out of spec" / "Part number request") -
@@ -30,7 +33,13 @@
     - CheckedAt is INDEXED. ARC reads the log one year at a time, and past
       5,000 rows SharePoint refuses a $filter on an unindexed column.
     - SpecRef is a SINGLE lookup: Graph returns a bare SpecRefLookupId and ARC
-      writes a bare integer.
+      writes a bare integer. MachineRef is the same.
+    - Machines (2026-11-12) is a MULTI lookup into the Altronic Equipment List
+      (the CMMS asset register, same site): every press a spec runs on. ARC
+      writes it with the Collection(Edm.Int32) annotation.
+    - THIS SCRIPT MUST RUN BEFORE THE DEPLOY that reads Machines / MachineRef /
+      Machine. Selecting a column a list hasn't got fails the WHOLE read, so
+      the crimp screens would go blank. It only adds what is missing.
     - WireGauge and the three settings are TEXT. The spec sheet has
       "0.5 mm2 or 20" and "E-1".
     - Every column is then WRITTEN AND READ BACK with a throwaway row (and the
@@ -46,7 +55,9 @@
 [CmdletBinding()]
 param(
     [switch]$WhatIf,
-    [switch]$DeviceCode
+    [switch]$DeviceCode,
+    # The Altronic Equipment List - where the presses are. Same site.
+    [string]$EquipmentListId = "6f2fb6e1-3b41-40de-b78b-2c43c3c3d068"
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,7 +85,10 @@ $specColumns = @(
     @{ name = "Tolerance"; displayName = "Tolerance (+/- in)"; number = $inches },
     @{ name = "Notes"; displayName = "Notes"; text = $plainNote },
     @{ name = "Active"; displayName = "Active"; boolean = @{}
-       description = "Untick to retire a spec. It stops being offered for new checks; checks already using it keep it." }
+       description = "Untick to retire a spec. It stops being offered for new checks; checks already using it keep it." },
+    @{ name = "Machines"; displayName = "Machines"
+       lookup = @{ listId = $EquipmentListId; columnName = "Title"; allowMultipleValues = $true }
+       description = "The crimp presses this spec runs on, from the Altronic Equipment List. Blank = offered on every press." }
 )
 
 # The Alert choices are src/types/harness.ts HARNESS_ALERTS - change both together.
@@ -109,6 +123,10 @@ function Get-CheckColumns($specsListId) {
         @{ name = "VerifierClock"; displayName = "Verifier's Clock #"; text = @{} },
         @{ name = "HarnessOrAssembly"; displayName = "Harness or Assembly"; text = @{} },
         @{ name = "WorkOrder"; displayName = "Work Order"; text = @{} },
+        @{ name = "MachineRef"; displayName = "Machine (asset)"
+           lookup = @{ listId = $EquipmentListId; columnName = "Title" } },
+        @{ name = "Machine"; displayName = "Machine"; text = @{}
+           description = "The press's name, copied when the check is saved." },
         @{ name = "Notes"; displayName = "Notes"; text = $plainNote }
     )
 }
@@ -200,19 +218,26 @@ if ($recipientsId) {
 # --- write and read back every column ---------------------------------------
 if (-not $WhatIf -and $specsId -and $checksId) {
     Write-Host "`n=== Write/read-back check ===" -ForegroundColor Cyan
+    # Any real asset will do for the machine lookups - nothing is written to it.
+    $asset = (Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$EquipmentListId/items?`$top=1&`$expand=fields(`$select=Title)").value[0]
+    $assetId = [int]$asset.id
     $specFields = @{
         Title = "ARC-VERIFY"; ManufacturerPartNumber = "verify"; Applicator = "VERIFY"; WireGauge = "0.5 mm2 or 20"
         TableHeight = "0.15"; WireSetting = "E-1"; InsulationSetting = "1.2"; CrimpHeight = 0.0405; Tolerance = 0.002
         Notes = "verify"; Active = $false
     }
+    $specPost = $specFields.Clone()
+    $specPost["MachinesLookupId@odata.type"] = "Collection(Edm.Int32)"
+    $specPost["MachinesLookupId"] = @($assetId)
     $spec = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$specsId/items" -ContentType "application/json" `
-        -Body (@{ fields = $specFields } | ConvertTo-Json -Depth 4)
+        -Body (@{ fields = $specPost } | ConvertTo-Json -Depth 4)
     $checkFields = @{
         Title = "ARC-VERIFY"; CheckedAt = "2026-01-15T14:30:00Z"; CheckPoint = "In process"; ClockNumber = "999"
         SpecRefLookupId = [int]$spec.id; Terminal = "ARC-VERIFY"; WireGauge = "18"; Applicator = "VERIFY"
         CrimpHeight = 0.0405; Tolerance = 0.002; Reading1 = 0.0386; Reading2 = 0.039; Reading3 = 0.0425
         Average = 0.03987; OutOfSpec = $true; ApplicatorChange = "verify"; VerifierClock = "998"
         HarnessOrAssembly = "verify"; WorkOrder = "1000209528"; Notes = "verify"
+        MachineRefLookupId = $assetId; Machine = "VERIFY PRESS"
     }
     $row = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$checksId/items" -ContentType "application/json" `
         -Body (@{ fields = $checkFields } | ConvertTo-Json -Depth 4)
@@ -242,6 +267,11 @@ if (-not $WhatIf -and $specsId -and $checksId) {
         $problem = Compare-Field "specs $k" $specFields[$k] $specBack.fields[$k]
         if ($problem) { $bad += $problem }
     }
+    # A multi lookup reads back as [{ LookupId, LookupValue }].
+    $machinesBack = @($specBack.fields["Machines"] | ForEach-Object { [int]$_["LookupId"] })
+    if ($machinesBack.Count -ne 1 -or $machinesBack[0] -ne $assetId) {
+        $bad += "specs Machines = '$($machinesBack -join ",")' (wrote '$assetId')"
+    }
     if ($recipientsId) {
         $recipientFields = @{ Title = "ARC-VERIFY"; Email = "verify@example.com"; Alert = "Part number request" }
         $rec = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$recipientsId/items" -ContentType "application/json" `
@@ -266,6 +296,7 @@ Write-Host "`n=== Next ===" -ForegroundColor Cyan
 if ($specsId)  { Write-Host "  VITE_SP_CRIMP_SPECS_LIST_ID = $specsId" -ForegroundColor Green }
 if ($checksId) { Write-Host "  VITE_SP_CRIMP_CHECKS_LIST_ID = $checksId" -ForegroundColor Green }
 if ($recipientsId) { Write-Host "  VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID = $recipientsId" -ForegroundColor Green }
+Write-Host "  Machines / MachineRef / Machine must exist BEFORE the deploy that reads them." -ForegroundColor Yellow
 Write-Host "  Set all three as repo variables and redeploy, then load the spec sheet with" -ForegroundColor Gray
 Write-Host "  scripts/load-crimp-specs.ps1 (report first, then -Apply), and pick who is emailed" -ForegroundColor Gray
 Write-Host "  in ARC: Harness > Crimp Height Checks > Who's notified." -ForegroundColor Gray

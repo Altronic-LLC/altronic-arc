@@ -2632,7 +2632,7 @@ const SECTIONS: ManualSection[] = [
       "alert recipients",
     ],
     searchText:
-      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the terminal (each spec is a terminal, wire gauge and applicator), pick Start, In process or End, enter your clock number and the three readings in inches. The micrometer's Bluetooth transmitter types each reading and presses Enter, which moves to the next box. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks, failed pull tests and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with how many checks used it; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
+      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the machine (the crimp press you're on, remembered for next time on that computer), then the terminal (each spec is a terminal, wire gauge and applicator; only that press's specs are offered, plus any with no machine set yet), pick Start, In process or End, enter your clock number and the three readings in inches. The micrometer's Bluetooth transmitter types each reading and presses Enter, which moves to the next box. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks, failed pull tests and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with the presses it runs on and how many checks used it; a spec can run on several presses, picked from the crimp machines in the asset list; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
     render: () => (
       <>
         <P>
@@ -2647,9 +2647,16 @@ const SECTIONS: ManualSection[] = [
         <H3>Recording a check</H3>
         <UL>
           <LI>
-            Click <strong>New check</strong> and pick the <strong>terminal</strong>.
-            Each choice is a terminal, wire gauge and applicator, with its crimp
-            height and tolerance shown beside it.
+            Click <strong>New check</strong> and pick the{" "}
+            <strong>machine</strong>: the crimp press you're working on. ARC
+            remembers it for the next check on that computer.
+          </LI>
+          <LI>
+            Pick the <strong>terminal</strong>. Each choice is a terminal, wire
+            gauge and applicator, with its crimp height and tolerance shown
+            beside it. Only the specs for that press are offered, followed by
+            any spec that hasn't had a machine set yet (marked{" "}
+            <em>no machine set</em>).
           </LI>
           <LI>
             Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
@@ -2707,14 +2714,21 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Crimp specs</H3>
         <P>
-          The <strong>Specs</strong> button lists every spec with how many checks
-          used it. Anyone can see it; <strong>ARC admins</strong> add, edit,
-          retire or delete specs.
+          The <strong>Specs</strong> button lists every spec with the presses it
+          runs on and how many checks used it. Anyone can see it;{" "}
+          <strong>ARC admins</strong> add, edit, retire or delete specs.
         </P>
         <UL>
           <LI>
             There's one spec per terminal, applicator and wire gauge, because one
             applicator can crimp several gauges, each to its own height.
+          </LI>
+          <LI>
+            A spec lists the <strong>machines</strong> it runs on, picked from
+            the crimp machines in the asset list (presses in a Harness location,
+            and the Schleuniger crimp center).
+            One spec can name several presses. A spec with no machine is offered
+            on every press until one is set.
           </LI>
           <LI>
             <strong>Every check keeps the figures it was measured against</strong>,

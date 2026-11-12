@@ -5,7 +5,9 @@ import type { GraphListItem } from "@/types/task";
 import type { CrimpSpec, CrimpSpecInput } from "@/types/crimp";
 import { buildCrimpSpecFields, compareCrimpSpecs, CRIMP_SPEC_SELECT, toCrimpSpec } from "@/lib/crimpMapper";
 import { crimpSpecKey, crimpSpecLabel } from "@/lib/crimpCheck";
+import { withMachineNames } from "@/lib/crimpMachines";
 import { MOCK_CRIMP_SPECS } from "@/data/crimpMockData";
+import { listCrimpMachines } from "./crimpMachines";
 
 // =============================================================================
 // Crimp Specs — what each terminal's crimp should measure, on the PMO site.
@@ -20,6 +22,10 @@ import { MOCK_CRIMP_SPECS } from "@/data/crimpMockData";
 // has been measured against is RETIRED instead (Active = false): checks copy
 // the figures they were measured against, but their SpecRef lookup would
 // otherwise dangle.
+//
+// `Machines` is a MULTI lookup into the Altronic Equipment List — the presses
+// the spec runs on — written in Graph's annotated two-key shape. It is not
+// part of what makes a spec unique: one spec, several presses.
 // =============================================================================
 
 let mockStore: CrimpSpec[] = MOCK_CRIMP_SPECS.map((s) => ({ ...s }));
@@ -42,7 +48,14 @@ export async function listCrimpSpecs(): Promise<CrimpSpec[]> {
   const items = await graphFetchAll<GraphListItem>(
     `${itemsPath("read the crimp specs")}?$expand=fields($select=${CRIMP_SPEC_SELECT})&$top=999`,
   );
-  return items.map(toCrimpSpec).sort(compareCrimpSpecs);
+  const specs = items.map(toCrimpSpec);
+  // A multi lookup normally carries each machine's name; when one comes back
+  // as a bare id, name it from the register rather than show "Asset #12".
+  if (specs.some((s) => s.machines.some((m) => !m.name))) {
+    const machines = await listCrimpMachines().catch(() => []);
+    for (const s of specs) s.machines = withMachineNames(s.machines, machines);
+  }
+  return specs.sort(compareCrimpSpecs);
 }
 
 /**
@@ -141,7 +154,11 @@ export async function deleteCrimpSpec(id: number): Promise<void> {
 }
 
 async function readBack(id: number): Promise<CrimpSpec> {
-  return toCrimpSpec(
+  const spec = toCrimpSpec(
     await graphFetch<GraphListItem>(`${itemsPath("read a crimp spec")}/${id}?$expand=fields($select=${CRIMP_SPEC_SELECT})`),
   );
+  if (spec.machines.some((m) => !m.name)) {
+    spec.machines = withMachineNames(spec.machines, await listCrimpMachines().catch(() => []));
+  }
+  return spec;
 }

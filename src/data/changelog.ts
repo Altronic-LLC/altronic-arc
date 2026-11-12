@@ -20,8 +20,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.220.0",
-    date: "2026-11-11",
+    version: "0.221.0",
+    date: "2026-11-12",
     changes: [
       "New under Harness: Pull Tests, a log of pulls on the Mark-10 WT-205 tester at the start of a run, in process and at the end, judged against each terminal's minimum pull force",
       "In Chrome or Edge, connect the tester over USB and each pull's peak fills the next box by itself; pulls can still be typed, and each test records whether they were read or typed",
@@ -30,6 +30,16 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Each test records how it failed, such as the wire broke or it pulled out of the crimp, picked from the answers already used or typed new",
       "After each reading from the tester the cursor moves to the next empty pull box, then to How it failed",
       "The test form and the manual list the tester settings that work, and what to do for a pull under 10 lbF",
+    ],
+  },
+  {
+    version: "0.220.0",
+    date: "2026-11-12",
+    changes: [
+      "Crimp specs now list the machines they run on, picked from the crimp presses in the asset list; one spec can name several presses",
+      "A new crimp height check starts by picking the press, and then offers only that press's specs, plus any spec with no machine set yet",
+      "ARC remembers the press you last recorded a check on, on that computer",
+      "The crimp log and the out-of-spec email show the press a check was taken on, and the log's Machine column sorts and filters",
     ],
   },
   {

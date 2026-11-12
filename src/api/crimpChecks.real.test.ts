@@ -7,7 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 //  - Average / OutOfSpec / Title are written derived from the readings;
 //  - the year filter goes to SharePoint as a bare DateTimeOffset first, and a
 //    refusal falls back to reading the list whole, filtered here;
-//  - a duplicate spec (terminal + applicator + gauge) is refused before POST.
+//  - a duplicate spec (terminal + applicator + gauge) is refused before POST;
+//  - MachineRef is a SINGLE lookup (bare integer) with the name copied, and a
+//    spec's Machines is a MULTI lookup in the annotated two-key shape.
 // =============================================================================
 
 const graphFetch = vi.hoisted(() => vi.fn());
@@ -26,7 +28,7 @@ vi.mock("./config", async (importOriginal) => {
 });
 
 import { createCrimpCheck, listCrimpChecks, resetCrimpFilterProbe } from "./crimpChecks";
-import { createCrimpSpec } from "./crimpSpecs";
+import { createCrimpSpec, listCrimpSpecs } from "./crimpSpecs";
 import type { CrimpCheckInput } from "@/types/crimp";
 
 const meta = { createdDateTime: "2026-10-27T10:00:00Z", lastModifiedDateTime: "2026-10-27T10:00:00Z" };
@@ -47,6 +49,7 @@ const input: CrimpCheckInput = {
   verifierClock: "",
   harnessOrAssembly: "",
   workOrder: " 1000209528 ",
+  machine: { id: 71, name: "DEMO PRESS #1" },
   notes: "",
 };
 
@@ -63,7 +66,10 @@ describe("createCrimpCheck (real mode)", () => {
     const body = JSON.parse(init.body as string);
     expect(body.fields.SpecRefLookupId).toBe(5);
     expect(body.fields).toMatchObject({ OutOfSpec: true, Title: "900330 / 18 AWG / Start", Reading2: 0.045, WorkOrder: "1000209528" });
+    expect(body.fields.MachineRefLookupId).toBe(71);
+    expect(body.fields.Machine).toBe("DEMO PRESS #1");
     expect(graphFetch.mock.calls[1][0]).toContain("WorkOrder");
+    expect(graphFetch.mock.calls[1][0]).toContain("MachineRefLookupId");
     expect(Object.keys(body.fields).some((k) => k.includes("@odata.type"))).toBe(false);
     expect(created).toMatchObject({ id: 44, specId: 5, outOfSpec: true });
   });
@@ -109,9 +115,88 @@ describe("createCrimpSpec (real mode)", () => {
         crimpHeight: 0.09,
         tolerance: 0.002,
         notes: "",
+        machines: [{ id: 71, name: "DEMO PRESS #1" }],
         active: true,
       }),
     ).rejects.toThrow(/already has a spec/);
     expect(graphFetch).not.toHaveBeenCalled();
+  });
+
+  it("writes Machines as a multi lookup, annotated, and selects it on the read back", async () => {
+    graphFetchAll.mockResolvedValue([]);
+    graphFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return { id: "9" };
+      return {
+        id: "9",
+        fields: { Title: "900777", Machines: [{ LookupId: 71, LookupValue: "DEMO PRESS #1" }, { LookupId: 72, LookupValue: "DEMO PRESS #2" }] },
+        ...meta,
+      };
+    });
+    const created = await createCrimpSpec({
+      terminal: "900777",
+      manufacturerPartNumber: "",
+      applicator: "A9",
+      wireGauge: "20",
+      tableHeight: "",
+      wireSetting: "",
+      insulationSetting: "",
+      crimpHeight: 0.04,
+      tolerance: 0.002,
+      notes: "",
+      machines: [
+        { id: 71, name: "DEMO PRESS #1" },
+        { id: 72, name: "DEMO PRESS #2" },
+      ],
+      active: true,
+    });
+    const body = JSON.parse(graphFetch.mock.calls[0][1].body as string);
+    expect(body.fields["MachinesLookupId@odata.type"]).toBe("Collection(Edm.Int32)");
+    expect(body.fields.MachinesLookupId).toEqual([71, 72]);
+    expect(body.fields).not.toHaveProperty("Machines");
+    expect(graphFetch.mock.calls[1][0]).toContain("Machines");
+    expect(created.machines).toEqual([
+      { id: 71, name: "DEMO PRESS #1" },
+      { id: 72, name: "DEMO PRESS #2" },
+    ]);
+  });
+
+  it("clears Machines with an annotated empty array, never a bare one", async () => {
+    graphFetchAll.mockResolvedValue([]);
+    graphFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST" ? { id: "9" } : { id: "9", fields: { Title: "900778" }, ...meta },
+    );
+    await createCrimpSpec({
+      terminal: "900778",
+      manufacturerPartNumber: "",
+      applicator: "",
+      wireGauge: "",
+      tableHeight: "",
+      wireSetting: "",
+      insulationSetting: "",
+      crimpHeight: null,
+      tolerance: null,
+      notes: "",
+      machines: [],
+      active: true,
+    });
+    const body = JSON.parse(graphFetch.mock.calls[0][1].body as string);
+    expect(body.fields["MachinesLookupId@odata.type"]).toBe("Collection(Edm.Int32)");
+    expect(body.fields.MachinesLookupId).toEqual([]);
+  });
+});
+
+describe("listCrimpSpecs (real mode)", () => {
+  it("names a machine Graph returned as a bare id from the asset list", async () => {
+    graphFetchAll.mockImplementation(async (url: string) => {
+      if (url.includes("/lists/spec-list/")) {
+        return [{ id: "1", fields: { Title: "900101", Machines: [{ LookupId: 71 }] }, ...meta }];
+      }
+      if (url.includes("$select=Title,EquipmentType")) {
+        return [{ id: "71", fields: { Title: "DEMO PRESS #1", EquipmentType: "PRESS" }, ...meta }];
+      }
+      return [];
+    });
+    const specs = await listCrimpSpecs();
+    expect(specs[0].machines).toEqual([{ id: 71, name: "DEMO PRESS #1" }]);
   });
 });
