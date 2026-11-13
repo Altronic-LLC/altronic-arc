@@ -698,6 +698,9 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "projectReference", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "taskReference", type: "int", kind: "fk", references: "Task.id" },
       { name: "communication", type: "text", kind: "field" },
+      { name: "archived", type: "bool", kind: "field" },
+      { name: "legacySource", type: "text", kind: "field" },
+      { name: "legacyCreated", type: "date", kind: "field" },
     ],
   },
   {

@@ -798,6 +798,7 @@ src/
 │   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
+│   ├── panelOrderArchive.ts      Archived panel orders (moved from Panel Job Dashboard) — ?archived= scope, real created date, pickers skip them (pure)
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays, BOM parts + kits) + capacityPeople (who gets a Capacity row) (pure)
 │   ├── panelOrderTasks.ts        A Panel Order's standard tasks (pure) — defaults, titles, who's assigned, what's missing, the one email
@@ -6447,6 +6448,40 @@ rather than a bespoke multi-key sort, so it still plugs into the shared
 flipping direction reverses both the group order and the within-group date
 order together — accepted, since compressing two sort keys into one numeric
 value is the standard trade-off here).
+
+### Panel Orders — moving in the old Panel Job Dashboard (2026-11-13)
+
+The panel team's orders lived on **Panel Job Dashboard** (`7c74061d-…`, same
+ALTRONICPANELTEAM site, ~1,380 rows, 55 columns). ARC's **Panel Order
+Headers** had one test row, so the old orders are MOVED in by
+`scripts/move-panel-orders-to-arc.ps1` (Tim: "we don't need all the info").
+Dry run by default; `-ColumnsOnly`, `-Apply`, `-SkipShipped`, `-Limit`.
+
+- **Only the columns ARC has come across** — the script's `$FieldMap` /
+  `$StatusMap` are the mapping (Part Number → SAP #, Unit No. → Customer
+  Reference, Notes and Quote Ref appended to Order Notes; old statuses
+  folded into ARC's six). The old list is never changed.
+- **Three columns it adds**: `Archived` (yes/no — set when the old Status is
+  Shipped), `LegacySource` (`PanelJobDashboard#<id>`, indexed; a re-run skips
+  what's already moved and never rewrites it) and `LegacyCreated` (Graph
+  can't set Created, so ARC shows and sorts by this). ARC selects them and,
+  on a 400, retries without and remembers (the MRB Watchers arrangement), so
+  the deploy doesn't depend on the script having run.
+- **Archived is hidden by default** (`lib/panelOrderArchive.ts`): the list's
+  Active / Archived / All switch is `?archived=only|all`; status counts are
+  within the scope. Archived orders don't count on the Dashboard card, aren't
+  offered when linking a BOM (`pickableOrders` keeps the linked one), and
+  don't offer "Create standard tasks". Nothing stops editing one. There is
+  no un-archive control yet — edit the column in SharePoint.
+- **Engineer Assigned ids carry over as-is** — same site collection, so the
+  lookupIds mean the same people.
+- **The Status and Customer columns held "Choice 1/2/3" placeholders**; with
+  `-Apply` the script sets ARC's six statuses and the moved customers (needs
+  Manage Lists), which the New Order form then offers.
+- **The plan CSVs hold customer data**: `-OutDir` is required and refused
+  inside the repo.
+- **`getPanelOrder` reads ONE item** now (it read the whole list, which every
+  write re-reads through), and the list renders 150 rows with Show all.
 
 ### Panel Engineering Capacity + Panel Time Off (Panels, panelTeam site)
 

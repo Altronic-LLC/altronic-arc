@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.221.0",
+    date: "2026-11-13",
+    changes: [
+      "Panel Orders can hold the old Panel Job Dashboard orders: finished ones are marked Archived and hidden from the list until you pick Archived or All",
+      "An order moved from the old list says so on its page, and shows the date it was created there",
+      "The Panel Orders list shows the first 150 orders with a Show all button, so a long list stays quick",
+      "Archived orders aren't offered when linking a BOM to an order, don't count on the Dashboard card, and don't offer to create standard tasks",
+    ],
+  },
+  {
     version: "0.220.1",
     date: "2026-11-12",
     changes: [
