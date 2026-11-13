@@ -20,8 +20,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.221.0",
-    date: "2026-11-12",
+    version: "0.222.0",
+    date: "2026-11-13",
     changes: [
       "New under Harness: Pull Tests, a log of pulls on the Mark-10 WT-205 tester at the start of a run, in process and at the end, judged against each terminal's minimum pull force",
       "In Chrome or Edge, connect the tester over USB and each pull's peak fills the next box by itself; pulls can still be typed, and each test records whether they were read or typed",
@@ -30,6 +30,25 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Each test records how it failed, such as the wire broke or it pulled out of the crimp, picked from the answers already used or typed new",
       "After each reading from the tester the cursor moves to the next empty pull box, then to How it failed",
       "The test form and the manual list the tester settings that work, and what to do for a pull under 10 lbF",
+    ],
+  },
+  {
+    version: "0.221.0",
+    date: "2026-11-13",
+    changes: [
+      "Panel Orders can hold the old Panel Job Dashboard orders: finished ones are marked Archived and hidden from the list until you pick Archived or All",
+      "An order moved from the old list says so on its page, and shows the date it was created there",
+      "The Panel Orders list shows the first 150 orders with a Show all button, so a long list stays quick",
+      "Archived orders aren't offered when linking a BOM to an order, don't count on the Dashboard card, and don't offer to create standard tasks",
+    ],
+  },
+  {
+    version: "0.220.1",
+    date: "2026-11-12",
+    changes: [
+      "Crimp height readings and averages now show to 5 decimals when the micrometer gives them (0.03875), so a reading just over a limit no longer looks in spec",
+      "A crimp reading taken in millimetres now says to switch the micrometer to inches, instead of calling the check out of spec",
+      "The user manual describes sending each reading with the orange button on the micrometer's U-WAVE Bluetooth adaptor",
     ],
   },
   {

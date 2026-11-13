@@ -44,6 +44,11 @@ export function PanelOrderRow({ order, onOpen }: PanelOrderRowProps) {
       <div className="flex flex-col gap-2 sm:w-72 sm:shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <PanelOrderStatusBadge status={order.status} />
+          {order.archived && (
+            <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+              Archived
+            </span>
+          )}
           {hasMention && (
             <span className="rounded-full bg-cooper-red px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
               Mentioned

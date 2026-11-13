@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  Archive,
   ArrowLeft,
   Building2,
   Eye,
@@ -52,6 +53,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { convertToChecklist, toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { cn } from "@/lib/cn";
+import { legacyPanelOrderId, OLD_PANEL_ORDER_LIST, panelOrderCreatedAt } from "@/lib/panelOrderArchive";
 
 export function PanelOrderDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -201,6 +203,12 @@ export function PanelOrderDetailView() {
           <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <PanelOrderStatusBadge status={order.status} />
+              {order.archived && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                  <Archive className="h-3 w-3" />
+                  Archived
+                </span>
+              )}
               {order.projectRef && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg">
                   <FolderOpen className="h-3 w-3" />
@@ -230,6 +238,13 @@ export function PanelOrderDetailView() {
               </button>
             </div>
             <InlineTitle value={order.title} onSave={(next) => patch({ Title: next })} />
+            {order.legacySource && (
+              <p className="mt-2 text-xs text-fg-muted">
+                {order.archived ? "Archived — a finished order moved" : "Moved"} from the old{" "}
+                {OLD_PANEL_ORDER_LIST} list
+                {legacyPanelOrderId(order) !== null ? ` (item ${legacyPanelOrderId(order)})` : ""}.
+              </p>
+            )}
           </div>
 
           <OrderTasksCard order={order} />
@@ -416,12 +431,16 @@ export function PanelOrderDetailView() {
 
               <div className="border-t border-border pt-3 text-[11px] leading-relaxed text-fg-muted">
                 Created{" "}
-                {order.createdAt.toLocaleDateString(undefined, {
+                {panelOrderCreatedAt(order).toLocaleDateString(undefined, {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
                 })}
-                {order.author?.displayName ? ` by ${order.author.displayName}` : ""}
+                {order.legacyCreatedAt
+                  ? ` on ${OLD_PANEL_ORDER_LIST}`
+                  : order.author?.displayName
+                    ? ` by ${order.author.displayName}`
+                    : ""}
                 <br />
                 Modified{" "}
                 {order.modifiedAt.toLocaleString(undefined, {
@@ -588,7 +607,10 @@ function OrderTasksCard({ order }: { order: PanelOrder }) {
   const { data: templates = [] } = usePanelTaskTemplates();
   const raise = useRaiseMissingStandardTasks();
   const tasks = tasksForOrder(allTasks, order.id);
-  const missing = isLoading || isError ? [] : missingTemplates(order, templates, tasks);
+  // An archived order is finished — offering to raise its standard tasks
+  // would put work for a shipped order in somebody's capacity backlog.
+  const missing =
+    order.archived || isLoading || isError ? [] : missingTemplates(order, templates, tasks);
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
