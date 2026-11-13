@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ListTodo, PanelsTopLeft, Plus, X } from "lucide-react";
+import { Archive, ListTodo, PanelsTopLeft, Plus, X } from "lucide-react";
 import { usePanelOrderChoices, usePanelOrders, usePanelProjects } from "@/hooks/usePanelOrders";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { MultiSelect } from "@/components/SearchableSelect";
@@ -11,13 +11,28 @@ import { PANEL_ORDER_STATUSES, type PanelOrder, type Person } from "@/types/task
 import { cn } from "@/lib/cn";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { withPerson } from "@/lib/people";
+import {
+  archiveScopeParam,
+  inArchiveScope,
+  OLD_PANEL_ORDER_LIST,
+  panelOrderCreatedAt,
+  parseArchiveScope,
+  type PanelOrderArchiveScope,
+} from "@/lib/panelOrderArchive";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // =============================================================================
 // Panel Orders list view — modelled on BuildRequestsView/EirsView (status
 // pills + filter bar + row list). All filter axes live in the URL so a
-// filtered view is shareable: status, q, project, engineer, mine.
+// filtered view is shareable: status, q, project, engineer, mine, archived.
+//
+// Opens on ACTIVE orders: the finished orders moved from the old Panel Job
+// Dashboard list are archived and shown only on `?archived=only` / `all`
+// (lib/panelOrderArchive.ts). Only the first INITIAL_ROWS rows are put in
+// the DOM — filtering and every count still run over everything.
 // =============================================================================
+
+const INITIAL_ROWS = 150;
 
 type StatusFilter = PanelOrder["status"] | "ALL_OPEN" | null;
 
@@ -33,6 +48,15 @@ export function PanelOrdersView() {
   const [showNew, setShowNew] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const archiveScope = parseArchiveScope(searchParams.get("archived"));
+  const setArchiveScope = (scope: PanelOrderArchiveScope) => {
+    const sp = new URLSearchParams(searchParams);
+    const v = archiveScopeParam(scope);
+    if (v) sp.set("archived", v);
+    else sp.delete("archived");
+    setSearchParams(sp, { replace: true });
+  };
 
   const statusFilter = (searchParams.get("status") as StatusFilter) ?? null;
   const setStatus = (s: StatusFilter) => {
@@ -86,6 +110,7 @@ export function PanelOrdersView() {
     const searchTokens = tokenizeQuery(query);
     const mineKey = (mineEmail ?? "").toLowerCase();
     return orders.filter((o) => {
+      if (!inArchiveScope(o, archiveScope)) return false;
       if (mineKey) {
         const isMine =
           (o.engineerAssigned?.email ?? "").toLowerCase() === mineKey ||
@@ -102,7 +127,9 @@ export function PanelOrdersView() {
       if (searchTokens.length > 0 && !matchesSearch(o, searchTokens)) return false;
       return true;
     });
-  }, [orders, mineEmail, projectIds, engineerEmails, query]);
+  }, [orders, archiveScope, mineEmail, projectIds, engineerEmails, query]);
+
+  const archivedCount = useMemo(() => orders.filter((o) => o.archived).length, [orders]);
 
   const filtered = useMemo(
     () =>
@@ -112,7 +139,7 @@ export function PanelOrdersView() {
           if (statusFilter) return o.status === statusFilter;
           return true;
         })
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+        .sort((a, b) => panelOrderCreatedAt(b).getTime() - panelOrderCreatedAt(a).getTime()),
     [filteredByBar, statusFilter],
   );
 
@@ -122,6 +149,12 @@ export function PanelOrdersView() {
     return counts;
   }, [filteredByBar, statuses]);
   const openCount = filteredByBar.filter((o) => isOpen(o.status)).length;
+
+  // The cap is for the unfiltered list; a change of filter starts it again.
+  const [showAll, setShowAll] = useState(false);
+  const filterKey = searchParams.toString();
+  useEffect(() => setShowAll(false), [filterKey]);
+  const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
@@ -152,6 +185,41 @@ export function PanelOrdersView() {
           </button>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          role="group"
+          aria-label="Archived orders"
+          className="inline-flex overflow-hidden rounded-md border border-border bg-surface text-xs font-medium"
+        >
+          {(
+            [
+              ["active", "Active"],
+              ["archived", `Archived (${archivedCount})`],
+              ["all", "All"],
+            ] as const
+          ).map(([scope, label]) => (
+            <button
+              key={scope}
+              type="button"
+              aria-pressed={archiveScope === scope}
+              onClick={() => setArchiveScope(scope)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 transition-colors",
+                archiveScope === scope ? "bg-accent text-white" : "text-fg-muted hover:text-fg",
+              )}
+            >
+              {scope === "archived" && <Archive className="h-3.5 w-3.5" />}
+              {label}
+            </button>
+          ))}
+        </div>
+        {archiveScope !== "active" && (
+          <span className="text-xs text-fg-muted">
+            Archived orders are finished orders moved from the old {OLD_PANEL_ORDER_LIST} list.
+          </span>
+        )}
+      </div>
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap gap-2">
@@ -245,16 +313,28 @@ export function PanelOrdersView() {
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
           {orders.length === 0
             ? "No panel orders yet. Click 'New Panel Order' to create the first one."
-            : "No panel orders match the current filters."}
+            : archiveScope === "archived" && archivedCount === 0
+              ? "No archived panel orders."
+              : "No panel orders match the current filters."}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           <div className="text-xs text-fg-muted">
-            Showing {filtered.length} of {orders.length} panel orders
+            Showing {shown.length === filtered.length ? filtered.length : `${shown.length} of ${filtered.length} matching`}{" "}
+            of {orders.length} panel orders
           </div>
-          {filtered.map((o) => (
+          {shown.map((o) => (
             <PanelOrderRow key={o.id} order={o} onOpen={() => navigate(`/panels/order/${o.id}`)} />
           ))}
+          {shown.length < filtered.length && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="self-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+            >
+              Show all {filtered.length} orders
+            </button>
+          )}
         </div>
       )}
 
