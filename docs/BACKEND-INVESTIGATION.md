@@ -457,7 +457,9 @@ share those modules too.
 
 ## 10. What we need from IT
 
-1. An Azure subscription and resource group for ARC, and who owns the bill.
+1. An Azure subscription and resource group for ARC, and who owns the bill —
+   our own subscription in the existing tenant; §10a has the detail and a
+   request ready to send.
 2. Permission to add an exposed API scope to ARC's app registration, and an
    admin consent.
 3. Exchange admin: an RBAC-for-Applications management scope containing only
@@ -477,6 +479,100 @@ share those modules too.
 7. Whether a corporate standard already exists for Azure Functions hosting,
    Key Vault, or logging retention — if so, it goes into CLAUDE.md's policy
    section before anything is built.
+
+---
+
+## 10a. A subscription for the business unit, separate from corporate
+
+Item 1 above, in detail. What we'd ask for is **our own subscription inside
+the company's existing Entra tenant** — not a separate tenant. The backend
+has to live in the same tenant as SharePoint, Exchange and everyone's
+sign-ins: in another tenant the managed identity, the Sites.Selected grants
+and Exchange RBAC for Applications don't work, and every call would need
+cross-tenant consent.
+
+A separate subscription gives us our own billing and control over the Azure
+resources. It does **not** give us tenant-wide admin rights: app consent,
+SharePoint grants and Exchange stay with corporate IT either way.
+
+### Billing — who can create it
+
+Depends on the company's Microsoft agreement; ask IT which one it is.
+
+| Agreement | How a business-unit subscription is made | Who acts |
+| --- | --- | --- |
+| **Microsoft Customer Agreement (MCA)** | An **invoice section** for the business unit, then a subscription under it; costs show as their own line on the corporate bill | Billing account owner |
+| **Enterprise Agreement (EA)** | An **enrollment account** for the business unit, whose owner can create subscriptions | Enterprise admin |
+| **CSP (through a reseller)** | The partner creates it on request | Partner, via IT |
+| Pay-as-you-go on a card | Possible, but outside corporate billing and governance | Avoid — it reads as shadow IT and gets shut down |
+
+Also needed: a **cost centre** to charge it to, and **tags** for it
+(business unit, owner, app).
+
+### Placement — management group and policy
+
+Corporate likely has management groups with Azure Policy applied (allowed
+regions, required tags, central logging, sometimes "no public endpoints").
+The subscription inherits whatever applies where it is placed. Ask which
+management group it goes under, what policies apply there, and whether
+there is a landing-zone or sandbox tier for an application like this.
+
+**A "no public endpoints" policy is the one that matters most.** The
+Function App must be reachable from people's browsers; if that is denied,
+the design needs a private endpoint plus a front door, which costs more and
+needs network work.
+
+### Our access inside it
+
+- Ideally **Owner** for two named people (Tim and Ray), through PIM
+  (just-in-time elevation) if the company uses it.
+- If corporate keeps Owner: **Contributor** plus **Role Based Access Control
+  Administrator**, constrained to the Key Vault and Storage roles. Without a
+  role-assignment right we can't give the Function App's identity access to
+  Key Vault, and every deploy step becomes a ticket.
+- **Resource providers** registered: `Microsoft.Web`, `Microsoft.KeyVault`,
+  `Microsoft.Storage`, `Microsoft.Insights`,
+  `Microsoft.OperationalInsights`. Contributor can do this.
+
+### What still needs a tenant admin, separate subscription or not
+
+Items 2–4 and 6 above: exposing and consenting the API scope; granting Graph
+app roles (Sites.Selected) to the managed identity, which needs Privileged
+Role Administrator or Global Administrator; per-site Sites.Selected grants;
+the Exchange RBAC scope; Fabric service-principal access if a timer reads
+SAP.
+
+For GitHub → Azure deploys over OIDC, ask to put the federated credential
+on a **user-assigned managed identity in our subscription**, so we manage it
+ourselves instead of needing app-registration rights in Entra.
+
+### Security and logging baseline
+
+Ask whether corporate requires Defender for Cloud plans, diagnostic logs
+sent to a central Log Analytics workspace, a break-glass account, a naming
+convention, or a specific region — each can add cost or set-up.
+
+State up front that ARC needs **no virtual network, no VPN or ExpressRoute,
+and no on-premises connection**, so it isn't treated as a networked
+workload.
+
+### Cost guardrails
+
+A **budget with alerts** (say $50 a month, alerting at 80%). Expected spend
+is roughly **$10–30 a month** (§7), mostly Application Insights and Static
+Web Apps Standard.
+
+### The request, ready to send
+
+> We'd like an Azure subscription for Altronic / ARC in the existing tenant,
+> billed to [cost centre], under [management group]. We need Owner (or
+> Contributor + RBAC Administrator) for two named people. It will host one
+> Function App, Key Vault, Storage, Application Insights and a Static Web
+> App, with no networking to on-prem. Expected cost is under $50 a month,
+> with a budget alert. Separately we'll need the tenant-level grants listed
+> in our investigation (API scope + consent, a Graph app role,
+> Sites.Selected, an Exchange RBAC scope). Which agreement are we on (MCA,
+> EA or CSP), and are there policies or standards we need to follow?
 
 ---
 
