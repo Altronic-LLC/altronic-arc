@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.220.1",
+    date: "2026-11-12",
+    changes: [
+      "Crimp height readings and averages now show to 5 decimals when the micrometer gives them (0.03875), so a reading just over a limit no longer looks in spec",
+      "A crimp reading taken in millimetres now says to switch the micrometer to inches, instead of calling the check out of spec",
+      "The user manual describes sending each reading with the orange button on the micrometer's U-WAVE Bluetooth adaptor",
+    ],
+  },
+  {
     version: "0.220.0",
     date: "2026-11-12",
     changes: [

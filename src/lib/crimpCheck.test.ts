@@ -110,9 +110,13 @@ describe("shouldAlertOutOfSpec", () => {
 });
 
 describe("labels", () => {
-  it("formats crimp heights to 3 decimals, 4 when it matters", () => {
+  it("formats crimp heights to 3 decimals, up to 5 when they matter", () => {
     expect(formatCrimp(0.039)).toBe("0.039");
-    expect(formatCrimp(0.03867)).toBe("0.0387");
+    expect(formatCrimp(0.0386)).toBe("0.0386");
+    expect(formatCrimp(0.03867)).toBe("0.03867");
+    expect(formatCrimp(0.03875)).toBe("0.03875");
+    expect(formatCrimp(0.042)).toBe("0.042");
+    expect(formatCrimp(0.04)).toBe("0.040");
     expect(formatCrimp(0.002)).toBe("0.002");
     expect(formatCrimp(null)).toBe("—");
   });

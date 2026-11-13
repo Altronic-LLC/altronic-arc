@@ -8305,7 +8305,12 @@ Seven things that are load-bearing:
   moves to the next field (the CPU-95 `handleEnterAsTab`, with
   `data-enter-group` on every plain field so a SuggestInput's chevron is
   skipped). A reading **10× the nominal or more** (half an inch with no
-  nominal) is refused as millimetres — the 342-271-30 is switchable.
+  nominal) is refused as millimetres — the 342-371-32 is switchable. The
+  form then says so, not "out of spec", and shows no average. The
+  micrometer sends readings through a Mitutoyo U-WAVE Bluetooth adaptor
+  when its orange button is pressed. Readings show to 5 decimals
+  (`formatCrimp`): it reads to 0.00005", and 4 decimals printed 0.04205
+  (High) as "0.042".
 - **A spec with no crimp height (or no tolerance) can't judge a check** —
   five rows on the sheet have no height, one no tolerance. The check is still saved, as **Not judged**, never "In
   spec"; the specs screen counts them.

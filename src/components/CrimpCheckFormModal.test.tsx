@@ -112,9 +112,14 @@ describe("CrimpCheckFormModal", () => {
     await userEvent.type(within(dialog).getByRole("textbox", { name: "Reading 2" }), ".040");
     await userEvent.type(within(dialog).getByRole("textbox", { name: "Reading 3" }), ".040");
     expect(within(dialog).getByText(/Looks like mm/)).toBeInTheDocument();
+    // Not "out of spec": a reading in mm isn't a crimp height at all.
+    const status = within(dialog).getByRole("status");
+    expect(status).toHaveTextContent("Average —");
+    expect(status).toHaveTextContent(/looks like millimetres/i);
+    expect(status).not.toHaveTextContent(/out of spec/i);
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Record check" }));
-    expect(within(dialog).getByText(/looks like millimetres/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Reading 1 \(0\.99\) looks like millimetres/)).toBeInTheDocument();
     expect((await listCrimpChecks()).length).toBe(MOCK_CRIMP_CHECKS.length);
   });
 

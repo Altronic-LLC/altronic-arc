@@ -77,7 +77,8 @@ export function crimpSpecOptions(
  * Record or correct a crimp height check — three micrometer readings against
  * the spec for one terminal, applicator and gauge (BusinessIT#55).
  *
- * Built for the micrometer: its Bluetooth transmitter types the reading and
+ * Built for the micrometer (Mitutoyo 342-371-32): its U-WAVE Bluetooth
+ * adaptor types the reading when the orange button is pressed, and
  * presses Enter, so Enter moves to the NEXT field (never submits), the
  * CPU-95 scanner's arrangement. Each reading is judged as it lands, and one
  * that looks like millimetres is refused rather than saved as a giant crimp.
@@ -174,8 +175,11 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
   const limits = snapshot ? crimpLimits(snapshot.crimpHeight, snapshot.tolerance) : null;
   const readings = raw.map((r) => (r.trim() ? parseCrimpReading(r) : null)) as CrimpReadings;
   const average = crimpAverage(readings);
-  const out = isOutOfSpec(readings, limits);
-  const allIn = readings.every((v) => v !== null) && limits !== null && !out;
+  // A reading in millimetres isn't a crimp height: say THAT, not "out of
+  // spec", and don't average it in (the save refuses it anyway).
+  const inMillimetres = readings.some((v) => looksLikeMillimetres(v, snapshot?.crimpHeight ?? null));
+  const out = !inMillimetres && isOutOfSpec(readings, limits);
+  const allIn = !inMillimetres && readings.every((v) => v !== null) && limits !== null && !out;
 
   function handleEnterAsTab(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "Enter") return;
@@ -382,13 +386,15 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
               role="status"
               className={cn(
                 "flex flex-wrap items-baseline gap-x-3 text-sm",
-                out ? "font-semibold text-cooper-red" : allIn ? "text-cooper-green" : "text-fg-muted",
+                out || inMillimetres ? "font-semibold text-cooper-red" : allIn ? "text-cooper-green" : "text-fg-muted",
               )}
             >
-              <span>Average {formatCrimp(average)}</span>
+              <span>Average {inMillimetres ? "—" : formatCrimp(average)}</span>
               <span>
                 {!snapshot
                   ? "Pick the terminal to judge the readings."
+                  : inMillimetres
+                    ? "A reading looks like millimetres. Switch the micrometer to inches and measure again."
                   : !limits
                     ? "This spec has no crimp height yet, so the check can't be judged. Ask an ARC admin to fill it in."
                     : out
