@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Cable, Info, ListOrdered, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { BellRing, Cable, Info, ListOrdered, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   HARNESS_CONFIGURED,
   useDeleteHarnessLogEntry,
@@ -188,9 +188,19 @@ export function HarnessProductionLogView() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* ARC admins only (Tim, 2026-10-27) — they're the ones who change it. */}
+          {isAdmin && (
+            <Link
+              to="/harness/alert-recipients"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-fg"
+            >
+              <BellRing className="h-4 w-4" />
+              Who's notified
+            </Link>
+          )}
           <Link
-            to="/operations/harness-log/part-numbers"
+            to="/harness/production-log/part-numbers"
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-fg"
           >
             <ListOrdered className="h-4 w-4" />

@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ChevronDown,
   Cable,
+  Ruler,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -23,10 +24,14 @@ import {
   FileStack,
   FileText,
   FolderOpen,
+  Factory,
   Hammer,
   HardHat,
   LayoutDashboard,
+  Layers,
   ListChecks,
+  Gauge,
+  Package,
   Lock,
   MapPin,
   Megaphone,
@@ -58,6 +63,8 @@ import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE } from "@/api/config";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -66,6 +73,8 @@ import { useBuildRequestStatusChoices, useBuildRequests } from "@/hooks/useBuild
 import { withCurrentChoice } from "@/api/columnChoices";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
+import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
+import { isPanelTaskOpen } from "@/lib/panelTaskStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
@@ -223,10 +232,17 @@ const PANEL_ORDER_BAR_COLOR: Record<PanelOrderStatus, string> = {
 };
 
 const PANEL_TASK_BAR_COLOR: Record<PanelTaskStatus, string> = {
-  Pending: "bg-slate-400",
-  "In Process": "bg-ajax-yellow",
-  "On Hold": "bg-violet-500",
-  Complete: "bg-cooper-green",
+  New: "bg-slate-400",
+  "Pending Scheduling": "bg-slate-500",
+  Ready: "bg-cooper-green",
+  "In Progress": "bg-ajax-yellow",
+  "Revision Needed": "bg-cooper-red",
+  "Awaiting Pre-Req": "bg-superior-blue",
+  "Possible Support": "bg-violet-500",
+  Completed: "bg-cooper-green",
+  "On Hold - Approval": "bg-orange-500",
+  "On Hold - Internal": "bg-orange-400",
+  Canceled: "bg-slate-300",
 };
 
 /** Operations tasks have a single Assigned person, not Engineering's multi-person array. */
@@ -340,6 +356,7 @@ export function DashboardView() {
     refetch: refetchPanelOrders,
   } = panelOrdersQ;
   const panelTasksQ = usePanelTasks();
+  const panelTeam = usePanelTeamAccess();
   const {
     data: panelTasks = [],
     isError: panelTasksError,
@@ -569,6 +586,7 @@ export function DashboardView() {
     const active = panelOrders.filter(
       (o: PanelOrder) =>
         o.status !== "Shipped" &&
+        !o.archived &&
         (!mine ||
           personMatchesSingle(o.engineerAssigned, myEmail) ||
           personMatches(o.watchers, myEmail)),
@@ -587,10 +605,10 @@ export function DashboardView() {
     // this card — panel tasks reference the Panel Project Reference list.
     const active = panelTasks.filter(
       (t: PanelTask) =>
-        t.status !== "Complete" &&
-        (!mine || personMatchesSingle(t.assigned, myEmail) || personMatches(t.watchers, myEmail)),
+        isPanelTaskOpen(t.status) &&
+        (!mine || personMatches(t.assigned, myEmail) || personMatches(t.watchers, myEmail)),
     );
-    const segments: Segment[] = PANEL_TASK_STATUSES.filter((s) => s !== "Complete").map((s) => ({
+    const segments: Segment[] = PANEL_TASK_STATUSES.filter(isPanelTaskOpen).map((s) => ({
       label: s,
       count: active.filter((t) => t.status === s).length,
       color: PANEL_TASK_BAR_COLOR[s],
@@ -943,6 +961,29 @@ export function DashboardView() {
           to={panelTasksUrl}
           onClick={() => navigate(panelTasksUrl)}
         />
+        {/* Panel team only (BusinessIT#42). Blue like Panel Tasks: its numbers ARE those tasks. */}
+        {panelTeam.canOpen && (
+          <TypeCard
+            name="Panel Engineering Capacity"
+            icon={<Gauge className="h-5 w-5" />}
+            tone="superior-blue"
+            description="Who on the panel team is overloaded, day by day — tasks' hours against capacity and time off."
+            to="/panels/capacity"
+            onClick={() => navigate("/panels/capacity")}
+          />
+        )}
+        {/* BusinessIT#59 — panel Super Users during the limited demo, the panel team once
+            PANEL_BOM_LIVE is on. Red like Panel Orders: a BOM belongs to an order. */}
+        {panelTeam.canOpenBom && (
+          <TypeCard
+            name="Panel SAP BOM Builder"
+            icon={<Package className="h-5 w-5" />}
+            tone="cooper-red"
+            description="Pick parts and kits from the panel parts list and copy SAP-ready BOM lines into SAP."
+            to="/panels/bom-builder"
+            onClick={() => navigate("/panels/bom-builder")}
+          />
+        )}
         <TypeCard
           name="QC Time Tracking"
           icon={<Timer className="h-5 w-5" />}
@@ -959,6 +1000,10 @@ export function DashboardView() {
           to={"/panels/qc-issues"}
           onClick={() => navigate("/panels/qc-issues")}
         />
+        {/* "Coming soon" for everyone the BOM Builder's limited demo doesn't include. */}
+        {!PANEL_BOM_LIVE && !panelTeam.bomResolving && !panelTeam.canOpenBom && (
+          <PlaceholderCard name="Panel SAP BOM Builder" icon={<Package className="h-5 w-5" />} />
+        )}
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 
@@ -992,16 +1037,6 @@ export function DashboardView() {
           onClick={() => navigate("/operations/teradyne")}
         />
         <TypeCard
-          name="Harness Production Log"
-          icon={<Cable className="h-5 w-5" />}
-          // cooper-green: the fourth brand tone, the one this section hadn't used.
-          tone="cooper-green"
-          description="Every harness built — part, work order, quantity, rework, and who built and checked it."
-          // No count, like the Teradyne Log: an append-only log has no open state.
-          to={"/operations/harness-log"}
-          onClick={() => navigate("/operations/harness-log")}
-        />
-        <TypeCard
           name="Maintenance"
           icon={<Hammer className="h-5 w-5" />}
           // ajax-yellow: the other two Operations cards are superior-blue and
@@ -1018,6 +1053,45 @@ export function DashboardView() {
           }
           to={"/operations/maintenance/calendar"}
           onClick={() => navigate("/operations/maintenance/calendar")}
+        />
+        <TypeCard
+          name="Conformal Coating Checks"
+          icon={<Layers className="h-5 w-5" />}
+          // cooper-green: the one tone the Operations section hadn't used.
+          tone="cooper-green"
+          description="Coating thickness at the start of each shift, in mm or inches, judged against the spec — out-of-spec boards are emailed."
+          // No count, like the other logs.
+          to={"/operations/coating-checks"}
+          onClick={() => navigate("/operations/coating-checks")}
+        />
+        {/* MCNs — a real card once live (or for the pilot team), "Coming soon"
+            for everyone else, so the pilot stays private. */}
+        <McnCard onOpen={() => navigate("/operations/mcns")} />
+        <McnPlaceholder />
+      </DeptSection>
+
+      <DeptSection
+        title="Harness"
+        collapsed={collapsedSections.has("Harness")}
+        onToggle={() => toggleSection("Harness")}
+      >
+        <TypeCard
+          name="Harness Production Log"
+          icon={<Cable className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Every harness built — part, work order, quantity, rework, and who built and checked it."
+          // No count: an append-only log has no open state.
+          to={"/harness/production-log"}
+          onClick={() => navigate("/harness/production-log")}
+        />
+        <TypeCard
+          name="Crimp Height Checks"
+          icon={<Ruler className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Micrometer readings off the crimping area against each terminal's spec — out-of-spec crimps are emailed."
+          // No count, like the production log.
+          to={"/harness/crimp-checks"}
+          onClick={() => navigate("/harness/crimp-checks")}
         />
       </DeptSection>
 
@@ -1584,7 +1658,7 @@ function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
  */
 function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
   const { rights } = useMyPricingAccess();
-  if (!rights.canAccess) return null;
+  if (!rights.canOpen) return null;
   // "Pricing", with NO count (Ray, 2026-10-15) — a description card, like
   // Customers and Visit Reports, so the Dashboard reads no pricing list.
   // ajax-yellow: the one tone this section hadn't used.
@@ -1594,16 +1668,47 @@ function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
       icon={<Calculator className="h-5 w-5" />}
       tone="ajax-yellow"
       description="Price parts and new products from cost and margin, and build customer quotes."
-      to={"/sales/pricing"}
+      to={rights.canAccess ? "/sales/pricing" : "/sales/pricing/new-products"}
       onClick={onOpen}
     />
   );
 }
 
+/**
+ * Manufacturing Change Notices — shown to whoever can open the section (the
+ * pilot team, approvers, MCN admins and ARC admins until it goes live). A
+ * description card, no count: the Dashboard reads no MCN list.
+ *
+ * superior-blue is repeated on purpose: the Operations section's four cards
+ * already use all four tones, and blue pairs MCNs with Operational Tasks —
+ * an MCN often starts as a task.
+ */
+function McnCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyMcnAccess();
+  if (!MCNS_CONFIGURED || !rights.canOpen) return null;
+  return (
+    <TypeCard
+      name="MCNs"
+      icon={<Factory className="h-5 w-5" />}
+      tone="superior-blue"
+      description="Manufacturing Change Notices — process and equipment changes, approved and distributed."
+      to={"/operations/mcns"}
+      onClick={onOpen}
+    />
+  );
+}
+
+/** "MCNs — Coming soon" for everyone the pilot doesn't include. Sorted last. */
+function McnPlaceholder() {
+  const { rights, resolving } = useMyMcnAccess();
+  if (resolving || (MCNS_CONFIGURED && rights.canOpen)) return null;
+  return <PlaceholderCard name="MCNs" icon={<Factory className="h-5 w-5" />} />;
+}
+
 /** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */
 function SalesPricingPlaceholder() {
   const { rights } = useMyPricingAccess();
-  if (rights.canAccess) return null;
+  if (rights.canOpen) return null;
   return <PlaceholderCard name="Pricing" icon={<Calculator className="h-5 w-5" />} />;
 }
 

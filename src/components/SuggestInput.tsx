@@ -21,6 +21,14 @@ interface SuggestInputProps {
   onChange: (next: string) => void;
   /** Values already in use, most-used first. Shown as suggestions. */
   options: string[];
+  /**
+   * A bigger list searched ONLY once the person types — never shown just for
+   * opening the box. The coating check's Machine box opens on the machines
+   * already used, and typing also finds anything on the equipment register
+   * (Tim, 2026-11-04: "it should just be a small list"). Optional; every
+   * other caller passes nothing and behaves as before.
+   */
+  searchOptions?: string[];
   placeholder?: string;
   disabled?: boolean;
   /** Accessible name, when there's no visible <label> wrapping this. */
@@ -31,12 +39,22 @@ export function SuggestInput({
   value,
   onChange,
   options,
+  searchOptions,
   placeholder,
   disabled,
   ariaLabel,
 }: SuggestInputProps) {
   const [open, setOpen] = useState(false);
+  // Has the person typed since the list opened? Until they do, the WHOLE list
+  // shows. Filtering on a value the field merely started with — a name filled
+  // in for you, a value on an edit — left the list empty, so the box looked
+  // dead (Tim, 2026-11-04, the coating check's Operator and Machine).
+  const [typed, setTyped] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const openList = useCallback(() => {
+    setTyped(false);
+    setOpen(true);
+  }, []);
 
   // Same close rules as every other dropdown: focus leaving, another dropdown
   // opening, an outside click, Escape. See useDropdownClose.
@@ -45,16 +63,22 @@ export function SuggestInput({
 
   // Filter as you type, but keep every option available once the field matches
   // one exactly — otherwise picking a value collapses the list to just itself
-  // and you can't change your mind without clearing the box.
+  // and you can't change your mind without clearing the box. Before any typing
+  // (just opened), everything shows. Typing also searches `searchOptions`,
+  // after the matching `options`.
   const shown = useMemo(() => {
     const q = value.trim().toLowerCase();
-    if (!q) return options;
+    if (!q || !typed) return options;
     const exact = options.some((o) => o.toLowerCase() === q);
     if (exact) return options;
-    return options.filter((o) => o.toLowerCase().includes(q));
-  }, [options, value]);
+    const inOptions = new Set(options.map((o) => o.toLowerCase()));
+    const searched = (searchOptions ?? []).filter((o) => !inOptions.has(o.toLowerCase()));
+    return [...options, ...searched].filter((o) => o.toLowerCase().includes(q));
+  }, [options, searchOptions, value, typed]);
 
-  const isNew = value.trim() !== "" && !options.some((o) => o.toLowerCase() === value.trim().toLowerCase());
+  // Not "new" if it's on either list — a machine from the register isn't a typo.
+  const known = (o: string) => o.toLowerCase() === value.trim().toLowerCase();
+  const isNew = value.trim() !== "" && !options.some(known) && !(searchOptions ?? []).some(known);
 
   return (
     <div
@@ -79,9 +103,10 @@ export function SuggestInput({
           aria-label={ariaLabel}
           onChange={(e) => {
             onChange(e.target.value);
+            setTyped(true);
             if (!open) setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={openList}
           placeholder={placeholder}
           disabled={disabled}
           className="select flex-1 rounded-r-none"
@@ -89,7 +114,7 @@ export function SuggestInput({
         />
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => (open ? setOpen(false) : openList())}
           disabled={disabled || options.length === 0}
           aria-label="Show existing values"
           aria-expanded={open}

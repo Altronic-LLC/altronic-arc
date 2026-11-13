@@ -16,6 +16,7 @@ import type { BuildRequest, Person } from "@/types/task";
 import { withCurrentChoice } from "@/api/columnChoices";
 import { cn } from "@/lib/cn";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
+import { isUnlinkedBuildRequest } from "@/lib/buildRequestTaskLink";
 import { withPerson } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUnseenMentionSet } from "@/hooks/useUnseenMentions";
@@ -92,6 +93,14 @@ export function BuildRequestsView() {
   // "Mine" deep link from the Dashboard: requested-by OR engineer-assigned
   // matches this email. Shown as a dismissible chip (not a hidden filter) so
   // an empty result is self-explanatory.
+  // BusinessIT#58: requests linked to no task — the queue for linking them.
+  const unlinkedOnly = searchParams.get("unlinked") === "1";
+  const setUnlinkedOnly = (on: boolean) => {
+    const sp = new URLSearchParams(searchParams);
+    if (on) sp.set("unlinked", "1");
+    else sp.delete("unlinked");
+    setSearchParams(sp, { replace: true });
+  };
   const mineEmail = searchParams.get("mine");
   const clearMine = () => {
     const sp = new URLSearchParams(searchParams);
@@ -124,6 +133,7 @@ export function BuildRequestsView() {
           (b.engineerAssigned?.email ?? "").toLowerCase() === mineKey;
         if (!isMine) return false;
       }
+      if (unlinkedOnly && !isUnlinkedBuildRequest(b)) return false;
       if (projectIds.length > 0) {
         const matched = b.parentProjects.some((p) => projectIds.includes(p.lookupId));
         if (!matched) return false;
@@ -144,7 +154,7 @@ export function BuildRequestsView() {
       }
       return true;
     });
-  }, [brs, mineEmail, projectIds, engineerEmails, requestorEmail, query, itemsByHeader]);
+  }, [brs, mineEmail, unlinkedOnly, projectIds, engineerEmails, requestorEmail, query, itemsByHeader]);
 
   const filtered = useMemo(
     () =>
@@ -248,7 +258,22 @@ export function BuildRequestsView() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <Field label="Project Reference">
+        {/* A <div>, not Field's <label>: the checkbox carries its own label. */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+              Project Reference
+            </span>
+            <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-fg-muted hover:text-fg">
+              <input
+                type="checkbox"
+                checked={unlinkedOnly}
+                onChange={(e) => setUnlinkedOnly(e.target.checked)}
+                className="h-3.5 w-3.5 accent-accent"
+              />
+              Not linked to a task
+            </label>
+          </div>
           <MultiSelect
             allLabel="All projects"
             searchPlaceholder="Search projects…"
@@ -258,7 +283,7 @@ export function BuildRequestsView() {
               setProjectIds(next.map((v) => parseInt(v, 10)).filter((n) => !Number.isNaN(n)))
             }
           />
-        </Field>
+        </div>
         <Field label="Engineer Assigned">
           <MultiSelect
             allLabel="Anyone"

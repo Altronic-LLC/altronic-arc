@@ -24,7 +24,7 @@ describe("panelTasks mock CRUD", () => {
       taskType: "Drawings",
       projectLookupId: 1,
     });
-    expect(created.status).toBe("Pending");
+    expect(created.status).toBe("New");
     expect(created.taskType).toBe("Drawings");
     expect(created.projectRef?.title).toBe("P-0001");
 
@@ -35,19 +35,19 @@ describe("panelTasks mock CRUD", () => {
   it("updates fields (status + description)", async () => {
     const created = await createPanelTask({ title: "To Update" });
     const updated = await updatePanelTaskFields(created.id, {
-      Status: "In Process",
+      Status: "In Progress",
       Description: "- [ ] step one",
     });
-    expect(updated.status).toBe("In Process");
+    expect(updated.status).toBe("In Progress");
     expect(updated.description).toBe("- [ ] step one");
   });
 
-  it("sets and clears the single-person assignee", async () => {
+  it("sets and clears the assignees", async () => {
     const created = await createPanelTask({ title: "Assignable" });
-    const assigned = await setPanelTaskAssigned(created.id, RAY);
-    expect(assigned.assigned?.lookupId).toBe(36);
-    const cleared = await setPanelTaskAssigned(created.id, null);
-    expect(cleared.assigned).toBeNull();
+    const assigned = await setPanelTaskAssigned(created.id, [RAY]);
+    expect(assigned.assigned[0]?.lookupId).toBe(36);
+    const cleared = await setPanelTaskAssigned(created.id, []);
+    expect(cleared.assigned).toEqual([]);
   });
 
   it("changes and clears the project reference", async () => {

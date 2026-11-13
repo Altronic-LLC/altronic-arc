@@ -115,6 +115,44 @@ export function attachProjectTitles(tasks: Task[], projects: ProjectReference[])
 }
 
 /**
+ * Put one task, read on its own, into an already-loaded task list.
+ *
+ * A single-item read (`getTask`) carries none of the derived fields — the
+ * parent task's title and status, the child tasks, the project titles —
+ * because those come from the rest of the list. Pasting it in as-is blanked a
+ * project name and dropped a parent's children until the next full download.
+ * So they are re-derived here against the list it lands in. Project titles
+ * come from `projects` where given, else from any other cached row that names
+ * the same project.
+ *
+ * A task the list doesn't hold yet is added at the top, which is how a newly
+ * created one is seeded. Rows are shallow-copied before re-deriving, so the
+ * cached objects are never mutated.
+ */
+export function mergeTaskIntoList(
+  list: Task[],
+  server: Task,
+  projects: ProjectReference[] = [],
+): Task[] {
+  const known = new Map<number, ProjectReference>();
+  for (const t of list) {
+    if (t.parentProject?.title) known.set(t.parentProject.lookupId, t.parentProject);
+    for (const r of t.relatedProjects) if (r.title) known.set(r.lookupId, r);
+  }
+  for (const p of projects) known.set(p.lookupId, p);
+
+  const [row] = attachProjectTitles([{ ...server }], [...known.values()]);
+  let found = false;
+  const merged = list.map((t) => {
+    if (t.id !== server.id) return { ...t };
+    found = true;
+    return row;
+  });
+  if (!found) merged.unshift(row);
+  return attachTaskRelationships(merged);
+}
+
+/**
  * Child tasks of `task` that are NOT Complete — the ones blocking it from
  * being marked Complete itself. "Done" means `status === "Complete"`
  * exactly; every other status (including Blocked or On Hold) still counts

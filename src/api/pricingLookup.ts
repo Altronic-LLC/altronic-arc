@@ -1,6 +1,12 @@
 import { FABRIC_ENABLED, FABRIC_IN_DEMO, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
-import { fabricQuery, FabricAuthError, FabricNotConfiguredError, FabricRequestError } from "./fabric";
+import {
+  fabricQuery,
+  FabricAuthError,
+  FabricNotConfiguredError,
+  FabricRequestError,
+  isRetryableFabricFailure,
+} from "./fabric";
 import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
 import {
   pricingMockDb,
@@ -17,9 +23,12 @@ import {
   sapCustomersFromRows,
   type SapCustomerRow,
   SAP_PART_FIELDS,
+  SAP_LIST_PRICE_FIELDS,
+  currentListPrice,
   sapMaterialLookupKey,
   sapMaterialPlants,
   toSapPart,
+  type SapListPriceRow,
   type SapPartRow,
   SAP_MATERIAL_COST_FIELDS,
   toSapMaterialCost,
@@ -68,9 +77,10 @@ const norm = (s: string) => s.trim().toLowerCase();
 
 // -----------------------------------------------------------------------------
 // The Calculator's cost lookup — the FIRST real Fabric read (Ray, 2026-10-15).
-// One view, `rpt.vw_cogs_material_api`, exposed on the Fabric API for GraphQL
-// as `vw_cogs_material_apis`; field names match the SQL columns (confirmed
-// against a live query, 2026-10-15). Only the Calculator uses it — every
+// One TABLE, `tbl_cogs_material_api`, exposed on the Fabric API for GraphQL
+// as `tbl_cogs_material_apis`; field names match the SQL columns. It replaced
+// the view `rpt.vw_cogs_material_api` (Ray, 2026-10-20) — same six columns,
+// and a lookup by SAP # came back in ~0.3s against ~1.9s on the view. Only the Calculator uses it — every
 // other SAP fact above is still "not connected" until its own view exists.
 // -----------------------------------------------------------------------------
 
@@ -115,7 +125,7 @@ let warmed: Promise<void> | null = null;
 export function warmSapCostLookup(): Promise<void> {
   if (SAP_COST_LOOKUP_IS_DEMO || !FABRIC_ENABLED) return Promise.resolve();
   if (!warmed) {
-    warmed = fabricQuery("query { vw_cogs_material_apis(first: 1) { items { Plant } } }")
+    warmed = fabricQuery("query { tbl_cogs_material_apis(first: 1) { items { Plant } } }")
       .then(() => undefined)
       .catch(() => {
         // A failed warm-up (not signed in yet, say) is retried next time the
@@ -156,12 +166,12 @@ export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMat
   // ONE equality on Material and four columns — kept narrow for speed.
   // The number travels as a variable, never interpolated into the query.
   const query = `query($sap: String!) {
-  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { Material: { eq: $sap } }) {
+  tbl_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { Material: { eq: $sap } }) {
     items { ${SAP_MATERIAL_COST_FIELDS.join(" ")} }
   }
 }`;
-  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, { sap });
-  return sapMaterialPlants((data.vw_cogs_material_apis?.items ?? []).map(toSapMaterialCost));
+  const data = await fabricQuery<{ tbl_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, { sap });
+  return sapMaterialPlants((data.tbl_cogs_material_apis?.items ?? []).map(toSapMaterialCost));
 }
 
 /**
@@ -191,12 +201,7 @@ export function describeSapCostFailure(err: unknown): string {
  * fails the same way every time.
  */
 export function isRetryableSapCostFailure(err: unknown): boolean {
-  if (isPricingDataNotConnected(err) || err instanceof FabricNotConfiguredError || err instanceof FabricAuthError) return false;
-  if (err instanceof FabricRequestError) {
-    if (err.cause === "transport") return true;
-    return err.cause === "http" && (err.detail.status ?? 0) >= 500;
-  }
-  return true;
+  return !isPricingDataNotConnected(err) && isRetryableFabricFailure(err);
 }
 
 /**
@@ -208,16 +213,30 @@ export const SAP_PART_LOOKUP_LIVE = !USE_MOCK || FABRIC_IN_DEMO;
 /** Whether a part can be looked up at all — the demo always can; live needs Fabric. */
 export const SAP_PART_LOOKUP_CONNECTED = SAP_PART_LOOKUP_LIVE ? FABRIC_ENABLED : true;
 
-async function liveSapPartRows(column: "Material" | "OldMaterialNumber", value: string): Promise<SapPartRow[]> {
-  // ONE equality and six small columns, like the Calculator's lookup — the
-  // value travels as a variable, never interpolated.
+/** The list-price table keys the SAP # as `PartNumber`; the Altronic # has the same name in both. */
+const LIST_PRICE_COLUMN = { Material: "PartNumber", OldMaterialNumber: "OldMaterialNumber" } as const;
+
+/**
+ * A part's cost rows AND its list price, in ONE GraphQL request — two root
+ * fields, one round trip (checked live 2026-10-22: no slower than cost alone).
+ * Each table is ONE equality on one column; the value travels as a variable,
+ * never interpolated.
+ */
+async function liveSapPart(column: "Material" | "OldMaterialNumber", value: string): Promise<SapPart | null> {
   const query = `query($v: String!) {
-  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
+  tbl_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
     items { ${SAP_PART_FIELDS.join(" ")} }
   }
+  tbl_altronic_user_pricings(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${LIST_PRICE_COLUMN[column]}: { eq: $v } }) {
+    items { ${SAP_LIST_PRICE_FIELDS.join(" ")} }
+  }
 }`;
-  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapPartRow[] | null } | null }>(query, { v: value });
-  return data.vw_cogs_material_apis?.items ?? [];
+  const data = await fabricQuery<{
+    tbl_cogs_material_apis?: { items?: SapPartRow[] | null } | null;
+    tbl_altronic_user_pricings?: { items?: SapListPriceRow[] | null } | null;
+  }>(query, { v: value });
+  const listPrice = currentListPrice(data.tbl_altronic_user_pricings?.items ?? [], new Date());
+  return toSapPart(data.tbl_cogs_material_apis?.items ?? [], listPrice);
 }
 
 /**
@@ -228,8 +247,9 @@ async function liveSapPartRows(column: "Material" | "OldMaterialNumber", value: 
  * LIVE (Ray, 2026-10-17): from the cost view. A 10-digit SAP number is matched
  * against `Material`; otherwise the Altronic number against
  * `OldMaterialNumber`, upper-cased (old numbers carry letters). An SAP number
- * SAP doesn't hold falls back to the Altronic number when one was typed. The
- * view has no list price, so `listPrice` is null.
+ * SAP doesn't hold falls back to the Altronic number when one was typed.
+ * The list price comes from `tbl_altronic_user_pricing` in the same request
+ * (Ray, 2026-10-22) — null when it holds no current USD price for the part.
  */
 export async function lookupSapPart(args: { altronicPartNumber?: string; sapPartNumber?: string }): Promise<SapPart | null> {
   if (SAP_PART_LOOKUP_LIVE) {
@@ -237,10 +257,10 @@ export async function lookupSapPart(args: { altronicPartNumber?: string; sapPart
     const sapKey = sapMaterialLookupKey(args.sapPartNumber ?? "");
     const alt = (args.altronicPartNumber ?? "").trim().toUpperCase();
     if (sapKey) {
-      const part = toSapPart(await liveSapPartRows("Material", sapKey));
+      const part = await liveSapPart("Material", sapKey);
       if (part || !alt) return part;
     }
-    return alt ? toSapPart(await liveSapPartRows("OldMaterialNumber", alt)) : null;
+    return alt ? liveSapPart("OldMaterialNumber", alt) : null;
   }
   const sap = norm(args.sapPartNumber ?? "");
   const alt = norm(args.altronicPartNumber ?? "");

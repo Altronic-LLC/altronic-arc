@@ -76,6 +76,16 @@ export interface DrawingLogFieldSpec {
   sortKeys: string[];
   /** Placeholder for the search box, naming what's actually searchable. */
   searchPlaceholder: string;
+  /**
+   * The column the table opens sorted by. Omitted = the register's own
+   * most-recent-first order (`sortKeys`), until somebody clicks a header.
+   */
+  defaultSort?: { key: string; direction: "asc" | "desc" };
+  /**
+   * A NUMBER field the Add form fills with the next free number (highest + 1).
+   * Still editable before saving — Sketches' Sketch No. (2026-11-04).
+   */
+  autoNumberKey?: string;
 }
 
 /** Shared by CCC and CEC, which are column-for-column identical. */
@@ -167,6 +177,9 @@ export const DRAWING_LOG_FIELDS: Record<DrawingLogKind, DrawingLogFieldSpec> = {
     primaryKey: "title",
     sortKeys: ["dateRevised", "dateStarted"],
     searchPlaceholder: "Title, sketch no., Ventura…",
+    // Sketches are worked by number, newest first (Tim, 2026-11-04).
+    defaultSort: { key: "sketchNumber", direction: "desc" },
+    autoNumberKey: "sketchNumber",
   },
 };
 

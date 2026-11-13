@@ -66,6 +66,7 @@ function driftedEntry(): MrbEntry {
     pricePerUnit: null,
     pricePerIssue: null,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Legacy",
@@ -175,6 +176,7 @@ describe("createMrbEntry", () => {
       pricePerUnit: 30.75,
       pricePerIssue: 246,
       notes: "",
+      panelDepartment: false,
     });
 
     const post = graphFetch.mock.calls.find(
@@ -206,6 +208,7 @@ describe("createMrbEntry", () => {
       pricePerUnit: null,
       pricePerIssue: null,
       notes: "",
+      panelDepartment: false,
     });
 
     const post = graphFetch.mock.calls.find(

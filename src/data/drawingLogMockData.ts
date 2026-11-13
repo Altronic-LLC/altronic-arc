@@ -253,4 +253,16 @@ export const MOCK_DRAWING_LOGS: DrawingLogEntry[] = [
     vCode: null,
     legacyId: 3300,
   }),
+  // The highest sketch number on an OLDER date, so the register's newest-number
+  // default sort is visibly different from its newest-date order.
+  entry("sketches", 703, {
+    title: "SAVES DETECTOR BRACKET",
+    sketchNumber: 2291,
+    size: "B",
+    ventura: "",
+    dateStarted: d("2023-06-30T12:00:00Z"),
+    dateRevised: d("2023-06-30T12:00:00Z"),
+    vCode: null,
+    legacyId: 3305,
+  }),
 ];

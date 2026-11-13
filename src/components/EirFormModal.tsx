@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HardHat, Info, Loader2, X } from "lucide-react";
 import { useTasks } from "@/hooks/useTasks";
@@ -22,6 +22,11 @@ import { RichTextEditor } from "./RichTextEditor";
 import { isEmptyRichText } from "@/lib/richText";
 import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+import { PendingAttachmentsCard } from "./PendingAttachmentsCard";
+import { pushToast } from "./Toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { uploadAttachments } from "@/api/attachments";
+import { attachmentsKey } from "@/hooks/useAttachments";
 
 interface EirFormModalProps {
   mode: "create"; // future: "edit"
@@ -41,9 +46,14 @@ interface EirFormModalProps {
  *
  * Everything else (Project Reference, Task Reference, Assigned Engineers,
  * Watchers, etc.) is set from the EIR detail page after creation.
+ *
+ * Attachments CAN be added here: they're staged in memory and uploaded once
+ * the EIR exists (there's no item to attach to before that). A file that
+ * fails to upload doesn't undo the EIR — the toast names it to re-add.
  */
 export function EirFormModal({ onClose }: EirFormModalProps) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: tasks = [] } = useTasks();
   const currentUser = useCurrentUser();
   const createEir = useCreateEir();
@@ -73,8 +83,35 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
   const [riskPartLevel, setRiskPartLevel] = useState("");
   const [technicalPriority, setTechnicalPriority] = useState("");
 
+  // --- Attachments (staged until the EIR exists) ---
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  // Which file is going up — shown so a large upload doesn't look hung.
+  const [uploadProgress, setUploadProgress] = useState<{ index: number; name: string } | null>(null);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The form holds the person here until SharePoint has CONFIRMED the create
+  // and every upload (Save, Cancel, ✕ and the backdrop are all off while
+  // busy), so the new EIR can't be opened half-saved. Two ways out remain,
+  // and both are handled: a refresh / tab close mid-save would silently drop
+  // the files, so the browser asks first; and leaving by Back means the
+  // finished save must not then pull them into the EIR.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!busy) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [busy]);
 
   const directory = useDirectoryPeople();
   const people = useMemo(() => {
@@ -145,12 +182,34 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
           : null,
         ltbDate: ltbDate ? new Date(ltbDate) : null,
       });
+      if (pendingAttachments.length > 0) {
+        // The EIR is real from here on, so a file that won't upload is a
+        // warning naming what to re-add, never a failed create.
+        const { failed } = await uploadAttachments("eir", created.id, pendingAttachments, (index, file) => {
+          if (mounted.current) setUploadProgress({ index, name: file.name });
+        });
+        qc.invalidateQueries({ queryKey: attachmentsKey("eir", created.id) });
+        if (failed.length > 0) {
+          pushToast({
+            message:
+              `${created.eirNo || created.title} was created, but ${failed.length === 1 ? "this file" : "these files"} ` +
+              `didn't upload: ${failed.join(", ")}. Add ${failed.length === 1 ? "it" : "them"} again from the EIR's Attachments card.`,
+            variant: "error",
+          });
+        }
+      }
+      // Left by Back mid-save: the save finished, the toast says so, but
+      // don't pull them out of wherever they went.
+      if (!mounted.current) return;
       onClose();
       navigate(`/eir/${created.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create EIR.");
+      if (mounted.current) setError(err instanceof Error ? err.message : "Failed to create EIR.");
     } finally {
-      setBusy(false);
+      if (mounted.current) {
+        setBusy(false);
+        setUploadProgress(null);
+      }
     }
   }
 
@@ -382,14 +441,29 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             </FieldLabel>
           </div>
 
+          <PendingAttachmentsCard
+            className="mt-5"
+            files={pendingAttachments}
+            onChange={setPendingAttachments}
+            disabled={busy}
+            itemNoun="EIR"
+          />
+
           <p className="mt-5 text-[11px] text-fg-muted">
-            Project Reference, Task Reference, Assigned Engineers, and
-            Attachments are set from the EIR detail page after the EIR is
-            saved.
+            Project Reference, Task Reference, and Assigned Engineers are set
+            from the EIR detail page after the EIR is saved.
           </p>
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3 sm:px-5">
+          {busy && (
+            <p role="status" className="mr-auto text-[11px] text-fg-muted">
+              {uploadProgress
+                ? `Uploading ${uploadProgress.index + 1} of ${pendingAttachments.length}: ${uploadProgress.name}.`
+                : "Saving the EIR."}{" "}
+              It opens once SharePoint confirms everything — keep this tab open.
+            </p>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -404,7 +478,11 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {busy ? "Saving…" : "Save"}
+            {uploadProgress
+              ? `Uploading ${uploadProgress.index + 1} of ${pendingAttachments.length}…`
+              : busy
+                ? "Saving…"
+                : "Save"}
           </button>
         </div>
 

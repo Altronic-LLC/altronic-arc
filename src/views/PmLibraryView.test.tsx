@@ -309,4 +309,32 @@ describe("PmLibraryView — run-hours schedules", () => {
     await renderLibrary("?q=Engine oil");
     expect(screen.getByText("Every 500 run hours")).toBeInTheDocument();
   });
+
+  it("at /schedules/:id shows just that schedule — where a PM schedule email lands", async () => {
+    const all = await listScheduledMaintenance();
+    const one = all.find((x) => !x.active) ?? all[1];
+    renderWithProviders(<PmLibraryView />, {
+      route: `/operations/maintenance/schedules/${one.id}`,
+      routePattern: "/operations/maintenance/schedules/:id",
+    });
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument(), SLOW);
+    const rows = within(screen.getByRole("table")).getAllByRole("row");
+    // Header + the one schedule, retired or not; the filters are hidden.
+    expect(rows).toHaveLength(2);
+    expect(within(rows[1]).getByText(one.title)).toBeInTheDocument();
+    expect(screen.getByText("Showing one schedule.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Show all schedules" })).toHaveAttribute(
+      "href",
+      "/operations/maintenance/schedules",
+    );
+    expect(screen.queryByRole("search", { name: "PM schedule filters" })).not.toBeInTheDocument();
+  });
+
+  it("says so when the schedule an email named is gone", async () => {
+    renderWithProviders(<PmLibraryView />, {
+      route: "/operations/maintenance/schedules/99999",
+      routePattern: "/operations/maintenance/schedules/:id",
+    });
+    expect(await screen.findByText(/That schedule isn't in the PM library/, undefined, SLOW)).toBeInTheDocument();
+  });
 });

@@ -57,6 +57,7 @@ function model(overrides: Partial<QuotePdfModel> = {}): QuotePdfModel {
     customerNumber: "0001042",
     contactName: "Jane Buyer",
     contactEmail: "jane.buyer@example.com",
+    customerReference: "",
     preparedBy: { name: "Ray White", email: "ray.white@altronic-llc.com" },
     assemblies: [
       {
@@ -89,6 +90,7 @@ function model(overrides: Partial<QuotePdfModel> = {}): QuotePdfModel {
     quoteTotal: 15833.2,
     budgetary: null,
     quoteNotes: "Lead time six weeks ARO.",
+    alternates: [],
     ...overrides,
   };
 }
@@ -347,6 +349,53 @@ describe("the quote PDF", () => {
 
     const without = await render(model({ quoteNotes: "   " }));
     expect(without.text).not.toContain("Notes");
+  });
+
+  it("prints the customer's reference under PREPARED FOR, and nothing when blank", async () => {
+    const withRef = await render(model({ customerReference: "RFQ 4471 HUB V4 retrofit" }));
+    expect(withRef.text).toContain("REFERENCE");
+    expect(withRef.text).toContain("RFQ 4471 HUB V4 retrofit");
+    const without = await render(model());
+    expect(without.text).not.toContain("REFERENCE");
+  });
+
+  it("prints the alternates on a page of its own — designator, Alternate 1–3 and the reason — and adds no page without them", async () => {
+    const alternates = [
+      {
+        designator: "5a",
+        sources: [
+          { manufacturer: "TE Connectivity", partNumber: "1-1437290-3", leadTime: "22 weeks" },
+          { manufacturer: "Amphenol", partNumber: "MS3106A-20-27S", leadTime: "3 weeks" },
+          { manufacturer: "", partNumber: "", leadTime: "" },
+        ],
+        reason: "Equivalent, ships sooner",
+      },
+    ];
+    const { text, pages } = await render(model({ alternates }));
+    expect(pages).toBe(2);
+    // Each page's runs are written in order, footer last — so everything
+    // after "Page 1 of 2" is page two.
+    const pageTwo = text.slice(text.indexOf("Page 1 of 2"));
+    expect(text.indexOf("Alternates")).toBeGreaterThan(text.indexOf("Page 1 of 2"));
+    for (const value of [
+      "Designator",
+      "5a",
+      "Alternate 1",
+      "Alternate 2",
+      "Alternate 3",
+      "Reason for the alternate",
+      "TE Connectivity",
+      "1-1437290-3",
+      "Lead time: 22 weeks",
+      "Amphenol",
+      "MS3106A-20-27S",
+      "Lead time: 3 weeks",
+      "Equivalent, ships sooner",
+    ]) {
+      expect(pageTwo).toContain(value);
+    }
+    expect(text).toContain("Page 2 of 2");
+    expect((await render(model())).pages).toBe(1);
   });
 
   it("puts a page footer on every page", async () => {

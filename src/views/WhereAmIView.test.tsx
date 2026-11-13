@@ -173,13 +173,22 @@ describe("WhereAmIView — the day panel", () => {
   });
 
   it("clicking a DIFFERENT day's date moves the panel rather than closing it", async () => {
-    await renderCalendar(`?day=${dayKey(utcToday())}`);
-    await screen.findByRole("complementary", { name: /Entries for/ });
+    // Pinned mid-month: on the last day of a month, tomorrow isn't in this
+    // month's grid (this failed CI on 2026-10-31). Only Date is faked, so
+    // userEvent's timers still run.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T15:00:00Z"));
+    try {
+      await renderCalendar(`?day=${dayKey(utcToday())}`);
+      await screen.findByRole("complementary", { name: /Entries for/ });
 
-    await userEvent.click(screen.getByRole("button", { name: `Show ${dayLabel(utcToday(1))}` }));
+      await userEvent.click(screen.getByRole("button", { name: `Show ${dayLabel(utcToday(1))}` }));
 
-    const panel = screen.getByRole("complementary", { name: /Entries for/ });
-    expect(within(panel).getByRole("heading", { name: "Tomorrow" })).toBeInTheDocument();
+      const panel = screen.getByRole("complementary", { name: /Entries for/ });
+      expect(within(panel).getByRole("heading", { name: "Tomorrow" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("Escape with a form open closes the form, not the panel too", async () => {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Plus, X } from "lucide-react";
 import { useBuildRequests, useCreateBuildRequest } from "@/hooks/useBuildRequests";
-import { useProjects, useTasks } from "@/hooks/useTasks";
+import { useCreateTask, useProjects, useTasks } from "@/hooks/useTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   BUILD_REQUEST_LEAD_TIMES,
@@ -26,6 +26,11 @@ import {
   taskLabel,
 } from "@/lib/buildRequestFromTask";
 import type { Task } from "@/types/task";
+import {
+  NEW_TASK_FOR_BUILD_REQUEST,
+  taskForBuildRequest,
+  taskLinkOptions,
+} from "@/lib/buildRequestTaskLink";
 
 interface BuildRequestFormModalProps {
   onClose: () => void;
@@ -52,8 +57,9 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
   const currentUser = useCurrentUser();
   const { data: allBrs = [] } = useBuildRequests();
   const { data: projects = [] } = useProjects();
-  const { data: tasks = [] } = useTasks();
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const createBr = useCreateBuildRequest();
+  const createTask = useCreateTask();
   const directory = useDirectoryPeople();
 
   // Seeded ONCE from the task, deliberately not a controlled mirror of it:
@@ -73,6 +79,14 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
   const [projectIds, setProjectIds] = useState<number[]>(
     prefill?.parentProjectLookupIds ?? [],
   );
+  // The task a NEW build request is linked to (BusinessIT#58) — a task id,
+  // NEW_TASK_FOR_BUILD_REQUEST, or null while nothing is picked. Required:
+  // a build request with no task shows on no task's page. Not used when the
+  // form is opened FROM a task, which decides it already.
+  const [taskKey, setTaskKey] = useState<string | null>(null);
+  // A task "Create a task for this" already made, kept so a retry after a
+  // failed build request create links to it rather than making a second.
+  const [createdTask, setCreatedTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -113,6 +127,24 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
     return mergePeople([...seen.values()], directory);
   })();
 
+  // What "Create a task for this" would make right now, or why it can't —
+  // shown under the picker so the reason is on screen before Create.
+  const newTaskPreview =
+    !fromTask && taskKey === NEW_TASK_FOR_BUILD_REQUEST && !createdTask
+      ? taskForBuildRequest({
+          title,
+          brNo: nextBuildRequestNo(allBrs),
+          project: projects.find((p) => p.lookupId === projectIds[0]) ?? null,
+          engineer: null,
+          allTasks: tasks,
+        })
+      : null;
+  // The task's number counts its project's tasks, so it waits for the FULL
+  // list — TaskFormModal's numberingPending rule.
+  const taskNumberingPending =
+    !fromTask && taskKey === NEW_TASK_FOR_BUILD_REQUEST && !createdTask && tasksLoading;
+  const taskMissing = !fromTask && taskKey == null;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedTitle = title.trim();
@@ -120,16 +152,55 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
       setError("Product or project name is required.");
       return;
     }
+    const engineer = engineerKey
+      ? allPeople.find((p) => (p.email ?? p.displayName) === engineerKey) ?? null
+      : null;
+    const brNo = nextBuildRequestNo(allBrs);
+
+    let taskId: number | null = fromTask ? fromTask.id : null;
+    const wantsNewTask = !fromTask && taskKey === NEW_TASK_FOR_BUILD_REQUEST;
+    if (!fromTask) {
+      if (taskKey == null) {
+        setError("Pick the task this build request is for, or create one.");
+        return;
+      }
+      if (!wantsNewTask) taskId = parseInt(taskKey, 10);
+    }
+
+    // A local copy, not the state: a task made below must be used by the
+    // build request create in this same call, before state has updated.
+    let madeTask = wantsNewTask ? createdTask : null;
+    if (wantsNewTask && !madeTask) {
+      const draft = taskForBuildRequest({
+        title: trimmedTitle,
+        brNo,
+        project: projects.find((p) => p.lookupId === projectIds[0]) ?? null,
+        engineer,
+        allTasks: tasks,
+      });
+      if ("problem" in draft) {
+        setError(draft.problem);
+        return;
+      }
+      setError(null);
+      setBusy(true);
+      try {
+        madeTask = await createTask.mutateAsync(draft);
+        setCreatedTask(madeTask);
+      } catch {
+        setError("Couldn't create the task — nothing was saved. Please retry.");
+        setBusy(false);
+        return;
+      }
+    }
+    if (madeTask) taskId = madeTask.id;
     setError(null);
     setBusy(true);
 
     try {
-      const engineer = engineerKey
-        ? allPeople.find((p) => (p.email ?? p.displayName) === engineerKey) ?? null
-        : null;
       const created = await createBr.mutateAsync({
         title: trimmedTitle,
-        brNo: nextBuildRequestNo(allBrs),
+        brNo,
         brType: brType || null,
         requiredLeadTime: leadTime || null,
         quotedShipDate: leadTime === "Ship Date" && shipDate ? new Date(shipDate) : null,
@@ -143,7 +214,7 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
         watchers: [currentUser],
         // The ONE stored half of the task↔BR link. The task side is derived
         // from this — see lib/buildRequestFromTask.ts.
-        taskReferenceLookupId: fromTask ? fromTask.id : null,
+        taskReferenceLookupId: taskId,
         communication: fromTask
           ? buildCarriedCommunication({
               task: fromTask,
@@ -155,7 +226,11 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
       onClose();
       navigate(`/build-request/${created.id}`);
     } catch {
-      setError("Couldn't create the build request — please retry.");
+      setError(
+        madeTask
+          ? `Couldn't create the build request — please retry. Task ${taskLabel(madeTask)} was created, and the retry will use it.`
+          : "Couldn't create the build request — please retry.",
+      );
       setBusy(false);
     }
   }
@@ -277,6 +352,39 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
             </FieldLabel>
           </div>
 
+          {!fromTask && (
+            <div>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                Task *
+              </span>
+              <SingleSelect
+                ariaLabel="Task"
+                allLabel={tasksLoading ? "Loading tasks…" : "Pick a task, or create one…"}
+                searchPlaceholder="Search tasks…"
+                options={[
+                  { value: NEW_TASK_FOR_BUILD_REQUEST, label: "+ Create a task for this" },
+                  ...taskLinkOptions(tasks, projectIds),
+                ]}
+                selected={taskKey}
+                onChange={setTaskKey}
+                disabled={busy}
+              />
+              <p className="mt-1 text-xs text-fg-muted" data-testid="br-task-hint">
+                {createdTask && taskKey === NEW_TASK_FOR_BUILD_REQUEST
+                  ? `Task ${taskLabel(createdTask)} has been created and will be linked.`
+                  : taskNumberingPending
+                    ? "Waiting for the task list, to number the new task…"
+                    : newTaskPreview && "problem" in newTaskPreview
+                      ? newTaskPreview.problem
+                      : newTaskPreview
+                        ? `Creates task ${newTaskPreview.numberedTitle}${
+                            engineerKey ? ", assigned to the engineer above" : ""
+                          }.`
+                        : "People working from the task see this build request, and comments are copied between the two. Tasks in this build request's project are listed first."}
+              </p>
+            </div>
+          )}
+
           {fromTask && (
             <div>
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fg-muted">
@@ -357,7 +465,13 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
               </button>
               <button
                 type="submit"
-                disabled={busy || !title.trim()}
+                disabled={
+                  busy ||
+                  !title.trim() ||
+                  taskMissing ||
+                  taskNumberingPending ||
+                  (newTaskPreview != null && "problem" in newTaskPreview)
+                }
                 className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}

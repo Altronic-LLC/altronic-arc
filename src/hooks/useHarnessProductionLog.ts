@@ -1,4 +1,3 @@
-import { useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CURRENT_HARNESS_YEAR,
@@ -16,16 +15,12 @@ import {
   setHarnessPartNumberActive,
   updateHarnessPartNumber,
 } from "@/api/harnessPartNumbers";
-import { listAdmins } from "@/api/admins";
 import { SP_HARNESS_PART_NUMBERS_LIST_ID, SP_HARNESS_PRODUCTION_LOG_LIST_ID, USE_MOCK } from "@/api/config";
 import type { HarnessLogInput, HarnessPartNumber, HarnessPartNumberInput } from "@/types/task";
-import { isAdminEmail } from "@/lib/adminAccess";
 import { byFrequency } from "@/lib/harnessLogMapper";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
-import { ADMINS_KEY } from "./useAdmins";
-import { useCurrentUserEmails } from "./useCurrentUser";
-import { useIsAdmin } from "./useIsAdmin";
+import { useRequireArcAdmin } from "./useRequireArcAdmin";
 
 // =============================================================================
 // Harness Production Log + Harness Part Numbers.
@@ -105,26 +100,8 @@ export function useHarnessRecentCodes() {
   });
 }
 
-/** Throws unless the signed-in user is an ARC admin, awaiting the Admins list. */
-export function useRequireHarnessAdmin(): (action: string) => Promise<void> {
-  const qc = useQueryClient();
-  const emails = useCurrentUserEmails();
-  const renderTimeAdmin = useIsAdmin();
-  const ref = useRef({ emails, renderTimeAdmin });
-  ref.current = { emails, renderTimeAdmin };
-  return useCallback(
-    async (action: string) => {
-      const admins = await qc
-        .ensureQueryData({ queryKey: ADMINS_KEY, queryFn: listAdmins })
-        .catch(() => null);
-      const isAdmin = admins
-        ? ref.current.emails.some((e) => isAdminEmail(e, admins))
-        : ref.current.renderTimeAdmin;
-      if (!isAdmin) throw new Error(`Only ARC admins can ${action}.`);
-    },
-    [qc],
-  );
-}
+/** Throws unless the signed-in user is an ARC admin — see hooks/useRequireArcAdmin.ts. */
+export const useRequireHarnessAdmin = useRequireArcAdmin;
 
 function errorToast(err: unknown, fallback: string) {
   pushToast({ message: err instanceof Error ? err.message : fallback, variant: "error" });

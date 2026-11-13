@@ -41,6 +41,9 @@ import { SupplierContactFormModal } from "@/components/SupplierContactFormModal"
 import { SupplierIssueCard } from "@/components/SupplierIssueCard";
 import { SupplierIssueFormModal } from "@/components/SupplierIssueFormModal";
 import { SupplierLogoEditor } from "@/components/SupplierLogoEditor";
+import { SupplierClassChip } from "@/components/SupplierClassChip";
+import { useSupplierPerformanceIndex } from "@/hooks/useSupplierPerformance";
+import { supplierPerformanceFor } from "@/lib/supplierPerformance";
 
 // =============================================================================
 // One supplier — the SRM tool's "supplier 360" page. Details/Notes are a card
@@ -73,6 +76,7 @@ export function SupplierDetailView() {
   const addComment = useAddSupplierComment();
   const editComment = useEditSupplierComment();
 
+  const sapPerformance = useSupplierPerformanceIndex();
   const { data: contacts = [] } = useSupplierContactsFor(supplierId);
   const { data: issues = [] } = useSupplierIssuesFor(supplierId);
 
@@ -152,6 +156,7 @@ export function SupplierDetailView() {
   // The contact picker isn't scoped to just this supplier's contacts by the
   // API, but a point of contact should be — offer only this supplier's own.
   const supplierContacts = contacts.filter((c) => c.supplierId === supplier.id);
+  const performance = supplierPerformanceFor(supplier, sapPerformance.index);
 
   return (
     <div className="mx-auto flex max-w-[1300px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -326,26 +331,49 @@ export function SupplierDetailView() {
             />
           </SidebarField>
 
-          {/* Always rendered, even with every score null — it used to be
-              hidden behind `supplierPerformanceRate !== null`, which meant a
-              supplier with no scores yet had nowhere to enter the first one
-              (Ray, 2026-09-09). "Not recorded" is a real answer worth
-              showing, and it's where the Edit button lives. */}
+          {/* SAP's figures when SAP scores this supplier (Tim, 2026-10-22),
+              read-only; otherwise the scores typed into ARC, with Edit
+              scores. Always rendered, even with every score null — hiding it
+              left a supplier with no scores nowhere to enter the first one
+              (Ray, 2026-09-09). Nothing is shown as THE answer while SAP is
+              still being asked, or ARC's older figures would flash first. */}
           <SidebarField label="Performance">
-            <div className="grid grid-cols-1 gap-1 text-sm text-fg">
-              <ScoreLine label="Supplier" value={supplier.supplierPerformanceRate} suffix="%" />
-              <ScoreLine label="Quality" value={supplier.qualityPerformance} suffix="%" />
-              <ScoreLine label="Logistical" value={supplier.logisticalPerformance} suffix="%" />
-              <ScoreLine label="All deliveries" value={supplier.allDeliveries} />
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditingCard("Performance")}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
-            >
-              <Pencil className="h-3 w-3" />
-              Edit scores
-            </button>
+            {sapPerformance.loading ? (
+              <p className="text-sm text-fg-muted">Checking SAP…</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-1 text-sm text-fg">
+                  {performance.classification && (
+                    <span>
+                      Class: <SupplierClassChip classification={performance.classification} />
+                    </span>
+                  )}
+                  <ScoreLine label="Supplier" value={performance.supplierPct} suffix="%" />
+                  <ScoreLine label="Quality" value={performance.qualityPct} suffix="%" />
+                  <ScoreLine label="Logistical" value={performance.logisticalPct} suffix="%" />
+                  <ScoreLine label="All deliveries" value={performance.allDeliveries} />
+                </div>
+                {performance.source === "sap" ? (
+                  <p className="mt-1.5 text-[11px] text-fg-muted">
+                    From SAP{performance.periodYear !== null ? ` · ${performance.periodYear}` : ""}
+                  </p>
+                ) : (
+                  <>
+                    <p className="mt-1.5 text-[11px] text-fg-muted">
+                      {sapPerformance.failure ?? "SAP has no figures for this supplier — these were entered in ARC."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCard("Performance")}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit scores
+                    </button>
+                  </>
+                )}
+              </>
+            )}
           </SidebarField>
 
           <div className="border-t border-border pt-3 text-[11px] text-fg-muted">

@@ -1,7 +1,7 @@
-import { NavLink } from "react-router-dom";
+import { Navigate, NavLink } from "react-router-dom";
 import { Calculator, Lock } from "lucide-react";
 import type { PricingRequestStatus } from "@/types/pricing";
-import { accessPricingGate, managePricingRolesGate } from "@/lib/pricingRoles";
+import { accessPricingGate, managePricingRolesGate, type PricingRights } from "@/lib/pricingRoles";
 import { useMyPricingAccess, type MyPricingAccess } from "@/hooks/usePricingRoles";
 import { LoadingTasks } from "./LoadingTasks";
 import { cn } from "@/lib/cn";
@@ -42,10 +42,12 @@ export function PricingStatusChip({ status }: { status: PricingRequestStatus }) 
  */
 export function PricingNav() {
   const access = useMyPricingAccess();
-  if (!access.rights.canAccess) return null;
+  if (!access.rights.canOpen) return null;
+  // The New Products role alone has one tab and no calculator: no bar at all.
+  if (!access.rights.canAccess && !managePricingRolesGate(access).allowed) return null;
   const tabs = [
     { to: "/sales/pricing", label: "Requests", end: true, show: access.rights.canAccess },
-    { to: "/sales/pricing/new-products", label: "New Products", end: false, show: access.rights.canPrice },
+    { to: "/sales/pricing/new-products", label: "New Products", end: false, show: access.rights.canNewProducts },
     { to: "/sales/pricing/quotes", label: "Customer Quotes", end: false, show: access.rights.canPrice },
     { to: "/sales/pricing/roles", label: "Roles", end: false, show: managePricingRolesGate(access).allowed },
   ].filter((t) => t.show);
@@ -95,13 +97,22 @@ export function PricingPage({ children, wide = false }: { children: React.ReactN
 export function PricingAccessGate({
   children,
   allowRolesManagerOnly = false,
+  allow,
 }: {
   children: (access: MyPricingAccess) => React.ReactNode;
   /** The roles screen: an ARC admin may manage it without a pricing role. */
   allowRolesManagerOnly?: boolean;
+  /** Who gets past this gate; the request side (`canAccess`) unless a screen says otherwise. */
+  allow?: (rights: PricingRights) => boolean;
 }) {
   const access = useMyPricingAccess();
-  const gate = accessPricingGate(access);
+  const base = accessPricingGate(access);
+  const gate = allow && !base.resolving && !access.failed ? { ...base, allowed: allow(access.rights) } : base;
+  // The New Products role reaching a request screen — the Dashboard card or
+  // menu, or an old link — is taken to New Products, not told "no access".
+  if (!gate.resolving && !gate.allowed && !allow && access.rights.canNewProducts && !(allowRolesManagerOnly && managePricingRolesGate(access).allowed)) {
+    return <Navigate to="/sales/pricing/new-products" replace />;
+  }
   const rolesGate = managePricingRolesGate(access);
 
   if (gate.resolving) {
@@ -141,20 +152,26 @@ export function PricingManagerGate({
   configured,
   listName,
   envVar,
+  newProducts = false,
 }: {
   children: (access: MyPricingAccess) => React.ReactNode;
   configured: boolean;
   listName: string;
   envVar: string;
+  /** New Product Pricing: the `new products` role gets in too. */
+  newProducts?: boolean;
 }) {
+  const held = (r: PricingRights) => (newProducts ? r.canNewProducts : r.canPrice);
   return (
-    <PricingAccessGate>
+    <PricingAccessGate allow={(r) => r.canOpen}>
       {(access) =>
-        !access.rights.canPrice ? (
+        !held(access.rights) ? (
           <PricingPage>
             <div className="rounded-xl border border-border bg-surface px-4 py-10 text-center text-sm text-fg-muted">
               <Lock className="mx-auto h-8 w-8" />
-              <p className="mt-3 font-medium text-fg">This is for pricing managers and admins.</p>
+              <p className="mt-3 font-medium text-fg">
+                {newProducts ? "This is for pricing managers, admins and the New Products role." : "This is for pricing managers and admins."}
+              </p>
             </div>
           </PricingPage>
         ) : !configured ? (

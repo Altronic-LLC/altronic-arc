@@ -403,3 +403,21 @@ describe("DashboardView — Quick Links", () => {
     expect(within(section).queryAllByRole("link")).toHaveLength(0);
   });
 });
+
+describe("the Harness department", () => {
+  // Harness moved out of Operations (2026-10-27): its two logs live in their
+  // own section, and Operations no longer shows them.
+  it("has its own section, between Operations and Coils, with both harness logs", async () => {
+    await renderDashboard();
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings.indexOf("Harness")).toBe(headings.indexOf("Operations") + 1);
+    expect(headings.indexOf("Coils")).toBe(headings.indexOf("Harness") + 1);
+
+    const section = (name: string) =>
+      screen.getByRole("heading", { name, level: 2 }).closest("section") as HTMLElement;
+    expect(within(section("Harness")).getByText("Harness Production Log")).toBeInTheDocument();
+    expect(within(section("Harness")).getByText("Crimp Height Checks")).toBeInTheDocument();
+    expect(within(section("Operations")).queryByText("Harness Production Log")).toBeNull();
+    expect(within(section("Operations")).queryByText("Crimp Height Checks")).toBeNull();
+  });
+});

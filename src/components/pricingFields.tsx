@@ -28,6 +28,13 @@ export function FieldColumn({ header, hint, children }: { header: ReactNode; hin
   );
 }
 
+/**
+ * The SMALL field label on New Product worksheets (Ray, 2026-10-22: "reduce it
+ * by a lot"). Never wraps, so every label in a row is one line and the boxes
+ * under them line up.
+ */
+export const SMALL_LABEL = "whitespace-nowrap text-[10px] font-semibold uppercase leading-none tracking-wider text-fg-muted";
+
 export function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="font-semibold uppercase tracking-wider text-fg-muted">{children}</span>;
 }

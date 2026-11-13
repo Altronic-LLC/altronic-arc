@@ -6,6 +6,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { auditRecipientList, suggestionsFor, type AuditedList } from "@/lib/recipientAudit";
 import {
+  APP_MANAGER_EMAIL,
   BUILD_REQUEST_COMPLETE_REVIEWERS,
   BUILD_REQUEST_FINAL_ALERTS,
   BUILD_REQUEST_PRODUCTION_ALERTS,
@@ -153,6 +154,12 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     value: BUILD_REQUEST_FINAL_ALERTS,
     what: "Emailed when a Production Complete build request is set Complete, alongside its assigned engineer, requestor and watchers.",
   },
+  {
+    label: "Report issue",
+    envVar: "VITE_APP_MANAGER_EMAIL",
+    value: APP_MANAGER_EMAIL,
+    what: "Receives every Report issue sent from the header's life-buoy button, with the reporter CC'd.",
+  },
 ];
 
 export function AdminNotificationRecipientsView() {
@@ -201,6 +208,18 @@ export function AdminNotificationRecipientsView() {
           and the bounce goes to{" "}
           <span className="font-mono text-xs">{SHARED_MAILBOX ?? "the shared mailbox"}</span>,
           which nobody reads.
+        </p>
+        <p className="max-w-3xl text-sm text-fg-muted">
+          The Harness department's emails (out-of-spec crimp checks, part number requests) aren't
+          set here: ARC admins pick those people on{" "}
+          <Link to="/harness/alert-recipients" className="font-medium text-accent underline-offset-2 hover:underline">
+            Harness — Who's notified
+          </Link>
+          , and out-of-spec conformal coating checks on{" "}
+          <Link to="/operations/alert-recipients" className="font-medium text-accent underline-offset-2 hover:underline">
+            Operations — Who's notified
+          </Link>
+          , with no redeploy.
         </p>
       </header>
 

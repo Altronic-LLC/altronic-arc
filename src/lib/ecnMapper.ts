@@ -3,6 +3,9 @@ import { ECN_FIELDS, ECN_FIELD_BY_KEY } from "./ecnFields";
 import { parseCommunication } from "./communicationParser";
 import { parseSpDate } from "./spDates";
 import { toStoredRichText } from "./richText";
+import { htmlToPlainText } from "./htmlText";
+import { orderDistribution, parseEcnDistribution } from "./ecnDistribution";
+import { parsePeopleLines, serializePeopleLines } from "./peopleLines";
 
 // =============================================================================
 // Graph item → Ecn, and back.
@@ -72,6 +75,12 @@ export function toEcn(item: GraphListItem): Ecn {
     comments: parseCommunication(text(f.Communication)),
     hasAttachments: f.Attachments === true,
     values,
+    // Absent until scripts/create-ecn-distribution.ps1 has run — and absent
+    // from a read that fell back without them (api/ecns.ts). Both read as
+    // "nothing ticked, nothing sent".
+    distribution: parseEcnDistribution(f.Distribution),
+    distributedTo: parsePeopleLines(f.DistributedTo),
+    distributedAt: parseSpDate(f.DistributedAt) ?? null,
     createdAt: parseSpDate(f.Created) ?? new Date(0),
     modifiedAt: parseSpDate(f.Modified) ?? new Date(0),
   };
@@ -111,7 +120,22 @@ export function buildEcnCreateFields(input: EcnInput): Record<string, unknown> {
     if (!value) continue;
     fields[field.column] = columnValue(field.key, value);
   }
+  // Only when something is ticked, so a create never names the column on a
+  // list that hasn't got it yet. A plain array here — the write site adds the
+  // Collection(Edm.String) annotation (ECN_MULTI_CHOICE_COLUMNS).
+  const distribution = orderDistribution(input.distribution ?? []);
+  if (distribution.length > 0) fields.Distribution = distribution;
   return fields;
+}
+
+/** The ticked roles' patch. An empty array CLEARS it (annotated at the write site). */
+export function ecnDistributionPatch(roles: readonly string[]): Record<string, unknown> {
+  return { Distribution: orderDistribution(roles) };
+}
+
+/** Record who an ECN's distribution went to, and when. */
+export function ecnDistributedPatch(people: Person[], at: Date): Record<string, unknown> {
+  return { DistributedTo: serializePeopleLines(people), DistributedAt: at.toISOString() };
 }
 
 /**
@@ -176,4 +200,98 @@ export function ecnLabel(ecn: Ecn): string {
 /** True when the notice is flagged On Hold. */
 export function isEcnOnHold(ecn: Ecn): boolean {
   return (ecn.values.onHold ?? "").trim().toLowerCase() === "yes";
+}
+
+/**
+ * A request for serial numbers, typed into the Serial Numbers field as a
+ * placeholder — "Please provide serial numbers", "PLEASE INCLUDE SERIAL
+ * NUMBER.", "Please provide starting serial number.", or a bare "enter serial
+ * numbers".
+ */
+const SERIAL_REQUEST = /^(please\s+)?(provide|include|add|enter|list)\b.*\bserial/i;
+
+/**
+ * Text after a request that shows it was answered: a "Response:", an "s/n"
+ * written in, or a pointer to another ECN ("see ECN 160055R1").
+ */
+const SERIAL_ANSWER = /\bresponse\b|\bs\s*\/\s*n\b|\bsee\s+ecn\b/i;
+
+/**
+ * Has nobody recorded serial numbers on this ECN yet? (BusinessIT#61.)
+ *
+ * True when the Serial Numbers field (`field_6`) is blank, OR it holds only a
+ * request for them. The request is how an open ECN usually looks: on the live
+ * list (checked 2026-11-04, 1,829 rows) 90 held some spelling of "Please
+ * provide serial numbers". Counting blanks alone would miss them.
+ *
+ * A request counts only while it is ONE line and carries no answer
+ * (`SERIAL_ANSWER`). Live, two requests were answered in the same field:
+ * "… Response: please see ECN 160055R1", and a request followed by a line of
+ * s/n per part. Anything that isn't a request — "N/A", "Not a serialized
+ * product", "See R1" — counts as recorded.
+ *
+ * This is about the FIELD only. Whether the ECN needs serial numbers at all
+ * is `ecnStockNeedsSerialNumbers`; the list's Waiting filter asks both
+ * (`isEcnWaitingForSerialNumbers`).
+ */
+export function isEcnSerialNumbersMissing(ecn: Ecn): boolean {
+  const lines = htmlToPlainText(ecn.values.serialNumbers ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) return true;
+  if (lines.length > 1) return false;
+  return SERIAL_REQUEST.test(lines[0]) && !SERIAL_ANSWER.test(lines[0]);
+}
+
+/** "Engineering - Do NOT modify stock", however it is spelled or cased. */
+const DO_NOT_MODIFY = /\bdo\s*n[o']?t\s+modify\b/i;
+
+/**
+ * Does this ECN's stock disposition mean serial numbers get recorded? (Tim,
+ * 2026-11-04.) Only an ECN whose In House Stock is set to something other
+ * than "Do NOT modify" does — "Engineering - Modify stock (see pg 2 of ECN)"
+ * or "Operations - Stock modified". A blank disposition and Do NOT modify
+ * don't: most ECNs never need a serial number logged, and counting them made
+ * the Waiting filter useless (1,409 of 1,829 live rows, against 65 with this
+ * rule).
+ */
+export function ecnStockNeedsSerialNumbers(ecn: Ecn): boolean {
+  const stock = (ecn.values.inHouseStock ?? "").trim();
+  return stock !== "" && !DO_NOT_MODIFY.test(stock);
+}
+
+/** "Please provide serial numbers" (or "…number"), anywhere in the text, any case. */
+const PROVIDE_SERIAL_NUMBERS = /\bplease\s+provide\s+serial\s+numbers?\b/i;
+
+/**
+ * Does the Serial Numbers field say "Please provide serial numbers"? (Tim,
+ * 2026-11-05.) Literally that wording, anywhere in the field — the ECN's
+ * author asking for them is reason enough to list it as Waiting, whatever its
+ * stock disposition and whatever else the field holds.
+ */
+export function ecnAsksForSerialNumbers(ecn: Ecn): boolean {
+  return PROVIDE_SERIAL_NUMBERS.test(htmlToPlainText(ecn.values.serialNumbers ?? ""));
+}
+
+/**
+ * The ECN list's "Waiting" serial-numbers filter. Either:
+ *  - the field says "Please provide serial numbers" — ANY ECN, even one whose
+ *    stock disposition is blank or Do NOT modify, and even one with an answer
+ *    written after the request (Tim, 2026-11-05: "any and all"); or
+ *  - the stock disposition says serial numbers are needed, and none are
+ *    recorded yet.
+ */
+export function isEcnWaitingForSerialNumbers(ecn: Ecn): boolean {
+  if (ecnAsksForSerialNumbers(ecn)) return true;
+  return ecnStockNeedsSerialNumbers(ecn) && isEcnSerialNumbersMissing(ecn);
+}
+
+/**
+ * The "Recorded" filter: serial numbers are on file and the ECN isn't Waiting.
+ * Waiting wins, so the two filters never list the same ECN — an answered
+ * "Please provide serial numbers" is Waiting, not Recorded.
+ */
+export function isEcnSerialNumbersRecorded(ecn: Ecn): boolean {
+  return !isEcnSerialNumbersMissing(ecn) && !isEcnWaitingForSerialNumbers(ecn);
 }

@@ -27,6 +27,14 @@ vi.mock("@/hooks/useDirectory", () => ({
 import { AdminNotificationRecipientsView } from "./AdminNotificationRecipientsView";
 
 describe("AdminNotificationRecipientsView", () => {
+  it("points to Harness — Who's notified, where the Harness emails' people are picked", () => {
+    renderWithProviders(<AdminNotificationRecipientsView />);
+    expect(screen.getByRole("link", { name: "Harness — Who's notified" })).toHaveAttribute(
+      "href",
+      "/harness/alert-recipients",
+    );
+  });
+
   it("lists the FAIT intake alert alongside the others", () => {
     renderWithProviders(<AdminNotificationRecipientsView />);
     expect(screen.getByText("FAIT — new FAIT")).toBeInTheDocument();

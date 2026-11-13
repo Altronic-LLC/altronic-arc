@@ -18,6 +18,11 @@ export const MOCK_PROJECTS: ProjectReference[] = [
   { lookupId: 501, title: "0017-AMP-5000 Refresh" },
   { lookupId: 522, title: "0021-CleanBurn Telemetry" },
   { lookupId: 530, title: "0030-Field Trial Tooling" },
+  // The projects the demo build requests point at. Without them every demo
+  // build request's Project Reference read "No projects" (found 2026-11-02).
+  { lookupId: 304, title: "343-MT-Detechtion Hub V4" },
+  { lookupId: 24, title: "0004-Miscellaneous Engineering" },
+  { lookupId: 243, title: "2001-Altronic III" },
 ];
 
 const projectByName = (name: string) => MOCK_PROJECTS.find((p) => p.title === name)!;

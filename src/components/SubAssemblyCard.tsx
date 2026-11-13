@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Paperclip, Plus, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ListPlus, Paperclip, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import type { SubAssembly, SubAssemblyLine } from "@/types/pricing";
 import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
-import { SAP_PART_LOOKUP_CONNECTED } from "@/api/pricingLookup";
-import { useSapPart } from "@/hooks/usePricingLookup";
+import { describeSapCostFailure } from "@/api/pricingLookup";
+import { useSapPartAsYouType } from "@/hooks/usePricingLookup";
+import { applySapPart, clearSapFill, lineFromLookup, samePart, sapLookupArgs, type PartFields, type SapFill } from "@/lib/sapPartFill";
+import { MultiPartAdd, describePastedAdd } from "./MultiPartAdd";
 import { importSubAssemblyCsv, lineLabel, mergeUpload, type UploadChanges } from "@/lib/subAssemblyCsv";
 import { lineUnitCost, overheadFactor, subAssemblyCost } from "@/lib/pricingMath";
 import { formatMoney, formatUnitCost } from "@/lib/quoteMoney";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { RowSellingPrice } from "./RowSellingPrice";
 import { cn } from "@/lib/cn";
+import { SMALL_LABEL } from "./pricingFields";
 
 // =============================================================================
 // The rows of a New Product Pricing worksheet (Ray, 2026-10-13):
@@ -19,13 +22,18 @@ import { cn } from "@/lib/cn";
 //   * Upload CSV — Part Number and/or SAP Part Number, Description, Current
 //     Cost, Qty. A re-upload REPLACES the CSV lines, keeps each part's
 //     adjustment, and keeps every line added by hand; it says what changed.
-//   * Add component — Altronic #, SAP #, description, quantity and cost.
+//   * Add component — Altronic #, SAP #, description, quantity and cost. Either
+//     number is looked up in SAP AS IT IS TYPED (Ray, 2026-10-22): the other
+//     number, the description and the base cost come in.
+//   * Add several — paste a column of SAP / Altronic numbers; each is looked
+//     up and added as a component of quantity 1.
 // Every component's numbers, description and quantity can be edited, and any
 // line removed.
 //
 // A standalone PART (`PartCard`) is one part on the product, not a
-// sub-assembly: looked up in SAP (its cost comes in as the base cost) or typed
-// by hand. It is held as a row with exactly one line, so the cost roll-up and
+// sub-assembly: looked up in SAP as its number is typed (its cost comes in as
+// the base cost) or typed by hand. Several parts can be pasted at once on the
+// worksheet (NewProductPricingDetailView). It is held as a row with exactly one line, so the cost roll-up and
 // revisions treat it like any sub-assembly.
 //
 // COST: each line has a BASE cost — the sheet's for a CSV line and SAP's for a
@@ -73,9 +81,19 @@ const SOURCE_CHIP: Record<NonNullable<SubAssemblyLine["source"]>, { label: strin
   sap: { label: "SAP", tone: "bg-cooper-green/10 text-cooper-green" },
 };
 
-function SourceChip({ source }: { source: SubAssemblyLine["source"] }) {
+function SourceChip({ source, inline = false }: { source: SubAssemblyLine["source"]; inline?: boolean }) {
   const chip = SOURCE_CHIP[source ?? "csv"];
-  return <span className={cn("mt-0.5 block w-fit rounded-sm px-1 text-[10px] font-semibold uppercase", chip.tone)}>{chip.label}</span>;
+  return (
+    <span
+      className={cn(
+        "rounded-sm px-1 text-[10px] font-semibold uppercase leading-tight",
+        inline ? "inline-block" : "mt-0.5 block w-fit",
+        chip.tone,
+      )}
+    >
+      {chip.label}
+    </span>
+  );
 }
 
 /** A row's files — once it is saved. An unsaved row has nowhere to hang them yet. */
@@ -100,6 +118,56 @@ function RowFiles({ draft, readOnly, name }: { draft: SubAssemblyDraft; readOnly
   );
 }
 
+/**
+ * Fold a card down to one line (Ray, 2026-10-22). Only the VIEW folds: the
+ * draft is untouched, and opening it again shows everything as it was.
+ */
+function CollapseToggle({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
+      className="mb-1.5 rounded-sm p-0.5 text-fg-muted hover:text-fg"
+    >
+      {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+    </button>
+  );
+}
+
+/** A folded card: the toggle, what it is, and what it costs on the product. */
+function CollapsedRow({
+  kind,
+  title,
+  numbers,
+  detail,
+  extended,
+  onToggle,
+  label,
+}: {
+  kind: string;
+  title: string;
+  numbers: string;
+  detail: string;
+  extended: number | null;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <CollapseToggle open={false} onToggle={onToggle} label={label} />
+      <span className="rounded-sm bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-fg-muted">{kind}</span>
+      <span className="min-w-0 truncate font-medium text-fg">{title}</span>
+      {numbers && <span className="font-mono text-xs text-fg-muted">{numbers}</span>}
+      <span className="text-xs text-fg-muted">{detail}</span>
+      <span className="ml-auto text-sm tabular-nums text-fg" title="Extended — on one product, with overhead">
+        {extended === null ? "—" : formatMoney(extended)}
+      </span>
+    </div>
+  );
+}
+
 function NumberInputs({
   draft,
   onChange,
@@ -111,8 +179,8 @@ function NumberInputs({
 }) {
   return (
     <>
-      <label className="flex w-36 flex-col gap-1 text-xs">
-        <span className="font-semibold uppercase tracking-wider text-fg-muted">Altronic #</span>
+      <label className="flex w-36 flex-col gap-1.5 text-xs">
+        <span className={SMALL_LABEL}>Altronic #</span>
         <input
           value={draft.altronicPartNumber}
           onChange={(e) => onChange({ ...draft, altronicPartNumber: e.target.value })}
@@ -121,8 +189,8 @@ function NumberInputs({
           aria-label={`Altronic part number of ${draft.name || "this row"}`}
         />
       </label>
-      <label className="flex w-36 flex-col gap-1 text-xs">
-        <span className="font-semibold uppercase tracking-wider text-fg-muted">SAP #</span>
+      <label className="flex w-36 flex-col gap-1.5 text-xs">
+        <span className={SMALL_LABEL}>SAP #</span>
         <input
           value={draft.sapPartNumber}
           onChange={(e) => onChange({ ...draft, sapPartNumber: e.target.value })}
@@ -142,6 +210,8 @@ export function SubAssemblyCard({
   readOnly,
   uploader,
   worksheetDiscountPct,
+  open: openProp,
+  onOpenChange,
 }: {
   draft: SubAssemblyDraft;
   onChange: (next: SubAssemblyDraft) => void;
@@ -150,12 +220,19 @@ export function SubAssemblyCard({
   uploader: { displayName: string; email: string };
   /** The worksheet's distributor discount — a row's own price uses it unless it overrides. */
   worksheetDiscountPct: number;
+  /** Folded or not, when the worksheet controls it (Collapse all); otherwise the card's own. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<{ errors: string[]; skipped: string[]; changes: UploadChanges | null } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const cost = subAssemblyCost(draftAsSubAssembly(draft));
   const name = draft.name || "sub-assembly";
+  const [openLocal, setOpenLocal] = useState(true);
+  const open = openProp ?? openLocal;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setOpenLocal(v));
 
   async function onFile(file: File) {
     const text = await file.text();
@@ -183,9 +260,22 @@ export function SubAssemblyCard({
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4" aria-label={`Sub-assembly ${draft.name || "(unnamed)"}`}>
+      {!open ? (
+        <CollapsedRow
+          kind="Sub-assembly"
+          title={draft.name || "(unnamed)"}
+          numbers={[draft.altronicPartNumber, draft.sapPartNumber].filter(Boolean).join(" · ")}
+          detail={`${draft.lines.length} component${draft.lines.length === 1 ? "" : "s"} · ×${draft.quantityPerProduct}`}
+          extended={cost.used === null ? null : cost.used * draft.quantityPerProduct * overheadFactor(draft.overheadPct)}
+          onToggle={() => setOpen(true)}
+          label={name}
+        />
+      ) : (
+      <>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Sub-assembly</span>
+        <CollapseToggle open onToggle={() => setOpen(false)} label={name} />
+        <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Sub-assembly</span>
           <input
             value={draft.name}
             onChange={(e) => onChange({ ...draft, name: e.target.value })}
@@ -195,8 +285,8 @@ export function SubAssemblyCard({
           />
         </label>
         <NumberInputs draft={draft} onChange={onChange} readOnly={readOnly} />
-        <label className="flex w-24 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Qty / product</span>
+        <label className="flex w-24 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Qty / product</span>
           <input
             type="number"
             min={0}
@@ -236,6 +326,14 @@ export function SubAssemblyCard({
               className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
             >
               <Plus className="h-4 w-4" /> Add component
+            </button>
+            <button
+              type="button"
+              onClick={() => setPasting((v) => !v)}
+              aria-expanded={pasting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+            >
+              <ListPlus className="h-4 w-4" /> Add several
             </button>
             <button
               type="button"
@@ -294,10 +392,33 @@ export function SubAssemblyCard({
         </div>
       )}
 
+      {pasting && !readOnly && (
+        <MultiPartAdd
+          label={`Component part numbers to add to ${name}`}
+          onDone={() => setPasting(false)}
+          onAdd={(results) => {
+            const lines = [...draft.lines];
+            const added = [];
+            let duplicates = 0;
+            for (const r of results) {
+              const line = lineFromLookup(r.number, r.part);
+              if (lines.some((l) => samePart(l, line))) {
+                duplicates++;
+                continue;
+              }
+              lines.push(line);
+              added.push(r);
+            }
+            if (added.length) onChange({ ...draft, lines });
+            return describePastedAdd(added, duplicates, "component");
+          }}
+        />
+      )}
+
       {draft.lines.length === 0 && !adding ? (
         <p className="mt-3 text-sm text-fg-muted">
           No components yet. Upload a CSV with Part Number (and/or SAP Part Number), Description, Current Cost and Qty
-          columns, or add components by hand.
+          columns, add components one at a time, or paste several part numbers with Add several.
         </p>
       ) : (
         <div className="scroll-elegant mt-3 overflow-x-auto">
@@ -313,7 +434,7 @@ export function SubAssemblyCard({
               <col className="w-26" />
               <col className="w-8" />
             </colgroup>
-            <thead className="text-[11px] uppercase tracking-wider text-fg-muted">
+            <thead className="text-[10px] uppercase tracking-wider text-fg-muted">
               <tr>
                 <th className="px-2 py-1.5 font-semibold">Altronic #</th>
                 <th className="px-2 py-1.5 font-semibold">SAP #</th>
@@ -390,7 +511,14 @@ export function SubAssemblyCard({
                         />
                       )}
                     </td>
-                    <td className={cn("px-2 py-1.5 text-right tabular-nums", adjusted && "text-fg-muted line-through")}>
+                    {/* A figure (not a box) is pushed down to sit level with the boxes in its row. */}
+                    <td
+                      className={cn(
+                        "px-2 py-1.5 text-right tabular-nums",
+                        !(manual && !readOnly) && !readOnly && "pt-3.5",
+                        adjusted && "text-fg-muted line-through",
+                      )}
+                    >
                       {manual && !readOnly ? (
                         <input
                           type="number"
@@ -411,7 +539,7 @@ export function SubAssemblyCard({
                     <td className="px-2 py-1.5 text-right">
                       <AdjustedCost line={line} label={label} readOnly={readOnly} onChange={(v) => setLine(i, { adjustedCost: v })} />
                     </td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
+                    <td className={cn("whitespace-nowrap px-2 py-1.5 text-right tabular-nums", !readOnly && "pt-3.5")}>
                       {used === null ? "—" : formatMoney(used * line.quantity)}
                     </td>
                     <td className="px-2 py-1.5 text-right">
@@ -478,6 +606,8 @@ export function SubAssemblyCard({
 
       <RowSellingPrice draft={draft} onChange={onChange} readOnly={readOnly} worksheetDiscountPct={worksheetDiscountPct} label={draft.name || "this sub-assembly"} />
       <RowFiles draft={draft} readOnly={readOnly} name={name} />
+      </>
+      )}
     </section>
   );
 }
@@ -522,110 +652,154 @@ function AdjustedCost({
   );
 }
 
-/** A blank row to type a component in by hand. One part number and a quantity above 0 are required. */
+/**
+ * A blank row to type a component in. Either number is looked up in SAP as it
+ * is typed: SAP fills the other number and the description (only if blank, or
+ * still SAP's from the last lookup) and brings its cost in as the base cost.
+ * One part number and a quantity above 0 are required.
+ */
 function AddComponentRow({ onAdd, onCancel }: { onAdd: (line: SubAssemblyLine) => void; onCancel: () => void }) {
-  const [partNumber, setPartNumber] = useState("");
-  const [sapPartNumber, setSapPartNumber] = useState("");
-  const [description, setDescription] = useState("");
+  const [fields, setFields] = useState<PartFields>({ altronic: "", sap: "", description: "", cost: null });
+  const [costText, setCostText] = useState("");
+  const [fill, setFill] = useState<SapFill>({});
   const [qty, setQty] = useState("1");
-  const [cost, setCost] = useState("");
+  const args = sapLookupArgs(fields, fill);
+  const found = useSapPartAsYouType(args.altronicPartNumber, args.sapPartNumber);
+  const askedKey = `${found.asked.altronicPartNumber}|${found.asked.sapPartNumber}`;
+  useEffect(() => {
+    if (found.data === undefined || !found.askedAnything) return;
+    const r = found.data ? applySapPart(fields, fill, found.data) : clearSapFill(fields, fill);
+    setFields(r.fields);
+    setFill(r.fill);
+    setCostText(r.fields.cost === null ? "" : String(r.fields.cost));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found.data, askedKey]);
+
   const quantity = num(qty);
-  const costNum = num(cost);
+  const costNum = num(costText);
   const ok =
-    !!(partNumber.trim() || sapPartNumber.trim()) &&
+    !!(fields.altronic.trim() || fields.sap.trim()) &&
     quantity !== null &&
     quantity > 0 &&
-    (cost.trim() === "" || (costNum !== null && costNum >= 0));
+    (costText.trim() === "" || (costNum !== null && costNum >= 0));
+  const set = (patch: Partial<PartFields>) => setFields((f) => ({ ...f, ...patch }));
 
   function add() {
     if (!ok) return;
     onAdd({
-      partNumber: partNumber.trim(),
-      sapPartNumber: sapPartNumber.trim(),
-      description: description.trim(),
+      partNumber: fields.altronic.trim(),
+      sapPartNumber: fields.sap.trim(),
+      description: fields.description.trim(),
       quantity: quantity!,
       uploadedCost: costNum,
       adjustedCost: null,
-      source: "manual",
+      // SAP's cost, untouched, is SAP's base; anything typed is manual.
+      source: fill.cost !== undefined && costNum === fill.cost ? "sap" : "manual",
     });
   }
 
+  const status = sapLookupStatus(found);
+
   return (
-    <tr className="border-t border-border bg-surface-2/40 align-top" aria-label="New component">
-      <td className="px-2 py-1.5">
-        <input
-          aria-label="New component Altronic part number"
-          value={partNumber}
-          onChange={(e) => setPartNumber(e.target.value)}
-          className="input w-28! font-mono text-xs"
-          autoFocus
-          placeholder="Altronic #"
-        />
-      </td>
-      <td className="px-2 py-1.5">
-        <input
-          aria-label="New component SAP part number"
-          value={sapPartNumber}
-          onChange={(e) => setSapPartNumber(e.target.value)}
-          className="input w-28! font-mono text-xs"
-          placeholder="SAP #"
-        />
-      </td>
-      <td className="px-2 py-1.5">
-        <input
-          aria-label="New component description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="input w-full!"
-          placeholder="Description"
-        />
-      </td>
-      <td className="px-2 py-1.5 text-right">
-        <input
-          type="number"
-          min={0}
-          step="any"
-          aria-label="New component quantity"
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          className="input w-full! px-1.5! text-right tabular-nums"
-        />
-      </td>
-      <td className="px-2 py-1.5 text-right">
-        <input
-          type="number"
-          min={0}
-          step="any"
-          aria-label="New component cost"
-          value={cost}
-          onChange={(e) => setCost(e.target.value)}
-          className="input w-full! px-1.5! text-right tabular-nums"
-          placeholder="Cost"
-        />
-      </td>
-      <td className="px-2 py-1.5 text-right" colSpan={3}>
-        <span className="inline-flex gap-2">
-          <button type="button" onClick={onCancel} className="rounded-md px-2 py-1 text-xs text-fg-muted hover:text-fg">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={add}
-            disabled={!ok}
-            className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-          >
-            Add
-          </button>
-        </span>
-      </td>
-    </tr>
+    <>
+      <tr className="border-t border-border bg-surface-2/40 align-top" aria-label="New component">
+        <td className="px-2 py-1.5">
+          <input
+            aria-label="New component Altronic part number"
+            value={fields.altronic}
+            onChange={(e) => set({ altronic: e.target.value })}
+            className="input w-28! font-mono text-xs"
+            autoFocus
+            placeholder="Altronic #"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            aria-label="New component SAP part number"
+            value={fields.sap}
+            onChange={(e) => set({ sap: e.target.value })}
+            className="input w-28! font-mono text-xs"
+            placeholder="SAP #"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            aria-label="New component description"
+            value={fields.description}
+            onChange={(e) => set({ description: e.target.value })}
+            className="input w-full!"
+            placeholder="Description"
+          />
+        </td>
+        <td className="px-2 py-1.5 text-right">
+          <input
+            type="number"
+            min={0}
+            step="any"
+            aria-label="New component quantity"
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            className="input w-full! px-1.5! text-right tabular-nums"
+          />
+        </td>
+        <td className="px-2 py-1.5 text-right">
+          <input
+            type="number"
+            min={0}
+            step="any"
+            aria-label="New component cost"
+            value={costText}
+            onChange={(e) => {
+              setCostText(e.target.value);
+              set({ cost: num(e.target.value) });
+            }}
+            className="input w-full! px-1.5! text-right tabular-nums"
+            placeholder="Cost"
+          />
+        </td>
+        <td className="px-2 py-1.5 text-right" colSpan={3}>
+          <span className="inline-flex gap-2">
+            <button type="button" onClick={onCancel} className="rounded-md px-2 py-1 text-xs text-fg-muted hover:text-fg">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={add}
+              disabled={!ok}
+              className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </span>
+        </td>
+      </tr>
+      {status && (
+        <tr className="bg-surface-2/40">
+          <td colSpan={8} className="px-2 pb-1.5 text-[11px] text-fg-muted" role="status">
+            {status}
+          </td>
+        </tr>
+      )}
+    </>
   );
+}
+
+/** What an as-you-type lookup is doing, in words — or null when there's nothing to say. */
+function sapLookupStatus(found: ReturnType<typeof useSapPartAsYouType>): string | null {
+  if (found.isFetching) return "Looking it up in SAP…";
+  if (found.isError) return describeSapCostFailure(found.error);
+  if (!found.askedAnything) return null;
+  if (found.data === null) return "Not found in SAP — type the description and cost.";
+  if (found.data && found.data.cost === null) return "Found in SAP, with no cost — type it.";
+  return null;
 }
 
 /**
  * A standalone part on the product (Ray, 2026-10-13) — from SAP, or typed by
- * hand with a typed cost. Look it up by either number: SAP fills in the
- * other number, the description and the cost (as the base cost, marked SAP).
+ * hand with a typed cost. Either number is looked up AS IT IS TYPED (Ray,
+ * 2026-10-22): SAP fills in the other number and the description (if blank, or
+ * still SAP's) and its cost as the base cost, marked SAP. Nothing is looked up
+ * until somebody edits a number, so opening a saved worksheet never re-costs it.
  */
 export function PartCard({
   draft,
@@ -633,12 +807,16 @@ export function PartCard({
   onRemove,
   readOnly,
   worksheetDiscountPct,
+  open: openProp,
+  onOpenChange,
 }: {
   draft: SubAssemblyDraft;
   onChange: (next: SubAssemblyDraft) => void;
   onRemove: () => void;
   readOnly: boolean;
   worksheetDiscountPct: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const line: SubAssemblyLine = draft.lines[0] ?? {
     partNumber: "",
@@ -649,10 +827,22 @@ export function PartCard({
     adjustedCost: null,
     source: "manual",
   };
-  const [lookup, setLookup] = useState({ altronicPartNumber: "", sapPartNumber: "" });
-  const sap = useSapPart(lookup, !readOnly);
+  const [touched, setTouched] = useState(false);
+  const [fill, setFill] = useState<SapFill>({});
+  const fields: PartFields = {
+    altronic: draft.altronicPartNumber,
+    sap: draft.sapPartNumber,
+    description: draft.name,
+    cost: line.uploadedCost,
+  };
+  const args = sapLookupArgs(fields, fill);
+  const sap = useSapPartAsYouType(args.altronicPartNumber, args.sapPartNumber, !readOnly && touched);
+  const askedKey = `${sap.asked.altronicPartNumber}|${sap.asked.sapPartNumber}`;
   const label = draft.altronicPartNumber || draft.sapPartNumber || draft.name || "this part";
   const used = lineUnitCost(line);
+  const [openLocal, setOpenLocal] = useState(true);
+  const open = openProp ?? openLocal;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setOpenLocal(v));
 
   function set(patch: Partial<SubAssemblyDraft>, linePatch: Partial<SubAssemblyLine> = {}) {
     const next = { ...draft, ...patch };
@@ -668,40 +858,52 @@ export function PartCard({
   }
 
   // A part SAP holds: its numbers, description and cost come in, marked SAP.
+  // One it doesn't: whatever SAP filled for the last number is taken back.
   useEffect(() => {
-    const p = sap.data;
-    if (!p) return;
+    if (!touched || sap.data === undefined || !sap.askedAnything) return;
+    const r = sap.data ? applySapPart(fields, fill, sap.data) : clearSapFill(fields, fill);
+    const costFromSap = sap.data ? sap.data.cost !== null : false;
+    setFill(r.fill);
     set(
-      { altronicPartNumber: p.altronicPartNumber, sapPartNumber: p.sapPartNumber, name: p.description },
-      { uploadedCost: p.cost, source: "sap" },
+      { altronicPartNumber: r.fields.altronic, sapPartNumber: r.fields.sap, name: r.fields.description },
+      { uploadedCost: r.fields.cost, source: costFromSap ? "sap" : "manual" },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sap.data]);
+  }, [sap.data, askedKey]);
 
   const fromSap = line.source === "sap";
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4" aria-label={`Part ${label}`}>
+      {!open ? (
+        <CollapsedRow
+          kind="Part"
+          title={draft.name || label}
+          numbers={[draft.altronicPartNumber, draft.sapPartNumber].filter(Boolean).join(" · ")}
+          detail={`×${draft.quantityPerProduct}`}
+          extended={used === null ? null : used * draft.quantityPerProduct * overheadFactor(draft.overheadPct)}
+          onToggle={() => setOpen(true)}
+          label={label}
+        />
+      ) : (
+      <>
       <div className="flex flex-wrap items-end gap-3">
+        <CollapseToggle open onToggle={() => setOpen(false)} label={label} />
         <span className="mb-2 rounded-sm bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-fg-muted">Part</span>
-        <NumberInputs draft={draft} onChange={(d) => set({ altronicPartNumber: d.altronicPartNumber, sapPartNumber: d.sapPartNumber })} readOnly={readOnly} />
-        {/* Live from SAP's cost view (Ray, 2026-10-17) — a part only needs its cost. */}
-        {!readOnly && SAP_PART_LOOKUP_CONNECTED && (
-          <button
-            type="button"
-            onClick={() => setLookup({ altronicPartNumber: draft.altronicPartNumber.trim(), sapPartNumber: draft.sapPartNumber.trim() })}
-            disabled={!draft.altronicPartNumber.trim() && !draft.sapPartNumber.trim()}
-            className="mb-0.5 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
-          >
-            <Search className="h-4 w-4" /> Look up in SAP
-          </button>
-        )}
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Description</span>
+        <NumberInputs
+          draft={draft}
+          onChange={(d) => {
+            setTouched(true);
+            set({ altronicPartNumber: d.altronicPartNumber, sapPartNumber: d.sapPartNumber });
+          }}
+          readOnly={readOnly}
+        />
+        <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Description</span>
           <input value={draft.name} onChange={(e) => set({ name: e.target.value })} disabled={readOnly} className="input" aria-label={`Description of ${label}`} />
         </label>
-        <label className="flex w-24 flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Qty / product</span>
+        <label className="flex w-24 flex-col gap-1.5 text-xs">
+          <span className={SMALL_LABEL}>Qty / product</span>
           <input
             type="number"
             min={0}
@@ -725,17 +927,22 @@ export function PartCard({
           </button>
         )}
       </div>
-      {lookup.altronicPartNumber || lookup.sapPartNumber ? (
-        sap.isFetching ? (
-          <p className="mt-2 text-[11px] text-fg-muted">Looking it up in SAP…</p>
-        ) : sap.data === null ? (
-          <p className="mt-2 text-[11px] text-cooper-red">SAP doesn't have that part — type its cost in by hand.</p>
-        ) : null
-      ) : null}
+      {touched && sapLookupStatus(sap) && (
+        <p role="status" className="mt-2 text-[11px] text-fg-muted">
+          {sapLookupStatus(sap)}
+        </p>
+      )}
 
-      <div className="mt-3 flex flex-wrap items-end gap-4 text-sm">
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Base cost</span>
+      {/* Label row, then a fixed-height control row, so the three line up
+          whatever sits in them (Ray, 2026-10-22). The source chip sits beside
+          its label rather than under the box. */}
+      <div className="mt-3 flex flex-wrap items-start gap-4 text-sm">
+        <div className="flex flex-col gap-1.5 text-xs">
+          <span className="flex h-3.5 items-center gap-1.5">
+            <span className={SMALL_LABEL}>Base cost</span>
+            <SourceChip source={line.source} inline />
+          </span>
+          <div className="flex h-9 items-center">
           {fromSap || readOnly ? (
             <span className="text-sm tabular-nums text-fg">{line.uploadedCost === null ? "—" : formatUnitCost(line.uploadedCost)}</span>
           ) : (
@@ -746,23 +953,33 @@ export function PartCard({
               aria-label={`Base cost for ${label}`}
               value={line.uploadedCost ?? ""}
               onChange={(e) => set({}, { uploadedCost: num(e.target.value), source: "manual" })}
-              className="input w-28! text-right tabular-nums"
+              className="input h-9! w-28! text-right tabular-nums"
             />
           )}
-          <SourceChip source={line.source} />
+          </div>
         </div>
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Adjusted cost</span>
-          <AdjustedCost line={line} label={label} readOnly={readOnly} onChange={(v) => set({}, { adjustedCost: v })} />
+        <div className="flex flex-col gap-1.5 text-xs">
+          <span className="flex h-3.5 items-center">
+            <span className={SMALL_LABEL}>Adjusted cost</span>
+          </span>
+          <div className="flex h-9 items-center">
+            <AdjustedCost line={line} label={label} readOnly={readOnly} onChange={(v) => set({}, { adjustedCost: v })} />
+          </div>
         </div>
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold uppercase tracking-wider text-fg-muted">Extended</span>
-          <span className="text-sm tabular-nums text-fg">{used === null ? "—" : formatMoney(used * draft.quantityPerProduct * overheadFactor(draft.overheadPct))}</span>
+        <div className="flex flex-col gap-1.5 text-xs">
+          <span className="flex h-3.5 items-center">
+            <span className={SMALL_LABEL}>Extended</span>
+          </span>
+          <div className="flex h-9 items-center">
+            <span className="text-sm tabular-nums text-fg">{used === null ? "—" : formatMoney(used * draft.quantityPerProduct * overheadFactor(draft.overheadPct))}</span>
+          </div>
         </div>
       </div>
 
       <RowSellingPrice draft={draft} onChange={onChange} readOnly={readOnly} worksheetDiscountPct={worksheetDiscountPct} label={label} />
       <RowFiles draft={draft} readOnly={readOnly} name={label} />
+      </>
+      )}
     </section>
   );
 }
@@ -780,8 +997,8 @@ function OverheadInput({
   onChange: (v: number | null) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="font-semibold uppercase tracking-wider text-fg-muted">Overhead %</span>
+    <label className="flex flex-col gap-1.5 text-xs">
+      <span className={SMALL_LABEL}>Overhead %</span>
       <input
         type="number"
         min={0}

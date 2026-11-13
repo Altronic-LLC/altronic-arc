@@ -84,7 +84,7 @@ export function isHiddenDirectoryAccount(person: {
 const DEFAULT_HIDDEN_PEOPLE = "david.phillips";
 
 const HIDDEN_PEOPLE: Set<string> = new Set(
-  (import.meta.env.VITE_HIDDEN_PEOPLE ?? DEFAULT_HIDDEN_PEOPLE)
+  (import.meta.env.VITE_HIDDEN_PEOPLE || DEFAULT_HIDDEN_PEOPLE)
     .split(",")
     .map((e: string) => e.trim().toLowerCase())
     .filter(Boolean),

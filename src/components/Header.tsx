@@ -10,6 +10,8 @@ import {
   CalendarDays,
   ChevronDown,
   Cable,
+  Ruler,
+  Factory,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -27,6 +29,7 @@ import {
   HardHat,
   LayoutDashboard,
   LayoutGrid,
+  Layers,
   Library,
   Lightbulb,
   List,
@@ -44,20 +47,26 @@ import {
   TestTubes,
   Timer,
   Users,
+  CalendarOff,
+  Package,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { useAgendaAttentionCount } from "@/hooks/useAgenda";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
+import { rememberView } from "@/hooks/useRememberedView";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { USE_MOCK } from "@/api/config";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -95,6 +104,22 @@ interface DepartmentItem {
    * the old "Coming soon" row, so the review stays private.
    */
   pricingAccess?: "with" | "without";
+  /**
+   * MCNs: `"with"` shown only to someone who can open them (everyone once
+   * live; the pilot team, approvers and admins until then); `"without"` —
+   * the "Coming soon" row — to everyone else.
+   */
+  mcnAccess?: "with" | "without";
+  /**
+   * Panel SAP BOM Builder (BusinessIT#59): `"with"` shown to whoever can open
+   * it (panel Super Users during the limited demo, the panel team once live);
+   * `"without"` — the "Coming soon" row — to everyone else, during the demo
+   * only. After go-live the builder is simply hidden from non-team people,
+   * like Capacity.
+   */
+  panelBomAccess?: "with" | "without";
+  /** Panel planning tools (BusinessIT#42): shown only to the panel team and ARC admins. */
+  requiresPanelTeam?: boolean;
 }
 
 interface DepartmentGroup {
@@ -191,6 +216,28 @@ const DEPARTMENTS: DepartmentGroup[] = [
         matchesPath: (p) => p.startsWith("/panels/task"),
       },
       {
+        to: "/panels/capacity",
+        label: "Panel Engineering Capacity",
+        icon: <Gauge className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/capacity"),
+        requiresPanelTeam: true,
+      },
+      {
+        to: "/panels/time-off",
+        label: "Panel Time Off",
+        icon: <CalendarOff className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/time-off"),
+        requiresPanelTeam: true,
+      },
+      {
+        to: "/panels/bom-builder",
+        label: "Panel SAP BOM Builder",
+        icon: <Package className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/bom"),
+        panelBomAccess: "with",
+      },
+      { ...soon("Panel SAP BOM Builder", <Package className="h-4 w-4" />), panelBomAccess: "without" },
+      {
         to: "/panels/qc-time-tracking",
         label: "QC Time Tracking",
         icon: <Timer className="h-4 w-4" />,
@@ -221,10 +268,18 @@ const DEPARTMENTS: DepartmentGroup[] = [
         matchesPath: (p) => p.startsWith("/operations/teradyne"),
       },
       {
-        to: "/operations/harness-log",
-        label: "Harness Production Log",
-        icon: <Cable className="h-4 w-4" />,
-        matchesPath: (p) => p.startsWith("/operations/harness-log"),
+        to: "/operations/mcns",
+        label: "MCNs",
+        icon: <Factory className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/mcns"),
+        mcnAccess: "with",
+      },
+      { ...soon("MCNs", <Factory className="h-4 w-4" />), mcnAccess: "without" },
+      {
+        to: "/operations/coating-checks",
+        label: "Conformal Coating Checks",
+        icon: <Layers className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/coating-checks") || p.startsWith("/operations/alert-recipients"),
       },
       // CMMS. Four entries rather than one, because these are four different
       // jobs: raise/track a work order, see what's due, manage the recurring
@@ -260,6 +315,25 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Maintenance Dashboard",
         icon: <LayoutDashboard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/operations/maintenance/dashboard"),
+      },
+    ],
+  },
+  {
+    // Its own department since 2026-10-27 (Tim) — the harness floor's logs
+    // moved out of Operations. Same PMO site, own menu group and Dashboard section.
+    name: "Harness",
+    items: [
+      {
+        to: "/harness/production-log",
+        label: "Harness Production Log",
+        icon: <Cable className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/production-log"),
+      },
+      {
+        to: "/harness/crimp-checks",
+        label: "Crimp Height Checks",
+        icon: <Ruler className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/crimp-checks"),
       },
     ],
   },
@@ -500,13 +574,19 @@ export function Header() {
         </nav>
         {showTaskViews && (
           <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
-            <NavLink to={`/list${filterQuery}`} active={isList} icon={<List className="h-4 w-4" />}>
+            <NavLink
+              to={`/list${filterQuery}`}
+              active={isList}
+              icon={<List className="h-4 w-4" />}
+              onClick={() => rememberView("tasks", "list")}
+            >
               List
             </NavLink>
             {kanbanAvailable && (
               <NavLink
                 to={`/kanban${filterQuery}`}
                 active={isKanban}
+                onClick={() => rememberView("tasks", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Kanban
@@ -519,6 +599,7 @@ export function Header() {
             <NavLink
               to={`/eirs${eirFilterQuery}`}
               active={isEirList}
+              onClick={() => rememberView("eirs", "list")}
               icon={<List className="h-4 w-4" />}
             >
               List
@@ -527,6 +608,7 @@ export function Header() {
               <NavLink
                 to={`/eirs/kanban${eirFilterQuery}`}
                 active={isEirKanban}
+                onClick={() => rememberView("eirs", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Board
@@ -561,6 +643,7 @@ export function Header() {
             <NavLink
               to={`/operations/tasks${filterQuery}`}
               active={isOpsList}
+              onClick={() => rememberView("operationsTasks", "list")}
               icon={<List className="h-4 w-4" />}
             >
               List
@@ -569,6 +652,7 @@ export function Header() {
               <NavLink
                 to={`/operations/tasks/kanban${filterQuery}`}
                 active={isOpsKanban}
+                onClick={() => rememberView("operationsTasks", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Kanban
@@ -708,6 +792,7 @@ function NavLink({
   dimmed,
   icon,
   title,
+  onClick,
   children,
 }: {
   to: string;
@@ -715,12 +800,15 @@ function NavLink({
   dimmed?: boolean;
   icon: React.ReactNode;
   title?: string;
+  /** Runs before the navigation — the List / Kanban switcher saves the pick here. */
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Link
       to={to}
       title={title}
+      onClick={onClick}
       className={cn(
         "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:flex-initial",
         active ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
@@ -751,7 +839,10 @@ function DepartmentsMenu({
   const { rights: quoteRights } = useMyQuoteAccess();
   const canSeeQuotes = quoteRights.canAccess || quoteRights.canManageRoles;
   const { rights: pricingRights } = useMyPricingAccess();
-  const canSeePricing = pricingRights.canAccess;
+  const canSeePricing = pricingRights.canOpen;
+  const mcnAccess = useMyMcnAccess();
+  const canSeeMcns = MCNS_CONFIGURED && mcnAccess.rights.canOpen;
+  const panelTeam = usePanelTeamAccess();
 
   useEffect(() => {
     if (!open) return;
@@ -802,9 +893,25 @@ function DepartmentsMenu({
               <div className="space-y-1">
                 {group.items
                   .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
+                  .filter((item) => !item.requiresPanelTeam || panelTeam.canOpen)
                   .filter(
                     (item) =>
                       !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.mcnAccess ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!mcnAccess.resolving && (item.mcnAccess === "with" ? canSeeMcns : !canSeeMcns)),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.panelBomAccess ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!panelTeam.bomResolving &&
+                        (item.panelBomAccess === "with"
+                          ? panelTeam.canOpenBom
+                          : !PANEL_BOM_LIVE && !panelTeam.canOpenBom)),
                   )
                   .map((item) => {
                   const itemActive = item.matchesPath(pathname);

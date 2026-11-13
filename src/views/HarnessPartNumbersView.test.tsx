@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 
 async function renderView() {
-  renderWithProviders(<HarnessPartNumbersView />, { route: "/operations/harness-log/part-numbers" });
+  renderWithProviders(<HarnessPartNumbersView />, { route: "/harness/production-log/part-numbers" });
   await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
   return screen.getByRole("table");
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardCheck, Eye, EyeOff, Loader2, Paperclip, Plus, Printer, Trash2, Upload, X } from "lucide-react";
+import { ClipboardCheck, Eye, EyeOff, Loader2, Plus, Printer, X } from "lucide-react";
 import { ChoiceSelect } from "./SearchableSelect";
 import { DateField } from "./DateField";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
@@ -7,7 +7,7 @@ import { PersonMultiField } from "./PersonMultiField";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { CommentComposer } from "./CommentComposer";
 import { CommentThread } from "./CommentThread";
-import { useFileDrop } from "./useFileDrop";
+import { PendingAttachmentsCard } from "./PendingAttachmentsCard";
 import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import {
   useAddPanelQcIssueComment,
@@ -23,7 +23,7 @@ import {
   useUpdatePanelQcIssue,
   useWatchPanelQcIssue,
 } from "@/hooks/usePanelQcIssues";
-import { uploadAttachment } from "@/api/attachments";
+import { uploadAttachments } from "@/api/attachments";
 import type { Comment, PanelQcIssue, PanelQcIssueInput, Person } from "@/types/task";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
@@ -70,7 +70,6 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
   // uses the normal AttachmentsSection instead.
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const [savingAttachments, setSavingAttachments] = useState(false);
-  const pendingFileInput = useRef<HTMLInputElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const busy = create.isPending || update.isPending || addDefect.isPending || savingAttachments;
 
@@ -105,10 +104,6 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
     setNewDefect("");
   }
 
-  function addPendingFiles(files: File[]) {
-    if (files.length > 0) setPendingAttachments((prev) => [...prev, ...files]);
-  }
-
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -120,13 +115,12 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
         if (pendingAttachments.length > 0) {
           setSavingAttachments(true);
           try {
-            const results = await Promise.allSettled(
-              pendingAttachments.map((file) => uploadAttachment("panelQcIssue", created.id, file)),
-            );
-            const failed = results.filter((r) => r.status === "rejected").length;
-            if (failed > 0) {
+            // One at a time — parallel uploads to one item collide in
+            // SharePoint (see uploadAttachment).
+            const { failed } = await uploadAttachments("panelQcIssue", created.id, pendingAttachments);
+            if (failed.length > 0) {
               pushToast({
-                message: `Issue ${created.tagNumber || created.id} was created, but ${failed} of ${pendingAttachments.length} attachment${pendingAttachments.length > 1 ? "s" : ""} couldn't be uploaded. Open the issue to retry.`,
+                message: `Issue ${created.tagNumber || created.id} was created, but ${failed.length} of ${pendingAttachments.length} attachment${pendingAttachments.length > 1 ? "s" : ""} couldn't be uploaded. Open the issue to retry.`,
                 variant: "error",
               });
             }
@@ -281,10 +275,9 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
       {!issue && (
         <PendingAttachmentsCard
           files={pendingAttachments}
-          onAdd={addPendingFiles}
-          onRemove={(index) => setPendingAttachments((prev) => prev.filter((_, i) => i !== index))}
+          onChange={setPendingAttachments}
           disabled={busy}
-          fileInputRef={pendingFileInput}
+          itemNoun="issue"
         />
       )}
 
@@ -323,56 +316,3 @@ function Field({ label, required, className = "", action, children }: { label: R
   return <label className={`flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-fg-muted ${className}`}><span className="flex items-center justify-between">{label}{required && <span className="text-cooper-red"> *</span>}{action}</span>{children}</label>;
 }
 
-/**
- * A lightweight stand-in for AttachmentsSection, for the New Issue form —
- * that component needs a real item id to talk to SharePoint's attachment
- * store, which doesn't exist until the create succeeds. Files picked here
- * are held in memory only and uploaded by submit() once the new issue's id
- * is known; there's no drag-and-drop paste-image naming flow (unlike the
- * real AttachmentsSection) to keep this scoped to what a brand-new record
- * actually needs.
- */
-function PendingAttachmentsCard({
-  files,
-  onAdd,
-  onRemove,
-  disabled,
-  fileInputRef,
-}: {
-  files: File[];
-  onAdd: (files: File[]) => void;
-  onRemove: (index: number) => void;
-  disabled: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-}) {
-  const { dragging, dropProps } = useFileDrop(onAdd, disabled);
-  return (
-    <div {...dropProps} className={cn("rounded-lg border bg-surface p-4 sm:p-5", dragging ? "border-accent ring-2 ring-accent/30" : "border-border")}>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-          <Paperclip className="h-4 w-4" />
-          Attachments
-          {files.length > 0 && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold tabular-nums text-fg">{files.length}</span>}
-        </h2>
-        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={disabled} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:border-fg-muted disabled:opacity-50">
-          <Upload className="h-3.5 w-3.5" />Add file
-        </button>
-        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { onAdd(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-      </div>
-      {files.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-fg-muted">
-          No files yet. Drag files here or click "Add file" — they'll upload once you save this issue.
-        </div>
-      ) : (
-        <ul className="divide-y divide-border rounded-md border border-border">
-          {files.map((file, index) => (
-            <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-              <span className="truncate text-fg">{file.name}</span>
-              <button type="button" onClick={() => onRemove(index)} disabled={disabled} aria-label={`Remove ${file.name}`} className="shrink-0 rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}

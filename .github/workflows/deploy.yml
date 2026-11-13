@@ -127,7 +127,6 @@ jobs:
           # Set all five after scripts/create-quote-lists.ps1 has run.
           VITE_SP_QUOTES_LIST_ID: ${{ vars.VITE_SP_QUOTES_LIST_ID }}
           VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ASSEMBLIES_LIST_ID }}
-          VITE_SP_QUOTE_ITEMS_LIST_ID: ${{ vars.VITE_SP_QUOTE_ITEMS_LIST_ID }}
           VITE_SP_QUOTE_CUSTOMERS_LIST_ID: ${{ vars.VITE_SP_QUOTE_CUSTOMERS_LIST_ID }}
           VITE_SP_QUOTE_ROLES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ROLES_LIST_ID }}
           VITE_SP_PRICING_ROLES_LIST_ID: ${{ vars.VITE_SP_PRICING_ROLES_LIST_ID }}
@@ -138,6 +137,10 @@ jobs:
           VITE_SP_CUSTOMER_QUOTES_LIST_ID: ${{ vars.VITE_SP_CUSTOMER_QUOTES_LIST_ID }}
           VITE_PRICING_LIVE: ${{ vars.VITE_PRICING_LIVE }}
           VITE_PRICING_PREVIEW_USERS: ${{ vars.VITE_PRICING_PREVIEW_USERS }}
+          VITE_SP_MCNS_LIST_ID: ${{ vars.VITE_SP_MCNS_LIST_ID }}
+          VITE_SP_MCN_ROLES_LIST_ID: ${{ vars.VITE_SP_MCN_ROLES_LIST_ID }}
+          VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID: ${{ vars.VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID }}
+          VITE_MCN_LIVE: ${{ vars.VITE_MCN_LIVE }}
           VITE_SP_LIST_ID: ${{ vars.VITE_SP_LIST_ID }}
           VITE_SP_PROJECTS_LIST_ID: ${{ vars.VITE_SP_PROJECTS_LIST_ID }}
           VITE_SP_TEST_RESULTS_LIST_ID: ${{ vars.VITE_SP_TEST_RESULTS_LIST_ID }}
@@ -157,6 +160,17 @@ jobs:
           # in config.ts — the checklist card on an ECN reports itself "not
           # configured" until this is set, same as Quick Links.
           VITE_SP_ECN_CHECKLISTS_LIST_ID: ${{ vars.VITE_SP_ECN_CHECKLISTS_LIST_ID }}
+          # ECN Distribution Groups (BusinessIT#57) — who receives an ECN for
+          # each role on its DISTRIBUTION block. No default in config.ts; unset,
+          # the ECN says the groups aren't set up and nothing is emailed.
+          VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID: ${{ vars.VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID }}
+          # QC Forms — GET-1 (GE Transportation Log Sheet), PMO site. No
+          # default in config.ts — the GET-1 screen says the variable isn't
+          # set until scripts/create-qc-form-list.ps1 has built the list.
+          VITE_SP_QC_GET1_LIST_ID: ${{ vars.VITE_SP_QC_GET1_LIST_ID }}
+          # QC Forms — QCFRM-035 (Series X Controller log sheet), PMO site. No
+          # default, the GET-1 arrangement.
+          VITE_SP_QC_SERIES_X_LIST_ID: ${{ vars.VITE_SP_QC_SERIES_X_LIST_ID }}
           # MRB Data (Supply Chain, PMO site). Documented default in
           # config.ts, so a build without this still points at the live list;
           # set it only to override.
@@ -184,6 +198,19 @@ jobs:
           # scripts/create-harness-production-lists.ps1 has run and these are set.
           VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID: ${{ vars.VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID }}
           VITE_SP_HARNESS_PART_NUMBERS_LIST_ID: ${{ vars.VITE_SP_HARNESS_PART_NUMBERS_LIST_ID }}
+          VITE_SP_CRIMP_SPECS_LIST_ID: ${{ vars.VITE_SP_CRIMP_SPECS_LIST_ID }}
+          VITE_SP_PANEL_TIME_OFF_LIST_ID: ${{ vars.VITE_SP_PANEL_TIME_OFF_LIST_ID }}
+          VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID: ${{ vars.VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID }}
+          VITE_SP_PANEL_SETTINGS_LIST_ID: ${{ vars.VITE_SP_PANEL_SETTINGS_LIST_ID }}
+          VITE_SP_PANEL_BOM_PARTS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOM_PARTS_LIST_ID }}
+          VITE_SP_PANEL_BOM_KITS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOM_KITS_LIST_ID }}
+          VITE_SP_PANEL_BOMS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOMS_LIST_ID }}
+          VITE_PANEL_BOM_LIVE: ${{ vars.VITE_PANEL_BOM_LIVE }}
+          VITE_SP_CRIMP_CHECKS_LIST_ID: ${{ vars.VITE_SP_CRIMP_CHECKS_LIST_ID }}
+          VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: ${{ vars.VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID }}
+          VITE_SP_COATING_SPECS_LIST_ID: ${{ vars.VITE_SP_COATING_SPECS_LIST_ID }}
+          VITE_SP_COATING_CHECKS_LIST_ID: ${{ vars.VITE_SP_COATING_CHECKS_LIST_ID }}
+          VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID: ${{ vars.VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID }}
           # Maintenance Roles (Admin -> Maintenance Roles). No default in
           # config.ts — setting this switches CMMS role gating ON, so populate
           # the list first. Until it is set, everyone signed in keeps the

@@ -46,6 +46,7 @@ Two rules that apply to everything here:
 | `Scrub-EquipmentList.ps1` | Audits, and optionally cleans, the Altronic Equipment List | report only unless `-Apply` | `equipment-*.csv` (gitignored) |
 | `load-altronic-parts-lists.ps1` | Loads the legacy parts lists into the Part and Component lists | report only unless `-Apply` | fix / change / skip CSVs |
 | `load-harness-production-log.ps1` | Loads the cleaned Access export into the Harness lists | report only unless `-Apply` | load report |
+| `move-panel-orders-to-arc.ps1` | Moves the old Panel Job Dashboard orders into Panel Order Headers (adds Archived / LegacySource / LegacyCreated; add-only) | report only unless `-Apply`; `-ColumnsOnly` adds just the columns | plan / skipped CSVs, to an `-OutDir` outside the repo |
 | `reassign-site-user.ps1` | Re-points every person field from one site user to another | report only unless `-Apply` | `reassign-*.csv` (gitignored; the only rollback record — keep it) |
 | `swap-resistor-rating-bc.ps1` | Swaps Rating B and C on resistors entered voltage-first; `-Undo` reverses | report only unless `-Apply` | report |
 

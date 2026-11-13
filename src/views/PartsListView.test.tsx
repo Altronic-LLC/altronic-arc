@@ -6,11 +6,24 @@ import { MOCK_ALTRONIC_PARTS } from "@/data/altronicPartsMockData";
 import type { AltronicPart } from "@/types/task";
 
 // The Part List read is swapped per test — the mock data by default, a failure
-// or a big list where a case needs one.
+// or a big list where a case needs one. A list screen reads only its own list
+// (listAltronicPartsInLists), so that read is the same swap, filtered — one
+// fixture drives both.
 const listAltronicParts = vi.hoisted(() => vi.fn());
+const listAltronicPartsInLists = vi.hoisted(() => vi.fn());
 vi.mock("@/api/altronicParts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/altronicParts")>();
-  return { ...actual, listAltronicParts: () => listAltronicParts() };
+  const { partPrefix } = await import("@/lib/altronicPartMapper");
+  return {
+    ...actual,
+    listAltronicParts: () => listAltronicParts(),
+    listAltronicPartsInLists: async (prefixes: string[]) => {
+      listAltronicPartsInLists(prefixes);
+      const rows: AltronicPart[] = await listAltronicParts();
+      return rows.filter((p) => prefixes.includes(partPrefix(p.partNumber) ?? ""));
+    },
+    altronicPartListHasRows: async () => ((await listAltronicParts()) as AltronicPart[]).length > 0,
+  };
 });
 
 import { PartsListView } from "./PartsListView";

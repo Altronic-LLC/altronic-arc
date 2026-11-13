@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Cpu, Globe, ListTree, Search } from "lucide-react";
+import { ArrowLeft, Cpu, Download, Globe, ListTree, Search } from "lucide-react";
 import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicParts";
 import { PartKindChip, PartsDataGate } from "@/components/partsAtoms";
 import { buildPartsBooks, parsePartsQuery, partPath } from "@/lib/partSearch";
@@ -11,6 +11,8 @@ import { NewPartButton } from "@/components/PartFormModal";
 import { useMyPartsAccess } from "@/hooks/usePartsRoles";
 import { manageDescriptionOptionsGate, partsRightsFor } from "@/lib/partsRoles";
 import { cn } from "@/lib/cn";
+import { componentCsvFileName, componentCsvRows, toCsv } from "@/lib/componentCsv";
+import { downloadBlob } from "@/hooks/useQuotePdf";
 
 // =============================================================================
 // Altronic Parts List — the landing page. Replaces the Power App's home screen
@@ -86,6 +88,30 @@ function DescriptionListsLink() {
   );
 }
 
+/**
+ * The Component List as a CSV (BusinessIT#53) — anyone who can read the Parts
+ * List. Built from the list already loaded for the tiles, so it costs no
+ * request; greyed until that has arrived.
+ */
+function ExportComponentsButton({ components }: { components: AltronicComponent[] | undefined }) {
+  return (
+    <button
+      type="button"
+      disabled={!components}
+      title={components ? "Download every live component as a CSV" : "The Component List is still loading"}
+      onClick={() => {
+        if (!components) return;
+        const blob = new Blob([toCsv(componentCsvRows(components))], { type: "text/csv;charset=utf-8" });
+        downloadBlob(blob, componentCsvFileName(new Date()));
+      }}
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2 disabled:opacity-50"
+    >
+      <Download className="h-4 w-4" />
+      Export components
+    </button>
+  );
+}
+
 export function PartsBookView() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -152,7 +178,7 @@ export function PartsBookView() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Link
             to="/engineering/parts/search"
             className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2"
@@ -161,6 +187,7 @@ export function PartsBookView() {
             Global Search
           </Link>
           <DescriptionListsLink />
+          <ExportComponentsButton components={componentsQuery.data} />
           <NewPartButton prefix={null} />
         </div>
       </header>

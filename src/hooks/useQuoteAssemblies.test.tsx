@@ -20,19 +20,12 @@ vi.mock("@/api/quoteAssemblies", async (orig) => {
     deleteQuoteAssembly: vi.fn(a.deleteQuoteAssembly),
   };
 });
-vi.mock("@/api/quoteItems", async (orig) => {
-  const a = await orig<typeof import("@/api/quoteItems")>();
-  return { ...a, deleteQuoteItem: vi.fn(a.deleteQuoteItem) };
-});
 const pushToast = vi.hoisted(() => vi.fn());
 vi.mock("@/components/Toast", () => ({ pushToast }));
 
 import * as asmApi from "@/api/quoteAssemblies";
-import * as itemApi from "@/api/quoteItems";
 import {
   QUOTE_ASSEMBLIES_KEY,
-  QuoteAssemblyDeleteError,
-  QuoteLineTypeChangeError,
   syncAssemblyCustomerPrice,
   useCreateQuoteAssembly,
   useDeleteQuoteAssembly,
@@ -56,10 +49,10 @@ function setup() {
 const NEW = {
   quoteId: 4,
   lineNo: 9,
-  lineType: "Assembly" as const,
   quotedQty: 1,
-  cost: null,
-  materialOverheadPct: null,
+  materialCost: 100,
+  laborCost: 20,
+  materialOverheadPct: 18,
   altronicPartNumber: "NEW-1",
   sapPartNumber: "",
   customerPartNumber: "",
@@ -67,6 +60,8 @@ const NEW = {
   priceBreaks: [],
   targetGM: 35,
   manualPrice: null,
+  targetPrice: null,
+  estimatedEau: null,
   customerPrice: null,
 };
 
@@ -77,13 +72,9 @@ beforeEach(() => {
     asmApi.createQuoteAssembly,
     asmApi.updateQuoteAssemblyFields,
     asmApi.deleteQuoteAssembly,
-    itemApi.deleteQuoteItem,
   ]) {
     vi.mocked(fn).mockClear();
   }
-  vi.mocked(itemApi.deleteQuoteItem).mockImplementation(
-    async (id) => (await vi.importActual<typeof import("@/api/quoteItems")>("@/api/quoteItems")).deleteQuoteItem(id),
-  );
   pushToast.mockClear();
 });
 
@@ -110,15 +101,18 @@ describe("gates — editQuoteGate inside the mutationFn", () => {
     expect(asmApi.createQuoteAssembly).not.toHaveBeenCalled();
     expect(asmApi.updateQuoteAssemblyFields).not.toHaveBeenCalled();
     expect(asmApi.deleteQuoteAssembly).not.toHaveBeenCalled();
-    expect(itemApi.deleteQuoteItem).not.toHaveBeenCalled();
   });
 
-  it("lets a quoter create an assembly", async () => {
-    const { wrapper } = setup();
+  it("lets a quoter create a line, and stores its computed price", async () => {
+    const { qc, wrapper } = setup();
     const { result } = renderHook(() => useCreateQuoteAssembly(), { wrapper });
     const created = await act(() => result.current.mutateAsync(NEW));
     expect(created.altronicPartNumber).toBe("NEW-1");
     expect(asmApi.createQuoteAssembly).toHaveBeenCalledTimes(1);
+    // 100 × 1.18 + 20 = 138 at 35% → 212.31.
+    expect(qc.getQueryData<QuoteAssembly[]>(QUOTE_ASSEMBLIES_KEY)?.find((a) => a.id === created.id)?.customerPrice).toBe(
+      212.31,
+    );
   });
 });
 
@@ -141,27 +135,28 @@ describe("price sync on assembly writes", () => {
     const { qc, wrapper } = setup();
     await qc.fetchQuery({ queryKey: QUOTE_ASSEMBLIES_KEY, queryFn: asmApi.listQuoteAssemblies });
     const { result } = renderHook(() => useUpdateQuoteAssembly(), { wrapper });
-    // Assembly 2: components cost 76.70; 35% → 118.00, 40% → 127.83.
+    // Line 2: 54 × 1.18 + 12 = 75.72; 35% → 116.49, 40% → 126.20.
     await act(() => result.current.mutateAsync({ id: 2, patch: { targetGM: 40 } }));
     const calls = vi.mocked(asmApi.updateQuoteAssemblyFields).mock.calls;
     expect(calls[0][1]).toEqual({ targetGM: 40 });
-    expect(calls[1][1]).toEqual({ customerPrice: 127.83 });
+    expect(calls[1][1]).toEqual({ customerPrice: 126.2 });
   });
 
-  it("a Part line's cost edit re-syncs CustomerPrice", async () => {
+  it("a material, labor or overhead edit re-syncs CustomerPrice", async () => {
     const { qc, wrapper } = setup();
     await qc.fetchQuery({ queryKey: QUOTE_ASSEMBLIES_KEY, queryFn: asmApi.listQuoteAssemblies });
     const { result } = renderHook(() => useUpdateQuoteAssembly(), { wrapper });
-    // Part 7: 40 + 10% = 44 loaded; at 45% → 80.00.
-    await act(() => result.current.mutateAsync({ id: 7, patch: { cost: 40 } }));
+    // Line 7: 40 × 1.10 + 11 labor = 55 at 45% → 100.00.
+    await act(() => result.current.mutateAsync({ id: 7, patch: { materialCost: 40, laborCost: 11 } }));
     const calls = vi.mocked(asmApi.updateQuoteAssemblyFields).mock.calls;
-    expect(calls[1][1]).toEqual({ customerPrice: 80 });
+    expect(calls[0][1]).toEqual({ materialCost: 40, laborCost: 11 });
+    expect(calls[1][1]).toEqual({ customerPrice: 100 });
   });
 
   it("syncAssemblyCustomerPrice writes nothing when the stored price already matches", async () => {
     const { qc } = setup();
     const a = quoteMockDb.assemblies.find((x) => x.id === 2)!;
-    a.customerPrice = priceQuoteAssembly(a, quoteMockDb.items).price;
+    a.customerPrice = priceQuoteAssembly(a).price;
     expect(await syncAssemblyCustomerPrice(qc, 2)).toBe(false);
     expect(asmApi.updateQuoteAssemblyFields).not.toHaveBeenCalled();
   });
@@ -175,79 +170,13 @@ describe("price sync on assembly writes", () => {
   });
 });
 
-describe("line type changes", () => {
-  it("REFUSES Assembly → Part while the line has components, and writes nothing", async () => {
-    const { qc, wrapper } = setup();
-    await qc.fetchQuery({ queryKey: QUOTE_ASSEMBLIES_KEY, queryFn: asmApi.listQuoteAssemblies });
-    const { result } = renderHook(() => useUpdateQuoteAssembly(), { wrapper });
-    await act(() =>
-      expect(result.current.mutateAsync({ id: 2, patch: { lineType: "Part" } })).rejects.toBeInstanceOf(
-        QuoteLineTypeChangeError,
-      ),
-    );
-    expect(asmApi.updateQuoteAssemblyFields).not.toHaveBeenCalled();
-    expect(pushToast).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringMatching(/2 components.*Delete them/) }),
-    );
-    expect(qc.getQueryData<QuoteAssembly[]>(QUOTE_ASSEMBLIES_KEY)?.find((a) => a.id === 2)?.lineType).toBe(
-      "Assembly",
-    );
-  });
-
-  it("allows Assembly → Part with no components", async () => {
-    const { qc, wrapper } = setup();
-    await qc.fetchQuery({ queryKey: QUOTE_ASSEMBLIES_KEY, queryFn: asmApi.listQuoteAssemblies });
-    const create = renderHook(() => useCreateQuoteAssembly(), { wrapper });
-    const created = await act(() => create.result.current.mutateAsync(NEW));
-    const { result } = renderHook(() => useUpdateQuoteAssembly(), { wrapper });
-    const updated = await act(() =>
-      result.current.mutateAsync({ id: created.id, patch: { lineType: "Part", cost: 10 } }),
-    );
-    expect(updated.lineType).toBe("Part");
-  });
-
-  it("Part → Assembly clears the line's own cost and overhead in the SAME write", async () => {
-    const { qc, wrapper } = setup();
-    await qc.fetchQuery({ queryKey: QUOTE_ASSEMBLIES_KEY, queryFn: asmApi.listQuoteAssemblies });
-    const { result } = renderHook(() => useUpdateQuoteAssembly(), { wrapper });
-    const updated = await act(() => result.current.mutateAsync({ id: 7, patch: { lineType: "Assembly" } }));
-    expect(vi.mocked(asmApi.updateQuoteAssemblyFields).mock.calls[0][1]).toEqual({
-      lineType: "Assembly",
-      cost: null,
-      materialOverheadPct: null,
-    });
-    expect(updated).toMatchObject({ lineType: "Assembly", cost: null, materialOverheadPct: null });
-  });
-});
-
 describe("useDeleteQuoteAssembly", () => {
-  it("deletes the assembly's components FIRST, then the assembly", async () => {
-    const order: string[] = [];
-    vi.mocked(itemApi.deleteQuoteItem).mockImplementation(async (id) => void order.push(`item ${id}`));
-    vi.mocked(asmApi.deleteQuoteAssembly).mockImplementationOnce(async (id) => void order.push(`assembly ${id}`));
-    const { wrapper } = setup();
+  it("deletes the line and drops it from the cache", async () => {
+    const { qc, wrapper } = setup();
+    await qc.fetchQuery({ queryKey: QUOTE_ASSEMBLIES_KEY, queryFn: asmApi.listQuoteAssemblies });
     const { result } = renderHook(() => useDeleteQuoteAssembly(), { wrapper });
     await act(() => result.current.mutateAsync(2));
-    expect(order).toEqual(["item 5", "item 6", "assembly 2"]);
-  });
-
-  it("keeps the assembly, and names the component, when one component delete fails", async () => {
-    vi.mocked(itemApi.deleteQuoteItem).mockImplementation(async (id) => {
-      if (id === 6) throw new Error("Graph 403");
-    });
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useDeleteQuoteAssembly(), { wrapper });
-    let caught: unknown;
-    await act(async () => {
-      try {
-        await result.current.mutateAsync(2);
-      } catch (err) {
-        caught = err;
-      }
-    });
-    expect(caught).toBeInstanceOf(QuoteAssemblyDeleteError);
-    expect((caught as Error).message).toMatch(/693005-CONN/);
-    expect((caught as QuoteAssemblyDeleteError).deletedItemIds).toEqual([5]);
-    expect(asmApi.deleteQuoteAssembly).not.toHaveBeenCalled();
+    expect(asmApi.deleteQuoteAssembly).toHaveBeenCalledWith(2);
+    expect(qc.getQueryData<QuoteAssembly[]>(QUOTE_ASSEMBLIES_KEY)?.some((a) => a.id === 2)).toBe(false);
   });
 });

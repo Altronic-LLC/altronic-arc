@@ -73,9 +73,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · My Agenda (your tasks + EIRs coming due) · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Sales Documentation · Application Photos · Insourcing Quotes (list · worksheet · customers · roles) · Pricing (calculator on the Pricing bar · requests · request · new product worksheets · customer quotes · roles) · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Supply Chain Files · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useAgenda · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useQuotes · useQuoteAssemblies · useQuoteItems · useQuoteCustomers · useQuoteRoles · useQuotePdf · usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useScns · useScnDocuments · useSupplyChainFiles · useSalesDocumentation · useApplicationPhotos · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · quotes · quoteAssemblies · quoteItems · quoteCustomers · quoteRoles · quoteRevisions · quotePdfFiles · pricingRequests · pricingHistory · pricingRoles · pricingLookup (SAP via Fabric — the Calculator cost, the part lookup and the customer search are live, the rest not wired yet) · newProductPricing · newProductSubAssemblies · customerQuotes · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · scns · driveLibrary · scnDocuments · supplyChainFiles · salesDocumentation · applicationPhotos · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · My Agenda (your tasks + EIRs coming due) · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + one form engine; QCFRM-012 CPU-95, GET-1 GE ECU and QCFRM-035 Series X log sheets) · Panel QC Issue Tracker · Open Orders Report · Sales Documentation · Application Photos · Insourcing Quotes (list · worksheet · customers · roles) · Pricing (calculator on the Pricing bar · requests · request · new product worksheets · customer quotes · roles) · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Supply Chain Files · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useAgenda · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcForms · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useQuotes · useQuoteAssemblies · useQuoteCustomers · useQuoteRoles · useQuotePdf · usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useEcnDistributionGroups · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useSupplierPerformance · useCostImpactNotices · useScns · useScnDocuments · useSupplyChainFiles · useSalesDocumentation · useApplicationPhotos · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcForms · qcFormLists · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · quotes · quoteAssemblies · quoteCustomers · quoteRoles · quoteRevisions · quotePdfFiles · pricingRequests · pricingHistory · pricingRoles · pricingLookup (SAP via Fabric — the Calculator cost, the part lookup and the customer search are live, the rest not wired yet) · newProductPricing · newProductSubAssemblies · customerQuotes · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · ecnDistributionGroups · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · supplierPerformance (SAP via Fabric, read-only) · costImpactNotices · scns · driveLibrary · scnDocuments · supplyChainFiles · salesDocumentation · applicationPhotos · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -93,7 +93,12 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · HarnessProductionLogView · HarnessPartNumbersView — useOperationsTasks · useTeradyne · useHarnessProductionLog — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · harnessProductionLog · harnessPartNumbers. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView · CoatingChecksView · CoatingSpecsView · OperationsAlertRecipientsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles · useCoatingChecks · useOperationsAlertRecipients — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles · coatingChecks · coatingSpecs · operationsAlertRecipients — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts · coatingCheck (coating thickness from three uncoated + three coated readings in mm or in, ÷ coated sides, judged in the spec's own unit; mm, in and mils shown) · coatingAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        palette: "ui",
+      },
+      {
+        label: "Harness department (lazy-loaded)",
+        hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · crimpMachines (its own read of the asset register's presses — no Operations import) · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpMachines (presses in a Harness location, plus SCHCC36S by name; a spec with no machine is offered on every press) · crimpAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
         palette: "ui",
       },
       {
@@ -123,7 +128,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "SRM Tool (lazy-loaded)",
-        hint: "SuppliersView · SupplierDetailView · SupplierContactRedirect · SupplierIssueRedirect — useSuppliers · useSupplierContacts · useSupplierIssues — api/suppliers · supplierContacts · supplierIssues. Own site (PMO). Suppliers List is the anchor; Contacts and Issue Tracker render as expandable inline cards on a supplier's own page, the same pattern Build Request Items use, because both need their own comment thread, watchers and attachments.",
+        hint: "SuppliersView · SupplierDetailView · SupplierContactRedirect · SupplierIssueRedirect — useSuppliers · useSupplierContacts · useSupplierIssues · useSupplierPerformance — api/suppliers · supplierContacts · supplierIssues · supplierPerformance. Own site (PMO); performance scores read from SAP through Fabric, matched on BP number, falling back to the scores typed into the list. Suppliers List is the anchor; Contacts and Issue Tracker render as expandable inline cards on a supplier's own page, the same pattern Build Request Items use, because both need their own comment thread, watchers and attachments.",
         palette: "ui",
       },
       {
@@ -138,7 +143,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Insourcing Quotes (lazy-loaded)",
-        hint: "QuotesView · QuoteDetailView · QuoteCustomersView · QuoteRolesView · QuotesNav + the Quote form modals — useQuotes · useQuoteAssemblies · useQuoteItems · useQuoteCustomers · useQuoteRoles · useQuotePdf — api/quotes · quoteAssemblies · quoteItems · quoteCustomers · quoteRoles · quoteRevisions (New rev: copies header, assemblies, components, comments and attachments) · quotePdfFiles (Save to folder, General/IC Quotes on the PMO library, rename on clash) — lib/quotePricing (component cost only; the line's ONE target GM prices it; Part lines; breaks; WEIGHTED quote GM) · quoteMoney (2-decimal display) · sapPartNumber (####-####-##) · quoteRoles (viewer / quoter / manager; no role = no access) · quoteNumber (IQ-CODE-####-R#, global sequence) · quoteCustomerCode · quotePdfModel (the customer-facing shape that cannot carry cost) · quotePdf (jsPDF + AutoTable, dynamically imported) · quoteMapper. Routes /sales/quotes, /sales/quotes/:id, /sales/quotes/customers, /sales/quotes/roles. Five lists on Altronic_PMO; cost and margin are hidden from viewers in the UI only — SharePoint list permissions are the real boundary.",
+        hint: "QuotesView · QuoteDetailView · QuoteCustomersView · QuoteRolesView · QuotesNav + the Quote form modals · QuoteLinksPanel (Engineering / Operations task and project links) · QuoteToTaskModal + useQuoteToTask + lib/quoteToTask (a Won quote → an Engineering / Operations task; the two then share one comment thread) · QuoteAlternatesCard (the page-two Alternates table — three manufacturer / part # / lead time options + a reason per row, pasted from Excel) — useQuotes · useQuoteAssemblies · useQuoteCustomers · useQuoteRoles · useQuotePdf — api/quotes · quoteAssemblies · quoteCustomers · quoteRoles · quoteRevisions (New rev: copies header, lines, comments and attachments) · quotePdfFiles (Save to folder, General/IC Quotes on the PMO library, rename on clash) — lib/quotePricing (a line's final material × (1 + overhead%) + labor; its ONE target GM prices it; breaks; WEIGHTED quote GM) · quoteMoney (2-decimal display) · sapPartNumber (####-####-##) · quoteRoles (viewer / quoter / manager; no role = no access) · quoteNumber (IQ-CODE-####-R#, global sequence) · quoteCustomerCode · quotePdfModel (the customer-facing shape that cannot carry cost) · quotePdf (jsPDF + AutoTable, dynamically imported) · quoteMapper. Routes /sales/quotes, /sales/quotes/:id, /sales/quotes/customers, /sales/quotes/roles. Four lists on Altronic_PMO; cost and margin are hidden from viewers in the UI only — SharePoint list permissions are the real boundary.",
         palette: "ui",
       },
       {
@@ -148,7 +153,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Panels department (lazy-loaded bundle)",
-        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Own code-split chunk; no cross-department imports.",
+        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · PanelCapacityView · PanelTimeOffView · PanelTaskTemplatesView · PanelBomBuilderView · PanelBomsView · PanelBomPartsView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · usePanelTimeOff · usePanelOrderTasks · usePanelTaskTemplates · usePanelSettings · usePanelBom · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelTimeOff · panelTaskTemplates · panelSettings · panelBomParts · panelBoms · panelBomCosts (SAP cost via Fabric, read-only) · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Capacity runs on the SHARED lib/capacity + CapacityGrid through a Panels adapter (lib/panelCapacity), ready for Engineering/Operations. Own code-split chunk; no cross-department imports.",
         palette: "ui",
       },
     ],
@@ -158,7 +163,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice, SCN, Quote, Quote Item) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice, SCN, Quote) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -195,15 +200,28 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Scheduled Maintenance", hint: "Altronic_PMO site — the recurring PM rules the calendar projects from. Fixed, Floating or Hourmeter basis, an interval + unit, grace and lead days. Hourmeter is due at a run-hours READING rather than a date (LastCompletedHours / NextDueHours, against the asset's CurrentMachineHours) and reaches the calendar only on the day the reading passes the target — grace and lead days are in DAYS and do not apply to it. No Communication column by design (a schedule is a rule; the conversation belongs on the work order it made) and no delete — a schedule is retired by clearing Active", palette: "list" },
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
+      { label: "Manufacturing Change Notices", hint: "Altronic_PMO site — one row per MCN (MFGFRM-021 as fields), with MCN Roles (who raises, approves, manages) and MCN Distribution Groups (who an approved MCN goes to) beside it", palette: "list" },
+      { label: "Coating Specs", hint: "Altronic_PMO site — conformal coating min / max thickness, stored in mm with the unit it was entered in (mm or in), and coated sides (1 or 2); ARC admins manage, delete only when unused", palette: "list" },
+      { label: "Coating Checks", hint: "Altronic_PMO site — three uncoated + three coated readings per check (mm or in), the thickness judged in the spec's unit and stored in mm, in and mils, the spec's figures copied on; read a year at a time on the indexed MeasuredAt", palette: "list" },
+      { label: "Operations Alert Recipients", hint: "Altronic_PMO site — who each Operations email goes to (out-of-spec coating checks); ARC admins pick people in ARC, no redeploy", palette: "list" },
       { label: "Harness Production Log", hint: "Altronic_PMO site — one row per harness built, imported from the old Access database; read a year at a time on the indexed ProductionDate", palette: "list" },
       { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
+      { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge, and the presses it runs on (a multi lookup into the Altronic Equipment List); ARC admins manage, delete only when unused", palette: "list" },
+      { label: "Crimp Height Checks", hint: "Altronic_PMO site — three micrometer readings per check, the spec's figures copied on; read a year at a time on the indexed CheckedAt", palette: "list" },
+      { label: "Harness Alert Recipients", hint: "Altronic_PMO site — who each Harness email goes to (out-of-spec crimp checks, part number requests); ARC admins pick people in ARC, no redeploy", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
       { label: "Coil-PottingLimit", hint: "Altronic_PMO site — two rows (Lower/Upper Spec Limit), editable by any signed-in user", palette: "list" },
       { label: "Coil PSR Notification List", hint: "Altronic_PMO site — email list for out-of-limit alerts, editable by any signed-in user", palette: "list" },
       { label: "Build Request Tracker", hint: "BR headers — status workflow, requestor/engineer, own comment thread", palette: "list" },
       { label: "Build Request Items", hint: "parts per BR (lookup to the Tracker) — checklists + per-part comment threads", palette: "list" },
       { label: "Panel Order Headers", hint: "ALTRONICPANELTEAM site — panel sales orders (status, SO/PO, engineer, own comment thread)", palette: "list" },
-      { label: "Panel Tasks", hint: "ALTRONICPANELTEAM site — panel team tasks (drawings, SOOs, quotes, admin), own comment thread", palette: "list" },
+      { label: "Panel Tasks", hint: "ALTRONICPANELTEAM site — panel team tasks (drawings, SOOs, quotes, admin), own comment thread; start/due dates + estimated hours feed Panel Engineering Capacity", palette: "list" },
+      { label: "Panel Time Off", hint: "ALTRONICPANELTEAM site — who on the panel team is out and for how many hours a day; lowers their capacity. A company holiday names nobody and applies to everyone", palette: "list" },
+      { label: "Panel Task Templates", hint: "ALTRONICPANELTEAM site — the standard tasks a new Panel Order raises (Wrike's blueprint), kept by the panel managers in ARC", palette: "list" },
+      { label: "Panel Settings", hint: "ALTRONICPANELTEAM site — one row per setting: today the Capacity view's amber threshold", palette: "list" },
+      { label: "Panel BOM Parts", hint: "ALTRONICPANELTEAM site — the BOM Builder's parts (SAP #, cluster, category, flags); NO cost — cost is SAP's, read through Fabric per viewer", palette: "list" },
+      { label: "Panel BOM Kits", hint: "ALTRONICPANELTEAM site — the BOM Builder's kits, components as JSON on each row", palette: "list" },
+      { label: "Panel BOMs", hint: "ALTRONICPANELTEAM site — saved BOMs: the picks and a snapshot of the SAP lines, optionally linked to a Panel Order", palette: "list" },
       { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
       { label: "QC Time Tracking", hint: "ALTRONICPANELTEAM site — hours QC spent per project; a simple log, no role gating, no delete, PerformedByPeople is multi-person", palette: "list" },
@@ -211,8 +229,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Where am I?", hint: "Engineering site — the team's out-of-office calendar. Two columns (Title, Date) and no end date, so a week away is a row per day; dates are stored at 06:00Z (US Central midnight)", palette: "list" },
       { label: "FAIT", hint: "Engineering site (a Supply Chain feature) — First Article Inspection Tests. 51 workflow columns spanning inspection and three sign-offs; Communication and Watchers were added for ARC in Aug 2026, Project Reference and attachments already existed", palette: "list" },
       { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
+      { label: "ECN Distribution Groups", hint: "Engineering site — who receives an ECN for each of the ten roles on its DISTRIBUTION block (Members = Name <email> lines). Matched to an ECN's ticked roles by name; ARC admins manage it", palette: "list" },
       { label: "ECN Checklists", hint: "Engineering site — the Cross-Functional ECN Checklist (Form# MFGFRM-038), one row per ECN, linked by a single EcnRef lookup. All 84 answers are one JSON column; the four item counts are real columns so SharePoint views can report on progress without parsing it", palette: "list" },
-      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the Altronic assembly no, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
+      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the SAP P/N, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
       { label: "MRB Data", hint: "Altronic_PMO site — the Material Review Board register. Every workflow column is called field_N (lib/mrbFields.ts decodes them); Title is the SAP Number; field_12 separates the 97 live entries from 2,863 rows of retained Excel history. No Communication, no Watchers, no person columns.", palette: "list" },
       { label: "Open Orders Report Customers", hint: "ALTRONICSALESTEAM site — who gets an individual open-orders workbook each week. Title is the sold-to account number; CustomerName is the customer-facing name the FILE is named from, because SAP truncates its own at 30 characters. IncludeCustomerMaterialNumber is a per-customer opt-in that adds the consolidated Customer Material Number column to THAT customer's workbook — unset reads as off, and the master always carries it", palette: "list" },
       { label: "Open Orders Roles", hint: "ALTRONICSALESTEAM site — same shape as EIR Roles; Title is an email and Roles is a CSV, today just \"report manager\". Gating is off until the list id is configured, so nobody is locked out before an admin populates it", palette: "list" },
@@ -226,9 +245,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Supplier Issue Tracker", hint: "Altronic_PMO site — near-empty (1 row at discovery); Status and Severity are UNCONFIGURED placeholder choices (\"Choice 1/2/3\") — update the consts once Supply Chain sets real values", palette: "list" },
       { label: "Cost Impact Portal", hint: "ALTRONICSALESTEAM site (a Supply Chain feature) — a purchased part's cost changed. Original Cost/New Cost are TEXT columns; Delta Cost is a genuine SharePoint calculated column despite that; no Watchers, so comments reach the submitter (createdBy) and anyone mentioned, same as ECNs", palette: "list" },
       { label: "SCN Dashboard", hint: "ALTRONICSALESTEAM/SCN subsite (a Supply Chain feature) — Supply Chain Notices: a product or part being obsoleted, phased out, or raised as an EECR. 142 rows, fetched whole. Several internal names LIE: Progress is the Product, Priority is the Category, PartsEffected is the Old Number, EOLExpires is LTS Expires — lib/scnFields.ts is the only place that translation lives. Title is the SCN# (YYYY-NNNN, a global 4-digit sequence since 2024, app-generated). Three multi-choice checkBoxes columns (Preliminary Reviews, Secondary Review, Project Status) need the Collection(Edm.String) annotation; AssignedTo and Owner are multi-person; Task List is a Hyperlink column ARC reads and never writes; Communication and Watchers exist but were empty on every row. No delete, no role gating.", palette: "list" },
-      { label: "Quotes", hint: "Altronic_PMO site (Insourcing Quotes) — the quote header. Title is the quote number IQ-CODE-####-R# with Enforce Unique Values (a simultaneous create is refused and ARC renumbers once); QuoteBase + Rev keep revs together, and a rev is a NEW row, the latest derived, never stored. CustomerRef is a single lookup. Communication + Watchers; attachments carry the customer's data package. EngineeringTaskLink / OperationsTaskLink (Hyperlinks, never in the create POST) and EngineeringProjectRef (text) exist for Phase 2, read-only. No delete; no default list id", palette: "list" },
-      { label: "Quote Assemblies", hint: "Altronic_PMO site — one row per quote LINE: a final assembly or a standalone Part (LineType; a Part carries its own Cost + MaterialOverheadPct, no components); QuoteRef single lookup; TargetGM is the line's ONE margin; PriceBreaks is JSON (up to three, on the line); ManualPrice overrides; CustomerPrice is stored for SharePoint views and recomputed by lib/quotePricing on every change. No comments, no attachments; deletable while drafting", palette: "list" },
-      { label: "Quote Items", hint: "Altronic_PMO site — the components of an assembly; QuoteRef + AssemblyRef single lookups; Quantity per assembly, Cost, MaterialOverheadPct — cost only, NO margin (hidden from viewers in the UI only). Own Communication + Watchers + attachments; deletable while drafting", palette: "list" },
+      { label: "Quotes", hint: "Altronic_PMO site (Insourcing Quotes) — the quote header. Title is the quote number IQ-CODE-####-R# with Enforce Unique Values (a simultaneous create is refused and ARC renumbers once); QuoteBase + Rev keep revs together, and a rev is a NEW row, the latest derived, never stored. CustomerRef is a single lookup. CustomerReference prints; CustomerType (Cooper / Arcline / External) and ProjectContext are internal; Alternates is JSON (the page-two table). Engineering / Operations task links are NUMBER columns (a task's item id), projects are TITLES — Graph can't write the old Hyperlink columns, which are left unread. Communication + Watchers; attachments carry the customer's data package and supplier quotes. No delete; no default list id", palette: "list" },
+      { label: "Quote Assemblies", hint: "Altronic_PMO site — one row per quote LINE with the part's FINAL cost: Cost (material), LaborCost, MaterialOverheadPct (% of material); QuoteRef single lookup; TargetGM is the line's ONE margin; PriceBreaks is JSON (up to three); ManualPrice overrides; TargetPrice and EstimatedEAU (internal) feed the Target & volume summary; CustomerPrice is stored for SharePoint views and recomputed by lib/quotePricing on every change. No comments, no attachments; deletable while drafting. (The old Quote Items component list is no longer read.)", palette: "list" },
       { label: "Quote Customers", hint: "Altronic_PMO site — customers ARC quotes to; CustomerCode (2–5 characters) is generated, frozen at creation and Enforce Unique Values; CustomerNumber is TEXT to keep SAP leading zeros. Manager-only writes; retired via Active, never deleted", palette: "list" },
       { label: "Quote Roles", hint: "Altronic_PMO site — Title = email, PersonName (never DisplayName), Roles CSV of viewer / quoter / manager. No role = no access; no default list id. Managed by a quote manager or an ARC admin, though an admin gets no quote access from it", palette: "list" },
       { label: "Pricing Roles", hint: "ALTRONICSALESTEAM site (Sales Pricing) — Title = email, PersonName (never DisplayName), Roles CSV of requester / manager / admin. No role = no access. Managed by a pricing admin or an ARC admin, who gets no pricing access from it", palette: "list" },
@@ -237,8 +255,10 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "New Product Pricing", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. NP-YYYY-#### worksheets for products not yet in SAP; overhead, discount, target GM, list price, PriceBreaks JSON, Rev, History JSON (one totals snapshot per revision), Communication and Watchers. RequestRef exists but ARC no longer sets it. Cancelled, never deleted", palette: "list" },
       { label: "NP Sub-Assemblies", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. One row per sub-assembly or standalone part PER REVISION (WorksheetRef single lookup + Rev, Kind, Altronic # + SAP #); Lines JSON from a CSV, by hand or SAP (base cost kept, adjusted cost beside it); attachments per row, copied to a new revision. A new revision writes fresh rows; no default list id", palette: "list" },
       { label: "Customer Quotes", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. SQ-YYYY-####-R# (unique); a revision is a new row sharing QuoteBase. Customer and Lines as JSON; lines editable only in Draft; the PDF never carries cost or margin. Communication + Watchers + attachments; no default list id", palette: "list" },
-      { label: "ARC Feature Requests", hint: "Engineering site — a place for any signed-in user to request a new ARC feature or change, separate from Report Issue. RequestedBy is a single-person column (Graph returns a bare RequestedByLookupId, resolved via the site directory), auto-filled to the submitter on create and never re-picked. No default list id — the screen reports itself as not configured until the setup script has run", palette: "list" },
-      { label: "CPU-95", hint: "Engineering site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form; ~200 columns across Header/Startup/Final/checklist/firing-angle/Current Loop/Defects/Sign-off, only some of which apply to a given unit depending on its Altronic Part Number (\"Altmode\", 0-6). No delete; any signed-in user can create/edit", palette: "list" },
+      { label: "ARC Feature Requests", hint: "Engineering site — a place for any signed-in user to request a new ARC feature or change, separate from Report Issue. RequestedBy is a single-person column (Graph returns a bare RequestedByLookupId, resolved via the site directory), auto-filled to the submitter on create and never re-picked. Communication + Watchers + attachments (a comment's file lands there too). No default list id — the screen reports itself as not configured until the setup script has run", palette: "list" },
+      { label: "QCFRM-012 CPU-95 Test Sheets", hint: "PMO site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form (moved from the Engineering site's \"CPU-95\" list, 2026-10-21). ~150 readable columns: header, oven ON/OFF, start-up and final readings, Yes / No / N/A checks, 20 firing-angle slots with an at-spec check, Post Test Inspection, defects, sign-off. Which apply depends on the unit's Altronic Part Number — its cylinder grid and its variant (base, 791952/62-18, 791956-16, CPU-95C, EVS). No delete; any signed-in user can create/edit", palette: "list" },
+      { label: "GET-1 GE Transportation Log Sheets", hint: "PMO site — the list backing GET-1, the QC Forms Phase 1 pilot, built from scripts/data/qc-get1-columns.json. One row per GE ECU: serial, part number, 15 Yes / No / N/A checks, ship firmware revision, a work order per board (12), QC inspector, date, notes. No variants, no delete; any signed-in user can create/edit. No default list id", palette: "list" },
+      { label: "QCFRM-035 Series X Controller Log Sheets", hint: "PMO site — the list backing QCFRM-035 (Series X), built from scripts/data/qc-series-x-columns.json. One row per Series X controller: serial, part number, the same 15 Yes / No / N/A checks as GET-1 (same column names), ship firmware revision, a work order per board (11), QC inspector, date, notes. No variants, no delete; any signed-in user can create/edit. No default list id", palette: "list" },
     ],
   },
 ];
@@ -264,6 +284,8 @@ export const ER_GROUPS: ErGroup[] = [
   { id: "parts", label: "Parts List" },
   { id: "operations", label: "Operations & maintenance" },
   { id: "teradyne", label: "Teradyne" },
+  { id: "coating", label: "Conformal Coating (Operations)" },
+  { id: "harness", label: "Harness" },
   { id: "panels", label: "Panels" },
   { id: "qc", label: "Quality Control" },
   { id: "sales", label: "Sales" },
@@ -676,6 +698,9 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "projectReference", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "taskReference", type: "int", kind: "fk", references: "Task.id" },
       { name: "communication", type: "text", kind: "field" },
+      { name: "archived", type: "bool", kind: "field" },
+      { name: "legacySource", type: "text", kind: "field" },
+      { name: "legacyCreated", type: "date", kind: "field" },
     ],
   },
   {
@@ -714,6 +739,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "title", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
       { name: "salesOrder", type: "text", kind: "field" },
+      { name: "sapNumber", type: "text", kind: "field" },
       { name: "purchaseOrder", type: "text", kind: "field" },
       { name: "customerReference", type: "text", kind: "field" },
       { name: "customer", type: "choice", kind: "field" },
@@ -749,6 +775,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "id", type: "int", kind: "pk" },
       { name: "user", type: "int", kind: "fk", references: "Person.id" },
       { name: "role", type: "choice", kind: "field" },
+      { name: "onCapacity", type: "bool", kind: "field" },
       { name: "note (Title)", type: "text", kind: "field" },
     ],
   },
@@ -762,10 +789,105 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "title", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
       { name: "taskType", type: "choice", kind: "field" },
+      { name: "workType", type: "choice", kind: "field" },
+      { name: "priority", type: "choice", kind: "field" },
       { name: "projectReference", type: "int", kind: "fk", references: "PanelProject.id" },
-      { name: "assigned", type: "int", kind: "fk", references: "Person.id" },
+      { name: "panelOrderRef", type: "int", kind: "fk", references: "PanelOrder.id" },
+      { name: "chainStep", type: "number", kind: "field" },
+      { name: "statusBeforeHold", type: "text", kind: "field" },
+      { name: "sapNumber", type: "text", kind: "field" },
+      { name: "assigned", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "description", type: "text", kind: "field" },
+      { name: "startDate", type: "date", kind: "field" },
+      { name: "dueDate", type: "date", kind: "field" },
+      { name: "estimatedHours", type: "number", kind: "field" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    name: "PanelTimeOff",
+    source: "Panel Time Off (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "teamMember", type: "int", kind: "fk", references: "Person.id" },
+      { name: "reason (Title)", type: "text", kind: "field" },
+      { name: "startDate", type: "date", kind: "field" },
+      { name: "endDate", type: "date", kind: "field" },
+      { name: "hoursPerDay", type: "number", kind: "field" },
+      { name: "companyHoliday", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelTaskTemplate",
+    source: "Panel Task Templates (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "task (Title)", type: "text", kind: "field" },
+      { name: "taskType", type: "choice", kind: "field" },
+      { name: "estimatedHours", type: "number", kind: "field" },
+      { name: "sortOrder", type: "number", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelSetting",
+    source: "Panel Settings (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 240,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "setting (Title)", type: "text", kind: "field" },
+      { name: "value", type: "text", kind: "field" },
+    ],
+  },
+
+  {
+    name: "PanelBomPart",
+    source: "Panel BOM Parts (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "sapPartNumber (Title)", type: "text", kind: "field" },
+      { name: "altronicPartNumber", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "cluster", type: "number", kind: "field" },
+      { name: "category", type: "text", kind: "field" },
+      { name: "standard / preferred / doNotQuote", type: "bool", kind: "field" },
+      { name: "qtyIfUsed", type: "number", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelBomKit",
+    source: "Panel BOM Kits (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "category", type: "text", kind: "field" },
+      { name: "components (JSON)", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelBom",
+    source: "Panel BOMs (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "panelSystemNumber (Title)", type: "text", kind: "field" },
+      { name: "panelOrderRef", type: "int", kind: "fk", references: "PanelOrder.id" },
+      { name: "picks (JSON)", type: "text", kind: "field" },
+      { name: "bomLines (JSON)", type: "text", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
     ],
   },
 
@@ -1010,6 +1132,55 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
 
+  // ---- Manufacturing Change Notices (Operations, Altronic_PMO site) ------------
+  {
+    name: "MCN",
+    source: "Manufacturing Change Notices (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "mcnNumber (Title, MCNyy###)", type: "text", kind: "field" },
+      { name: "process / priority / status", type: "text", kind: "field" },
+      { name: "originatedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "assignedEngineer", type: "int", kind: "fk", references: "Person.id" },
+      { name: "approvedBy (+ approvedDate)", type: "int", kind: "fk", references: "Person.id" },
+      { name: "description (rich text)", type: "text", kind: "field" },
+      { name: "scope (JSON: department, process, equipment)", type: "text", kind: "field" },
+      { name: "requires / incorporate (Yes/No + ref)", type: "choice", kind: "field" },
+      { name: "distribution (multi-choice)", type: "choice[]", kind: "field" },
+      { name: "distributedTo / distributedAt", type: "text", kind: "field" },
+      { name: "dateImplemented / affectedCodes", type: "date", kind: "field" },
+      { name: "operationsTask (OperationsTaskRef)", type: "int", kind: "fk", references: "OperationsTask.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "communication", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "McnRole",
+    source: "MCN Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (member / approver / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "McnDistributionGroup",
+    source: "MCN Distribution Groups (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "role (Title)", type: "text", kind: "field" },
+      { name: "members (Name <email> lines)", type: "text", kind: "field" },
+      { name: "sortOrder", type: "number", kind: "field" },
+    ],
+  },
+
   // ---- Harness Production Log (Operations, Altronic_PMO site) -----------------
   // Replaced an Access database. Built By / Visual Check are clock numbers or
   // initials as typed (no Person FK), the same reasoning as Teradyne's own
@@ -1018,7 +1189,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     name: "HarnessLogEntry",
     source: "Harness Production Log (Altronic_PMO site)",
     palette: "entity",
-    group: "operations", width: 330,
+    group: "harness", width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived)", type: "text", kind: "field" },
@@ -1036,13 +1207,122 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     name: "HarnessPartNumber",
     source: "Harness Part Numbers (Altronic_PMO site)",
     palette: "entity",
-    group: "operations", width: 270,
+    group: "harness", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Part Number)", type: "text", kind: "field" },
       { name: "description", type: "text", kind: "field" },
       { name: "active", type: "bool", kind: "field" },
       { name: "note", type: "text", kind: "field" },
+    ],
+  },
+
+  // ---- Conformal Coating Checks (Operations, Altronic_PMO site) ----------------
+  // BusinessIT#60 — the start-of-shift coating thickness check. Like crimp, a
+  // check COPIES its spec's figures as well as pointing at it.
+  {
+    name: "CoatingCheck",
+    source: "Coating Checks (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "measuredAt (indexed)", type: "date", kind: "field" },
+      { name: "machine / operator", type: "text", kind: "field" },
+      { name: "unit (mm / in)", type: "choice", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "CoatingSpec.id" },
+      { name: "specName / minMm / maxMm / specUnit / coatedSides (copied)", type: "number", kind: "field" },
+      { name: "uncoated1–3 / coated1–3 / averages", type: "number", kind: "field" },
+      { name: "thicknessMm / thicknessIn / thicknessMils", type: "number", kind: "field" },
+      { name: "outOfSpec", type: "bool", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "CoatingSpec",
+    source: "Coating Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Spec)", type: "text", kind: "field" },
+      { name: "minMm / maxMm (stored in mm)", type: "number", kind: "field" },
+      { name: "specUnit (entered in: mm / in)", type: "choice", kind: "field" },
+      { name: "coatedSides (1 or 2)", type: "number", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // Who the Operations emails go to — one row per person per alert. Email is
+    // text picked from the directory, not a Person column, so no FK.
+    name: "OperationsAlertRecipient",
+    source: "Operations Alert Recipients (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (name)", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "alert", type: "choice", kind: "field" },
+    ],
+  },
+
+  // ---- Crimp Height Checks (Harness, Altronic_PMO site) -----------------------
+  // BusinessIT#55 — the paper Terminal Crimp Verification Chart (MFGFRM 002).
+  // A check COPIES its spec's figures as well as pointing at it, so editing a
+  // spec never re-judges a check already taken.
+  {
+    name: "CrimpCheck",
+    source: "Crimp Height Checks (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "checkedAt (indexed)", type: "date", kind: "field" },
+      { name: "checkPoint", type: "choice", kind: "field" },
+      { name: "clockNumber / verifierClock", type: "text", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "CrimpSpec.id" },
+      { name: "terminal / wireGauge / applicator (copied)", type: "text", kind: "field" },
+      { name: "crimpHeight / tolerance (copied)", type: "number", kind: "field" },
+      { name: "reading1–3 / average", type: "number", kind: "field" },
+      { name: "outOfSpec", type: "bool", kind: "field" },
+      { name: "applicatorChange / harnessOrAssembly / workOrder / notes", type: "text", kind: "field" },
+      { name: "machineId (MachineRef)", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "machine (copied)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // Who the Harness emails go to — one row per person per alert. Email is
+    // text picked from the directory, not a Person column, so no FK.
+    name: "HarnessAlertRecipient",
+    source: "Harness Alert Recipients (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (name)", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "alert", type: "choice", kind: "field" },
+    ],
+  },
+  {
+    name: "CrimpSpec",
+    source: "Crimp Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Terminal)", type: "text", kind: "field" },
+      { name: "applicator / wireGauge", type: "text", kind: "field" },
+      { name: "manufacturerPartNumber", type: "text", kind: "field" },
+      { name: "crimpHeight / tolerance", type: "number", kind: "field" },
+      { name: "wire / insulation setting, table height", type: "text", kind: "field" },
+      { name: "machines (Machines)", type: "int[]", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
     ],
   },
 
@@ -1090,7 +1370,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     group: "supplyChain", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
-      { name: "title (assembly no)", type: "text", kind: "field" },
+      { name: "title (SAP P/N)", type: "text", kind: "field" },
       { name: "logNo (LogNo.Raw)", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
       { name: "requestDate (TodaysDate)", type: "date", kind: "field" },
@@ -1123,6 +1403,23 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "comments (Communication)", type: "text", kind: "field" },
       { name: "hasAttachments", type: "bool", kind: "field" },
       { name: "values (9 field_N columns)", type: "text", kind: "field" },
+      { name: "distribution (multi-choice roles)", type: "choice", kind: "field" },
+      { name: "distributedTo (Name <email> lines)", type: "text", kind: "field" },
+      { name: "distributedAt", type: "datetime", kind: "field" },
+    ],
+  },
+  {
+    // BusinessIT#57. No FK: an ECN's ticked roles are matched to these rows
+    // by the role's NAME, the MCN Distribution Groups arrangement.
+    name: "EcnDistributionGroup",
+    source: "ECN Distribution Groups (Engineering site)",
+    palette: "entity",
+    group: "engineering", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "role (Title)", type: "text", kind: "field" },
+      { name: "members (Name <email> lines)", type: "text", kind: "field" },
+      { name: "sortOrder", type: "number", kind: "field" },
     ],
   },
   {
@@ -1238,8 +1535,9 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "supplierIdentifier", type: "text", kind: "field" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "pointOfContactId", type: "int", kind: "fk", references: "SupplierContact.id" },
-      { name: "allDeliveries", type: "number", kind: "field" },
-      { name: "supplierPerformanceRate", type: "number", kind: "field" },
+      // The four scores are the FALLBACK — SAP's figures (Fabric, by BP #) win.
+      { name: "allDeliveries (if SAP has none)", type: "number", kind: "field" },
+      { name: "supplierPerformanceRate (if SAP has none)", type: "number", kind: "field" },
       { name: "logisticalPerformance (QualityPeformance)", type: "number", kind: "field" },
       { name: "qualityPerformance (QualityPerformance)", type: "number", kind: "field" },
     ],
@@ -1489,6 +1787,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "description (field_4)", type: "text", kind: "field" },
       { name: "reason (field_5)", type: "text", kind: "field" },
       { name: "whereCaused (field_6)", type: "choice", kind: "field" },
+      { name: "panelDepartment (PanelDepartment)", type: "bool", kind: "field" },
       { name: "disposition (field_7)", type: "choice", kind: "field" },
       { name: "vendorName (field_8)", type: "text", kind: "field" },
       { name: "pricePerUnit / pricePerIssue", type: "currency", kind: "field" },
@@ -1529,12 +1828,12 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
   // ----- Insourcing Quotes (Customer Service / Sales, Altronic_PMO site) -----
-  // Quote → Line (final assembly or Part) → Component. The ONE target GM is
-  // on the line (QuoteAssembly); a component carries cost only. A Part line
-  // carries its own cost/overhead and has no components. The three lookups (CustomerRef,
-  // QuoteRef, AssemblyRef) are SINGLE lookups written as bare integers. The
-  // Phase-2 columns (two Hyperlinks + EngineeringProjectRef, a project TITLE)
-  // are shown as plain fields: nothing in SharePoint enforces them, so no FK.
+  // Quote → Line. A line carries the part's final material, labor and
+  // overhead (% of material) and its ONE target GM. The two lookups
+  // (CustomerRef, QuoteRef) are SINGLE lookups written as bare integers. The
+  // task links (item ids) and project refs (titles) point into other lists —
+  // one on another site collection — and nothing in SharePoint enforces
+  // them, so they are plain fields, no FK.
   {
     name: "QuoteCustomer",
     source: "Quote Customers (Altronic_PMO site)",
@@ -1546,7 +1845,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "customerCode (unique, frozen)", type: "text", kind: "field" },
       { name: "customerNumber (SAP sold-to)", type: "text", kind: "field" },
       { name: "active", type: "bool", kind: "field" },
-      { name: "note", type: "text", kind: "field" },
+      { name: "note (customer notes, shown on quotes)", type: "text", kind: "field" },
     ],
   },
   {
@@ -1579,10 +1878,14 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "budgetary", type: "bool", kind: "field" },
       { name: "budgetaryText", type: "text", kind: "field" },
       { name: "quoteNotes", type: "text", kind: "field" },
+      { name: "customerReference", type: "text", kind: "field" },
+      { name: "customerType", type: "choice", kind: "field" },
+      { name: "projectContext", type: "text", kind: "field" },
+      { name: "alternates (JSON)", type: "text", kind: "field" },
       { name: "comments (Communication)", type: "text", kind: "field" },
       { name: "watchers", type: "person[]", kind: "field" },
-      { name: "engineering / operationsTaskLink", type: "url", kind: "field" },
-      { name: "engineeringProjectRef (title)", type: "text", kind: "field" },
+      { name: "engineering / operationsTaskId", type: "int", kind: "field" },
+      { name: "engineering / operationsProjectRef (title)", type: "text", kind: "field" },
     ],
   },
   {
@@ -1596,36 +1899,18 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "quoteId", type: "int", kind: "fk", references: "Quote.id" },
       { name: "lineNo", type: "int", kind: "field" },
       { name: "quotedQty (≥ 1, default 1)", type: "int", kind: "field" },
-      { name: "lineType (Assembly / Part)", type: "choice", kind: "field" },
-      { name: "cost (Part lines only)", type: "currency", kind: "field" },
-      { name: "materialOverheadPct (Part only)", type: "number", kind: "field" },
+      { name: "materialCost (Cost)", type: "currency", kind: "field" },
+      { name: "laborCost", type: "currency", kind: "field" },
+      { name: "materialOverheadPct (% of material)", type: "number", kind: "field" },
       { name: "sapPartNumber (####-####-##)", type: "text", kind: "field" },
       { name: "customerPartNumber", type: "text", kind: "field" },
       { name: "description", type: "text", kind: "field" },
       { name: "priceBreaks (JSON, ≤3)", type: "text", kind: "field" },
       { name: "targetGM (the line's one margin)", type: "number", kind: "field" },
       { name: "manualPrice", type: "currency", kind: "field" },
+      { name: "targetPrice (customer's)", type: "currency", kind: "field" },
+      { name: "estimatedEau", type: "int", kind: "field" },
       { name: "customerPrice (stored)", type: "currency", kind: "field" },
-    ],
-  },
-  {
-    name: "QuoteItem",
-    source: "Quote Items (Altronic_PMO site)",
-    palette: "entity",
-    group: "quotes", width: 330,
-    columns: [
-      { name: "id", type: "int", kind: "pk" },
-      { name: "altronicPartNumber (Title)", type: "text", kind: "field" },
-      { name: "quoteId", type: "int", kind: "fk", references: "Quote.id" },
-      { name: "assemblyId", type: "int", kind: "fk", references: "QuoteAssembly.id" },
-      { name: "lineNo", type: "int", kind: "field" },
-      { name: "sapPartNumber (####-####-##)", type: "text", kind: "field" },
-      { name: "description", type: "text", kind: "field" },
-      { name: "quantity (per assembly)", type: "number", kind: "field" },
-      { name: "cost", type: "currency", kind: "field" },
-      { name: "materialOverheadPct", type: "number", kind: "field" },
-      { name: "comments (Communication)", type: "text", kind: "field" },
-      { name: "watchers", type: "person[]", kind: "field" },
     ],
   },
   // ----- Sales Pricing (Customer Service / Sales, ALTRONICSALESTEAM site) -----
@@ -1874,10 +2159,13 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
   // Panel Tasks — same site + shared Panel Project Reference list.
   { fromTable: "PanelTask", fromColumn: "projectReference", toTable: "PanelProject", toColumn: "id", fromCard: "many", toCard: "one" },
-  { fromTable: "PanelTask", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTask", fromColumn: "panelOrderRef", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelBom", fromColumn: "panelOrderRef", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTask", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "PanelTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTimeOff", fromColumn: "teamMember", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   // Teradyne — four lists on the PMO site, all single-value lookups pointing
   // INTO the three reference lists. No Comment/Attachment rows: the log has no
   // Communication column and takes no files. Employee 1 and Employee 2 are two
@@ -1886,8 +2174,22 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "TeradyneLogEntry", fromColumn: "employee1", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "employee2", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "remark", toTable: "TeradyneRemark", toColumn: "id", fromCard: "many", toCard: "one" },
+  // MCNs — three single-person columns, watchers, and the Operations task link.
+  { fromTable: "MCN", fromColumn: "originatedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "assignedEngineer", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "approvedBy (+ approvedDate)", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "MCN", fromColumn: "operationsTask (OperationsTaskRef)", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "McnRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Harness Production Log — one single lookup into the admin-managed part list.
   { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Crimp Height Checks — one single lookup into the admin-managed specs.
+  { fromTable: "CrimpCheck", fromColumn: "specId (SpecRef)", toTable: "CrimpSpec", toColumn: "id", fromCard: "many", toCard: "one" },
+  // The presses: a spec names several, a check the one it was taken on.
+  { fromTable: "CrimpSpec", fromColumn: "machines (Machines)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "CrimpCheck", fromColumn: "machineId (MachineRef)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Conformal Coating Checks — one single lookup into the admin-managed specs.
+  { fromTable: "CoatingCheck", fromColumn: "specId (SpecRef)", toTable: "CoatingSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
   // CRM tool — CustomerNote is the hub; the other three all point INTO it.
@@ -1909,13 +2211,12 @@ export const CONNECTIONS: Connection[] = [
   // create and never re-picked; Watchers starts as just the requester.
   { fromTable: "FeatureRequest", fromColumn: "requestedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "FeatureRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "FeatureRequest", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name (Title)", fromCard: "many", toCard: "one" },
   { fromTable: "PanelQcIssue", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   // Insourcing Quotes — Quote → Final assembly → Component, plus the customer.
   { fromTable: "Quote", fromColumn: "customerId", toTable: "QuoteCustomer", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "QuoteAssembly", fromColumn: "quoteId", toTable: "Quote", toColumn: "id", fromCard: "many", toCard: "one" },
-  { fromTable: "QuoteItem", fromColumn: "quoteId", toTable: "Quote", toColumn: "id", fromCard: "many", toCard: "one" },
-  { fromTable: "QuoteItem", fromColumn: "assemblyId", toTable: "QuoteAssembly", toColumn: "id", fromCard: "many", toCard: "one" },
   // Sales Pricing — History and worksheets point at the request; sub-assemblies at their worksheet.
   { fromTable: "PricingHistory", fromColumn: "requestId (RequestRef)", toTable: "PricingRequest", toColumn: "id", fromCard: "one", toCard: "one" },
   { fromTable: "NewProductWorksheet", fromColumn: "requestId (RequestRef)", toTable: "PricingRequest", toColumn: "id", fromCard: "many", toCard: "one" },

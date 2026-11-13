@@ -28,7 +28,7 @@ import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 // =============================================================================
 // Admin → Quick Links.
 //
-// One shared table, grouped into the same seven department bands the
+// One shared table, grouped into the same department bands the
 // Dashboard uses (`DASHBOARD_DEPARTMENTS`) — a link's Department tag is what
 // puts it under that band on the Dashboard, so this screen groups the same
 // way rather than showing one flat list an admin has to scan for a column.

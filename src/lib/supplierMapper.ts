@@ -34,6 +34,42 @@ import { multiPersonField } from "./graphFields";
 // rather than any documented Graph/REST contract for Image columns).
 // =============================================================================
 
+/**
+ * A SINGLE-value person column, from either shape Graph might send.
+ *
+ * Graph routinely returns a single-value person column as a bare
+ * `<Name>LookupId` — no name, no email — even with the friendly name in the
+ * `$select`. Reading only the expanded object made every saved Assigned Buyer
+ * read back as nobody, so the picker snapped back to "No buyer assigned" and
+ * the save looked like it never happened (reported 2026-11-03). A bare id
+ * becomes a NAMELESS Person that `attachSupplierPeople` names from the PMO
+ * site's user directory. Same shape as `personOrLookup` in faitMapper.ts.
+ */
+function personOrLookup(expanded: unknown, rawLookupId: unknown): Person | null {
+  const person = parseSinglePersonField(expanded);
+  if (person) return person;
+  if (rawLookupId === null || rawLookupId === undefined || rawLookupId === "") return null;
+  const id = typeof rawLookupId === "number" ? rawLookupId : parseInt(String(rawLookupId), 10);
+  return Number.isFinite(id) && id > 0 ? { displayName: "", lookupId: id } : null;
+}
+
+/**
+ * Fill in the Assigned Buyer's name when it arrived as a bare lookupId.
+ * Mutates in place. **An unresolvable id renders as `User #46`, never as
+ * nobody** — a buyer who IS set must not look unset, or the next person to
+ * open the supplier reassigns it without knowing.
+ */
+export function attachSupplierPeople(suppliers: Supplier[], siteUsers: Map<number, Person>): void {
+  for (const supplier of suppliers) {
+    const buyer = supplier.assignedBuyer;
+    if (!buyer || buyer.displayName) continue;
+    const known = buyer.lookupId ? siteUsers.get(buyer.lookupId) : undefined;
+    supplier.assignedBuyer = known
+      ? { ...known }
+      : { ...buyer, displayName: `User #${buyer.lookupId ?? "?"}` };
+  }
+}
+
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -103,7 +139,7 @@ export function toSupplier(item: GraphListItem): Supplier {
     // A real boolean column: blank means No, not "unanswered".
     panelsOnly: f.PanelsOnly === true,
     notes: text(f.Notes),
-    assignedBuyer: parseSinglePersonField(f.AssignedBuyer),
+    assignedBuyer: personOrLookup(f.AssignedBuyer, f.AssignedBuyerLookupId),
     supplierIdentifier: text(f.SupplierIdentifier).trim(),
     watchers: parsePersonField(f.Watchers),
     pointOfContactId: f.PointofContactLookupId ? toInt(f.PointofContactLookupId, 0) || null : null,

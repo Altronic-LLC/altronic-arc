@@ -33,7 +33,7 @@ import { MOCK_ALTRONIC_COMPONENTS } from "@/data/altronicPartsMockData";
 import { COMPONENT_PREFIX_CATEGORY } from "@/lib/altronicPartMapper";
 import { NewPartButton, PartFormModal } from "./PartFormModal";
 
-/** Every new part needs its datasheet (Tim, 2026-10-09). */
+/** A datasheet is optional (Tim, 2026-10-22); some tests still attach one. */
 const pdf = () => new File([new Uint8Array([37, 80, 68, 70])], "USB4105 datasheet.pdf", { type: "application/pdf" });
 async function attachDatasheet() {
   await userEvent.upload(screen.getByLabelText("Datasheet PDF"), pdf());
@@ -85,35 +85,23 @@ describe("PartFormModal — a Part List part", () => {
     await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("604613"));
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
     expect(
-      await screen.findByText(/Fill in: Description, Assigned By, Prototype or Production, Purchased, Datasheet\./),
+      await screen.findByText(/^Fill in: Description, Assigned By, Prototype or Production, Purchased\.$/),
     ).toBeInTheDocument();
     expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(false);
   });
 
-  it("won't add a part with no datasheet, even with every field filled in", async () => {
-    renderForm("604");
+  it("adds a part with no datasheet — it's optional on every part (Tim, 2026-10-22)", async () => {
+    const { onClose } = renderForm("604");
     await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("604613"));
+    expect(screen.getByText(/^Optional\. Saved to/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Description"), "Connector, test");
     await userEvent.type(screen.getByLabelText("Assigned By"), "TW");
     await userEvent.click(screen.getByRole("radio", { name: "Production" }));
     await userEvent.click(screen.getByRole("radio", { name: "Purchased" }));
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
-    expect(await screen.findByText("Fill in: Datasheet.")).toBeInTheDocument();
-    expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(false);
-  });
-
-  it("doesn't require a datasheet on a drawing number (device type 9)", async () => {
-    const { onClose } = renderForm("309");
-    // Mock list 309 holds 309114 and 309115.
-    await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("309116"));
-    expect(screen.getByText(/Optional — a drawing number has no datasheet\./)).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText("Description"), "Wire diagram, test");
-    await userEvent.type(screen.getByLabelText("Assigned By"), "TW");
-    await userEvent.click(screen.getByRole("radio", { name: "Production" }));
-    await userEvent.click(screen.getByRole("radio", { name: "Not Purchased" }));
-    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect((await listAltronicParts()).some((p) => p.partNumber === "309116")).toBe(true);
+    expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(true);
+    expect(await findDatasheet("604613")).toBeNull();
   });
 
   it("refuses a number from another list", async () => {

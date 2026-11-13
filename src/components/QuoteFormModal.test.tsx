@@ -33,7 +33,8 @@ describe("QuoteFormModal — create", () => {
     renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);
     const text = screen.getByLabelText(/Budgetary text/) as HTMLTextAreaElement;
     expect(text.value).toBe(DEFAULT_BUDGETARY_TEXT);
-    expect(screen.getAllByText("Printed on the customer's quote.").length).toBe(2);
+    // Customer reference, budgetary text and quote notes.
+    expect(screen.getAllByText("Printed on the customer's quote.").length).toBe(3);
   });
 
   it("offers only ACTIVE customers, and says who can add one", async () => {
@@ -67,13 +68,32 @@ describe("QuoteFormModal — create", () => {
     renderWithProviders(<QuoteFormModal onClose={onClose} onSaved={onSaved} />);
     await pickCustomer(/Wabtec/);
     await userEvent.type(screen.getByLabelText("Contact name"), "Dana K");
+    await userEvent.type(screen.getByLabelText(/Customer reference/), " RFQ 88 ");
     await userEvent.click(screen.getByRole("button", { name: "Create quote" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const created = quoteMockDb.quotes.find((q) => q.id === onSaved.mock.calls[0][0]);
     expect(created?.quoteNumber).toBe("IQ-WAB-0004-R1");
     expect(created?.contactName).toBe("Dana K");
+    expect(created?.customerReference).toBe("RFQ 88");
     expect(created?.budgetary).toBe(true);
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("QuoteFormModal — customer notes", () => {
+  it("shows the picked customer's notes, marked as not printed", async () => {
+    renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);
+    expect(screen.queryByTestId("customer-notes")).toBeNull();
+    await pickCustomer(/Wabtec/);
+    const notes = await screen.findByTestId("customer-notes");
+    expect(notes).toHaveTextContent("Quotes go to the Erie buyer group.");
+    expect(notes).toHaveTextContent("Not printed.");
+  });
+
+  it("shows nothing for a customer without notes", async () => {
+    renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);
+    await pickCustomer(/INNIO/);
+    expect(screen.queryByTestId("customer-notes")).toBeNull();
   });
 });
 
@@ -104,5 +124,34 @@ describe("QuoteFormModal — edit", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     await waitFor(() => expect(quoteMockDb.quotes.find((q) => q.id === 2)?.quoteNotes).toBe("New notes"));
+  });
+});
+
+describe("QuoteFormModal — customer type", () => {
+  it("offers Cooper / Arcline / External as pills, Not set by default, and saves the pick on create", async () => {
+    const onSaved = vi.fn();
+    renderWithProviders(<QuoteFormModal onClose={vi.fn()} onSaved={onSaved} />);
+    const group = screen.getByRole("radiogroup", { name: "Customer type" });
+    for (const name of ["Cooper", "Arcline", "External"]) {
+      expect(within(group).getByRole("radio", { name })).not.toBeChecked();
+    }
+    expect(within(group).getByRole("radio", { name: "Not set" })).toBeChecked();
+    await pickCustomer(/Wabtec/);
+    await userEvent.click(within(group).getByRole("radio", { name: "Arcline" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create quote" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(quoteMockDb.quotes.find((q) => q.id === onSaved.mock.calls[0][0])?.customerType).toBe("Arcline");
+  });
+
+  it("changes it on edit, and can clear it back to Not set", async () => {
+    const quote = quoteMockDb.quotes.find((q) => q.id === 2)!;
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteFormModal quote={quote} onClose={onClose} />);
+    const group = screen.getByRole("radiogroup", { name: "Customer type" });
+    expect(within(group).getByRole("radio", { name: "Cooper" })).toBeChecked();
+    await userEvent.click(within(group).getByRole("radio", { name: "Not set" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    await waitFor(() => expect(quoteMockDb.quotes.find((q) => q.id === 2)?.customerType).toBeNull());
   });
 });

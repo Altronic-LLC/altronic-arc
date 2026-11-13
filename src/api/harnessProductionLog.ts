@@ -8,7 +8,7 @@ import {
   toHarnessLogEntry,
 } from "@/lib/harnessLogMapper";
 import { parseSpDateOnly, toSpDateOnly } from "@/lib/spDates";
-import { encodeFilter } from "./teradyneLog";
+import { encodeFilter } from "@/lib/odata";
 import { listHarnessPartNumbers } from "./harnessPartNumbers";
 import { MOCK_HARNESS_LOG } from "@/data/harnessMockData";
 import { mockDelay } from "./mockLatency";

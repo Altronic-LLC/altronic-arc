@@ -263,3 +263,31 @@ export function drawingLogMatches(entry: DrawingLogEntry, tokens: string[]): boo
   const haystack = parts.join(" ").toLowerCase();
   return tokens.every((t) => haystack.includes(t));
 }
+
+/**
+ * The next number for a register's auto-numbered field — one past the HIGHEST
+ * in use, never count + 1 (a deleted or skipped number would hand one out
+ * twice). 1 for an empty register. Values that aren't numbers are ignored.
+ */
+export function nextDrawingNumber(entries: DrawingLogEntry[], key: string): number {
+  let highest = 0;
+  for (const e of entries) {
+    const v = e.values[key];
+    const n = typeof v === "number" ? v : typeof v === "string" ? Number(v.trim()) : NaN;
+    if (Number.isFinite(n) && n > highest) highest = Math.floor(n);
+  }
+  return highest + 1;
+}
+
+/** The entries already carrying `value` in a numbered field (a duplicate check). */
+export function entriesWithNumber(
+  entries: DrawingLogEntry[],
+  key: string,
+  value: number,
+): DrawingLogEntry[] {
+  return entries.filter((e) => {
+    const v = e.values[key];
+    const n = typeof v === "number" ? v : typeof v === "string" ? Number(v.trim()) : NaN;
+    return n === value;
+  });
+}

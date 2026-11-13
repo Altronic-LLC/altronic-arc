@@ -37,6 +37,14 @@ import {
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { autoWatchers } from "@/lib/people";
+import { orderHoldChange } from "@/lib/panelOrderChain";
+import { applyOrderHold } from "./usePanelOrderChain";
+import {
+  emailEngineer,
+  raiseStandardTasks,
+  reportUnraised,
+  type RaisedTasks,
+} from "./usePanelOrderTasks";
 
 // =============================================================================
 // Panels department hooks — mirrors useOperationsTasks.ts's optimistic-update
@@ -181,6 +189,9 @@ export function useUpdatePanelOrderFields() {
           watchers: ctx.prevOrder.watchers,
           assignees: ctx.prevOrder.engineerAssigned ? [ctx.prevOrder.engineerAssigned] : [],
         });
+        // On Hold carries the order's tasks with it, and back.
+        const change = orderHoldChange(ctx.prevOrder.status, fields.Status as PanelOrder["status"]);
+        if (change) void applyOrderHold(qc, { id, title: orderTitle(ctx.prevOrder) }, change, actor);
       }
       // Order Notes checklist toggles alert too (same audience as Status).
       if ("OrderNotes" in fields && ctx?.prevOrder) {
@@ -575,18 +586,42 @@ export function useEditPanelOrderComment() {
   });
 }
 
+export interface CreatedPanelOrder {
+  order: PanelOrder;
+  /** The standard tasks raised with it — null when none were asked for. */
+  raised: RaisedTasks | null;
+}
+
 export function useCreatePanelOrder() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
     // Creator + assigned engineer watch the new order — lib/people.ts.
-    mutationFn: (input: Parameters<typeof createPanelOrder>[0]) =>
-      createPanelOrder({
-        ...input,
-        watchers: autoWatchers(input.watchers, input.engineerAssigned, actor),
-      }),
-    onSuccess: (order, variables) => {
-      pushToast({ message: `Created panel order "${order.title}".` });
+    // `standardTasks` raises the Panel Task Templates for it (Tim,
+    // 2026-10-29: Wrike's New Production Order form), each assigned to the
+    // order's engineer or to nobody. The order is real before any task is
+    // tried, so a refused task never fails the create.
+    mutationFn: async (
+      input: Parameters<typeof createPanelOrder>[0] & { standardTasks?: boolean },
+    ): Promise<CreatedPanelOrder> => {
+      const { standardTasks, ...fields } = input;
+      const order = await createPanelOrder({
+        ...fields,
+        watchers: autoWatchers(fields.watchers, fields.engineerAssigned, actor),
+      });
+      const raised = standardTasks
+        ? await raiseStandardTasks(qc, order, fields.engineerAssigned ?? null, actor)
+        : null;
+      return { order, raised };
+    },
+    onSuccess: ({ order, raised }, variables) => {
+      const n = raised?.tasks.length ?? 0;
+      pushToast({
+        message:
+          `Created panel order "${order.title}"` +
+          (n ? ` and its ${n} standard task${n === 1 ? "" : "s"}.` : "."),
+      });
+      if (raised) reportUnraised(raised);
       // Seed the cache immediately — navigating straight to the new order's
       // detail page otherwise briefly shows "not found" against a stale list
       // (same fix as useCreateTask / useCreateOperationsTask).
@@ -594,18 +629,10 @@ export function useCreatePanelOrder() {
         old ? [order, ...old] : [order],
       );
       invalidatePanelOrders(qc);
-      // Notify the engineer assigned at creation — see the note in
-      // useOperationsTasks.ts's useCreateOperationsTask.
+      // Notify the engineer assigned at creation — ONE email, listing the
+      // standard tasks when there are any (never one per task).
       const engineer = variables.engineerAssigned ?? null;
-      if (engineer) {
-        fireAssigneeChangeAlert({
-          target: { kind: "panelOrder", id: order.id, title: orderTitle(order) },
-          prev: [],
-          next: [engineer],
-          actor,
-          watchers: [],
-        });
-      }
+      if (engineer) emailEngineer(order, raised?.tasks ?? [], engineer, actor, "created");
     },
     onError: () => errorToast("Couldn't create panel order — please retry."),
   });
@@ -674,6 +701,7 @@ function applyFieldsLocally(o: PanelOrder, fields: Record<string, unknown>): Pan
   if ("Title" in fields) next.title = fields.Title as string;
   if ("Status" in fields) next.status = fields.Status as PanelOrder["status"];
   if ("SalesOrder" in fields) next.salesOrder = (fields.SalesOrder as string) ?? "";
+  if ("SAPNumber" in fields) next.sapNumber = (fields.SAPNumber as string) ?? "";
   if ("PurchaseOrder" in fields) next.purchaseOrder = (fields.PurchaseOrder as string) ?? "";
   if ("CustomerReference" in fields)
     next.customerReference = (fields.CustomerReference as string) ?? "";
@@ -695,6 +723,8 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
         return "Status updated.";
       case "SalesOrder":
         return "Sales order updated.";
+      case "SAPNumber":
+        return "SAP # updated.";
       case "PurchaseOrder":
         return "Purchase order updated.";
       case "CustomerReference":

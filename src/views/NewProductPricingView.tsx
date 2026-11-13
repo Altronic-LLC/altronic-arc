@@ -66,6 +66,7 @@ export const WORKSHEET_COLUMNS: SortColumn<NewProductWorksheet>[] = [
 export function NewProductPricingView() {
   return (
     <PricingManagerGate
+      newProducts
       configured={NEW_PRODUCT_PRICING_CONFIGURED}
       listName="NP Sub-Assemblies"
       envVar="VITE_SP_NP_SUBASSEMBLIES_LIST_ID"

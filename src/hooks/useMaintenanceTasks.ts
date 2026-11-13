@@ -157,7 +157,7 @@ async function completionFields(
   id: number,
   actor: Person,
   access: MaintenanceAccess,
-): Promise<Record<string, unknown>> {
+): Promise<{ fields: Record<string, unknown>; previousStatus: string }> {
   // The role check first: it needs no request, so a refusal stays cheap.
   const gate = completeWorkOrderGate(access);
   if (!gate.allowed) throw new Error(gate.hint);
@@ -169,12 +169,15 @@ async function completionFields(
   const task = await getMaintenanceTask(id);
   if (!task) throw new Error(`Work order ${id} not found.`);
 
+  // The status it had BEFORE completing, for the status email — the Complete
+  // form used to send "" and the email read "— → Complete".
+  const previousStatus = task.status ?? "";
   if (!task.assigned) {
     // Assigning and completing in ONE PATCH — two writes would leave a window
     // where the job is Complete with nobody against it.
-    return buildMaintenanceAssignmentFields(actor, task.watchers);
+    return { fields: await buildMaintenanceAssignmentFields(actor, task.watchers), previousStatus };
   }
-  return {};
+  return { fields: {}, previousStatus };
 }
 
 // =============================================================================
@@ -196,7 +199,7 @@ export function useUpdateMaintenanceTaskFields() {
       // before the roles list has loaded can't refuse a real tech.
       const extra =
         fields.Status === "Complete"
-          ? await completionFields(id, actor, await resolveAccess())
+          ? (await completionFields(id, actor, await resolveAccess())).fields
           : {};
       return updateMaintenanceTaskFields(id, { ...fields, ...extra });
     },
@@ -226,17 +229,20 @@ export function useUpdateMaintenanceTaskFields() {
   });
 }
 
+/**
+ * The status a completed work order had before it, handed from mutationFn to
+ * onSuccess on the variables object (the FAIT sign-off pattern) — the result
+ * stays the MaintenanceTask callers already use.
+ */
+const previousStatusOf = new WeakMap<object, string>();
+
 /** Close a work order out: status, completion date, who did it, and the write-up. */
 export function useCompleteMaintenanceTask() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   const resolveAccess = useResolveMaintenanceAccess();
   return useMutation({
-    mutationFn: async ({
-      id,
-      completedOn,
-      ...rest
-    }: {
+    mutationFn: async (vars: {
       id: number;
       completedOn: Date;
       resolution?: string;
@@ -245,7 +251,13 @@ export function useCompleteMaintenanceTask() {
       laborHours?: number | null;
       downtimeHours?: number | null;
     }) => {
-      const extraFields = await completionFields(id, actor, await resolveAccess());
+      const { id, completedOn, ...rest } = vars;
+      const { fields: extraFields, previousStatus } = await completionFields(
+        id,
+        actor,
+        await resolveAccess(),
+      );
+      previousStatusOf.set(vars, previousStatus);
       return completeMaintenanceTask(id, {
         ...rest,
         completedOn,
@@ -253,12 +265,13 @@ export function useCompleteMaintenanceTask() {
         extraFields,
       });
     },
-    onSuccess: (task) => {
+    onSuccess: (task, vars) => {
+      const previousStatus = previousStatusOf.get(vars) ?? "";
       pushToast({ message: `Completed ${maintenanceTaskLabel(task)}.` });
       fireFieldChangeAlert({
         target: { kind: "maintenanceTask", id: task.id, title: maintenanceTaskLabel(task) },
         fieldLabel: "status",
-        from: "",
+        from: previousStatus,
         to: "Complete",
         actor,
         watchers: task.watchers,

@@ -381,9 +381,13 @@ export function createDriveLibrary(cfg: DriveLibraryConfig) {
       return mockDelay(entry);
     }
 
-    // A path-addressed root already ends in ":" — an id or the bare drive root doesn't.
-    const joiner = rootPath.length > 0 && !folderId ? "" : ":";
-    const target = `${parentRef(folderId)}${joiner}/${encodeURIComponent(file.name)}:`;
+    // Graph's colon form takes ONE path: a folder-rooted library uploads to
+    // `root:/General/Supply Chain Files/x.pdf:`, never `root:/…Files:/x.pdf:`,
+    // which Graph refuses ("Resource not found for the segment 'root:'").
+    // A subfolder goes by id, and the bare drive root by its own path.
+    const target = folderId
+      ? `${DRIVE()}/items/${folderId}:/${encodeURIComponent(file.name)}:`
+      : `${DRIVE()}/root:/${encodePath([...rootPath, file.name])}:`;
     const res = await uploadToDriveTarget(target, file, { conflict: "rename", onProgress });
     return mapEntry(res, false);
   }

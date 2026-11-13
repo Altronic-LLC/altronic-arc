@@ -36,7 +36,12 @@ export type AppItemKind =
   | "quote"
   | "pricingRequest"
   | "newProductPricing"
-  | "customerQuote";
+  | "customerQuote"
+  | "mcn"
+  | "crimpCheck"
+  | "coatingCheck"
+  | "harnessPartNumber"
+  | "scheduledMaintenance";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -80,6 +85,20 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   pricingRequest: "sales/pricing/request",
   newProductPricing: "sales/pricing/new-product",
   customerQuote: "sales/pricing/quote",
+  // Manufacturing Change Notices (BusinessIT#38) — detail pages sit under the register.
+  mcn: "operations/mcns",
+  // Crimp Height Checks (BusinessIT#55) — no detail page; the log opens the
+  // check's edit form from /harness/crimp-checks/:id.
+  crimpCheck: "harness/crimp-checks",
+  // Conformal Coating Checks (BusinessIT#60) — the crimp arrangement: the log
+  // opens the check's edit form from /operations/coating-checks/:id.
+  coatingCheck: "operations/coating-checks",
+  // A part number request has no item page — its email links to the list
+  // with `link`, so this segment is only the fallback.
+  harnessPartNumber: "harness/production-log/part-numbers",
+  // A PM schedule has no detail page: /operations/maintenance/schedules/:id is
+  // the PM library showing just that schedule (PmLibraryView reads the id).
+  scheduledMaintenance: "operations/maintenance/schedules",
 };
 
 /** Absolute URL to an item's detail page in this app. */

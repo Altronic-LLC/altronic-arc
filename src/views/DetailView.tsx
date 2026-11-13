@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   CheckCircle2,
@@ -30,6 +29,7 @@ import {
   useSetRelatedProjects,
   useSetWatchers,
   useTask,
+  useTaskPoll,
   useTasks,
   useUnwatchTask,
   useUpdateTaskFields,
@@ -52,12 +52,15 @@ import {
   type Status,
 } from "@/types/task";
 import { appendEngineeringResponse } from "@/lib/eirPromotion";
+import { eirForTask, linkedEirForTask } from "@/lib/eirTaskReference";
 import { TaskResolutionModal } from "@/components/TaskResolutionModal";
 import { pushToast } from "@/components/Toast";
 import { canCompleteTask, wouldCreateCycle } from "@/lib/taskGraph";
 import { toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { DescriptionView } from "@/components/DescriptionView";
 import { CommentThread } from "@/components/CommentThread";
+import { LinkedDiscussion } from "@/components/LinkedDiscussion";
+import { earlierLinkedComments } from "@/lib/buildRequestTaskLink";
 import { CommentComposer } from "@/components/CommentComposer";
 import { useUploadTaskFile } from "@/hooks/useTaskFiles";
 import { TaskFormModal } from "@/components/TaskFormModal";
@@ -68,6 +71,7 @@ import { TaskAttachmentsSection } from "@/components/TaskAttachmentsSection";
 import { PcbChecklistCard } from "@/components/PcbChecklistCard";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { FromQuoteLink } from "@/components/FromQuoteLink";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
@@ -90,7 +94,6 @@ export function DetailView() {
   const { data: eirs = [] } = useEirs();
   const currentUser = useCurrentUser();
 
-  const queryClient = useQueryClient();
   const updateFields = useUpdateTaskFields();
   const updateEirFields = useUpdateEirFields();
   const addComment = useAddComment();
@@ -129,18 +132,11 @@ export function DetailView() {
     setSnapshotInitialised(true);
   }, [task, snapshotInitialised]);
 
-  // Background poll: every 20s while the detail view is open, invalidate
-  // the tasks query so the cache (and therefore task.comments) refreshes.
-  // Pauses when the tab is hidden so we don't burn API quota in background
-  // tabs. The actual UI doesn't auto-update — the banner does.
-  useEffect(() => {
-    if (!taskId) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      queryClient.invalidateQueries({ queryKey: ["tasks", "list"] });
-    }, 20_000);
-    return () => window.clearInterval(id);
-  }, [taskId, queryClient]);
+  // Background poll: every 20s while the detail view is open (tab visible),
+  // re-read THIS task and land it in the cache, so task.comments refreshes.
+  // It used to invalidate the whole task list instead. The actual UI doesn't
+  // auto-update — the banner does.
+  useTaskPoll(taskId);
 
   // Comments that have arrived from someone else since the user last
   // refreshed/loaded. Drives the "new comment from X" banner.
@@ -207,23 +203,17 @@ export function DetailView() {
   }, [allPeople, admins]);
 
   // The EIR this task was promoted from, if any. Resolved from the task's
-  // EIRReference hyperlink: prefer the item id embedded in the URL
-  // (…/eir/{id}), fall back to matching the EIR number shown as link text.
+  // EIRReference hyperlink by `eirForTask` — ARC's `/eir/{id}` links AND the
+  // old Power App's SharePoint form links, which this used to miss. A task
+  // with NO link (Graph can't write that Hyperlink column, so no ARC
+  // promotion ever saved one) finds its EIR from the EIR's Task Reference.
   const linkedEir = useMemo<Eir | null>(() => {
-    const ref = task?.eirReference;
-    if (!ref) return null;
-    const idMatch = /\/eir\/(\d+)/.exec(ref.url ?? "");
-    if (idMatch) {
-      const byId = eirs.find((e) => e.id === parseInt(idMatch[1], 10));
-      if (byId) return byId;
-    }
-    const label = (ref.label ?? "").trim().toLowerCase();
-    if (label) {
-      const byNo = eirs.find((e) => (e.eirNo ?? "").trim().toLowerCase() === label);
-      if (byNo) return byNo;
-    }
-    return null;
-  }, [task?.eirReference, eirs]);
+    if (!task) return null;
+    if (task.eirReference) return eirForTask(task, eirs);
+    return linkedEirForTask(task, eirs, allTasks);
+  }, [task, eirs, allTasks]);
+  /** This task came from an EIR — by its own link, or the EIR's Task Reference. */
+  const fromEir = !!task?.eirReference || !!linkedEir;
 
   if (isLoading) {
     return <LoadingTasks noun="this task" />;
@@ -272,7 +262,7 @@ export function DetailView() {
     }
     // Completing a task tied to an EIR routes through the resolution prompt
     // instead of writing the status directly.
-    if (next === "Complete" && task.eirReference && task.status !== "Complete") {
+    if (next === "Complete" && fromEir && task.status !== "Complete") {
       setShowResolution(true);
       return;
     }
@@ -361,7 +351,7 @@ export function DetailView() {
         return;
       }
     }
-    if (task.eirReference && task.status !== "Complete") {
+    if (fromEir && task.status !== "Complete") {
       setShowResolution(true);
       return;
     }
@@ -505,8 +495,11 @@ export function DetailView() {
               </button>
             )}
 
+            {/* The won quote this task was created from (lib/quoteToTask.ts). */}
+            <FromQuoteLink comments={task.comments} />
+
             {/* Source-EIR pill when this task was promoted from an EIR. */}
-            {task.eirReference && (
+            {fromEir && (
               <button
                 onClick={() =>
                   linkedEir
@@ -519,7 +512,7 @@ export function DetailView() {
                 <Link2 className="h-3 w-3" />
                 <span className="text-fg-muted">From EIR:</span>
                 <span className="font-medium text-fg">
-                  {task.eirReference.label || "view"}
+                  {linkedEir?.eirNo || task.eirReference?.label || "view"}
                 </span>
               </button>
             )}
@@ -534,7 +527,7 @@ export function DetailView() {
                 key={br.id}
                 onClick={() => navigate(`/build-request/${br.id}`)}
                 className="mb-3 ml-0 inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-fg-muted hover:text-fg sm:ml-2"
-                title="Open the build request raised from this task"
+                title="Open the linked build request"
               >
                 <Hammer className="h-3 w-3" />
                 <span className="text-fg-muted">Build Request:</span>
@@ -816,6 +809,18 @@ export function DetailView() {
                 }}
               />
             </div>
+            {/* Each linked build request's comments from before the link —
+                shown, not copied (BusinessIT#58). */}
+            {linkedBuildRequests.map((br) => (
+              <LinkedDiscussion
+                key={br.id}
+                recordLabel={br.brNo || br.title}
+                to={`/build-request/${br.id}`}
+                comments={earlierLinkedComments(br.comments, task.comments)}
+                currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
+              />
+            ))}
           </div>
         </div>
 
@@ -1067,9 +1072,9 @@ export function DetailView() {
           onClose={() => setShowNewBuildRequest(false)}
         />
       )}
-      {showResolution && task.eirReference && (
+      {showResolution && fromEir && (
         <TaskResolutionModal
-          eirLabel={task.eirReference.label || linkedEir?.eirNo || "the source EIR"}
+          eirLabel={linkedEir?.eirNo || task.eirReference?.label || "the source EIR"}
           busy={updateEirFields.isPending}
           onConfirm={handleConfirmResolution}
           onClose={() => setShowResolution(false)}

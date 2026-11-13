@@ -26,6 +26,7 @@ import type {
 import { appItemUrl } from "@/lib/appUrl";
 import { attachmentOnlyFileNames } from "@/lib/htmlText";
 import {
+  descriptionExcerpt,
   buildAssigneeChangeEmails,
   buildChecklistToggleEmails,
   buildFieldChangeEmails,
@@ -37,6 +38,7 @@ import {
   type EmailAction,
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
+import type { EmailContext } from "@/lib/emailContext";
 import {
   buildEirClosedEmails,
   buildEirResolvedEmails,
@@ -67,12 +69,17 @@ import {
   type FaitSignerRole,
 } from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
+import { buildCrimpOutOfSpecEmails } from "@/lib/crimpAlerts";
+import type { CrimpCheck } from "@/types/crimp";
+import { buildCoatingOutOfSpecEmails } from "@/lib/coatingAlerts";
+import type { CoatingCheck } from "@/types/coating";
 import {
   buildBrCompleteEmails,
   buildBrPartProductionCompleteEmails,
   buildBrProductionCompleteReviewEmails,
   buildBrReadyForProductionEmails,
   buildRequestEmailTitle,
+  buildRequestPartEmailTitle,
 } from "@/lib/buildRequestAlerts";
 import {
   buildFeatureRequestStatusEmails,
@@ -136,11 +143,18 @@ export interface MentionTarget {
     | "quote"
     | "pricingRequest"
     | "newProductPricing"
-    | "customerQuote";
+    | "customerQuote"
+    | "mcn"
+    | "crimpCheck"
+    | "coatingCheck"
+    | "harnessPartNumber"
+    | "scheduledMaintenance";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
   thread?: EmailThread | null;
+  /** Parent / linked task, description or details — the three-block layout (lib/emailContext.ts). */
+  context?: EmailContext;
 }
 
 /** Per-kind copy for the email templates — one row per notification target type. */
@@ -258,6 +272,35 @@ const KIND_COPY: Record<
     calloutLabel: "Customer Quote",
     buttonText: "Open this quote",
   },
+  mcn: {
+    phrase: "a manufacturing change notice",
+    calloutLabel: "MCN",
+    buttonText: "Open this MCN",
+  },
+  crimpCheck: {
+    phrase: "a crimp height check",
+    calloutLabel: "Crimp Check",
+    buttonText: "Open this check",
+  },
+  coatingCheck: {
+    phrase: "a conformal coating check",
+    calloutLabel: "Coating Check",
+    buttonText: "Open this check",
+  },
+  harnessPartNumber: {
+    phrase: "a harness part number",
+    calloutLabel: "Part Number",
+    buttonText: "Open the part numbers",
+  },
+  // A PM schedule has no detail page; its link opens the PM library filtered
+  // to it (/operations/maintenance/schedules/:id). Until 2026-11-06 schedule
+  // emails went out as kind maintenanceTask, so the button opened the WORK
+  // ORDER with the schedule's id — an unrelated record, or none.
+  scheduledMaintenance: {
+    phrase: "a PM schedule",
+    calloutLabel: "PM Schedule",
+    buttonText: "Open this PM schedule",
+  },
 };
 
 export interface NotifyMentionsInput {
@@ -270,8 +313,9 @@ export interface NotifyMentionsInput {
 }
 
 /**
- * Send a "you were mentioned" email to each recipient. Best-effort:
- * we log + swallow per-recipient failures instead of aborting the batch.
+ * Email everyone a comment notifies — one message per reason, Bcc'd (see "One
+ * email per reason" below). Best-effort: we log + swallow a failed message
+ * instead of aborting the rest.
  * Comment posting is the user-visible action; we don't want a flaky mail
  * server to make the comment look like it failed.
  */
@@ -322,26 +366,163 @@ export async function notifyMentions(
   const result: MailSendResult = { sent: [], failed: [] };
   const threading = await threadingFor(input.target);
 
-  for (const recipient of recipients) {
-    try {
-      await sendOne({
-        recipient,
-        sender: input.sender,
-        target: input.target,
-        threading,
-        commentExcerpt: input.commentExcerpt,
-        attachments: encoded,
-      });
-      result.sent.push(recipient.email!);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[email] Failed to notify ${recipient.email}:`, err);
-      result.failed.push(describeFailure(recipient.email!, err));
+  // ONE email per reason, not per person — see "One email per reason" below.
+  // Mentions go first: they are the ones somebody is waiting on.
+  const byReason = groupInOrder(recipients, (r) => r.reason).sort(
+    (a, b) => REASON_ORDER.indexOf(a[0].reason) - REASON_ORDER.indexOf(b[0].reason),
+  );
+  await whileSending(async () => {
+    for (const group of byReason) {
+      for (const batch of inBatches(group)) {
+        try {
+          await sendComment({
+            recipients: batch,
+            sender: input.sender,
+            target: input.target,
+            threading,
+            commentExcerpt: input.commentExcerpt,
+            attachments: encoded,
+          });
+          result.sent.push(...batch.map((r) => r.email));
+        } catch (err) {
+          const who = batch.map((r) => r.email).join(", ");
+          // eslint-disable-next-line no-console
+          console.error(`[email] Failed to notify ${who}:`, err);
+          result.failed.push(...batch.map((r) => describeFailure(r.email, err)));
+        }
+      }
     }
-  }
+  });
 
   reportSendFailures(result, "comment");
   return result;
+}
+
+// =============================================================================
+// One email per reason, Bcc'd — not one per person.
+//
+// Every recipient used to get their own sendMail, one after another. A comment
+// on an EIR with a dozen watchers was a dozen requests over several seconds,
+// and closing or reloading the tab part-way cancelled the rest with nothing
+// logged anywhere: Alexandra Russell's mention of Jerrod Waldron and Thomas
+// Westbrook on EIR 1205 (2026-10-26) never went, while Glenn Terry, the first
+// watcher in the loop, got his.
+//
+// Now everyone with the same reason shares ONE message — so a comment is
+// usually two sends, not thirteen. Three rules:
+//   - SEVERAL people go in Bcc, never To or Cc: nobody sees the list, and
+//     nobody can reply-all from a mailbox nobody reads.
+//   - ONE person stays in To, greeted by name, exactly as before.
+//   - A message never carries more than MAX_RECIPIENTS_PER_MESSAGE; Exchange
+//     Online refuses past 500 by default.
+// One message also counts once against the shared mailbox's sending limit,
+// which every ARC user sends through.
+// =============================================================================
+
+/** Most people one message carries. Exchange Online's default limit is 500. */
+export const MAX_RECIPIENTS_PER_MESSAGE = 100;
+
+/** The order a comment's groups go out in — whoever is waiting on it first. */
+const REASON_ORDER: MentionRecipient["reason"][] = [
+  "mentioned",
+  "replied",
+  "assigned",
+  "submitted",
+  "edited",
+  "watching",
+];
+
+interface Addressee {
+  email: string;
+  displayName: string;
+}
+
+/** Group by key, keeping each group in first-seen order. */
+function groupInOrder<T>(items: T[], key: (item: T) => string): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    const group = groups.get(k);
+    if (group) group.push(item);
+    else groups.set(k, [item]);
+  }
+  return [...groups.values()];
+}
+
+function inBatches<T>(items: T[]): T[][] {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += MAX_RECIPIENTS_PER_MESSAGE) {
+    batches.push(items.slice(i, i + MAX_RECIPIENTS_PER_MESSAGE));
+  }
+  return batches;
+}
+
+/** One person in To; several in Bcc. */
+function addressFields(people: Addressee[]): Record<string, unknown> {
+  const list = people.map((p) => ({ emailAddress: { address: p.email, name: p.displayName } }));
+  return people.length === 1 ? { toRecipients: list } : { bccRecipients: list };
+}
+
+/** The name to greet, or null for a message going to several people. */
+function greetingName(people: Addressee[]): string | null {
+  return people.length === 1 ? people[0].displayName : null;
+}
+
+async function postMail(message: Record<string, unknown>): Promise<void> {
+  // saveToSentItems: false is deliberate — but NOT for the reason this comment
+  // used to give.
+  //
+  // The original reasoning was that saving to Sent Items requires FullAccess
+  // while sending needs only Send-As, so leaving it off kept the grant narrow.
+  // That premise was wrong: Send-As alone did NOT make sendMail work here, and
+  // every ARC commenter holds BOTH Send-As and FullAccess (-AutoMapping:$false)
+  // — see BACKLOG.md's onboarding item for the exact PowerShell. Which of the
+  // two is strictly required was never isolated, so don't drop either on the
+  // assumption it's redundant.
+  //
+  // It stays off because ~175 people's notification traffic piling up in one
+  // mailbox nobody reads is noise, not a record. Exchange message tracing is
+  // the audit path. Turning it on is a one-line change if IT wants it.
+  await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX!)}/sendMail`, {
+    method: "POST",
+    body: JSON.stringify({ message, saveToSentItems: false }),
+  });
+}
+
+// =============================================================================
+// Ask before the page unloads with email still going out.
+//
+// Moving around ARC is fine — it's one page, and the sends carry on. Closing
+// the tab, reloading it or leaving ARC cancels whatever hasn't gone, so the
+// browser's own "Leave site?" prompt is shown while a send is in flight.
+// Browsers show their own wording; a page can't change it.
+// =============================================================================
+
+let sendsInFlight = 0;
+
+/** Is any notification email still being sent from this page? */
+export function isSendingMail(): boolean {
+  return sendsInFlight > 0;
+}
+
+export function warnIfSendingOnUnload(event: BeforeUnloadEvent): void {
+  if (sendsInFlight === 0) return;
+  event.preventDefault();
+  // Older Chrome and Edge need returnValue set as well.
+  event.returnValue = "";
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", warnIfSendingOnUnload);
+}
+
+async function whileSending(send: () => Promise<void>): Promise<void> {
+  sendsInFlight++;
+  try {
+    await send();
+  } finally {
+    sendsInFlight--;
+  }
 }
 
 // =============================================================================
@@ -452,11 +633,12 @@ export function describeFailure(email: string, err: unknown): MailSendFailure {
  */
 export function reportSendFailures(
   result: MailSendResult,
-  what: "comment" | "change",
+  what: "comment" | "change" | "sample",
 ): void {
   if (result.failed.length === 0) return;
 
-  const saved = what === "comment" ? "Your comment saved" : "Your change saved";
+  const saved =
+    what === "comment" ? "Your comment saved" : what === "sample" ? "The sample saved" : "Your change saved";
   const denied = result.failed.filter((f) => f.kind === "permission");
   const others = result.failed.filter((f) => f.kind === "other");
 
@@ -492,8 +674,9 @@ interface GraphFileAttachment {
   contentType: string;
 }
 
-async function sendOne(input: {
-  recipient: MentionRecipient;
+/** One comment email to everyone in `recipients`, who all share one reason. */
+async function sendComment(input: {
+  recipients: MentionRecipient[];
   sender: Person;
   target: MentionTarget;
   threading: Threading;
@@ -501,7 +684,7 @@ async function sendOne(input: {
   attachments: GraphFileAttachment[];
 }): Promise<void> {
   const { target } = input;
-  const reason = input.recipient.reason;
+  const reason = input.recipients[0].reason;
   // A comment that is only files reads as "X added an attachment", not as a
   // "New comment" whose whole body is a paperclip. An EDIT keeps its own
   // wording: "updated a comment" is still what happened.
@@ -521,7 +704,7 @@ async function sendOne(input: {
         : `New comment on ${target.title}`;
   const url = itemUrl(target.kind, target.id);
   const bodyHtml = renderMentionEmail({
-    recipientName: input.recipient.displayName,
+    recipientName: greetingName(input.recipients),
     senderName: input.sender.displayName,
     kind: target.kind,
     reason,
@@ -529,36 +712,17 @@ async function sendOne(input: {
     commentExcerpt: input.commentExcerpt,
     attachmentNames,
     url,
+    context: target.context,
   });
 
   const message: Record<string, unknown> = {
     ...threadedMessage(input.threading, summary, bodyHtml),
-    toRecipients: [
-      { emailAddress: { address: input.recipient.email, name: input.recipient.displayName } },
-    ],
+    ...addressFields(input.recipients),
   };
   if (input.attachments.length > 0) {
     message.attachments = input.attachments;
   }
-
-  // saveToSentItems: false is deliberate — but NOT for the reason this comment
-  // used to give.
-  //
-  // The original reasoning was that saving to Sent Items requires FullAccess
-  // while sending needs only Send-As, so leaving it off kept the grant narrow.
-  // That premise was wrong: Send-As alone did NOT make sendMail work here, and
-  // every ARC commenter holds BOTH Send-As and FullAccess (-AutoMapping:$false)
-  // — see BACKLOG.md's onboarding item for the exact PowerShell. Which of the
-  // two is strictly required was never isolated, so don't drop either on the
-  // assumption it's redundant.
-  //
-  // It stays off because ~175 people's notification traffic piling up in one
-  // mailbox nobody reads is noise, not a record. Exchange message tracing is
-  // the audit path. Turning it on is a one-line change if IT wants it.
-  await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX!)}/sendMail`, {
-    method: "POST",
-    body: JSON.stringify({ message, saveToSentItems: false }),
-  });
+  await postMail(message);
 }
 
 async function encodeAttachment(att: CommentAttachment): Promise<GraphFileAttachment> {
@@ -644,35 +808,103 @@ export async function notifyChangeEmails(input: {
   const result: MailSendResult = { sent: [], failed: [] };
   const threading = await threadingFor(input.target);
 
-  for (const e of emails) {
-    try {
-      const bodyHtml = renderChangeEmail({
-        recipientName: e.displayName,
-        headlineHtml: e.headlineHtml,
-        detailHtml: e.detailHtml,
-        actions: e.actions,
-        kind: input.target.kind,
-        itemTitle: input.target.title,
-        url,
-        buttonText: input.link?.buttonText,
-      });
-      const message = {
-        ...threadedMessage(threading, e.subject, bodyHtml),
-        toRecipients: [{ emailAddress: { address: e.email, name: e.displayName } }],
-      };
-      await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX)}/sendMail`, {
-        method: "POST",
-        body: JSON.stringify({ message, saveToSentItems: false }),
-      });
-      result.sent.push(e.email!);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[email] Failed to send change alert to ${e.email}:`, err);
-      result.failed.push(describeFailure(e.email!, err));
+  // People sent the SAME email share one message (Bcc) — the comment rule
+  // above. "The same" is everything but the greeting, so a builder that words
+  // one person's email differently still sends them their own.
+  const groups = groupInOrder(emails, (e) =>
+    JSON.stringify([e.subject, e.headlineHtml, e.detailHtml ?? "", e.actions ?? []]),
+  );
+  await whileSending(async () => {
+    for (const group of groups) {
+      for (const batch of inBatches(group)) {
+        const e = batch[0];
+        try {
+          const bodyHtml = renderChangeEmail({
+            recipientName: greetingName(batch),
+            headlineHtml: e.headlineHtml,
+            detailHtml: e.detailHtml,
+            actions: e.actions,
+            kind: input.target.kind,
+            itemTitle: input.target.title,
+            url,
+            buttonText: input.link?.buttonText,
+            context: input.target.context,
+          });
+          await postMail({
+            ...threadedMessage(threading, e.subject, bodyHtml),
+            ...addressFields(batch),
+          });
+          result.sent.push(...batch.map((b) => b.email));
+        } catch (err) {
+          const who = batch.map((b) => b.email).join(", ");
+          // eslint-disable-next-line no-console
+          console.error(`[email] Failed to send change alert to ${who}:`, err);
+          result.failed.push(...batch.map((b) => describeFailure(b.email, err)));
+        }
+      }
     }
-  }
+  });
 
   reportSendFailures(result, "change");
+  return result;
+}
+
+/**
+ * An alert to a LIST of people who are meant to reply to each other — the
+ * coil potting sample out of limit. Everyone in To (not Bcc) so Reply all
+ * reaches the whole list, no button, its own subject (not a conversation),
+ * otherwise the standard ARC layout. A failed send is reported like any other.
+ */
+export async function sendOpenAlert(input: {
+  subject: string;
+  recipients: Array<{ email: string; displayName: string }>;
+  calloutLabel: string;
+  calloutTitle: string;
+  introHtml: string;
+  messageHtml: string;
+}): Promise<MailSendResult> {
+  const people = input.recipients.filter((r) => !!r.email);
+  if (people.length === 0) return NOTHING_SENT;
+
+  if (USE_MOCK) {
+    // eslint-disable-next-line no-console
+    console.info("[email mock] open alert:", {
+      from: SHARED_MAILBOX ?? "(no shared mailbox configured)",
+      subject: input.subject,
+      to: people.map((p) => p.email),
+    });
+    return { sent: people.map((p) => p.email), failed: [] };
+  }
+  if (!SHARED_MAILBOX) {
+    console.warn("[email] VITE_SHARED_MAILBOX is not set — skipping the alert.");
+    return NOTHING_SENT;
+  }
+
+  const result: MailSendResult = { sent: [], failed: [] };
+  await whileSending(async () => {
+    for (const batch of inBatches(people)) {
+      try {
+        const bodyHtml = renderEmailShell({
+          recipientName: batch.length === 1 ? batch[0].displayName : null,
+          introHtml: input.introHtml,
+          calloutLabel: input.calloutLabel,
+          calloutTitle: input.calloutTitle,
+          messageHtml: input.messageHtml,
+          replyAll: true,
+        });
+        await postMail({
+          subject: input.subject,
+          body: { contentType: "HTML", content: bodyHtml },
+          toRecipients: batch.map((p) => ({ emailAddress: { address: p.email, name: p.displayName || p.email } })),
+        });
+        result.sent.push(...batch.map((p) => p.email));
+      } catch (err) {
+        console.error(`[email] Failed to send "${input.subject}":`, err);
+        result.failed.push(...batch.map((p) => describeFailure(p.email, err)));
+      }
+    }
+  });
+  reportSendFailures(result, "sample");
   return result;
 }
 
@@ -768,6 +1000,42 @@ export function fireNewGrayMarketRequestAlert(args: {
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * A crimp height check with a reading out of spec (BusinessIT#55) — the
+ * "Crimp out of spec" people on Harness Alert Recipients, read fresh by the
+ * caller. Returns what was sent, so the save can say whether anyone heard.
+ */
+export async function sendCrimpOutOfSpecAlert(args: {
+  check: CrimpCheck;
+  actor: Person;
+  recipients: Person[];
+}): Promise<MailSendResult> {
+  const emails = buildCrimpOutOfSpecEmails(args);
+  if (emails.length === 0) return NOTHING_SENT;
+  return notifyChangeEmails({
+    target: { kind: "crimpCheck", id: args.check.id, title: args.check.title },
+    emails,
+  });
+}
+
+/**
+ * A conformal coating check out of spec (BusinessIT#60) — the "Coating out of
+ * spec" people on Operations Alert Recipients, read fresh by the caller.
+ * Returns what was sent, so the save can say whether anyone heard.
+ */
+export async function sendCoatingOutOfSpecAlert(args: {
+  check: CoatingCheck;
+  actor: Person;
+  recipients: Person[];
+}): Promise<MailSendResult> {
+  const emails = buildCoatingOutOfSpecEmails(args);
+  if (emails.length === 0) return NOTHING_SENT;
+  return notifyChangeEmails({
+    target: { kind: "coatingCheck", id: args.check.id, title: args.check.title },
+    emails,
+  });
 }
 
 /**
@@ -1059,8 +1327,8 @@ type BrForAlert = Pick<
   "id" | "brNo" | "title" | "engineerAssigned" | "requestor" | "watchers"
 >;
 
-function buildRequestTarget(br: BrForAlert): ChangeTarget {
-  return { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br) };
+function buildRequestTarget(br: BrForAlert, context?: EmailContext): ChangeTarget {
+  return { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br), context };
 }
 
 /**
@@ -1070,10 +1338,12 @@ function buildRequestTarget(br: BrForAlert): ChangeTarget {
  */
 export function fireBuildRequestReadyForProductionAlert(args: {
   buildRequest: BrForAlert;
+  /** The linked task + details block (lib/emailContext.ts buildRequestEmailContext). */
+  context?: EmailContext;
   actor: Person;
 }): void {
   const br = args.buildRequest;
-  const target = buildRequestTarget(br);
+  const target = buildRequestTarget(br, args.context);
   const emails = buildBrReadyForProductionEmails({
     target,
     queue: parseRecipientList(BUILD_REQUEST_PRODUCTION_ALERTS),
@@ -1100,11 +1370,12 @@ export function fireBuildRequestPartProductionCompleteAlert(args: {
   const target: ChangeTarget = {
     kind: "buildRequestItem",
     id: args.part.id,
-    title: args.part.partNumber,
+    title: buildRequestPartEmailTitle(args.part, br),
   };
   const emails = buildBrPartProductionCompleteEmails({
     target,
-    buildRequestTitle: br.brNo || br.title,
+    partNumber: args.part.partNumber,
+    buildRequestTitle: buildRequestEmailTitle(br),
     partWatchers: args.part.watchers,
     actor: args.actor,
     engineer: br.engineerAssigned,
@@ -1122,9 +1393,10 @@ export function fireBuildRequestPartProductionCompleteAlert(args: {
  */
 export function fireBuildRequestProductionCompleteAlert(args: {
   buildRequest: BrForAlert;
+  context?: EmailContext;
   actor: Person;
 }): void {
-  const target = buildRequestTarget(args.buildRequest);
+  const target = buildRequestTarget(args.buildRequest, args.context);
   const emails = buildBrProductionCompleteReviewEmails({
     target,
     reviewers: parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS),
@@ -1141,10 +1413,11 @@ export function fireBuildRequestProductionCompleteAlert(args: {
  */
 export function fireBuildRequestCompleteAlert(args: {
   buildRequest: BrForAlert;
+  context?: EmailContext;
   actor: Person;
 }): void {
   const br = args.buildRequest;
-  const target = buildRequestTarget(br);
+  const target = buildRequestTarget(br, args.context);
   const emails = buildBrCompleteEmails({
     target,
     queue: parseRecipientList(BUILD_REQUEST_FINAL_ALERTS),
@@ -1158,35 +1431,44 @@ export function fireBuildRequestCompleteAlert(args: {
 }
 
 export function firePromotionAlert(args: {
-  eir: { id: number; eirNo: string; title: string; watchers: Person[]; reporter?: Person | null };
+  eir: {
+    id: number;
+    eirNo: string;
+    title: string;
+    description?: string;
+    watchers: Person[];
+    reporter?: Person | null;
+  };
   task: { id: number; numberedTitle: string; title: string };
   actor: Person;
 }): void {
+  const taskUrl = appItemUrl("task", args.task.id);
   const emails = buildPromotionEmails({
     eirLabel: args.eir.eirNo || `EIR #${args.eir.id}`,
+    task: { title: args.task.numberedTitle || args.task.title, url: taskUrl },
     watchers: args.eir.watchers,
     reporter: args.eir.reporter,
     actor: args.actor,
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({
+    // The EIR's people, so the EIR's card, the EIR's conversation (its default
+    // thread — subject = eirTargetTitle in useEirs.ts) and its description. The
+    // button opens the NEW task: that's where the work goes next.
     target: {
-      kind: "task",
-      id: args.task.id,
-      title: args.task.numberedTitle || args.task.title,
-      // Told to the EIR's people, so it joins the EIR's conversation — the
-      // subject is the EIR's own emails' (eirTargetTitle in useEirs.ts).
-      thread: {
-        key: `eir:${args.eir.id}`,
-        subject: [args.eir.eirNo, args.eir.title].filter(Boolean).join(" — ") || args.eir.title,
-      },
+      kind: "eir",
+      id: args.eir.id,
+      title: [args.eir.eirNo, args.eir.title].filter(Boolean).join(" — ") || args.eir.title,
+      context: { description: args.eir.description ?? "" },
     },
     emails,
+    link: { url: taskUrl, buttonText: "Open the new task" },
   });
 }
 
 interface MentionEmailContext {
-  recipientName: string;
+  /** Null for an email going to several people, who are greeted without a name. */
+  recipientName: string | null;
   senderName: string;
   kind: MentionTarget["kind"];
   reason: MentionRecipient["reason"];
@@ -1195,6 +1477,7 @@ interface MentionEmailContext {
   /** Set when the comment is ONLY attached files — see attachmentOnlyFileNames. */
   attachmentNames?: string[] | null;
   url: string;
+  context?: EmailContext;
 }
 
 /**
@@ -1213,24 +1496,48 @@ interface MentionEmailContext {
  * `url` are escaped here.
  */
 function renderEmailShell(ctx: {
-  recipientName: string;
+  recipientName: string | null;
   introHtml: string;
   calloutLabel: string;
   calloutTitle: string;
   messageHtml?: string;
   /** Answer buttons above the main one — outlined, so the main button stays the obvious "just open it". */
   actions?: Array<{ label: string; url: string }>;
-  buttonText: string;
-  url: string;
+  /** The main button. Omitted together with `url` = no button (the potting alert). */
+  buttonText?: string;
+  url?: string;
+  /** Present = the three-block layout (number/title, what's new, description). */
+  context?: EmailContext;
+  /** The recipients are meant to Reply all (the potting alert) — the footer says so instead of "Do not reply". */
+  replyAll?: boolean;
 }): string {
-  const recipient = escapeHtml(ctx.recipientName);
+  const greeting = ctx.recipientName
+    ? `Hello <strong>${escapeHtml(ctx.recipientName)}</strong>,`
+    : "Hello,";
   const calloutTitle = escapeHtml(ctx.calloutTitle);
-  const url = escapeHtml(ctx.url);
-  const messageBlock = ctx.messageHtml
-    ? `<div style="margin:0 0 22px 0;padding:14px 16px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;color:#374151;">
+  const url = ctx.url ? escapeHtml(ctx.url) : "";
+  const body = ctx.context
+    ? contextBlocks({ ...ctx, calloutTitle, context: ctx.context })
+    : `<p style="margin:0 0 18px 0;">${ctx.introHtml}</p>
+            ${calloutHtml(ctx.calloutLabel, calloutTitle, undefined)}
+            ${ctx.messageHtml ? `<div style="${BOX_STYLE}">
               ${ctx.messageHtml}
-            </div>`
-    : "";
+            </div>` : ""}`;
+  const buttonRow =
+    ctx.buttonText && url
+      ? `
+        <tr>
+          <td align="center" style="padding:${ctx.actions?.length ? "8px" : "0"} 28px 28px 28px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td align="center" style="background:#CB2C30;border-radius:6px;">
+                  <a href="${url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">${ctx.buttonText}</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`
+      : "";
   // One button per row: three long labels side by side don't fit a phone,
   // and Outlook can't wrap table cells the way a browser wraps flex items.
   const actionsBlock = (ctx.actions ?? [])
@@ -1263,36 +1570,85 @@ function renderEmailShell(ctx: {
           </td>
         </tr>
         <tr>
-          <td style="padding:28px 28px 8px 28px;color:#111827;font-size:15px;line-height:1.55;">
-            <p style="margin:0 0 14px 0;font-size:16px;">Hello <strong>${recipient}</strong>,</p>
-            <p style="margin:0 0 18px 0;">${ctx.introHtml}</p>
-            <div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
-              <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${escapeHtml(ctx.calloutLabel)}</div>
-              <div style="font-weight:600;color:#111827;">${calloutTitle}</div>
-            </div>
-            ${messageBlock}
+          <td style="padding:28px 28px ${buttonRow ? "8px" : "6px"} 28px;color:#111827;font-size:15px;line-height:1.55;">
+            <p style="margin:0 0 14px 0;font-size:16px;">${greeting}</p>
+            ${body}
           </td>
-        </tr>${actionsBlock}
-        <tr>
-          <td align="center" style="padding:${ctx.actions?.length ? "8px" : "0"} 28px 28px 28px;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-              <tr>
-                <td align="center" style="background:#CB2C30;border-radius:6px;">
-                  <a href="${url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">${ctx.buttonText}</a>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
+        </tr>${actionsBlock}${buttonRow}
         <tr>
           <td style="padding:14px 28px;background:#fafafa;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:11px;line-height:1.5;text-align:center;">
-            Do not reply to this email &mdash; it was automatically sent via ARC (Altronic Resource Center).
+            ${
+              ctx.replyAll
+                ? "Sent automatically by ARC (Altronic Resource Center). Reply all to discuss it with everyone on the list."
+                : "Do not reply to this email &mdash; it was automatically sent via ARC (Altronic Resource Center)."
+            }
           </td>
         </tr>
       </table>
     </td>
   </tr>
 </table>`.trim();
+}
+
+/** The white box a message sits in — and, in the three-block layout, each block. */
+const BOX_STYLE =
+  "margin:0 0 22px 0;padding:14px 16px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;color:#374151;";
+const BLOCK_LABEL_STYLE =
+  "font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;";
+
+/** The item's card: its type, an optional line above the title, the title. `title` is escaped already. */
+function calloutHtml(label: string, title: string, above: EmailContext["above"]): string {
+  const aboveHtml = above
+    ? `<div style="font-size:13px;color:#6b7280;margin-bottom:3px;">${escapeHtml(above.label)}: ` +
+      `<a href="${escapeHtml(above.url)}" style="color:#6b7280;">${escapeHtml(above.title)}</a> &rarr;</div>`
+    : "";
+  return `<div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
+              <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${escapeHtml(label)}</div>
+              ${aboveHtml}<div style="font-weight:600;color:#111827;">${title}</div>
+            </div>`;
+}
+
+/**
+ * The three-block layout (BusinessIT#67): the card, then What's new (the
+ * headline and the comment / change), then the description — or a build
+ * request's details. What changed always comes before the description, so a
+ * phone shows it first and the description is a scroll away.
+ */
+function contextBlocks(ctx: {
+  introHtml: string;
+  calloutLabel: string;
+  /** Escaped already. */
+  calloutTitle: string;
+  messageHtml?: string;
+  url?: string;
+  context: EmailContext;
+}): string {
+  const { context } = ctx;
+  const whatsNew =
+    `<div style="${BOX_STYLE}"><div style="${BLOCK_LABEL_STYLE}">What's new</div>` +
+    `<div style="color:#111827;${ctx.messageHtml ? "margin-bottom:10px;" : ""}">${ctx.introHtml}</div>` +
+    `${ctx.messageHtml ?? ""}</div>`;
+
+  let third = "";
+  const excerpt = descriptionExcerpt(context.description ?? "");
+  if (excerpt) {
+    const cut = excerpt.endsWith("…") && !!ctx.url;
+    third =
+      `<div style="${BOX_STYLE}"><div style="${BLOCK_LABEL_STYLE}">Description</div>` +
+      `<div style="font-size:14px;">${escapeHtml(excerpt).replace(/\n/g, "<br/>")}</div>` +
+      (cut
+        ? `<div style="font-size:13px;margin-top:8px;"><a href="${escapeHtml(ctx.url!)}" style="color:#CB2C30;">Read the full description in ARC &rarr;</a></div>`
+        : "") +
+      `</div>`;
+  } else if (context.details && context.details.length > 0) {
+    third =
+      `<div style="${BOX_STYLE}"><div style="${BLOCK_LABEL_STYLE}">Details</div>` +
+      context.details
+        .map((d) => `<div style="font-size:14px;">${escapeHtml(d.label)}: <strong>${escapeHtml(d.value)}</strong></div>`)
+        .join("") +
+      `</div>`;
+  }
+  return calloutHtml(ctx.calloutLabel, ctx.calloutTitle, context.above) + whatsNew + third;
 }
 
 /** Build the @-mention / watching comment email body from the shared shell. */
@@ -1321,6 +1677,7 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
       messageHtml: files.map((f) => `📎 ${escapeHtml(f)}`).join("<br/>"),
       buttonText: copy.buttonText,
       url: ctx.url,
+      context: ctx.context,
     });
   }
   const intro =
@@ -1344,12 +1701,13 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
     messageHtml: excerpt || '<em style="color:#9ca3af;">(no message body)</em>',
     buttonText: copy.buttonText,
     url: ctx.url,
+    context: ctx.context,
   });
 }
 
 /** Build a change-alert email body (status / resolution / assignee) via the shell. */
 function renderChangeEmail(ctx: {
-  recipientName: string;
+  recipientName: string | null;
   headlineHtml: string;
   detailHtml?: string;
   actions?: EmailAction[];
@@ -1357,6 +1715,7 @@ function renderChangeEmail(ctx: {
   itemTitle: string;
   url: string;
   buttonText?: string;
+  context?: EmailContext;
 }): string {
   const copy = KIND_COPY[ctx.kind];
   return renderEmailShell({
@@ -1368,6 +1727,7 @@ function renderChangeEmail(ctx: {
     actions: ctx.actions?.map((a) => ({ label: a.label, url: withQuery(ctx.url, a.query) })),
     buttonText: ctx.buttonText ?? copy.buttonText,
     url: ctx.url,
+    context: ctx.context,
   });
 }
 

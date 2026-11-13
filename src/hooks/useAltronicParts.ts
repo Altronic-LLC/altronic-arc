@@ -1,18 +1,24 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
+  altronicPartListHasRows,
   approveAltronicPart,
   createAltronicPart,
   deleteAltronicPart,
+  findAltronicPart,
   listAltronicParts,
+  listAltronicPartsInLists,
   updateAltronicPart,
   type NewAltronicPart,
 } from "@/api/altronicParts";
 import {
+  altronicComponentListHasRows,
   approveAltronicComponent,
   createAltronicComponent,
   deleteAltronicComponent,
+  findAltronicComponent,
   listAltronicComponents,
+  listAltronicComponentsInLists,
   updateAltronicComponent,
   type NewAltronicComponent,
 } from "@/api/altronicComponents";
@@ -128,24 +134,176 @@ export function useAllAltronicComponents() {
   });
 }
 
-/** One part, from the cached list — deleted ones too. `undefined` while loading, `null` if absent. */
-export function useAltronicPart(id: number) {
-  const query = useAllAltronicParts();
-  const part = useMemo<AltronicPart | null | undefined>(
-    () => (query.data ? (query.data.find((p) => p.id === id) ?? null) : undefined),
-    [query.data, id],
-  );
-  return { ...query, part };
+// -----------------------------------------------------------------------------
+// Slices — one row, or one list's rows (Tim, 2026-10-26)
+//
+// The whole Part List took ~11 s and 14 MB on a healthy day, and a part's page
+// and a list's screen waited for all of it to show one part or one list. Now:
+//  - a part's PAGE reads its one row (~0.3 s);
+//  - a LIST screen reads that list's rows, filtered by SharePoint on the
+//    indexed Title (list 309: ~0.4 s, one request) — a component list reads
+//    its whole category, so a search from 711 still finds a 701 part.
+// Both show the whole list's cached rows at once if it is already loaded, and
+// neither STARTS the whole-list download: the Parts Book, Global Search and
+// the New Part form still need every row, and they read it themselves.
+//
+// The slices live under their own key, never the whole-list key: Next free,
+// the new-list check and the Parts Book counts read that key, and a partial
+// list there would give them wrong answers. A write patches both (`upsert`).
+// -----------------------------------------------------------------------------
+
+type PartKind = "part" | "component";
+
+export const PARTS_SLICE_KEY = "altronicPartsSlice";
+
+const SLICE_STALE_MS = 60_000;
+
+function sliceListKey(kind: PartKind, prefixes: string[]) {
+  return [PARTS_SLICE_KEY, kind, "list", [...prefixes].sort().join(",")] as const;
 }
 
-/** One component, from the cached list — deleted ones too. `undefined` while loading, `null` if absent. */
+function sliceItemKey(kind: PartKind, id: number) {
+  return [PARTS_SLICE_KEY, kind, "item", id] as const;
+}
+
+type PartRow = Row & { partNumber: string; modifiedAt: Date };
+
+/** The fresher of two copies of one row — a cached whole list can be minutes old. */
+function newer<T extends PartRow>(cached: T | undefined, fresh: T): T {
+  if (!cached) return fresh;
+  return fresh.modifiedAt.getTime() >= cached.modifiedAt.getTime() ? fresh : cached;
+}
+
+function useOneRow<T extends PartRow>(opts: {
+  kind: PartKind;
+  wholeKey: readonly unknown[];
+  wholeFn: () => Promise<T[]>;
+  find: (id: number) => Promise<T | null>;
+  id: number;
+}) {
+  const valid = Number.isInteger(opts.id);
+  // Read from the cache only — this screen never starts the whole download.
+  const whole = useQuery({ queryKey: opts.wholeKey, queryFn: opts.wholeFn, enabled: false, staleTime: STALE_MS, gcTime: GC_MS });
+  const item = useQuery({
+    queryKey: sliceItemKey(opts.kind, opts.id),
+    queryFn: () => opts.find(opts.id),
+    enabled: valid,
+    staleTime: SLICE_STALE_MS,
+    gcTime: GC_MS,
+  });
+  const cached = valid ? whole.data?.find((r) => r.id === opts.id) : undefined;
+  // A fresh read saying the row is gone outranks a cached copy of it.
+  const row: T | null | undefined = !valid
+    ? null
+    : item.data === undefined
+      ? cached
+      : item.data === null
+        ? null
+        : newer(cached, item.data);
+  return {
+    row,
+    isLoading: row === undefined && !item.error,
+    error: row === undefined ? item.error : null,
+    refetch: item.refetch,
+  };
+}
+
+/** One part, read on its own — deleted ones too. `row` is `undefined` while loading, `null` if absent. */
+export function useAltronicPart(id: number) {
+  const { row, ...state } = useOneRow<AltronicPart>({
+    kind: "part",
+    wholeKey: ALTRONIC_PARTS_KEY,
+    wholeFn: listAltronicParts,
+    find: findAltronicPart,
+    id,
+  });
+  return { ...state, part: row };
+}
+
+/** One component, read on its own — deleted ones too. `undefined` while loading, `null` if absent. */
 export function useAltronicComponent(id: number) {
-  const query = useAllAltronicComponents();
-  const component = useMemo<AltronicComponent | null | undefined>(
-    () => (query.data ? (query.data.find((c) => c.id === id) ?? null) : undefined),
-    [query.data, id],
-  );
-  return { ...query, component };
+  const { row, ...state } = useOneRow<AltronicComponent>({
+    kind: "component",
+    wholeKey: ALTRONIC_COMPONENTS_KEY,
+    wholeFn: listAltronicComponents,
+    find: findAltronicComponent,
+    id,
+  });
+  return { ...state, component: row };
+}
+
+function useListRows<T extends PartRow & { signOffStatus: string | null }>(opts: {
+  kind: PartKind;
+  wholeKey: readonly unknown[];
+  wholeFn: () => Promise<T[]>;
+  slice: (prefixes: string[]) => Promise<T[]>;
+  hasRows: () => Promise<boolean>;
+  prefixes: string[];
+}) {
+  const key = sliceListKey(opts.kind, opts.prefixes);
+  const whole = useQuery({ queryKey: opts.wholeKey, queryFn: opts.wholeFn, enabled: false, staleTime: STALE_MS, gcTime: GC_MS });
+  const slice = useQuery({
+    queryKey: key,
+    queryFn: () => opts.slice(opts.prefixes),
+    staleTime: SLICE_STALE_MS,
+    gcTime: GC_MS,
+  });
+  // An EMPTY list may be a list with no parts yet, or SharePoint trimming every
+  // row this account can't see. One row of the whole list tells them apart.
+  const sliceEmpty = slice.data?.length === 0;
+  const probe = useQuery({
+    queryKey: [PARTS_SLICE_KEY, opts.kind, "hasRows"],
+    queryFn: opts.hasRows,
+    enabled: sliceEmpty && !whole.data,
+    staleTime: STALE_MS,
+    gcTime: GC_MS,
+  });
+  const rows = useMemo<T[] | undefined>(() => {
+    if (slice.data) return slice.data.filter((r) => !isDeletedPart(r));
+    if (!whole.data) return undefined;
+    const wanted = new Set(opts.prefixes);
+    return whole.data.filter((r) => !isDeletedPart(r) && wanted.has(partPrefix(r.partNumber) ?? ""));
+    // `key[3]` is the prefixes' identity; the array is new each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slice.data, whole.data, key[3]]);
+  // Only the WHOLE list can say "SharePoint handed back nothing at all": the
+  // cached whole list if there is one, else the one-row check. A failed check
+  // claims nothing, so the screen says the list is empty, as it is.
+  const sourceEmpty = whole.data ? whole.data.length === 0 : sliceEmpty && probe.data === false;
+  const checking = sliceEmpty && !whole.data && probe.isLoading;
+  return {
+    rows,
+    state: {
+      isLoading: (rows === undefined && !slice.error) || checking,
+      error: rows === undefined ? slice.error : null,
+      refetch: slice.refetch,
+    },
+    sourceEmpty,
+  };
+}
+
+/** The live parts on these Part List lists (usually one), without the whole list. */
+export function useAltronicPartsInLists(prefixes: string[]) {
+  return useListRows<AltronicPart>({
+    kind: "part",
+    wholeKey: ALTRONIC_PARTS_KEY,
+    wholeFn: listAltronicParts,
+    slice: listAltronicPartsInLists,
+    hasRows: altronicPartListHasRows,
+    prefixes,
+  });
+}
+
+/** The live components on these lists (a category's), without the whole list. */
+export function useAltronicComponentsInLists(prefixes: string[]) {
+  return useListRows<AltronicComponent>({
+    kind: "component",
+    wholeKey: ALTRONIC_COMPONENTS_KEY,
+    wholeFn: listAltronicComponents,
+    slice: listAltronicComponentsInLists,
+    hasRows: altronicComponentListHasRows,
+    prefixes,
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -154,11 +312,40 @@ export function useAltronicComponent(id: number) {
 
 type Row = { id: number };
 
-function upsert<T extends Row>(qc: QueryClient, key: readonly unknown[], row: T) {
+function kindOfKey(key: readonly unknown[]): PartKind {
+  return key[0] === ALTRONIC_COMPONENTS_KEY[0] ? "component" : "part";
+}
+
+/**
+ * Land a written row everywhere it is cached: the whole list, its single-row
+ * read, and any list slice it belongs to. A slice that hasn't got it gains it
+ * only if the number is on one of the slice's lists.
+ */
+export function upsert<T extends PartRow>(qc: QueryClient, key: readonly unknown[], row: T) {
   qc.setQueryData<T[]>(key, (old) => {
     if (!old) return old;
     return old.some((r) => r.id === row.id) ? old.map((r) => (r.id === row.id ? row : r)) : [...old, row];
   });
+  const kind = kindOfKey(key);
+  qc.setQueryData<T | null>(sliceItemKey(kind, row.id), (old) => (old === undefined ? old : row));
+  const prefix = partPrefix(row.partNumber) ?? "";
+  for (const [sliceKey, data] of qc.getQueriesData<T[]>({ queryKey: [PARTS_SLICE_KEY, kind, "list"] })) {
+    if (!data) continue;
+    const lists = String(sliceKey[3]).split(",");
+    if (data.some((r) => r.id === row.id)) {
+      qc.setQueryData<T[]>(sliceKey, data.map((r) => (r.id === row.id ? row : r)));
+    } else if (lists.includes(prefix)) {
+      qc.setQueryData<T[]>(sliceKey, [...data, row]);
+    }
+  }
+}
+
+/** The row as the cache holds it now — the whole list's, else its single read. */
+function cachedRow<T extends PartRow>(qc: QueryClient, key: readonly unknown[], id: number): T | undefined {
+  const fromList = qc.getQueryData<T[]>(key)?.find((r) => r.id === id);
+  const fromItem = qc.getQueryData<T | null>(sliceItemKey(kindOfKey(key), id)) ?? undefined;
+  if (fromList && fromItem) return newer(fromList, fromItem);
+  return fromList ?? fromItem;
 }
 
 function sendInBackground(target: ChangeTarget, build: () => Promise<ChangeEmail[]>) {
@@ -386,7 +573,7 @@ interface EditVars<T> {
   patch: Partial<T>;
 }
 
-function useEdit<T extends Row>(opts: {
+function useEdit<T extends PartRow>(opts: {
   key: readonly unknown[];
   component: boolean;
   specs: PartFieldSpec<T>[];
@@ -403,8 +590,11 @@ function useEdit<T extends Row>(opts: {
       return opts.update(id, patch);
     },
     // Optimistic: the card shows the new values at once; restored on error.
+    // `previous` is also what the "what changed" email diffs against, so it
+    // reads the part's page's own single-row read when the whole list isn't
+    // loaded — an edit from a part opened by link must still email.
     onMutate: async ({ id, patch }) => {
-      const previous = qc.getQueryData<T[]>(opts.key)?.find((r) => r.id === id);
+      const previous = cachedRow<T>(qc, opts.key, id);
       if (previous) upsert(qc, opts.key, { ...previous, ...patch });
       return { previous };
     },
@@ -467,7 +657,7 @@ export interface ApproveVars {
 }
 
 function useApprove<
-  T extends Row & { signOffStatus: string | null; createdBy: ItemAuthor | null; partNumber: string; description: string },
+  T extends PartRow & { signOffStatus: string | null; createdBy: ItemAuthor | null; description: string },
 >(opts: {
   key: readonly unknown[];
   approve: (id: number, expected: string, comment: string, actor: Person, response: SapResponse | null) => Promise<T>;
@@ -536,7 +726,7 @@ export interface DeleteVars {
   reason: string;
 }
 
-function useDelete<T extends Row>(opts: {
+function useDelete<T extends PartRow>(opts: {
   key: readonly unknown[];
   remove: (id: number, partNumber: string, reason: string, actor: Person) => Promise<T>;
 }) {

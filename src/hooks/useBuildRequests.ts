@@ -9,6 +9,7 @@ import {
   setBuildRequestEngineer,
   setBuildRequestProjects,
   setBuildRequestRequestor,
+  setBuildRequestTask,
   setBuildRequestWatchers,
   updateBuildRequestFields,
 } from "@/api/buildRequests";
@@ -22,7 +23,7 @@ import {
   setBuildRequestItemWatchers,
   updateBuildRequestItemFields,
 } from "@/api/buildRequestItems";
-import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
+import type { BuildRequest, BuildRequestItem, Person, Task } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
@@ -62,7 +63,8 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
-import { buildRequestEmailTitle } from "@/lib/buildRequestAlerts";
+import { buildRequestEmailTitle, buildRequestPartEmailTitle } from "@/lib/buildRequestAlerts";
+import { buildRequestEmailContext, type EmailContext, type LinkedTaskRef } from "@/lib/emailContext";
 import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
@@ -72,6 +74,36 @@ import { parseWrittenDate } from "@/lib/dateInput";
 // mutations fire mention/watcher emails with kind "buildRequest" (headers)
 // or "buildRequestItem" (parts).
 // =============================================================================
+
+/**
+ * The task a build request is linked to, as its email card names it — read from
+ * whichever task list is cached (the full list, else the recent-tasks preview).
+ * The mention scanner keeps the task list mounted on every page, so it's almost
+ * always there; when it isn't, the card just shows no "Task:" line. Keys are
+ * spelled here: importing useTasks would cycle through useCommentMirror.
+ */
+function linkedTaskFor(qc: QueryClient, br: Pick<BuildRequest, "taskReferenceLookupId">): LinkedTaskRef | null {
+  const id = br.taskReferenceLookupId;
+  if (!id) return null;
+  for (const key of [["tasks", "list"], ["tasks", "recent"]]) {
+    const t = qc.getQueryData<Task[]>(key)?.find((x) => x.id === id);
+    if (t) return { id: t.id, title: t.numberedTitle || t.title };
+  }
+  return null;
+}
+
+/** A build request's email target: its title, linked task and details (BusinessIT#67). */
+function brEmailTarget(
+  qc: QueryClient,
+  br: BuildRequest,
+): { kind: "buildRequest"; id: number; title: string; context: EmailContext } {
+  return {
+    kind: "buildRequest",
+    id: br.id,
+    title: buildRequestEmailTitle(br),
+    context: buildRequestEmailContext(br, linkedTaskFor(qc, br)),
+  };
+}
 
 export const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 export const BUILD_REQUEST_ITEMS_KEY = ["buildRequestItems", "list"] as const;
@@ -219,6 +251,38 @@ function patchItem(id: number, transform: (i: BuildRequestItem) => BuildRequestI
   return (items: BuildRequestItem[]) => items.map((i) => (i.id === id ? transform(i) : i));
 }
 
+/**
+ * The parent request of a part, for its emails — from the cache, or LOADED if
+ * the requests list hasn't arrived yet. Undefined when it can't be read; the
+ * email then names the part alone rather than not going out.
+ */
+function loadParentBuildRequest(
+  qc: QueryClient,
+  item: Pick<BuildRequestItem, "buildRequestLookupId">,
+): Promise<BuildRequest | undefined> {
+  return qc
+    .ensureQueryData({ queryKey: BUILD_REQUESTS_KEY, queryFn: listBuildRequests })
+    .then((brs) => brs.find((b) => b.id === item.buildRequestLookupId))
+    .catch(() => undefined);
+}
+
+/**
+ * Who a part email is about: the part, named with its build request
+ * (BusinessIT#56) — the part number alone is the same on every request
+ * that uses that part.
+ */
+async function partEmailTarget(
+  qc: QueryClient,
+  item: Pick<BuildRequestItem, "id" | "partNumber" | "buildRequestLookupId">,
+) {
+  const parent = await loadParentBuildRequest(qc, item);
+  return {
+    kind: "buildRequestItem" as const,
+    id: item.id,
+    title: buildRequestPartEmailTitle(item, parent),
+  };
+}
+
 function errorToast(message: string) {
   pushToast({ message, variant: "error" });
 }
@@ -357,7 +421,7 @@ export function useUpdateBuildRequestFields() {
       }
       return snapshotAndPatchBr(qc, id, patchBr(id, (b) => applyBrFieldsLocally(b, fields)));
     },
-    onSuccess: (_data, { id, fields }, ctx) => {
+    onSuccess: (_data, { fields }, ctx) => {
       pushToast({ message: "Changes saved." });
       const prevBr = ctx?.prevBr;
       if ("BRStatus" in fields && prevBr) {
@@ -367,7 +431,7 @@ export function useUpdateBuildRequestFields() {
         if (!brStatusHasOwnAlert(from, to)) {
           // No-ops by itself when from === to.
           fireFieldChangeAlert({
-            target: { kind: "buildRequest", id, title: buildRequestEmailTitle(prevBr) },
+            target: brEmailTarget(qc, prevBr),
             fieldLabel: "status",
             from,
             to,
@@ -381,11 +445,11 @@ export function useUpdateBuildRequestFields() {
         // OUR guard, so re-saving a status never re-announces it.
         if (to !== from) {
           if (to === "Ready for Production") {
-            fireBuildRequestReadyForProductionAlert({ buildRequest: prevBr, actor: who });
+            fireBuildRequestReadyForProductionAlert({ buildRequest: prevBr, context: brEmailTarget(qc, prevBr).context, actor: who });
           } else if (to === "Production Complete") {
-            fireBuildRequestProductionCompleteAlert({ buildRequest: prevBr, actor: who });
+            fireBuildRequestProductionCompleteAlert({ buildRequest: prevBr, context: brEmailTarget(qc, prevBr).context, actor: who });
           } else if (to === "Complete" && from === "Production Complete") {
-            fireBuildRequestCompleteAlert({ buildRequest: prevBr, actor: who });
+            fireBuildRequestCompleteAlert({ buildRequest: prevBr, context: brEmailTarget(qc, prevBr).context, actor: who });
           }
         }
       }
@@ -444,7 +508,7 @@ export function useSetBuildRequestEngineer() {
       });
       if (ctx?.prevBr) {
         fireAssigneeChangeAlert({
-          target: { kind: "buildRequest", id, title: buildRequestEmailTitle(ctx.prevBr) },
+          target: brEmailTarget(qc, ctx.prevBr),
           prev: prev ? [prev] : [],
           next: person ? [person] : [],
           actor,
@@ -493,6 +557,43 @@ export function useSetBuildRequestProjects() {
   });
 }
 
+/**
+ * Link a build request to an Engineering task, or move it to another one
+ * (BusinessIT#58). Open to anyone signed in; the detail page asks before a
+ * RE-link. Once linked, the comment mirror, the task page's build request
+ * list and the task's completion gate all follow the new task.
+ */
+export function useSetBuildRequestTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, taskId }: { id: number; taskId: number }) => setBuildRequestTask(id, taskId),
+    onMutate: ({ id, taskId }) =>
+      snapshotAndPatchBr(
+        qc,
+        id,
+        patchBr(id, (b) => ({ ...b, taskReferenceLookupId: taskId, modifiedAt: new Date() })),
+      ),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevBr?.taskReferenceLookupId ?? null;
+      pushToast({
+        message: prev == null ? "Linked to the task." : "Moved to the other task.",
+        undo: buildUndoBr(qc, ctx?.previous, () => setBuildRequestTask(id, prev)),
+      });
+    },
+    onError: (err, _vars, ctx) => {
+      rollbackBr(qc, ctx);
+      errorToast(
+        describeListWriteFailure(err, {
+          action: "link this build request to the task",
+          site: "Altronic_Engineering",
+          permission: "editing",
+        }),
+      );
+    },
+    onSettled: () => invalidateBrs(qc),
+  });
+}
+
 export function useSetBuildRequestWatchers() {
   const qc = useQueryClient();
   return useMutation({
@@ -530,7 +631,7 @@ export function useCreateBuildRequest() {
       const engineer = variables.engineerAssigned ?? null;
       if (engineer) {
         fireAssigneeChangeAlert({
-          target: { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br) },
+          target: brEmailTarget(qc, br),
           prev: [],
           next: [engineer],
           actor,
@@ -682,11 +783,7 @@ export function useAddBuildRequestComment() {
         void notifyMentions({
           recipients,
           sender,
-          target: {
-            kind: "buildRequest",
-            id: br.id,
-            title: buildRequestEmailTitle(br),
-          },
+          target: brEmailTarget(qc, br),
           commentExcerpt: htmlToPlainText(comment.bodyHtml),
           attachments: [],
         });
@@ -765,11 +862,7 @@ export function useEditBuildRequestComment() {
       const br = brs?.find((b) => b.id === id);
       if (!br) return;
       const sender: Person = { displayName: prevComment.authorName, email: prevComment.authorEmail };
-      const targetRef = {
-        kind: "buildRequest" as const,
-        id: br.id,
-        title: buildRequestEmailTitle(br),
-      };
+      const targetRef = brEmailTarget(qc, br);
 
       if (renotify) {
         const recipients = commentRenotifyRecipients({
@@ -942,9 +1035,29 @@ export function useUpdateBuildRequestItemFields() {
       if (!("Part_x0020_Status" in fields) || !prevItem) return;
       const from = prevItem.partStatus ?? "Not set";
       const to = String(fields.Part_x0020_Status ?? "Not set");
-      const generic = () =>
+      // The parent is LOADED if the cache hasn't got it: every part email
+      // names its build request (BusinessIT#56), and a part edited before the
+      // requests list arrived must still reach the engineer, not only the
+      // part's watchers.
+      void loadParentBuildRequest(qc, prevItem).then((parent) => {
+        // A part REACHING Production Complete gets its own alert (the
+        // request's engineer, watchers and requestor plus the part's
+        // watchers), replacing the generic note rather than doubling it.
+        // `to !== from` is the guard; presence of the field is not a change.
+        if (parent && to === "Production Complete" && to !== from) {
+          fireBuildRequestPartProductionCompleteAlert({
+            buildRequest: parent,
+            part: prevItem,
+            actor: actorRef.current,
+          });
+          return;
+        }
         fireFieldChangeAlert({
-          target: { kind: "buildRequestItem", id, title: prevItem.partNumber },
+          target: {
+            kind: "buildRequestItem",
+            id,
+            title: buildRequestPartEmailTitle(prevItem, parent),
+          },
           fieldLabel: "part status",
           from,
           to,
@@ -952,31 +1065,7 @@ export function useUpdateBuildRequestItemFields() {
           watchers: prevItem.watchers,
           assignees: [],
         });
-      // `to !== from` is the guard; presence of the field is not a change.
-      if (to !== "Production Complete" || to === from) {
-        generic();
-        return;
-      }
-      // A part REACHING Production Complete gets its own alert (the request's
-      // engineer, watchers and requestor plus the part's watchers), replacing
-      // the generic note rather than doubling it. The parent is LOADED if the
-      // cache hasn't got it — a part edited before the requests list arrived
-      // must still reach the engineer, not only the part's watchers.
-      void qc
-        .ensureQueryData({ queryKey: BUILD_REQUESTS_KEY, queryFn: listBuildRequests })
-        .then((brs) => brs.find((b) => b.id === prevItem.buildRequestLookupId))
-        .catch(() => undefined)
-        .then((parent) => {
-          if (parent) {
-            fireBuildRequestPartProductionCompleteAlert({
-              buildRequest: parent,
-              part: prevItem,
-              actor: actorRef.current,
-            });
-          } else {
-            generic();
-          }
-        });
+      });
     },
     onError: (err, _vars, ctx) => {
       rollbackItem(qc, ctx);
@@ -1092,13 +1181,15 @@ export function useAddBuildRequestItemComment() {
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
-        void notifyMentions({
-          recipients,
-          sender,
-          target: { kind: "buildRequestItem", id: item.id, title: item.partNumber },
-          commentExcerpt: htmlToPlainText(comment.bodyHtml),
-          attachments: [],
-        });
+        void partEmailTarget(qc, item).then((target) =>
+          notifyMentions({
+            recipients,
+            sender,
+            target,
+            commentExcerpt: htmlToPlainText(comment.bodyHtml),
+            attachments: [],
+          }),
+        );
       }
 
       // A part comment fans out BOTH ways — onto the linked task AND onto its
@@ -1169,7 +1260,7 @@ export function useEditBuildRequestItemComment() {
       const item = items?.find((i) => i.id === id);
       if (!item) return;
       const sender: Person = { displayName: prevComment.authorName, email: prevComment.authorEmail };
-      const targetRef = { kind: "buildRequestItem" as const, id: item.id, title: item.partNumber };
+      const targetRef = partEmailTarget(qc, item);
 
       if (renotify) {
         const recipients = commentRenotifyRecipients({
@@ -1181,13 +1272,15 @@ export function useEditBuildRequestItemComment() {
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {
-          void notifyMentions({
-            recipients,
-            sender,
-            target: targetRef,
-            commentExcerpt: htmlToPlainText(newBodyHtml),
-            attachments: [],
-          });
+          void targetRef.then((target) =>
+            notifyMentions({
+              recipients,
+              sender,
+              target,
+              commentExcerpt: htmlToPlainText(newBodyHtml),
+              attachments: [],
+            }),
+          );
         }
       } else {
         const prevMentions = new Set(
@@ -1197,13 +1290,15 @@ export function useEditBuildRequestItemComment() {
           (r) => !prevMentions.has(r.email.toLowerCase()),
         );
         if (newMentions.length > 0) {
-          void notifyMentions({
-            recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
-            sender,
-            target: targetRef,
-            commentExcerpt: htmlToPlainText(newBodyHtml),
-            attachments: [],
-          });
+          void targetRef.then((target) =>
+            notifyMentions({
+              recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
+              sender,
+              target,
+              commentExcerpt: htmlToPlainText(newBodyHtml),
+              attachments: [],
+            }),
+          );
         }
       }
     },

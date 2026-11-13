@@ -42,6 +42,7 @@ import {
   notifyMentions,
 } from "@/api/email";
 import { eirTriageStage } from "@/lib/eirTriage";
+import { eirEmailContext, type EmailContext } from "@/lib/emailContext";
 import {
   EIR_CLOSED,
   EIR_RESOLUTION_RESOLVED,
@@ -61,6 +62,8 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mergeTaskIntoList } from "@/lib/taskGraph";
+import { fanOutComment } from "@/hooks/useCommentMirror";
 
 export const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -172,7 +175,7 @@ export function useCreateEir() {
       const engineers = variables.assignedEngineers ?? [];
       if (engineers.length > 0) {
         fireAssigneeChangeAlert({
-          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          target: eirEmailTarget(created),
           prev: [],
           next: engineers,
           actor,
@@ -191,7 +194,7 @@ export function useCreateEir() {
       });
       if (stage) {
         fireEirTriageAlert({
-          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          target: eirEmailTarget(created),
           stage,
           actor,
           projectTitle: projectTitleFor(qc, projectIds[0]),
@@ -203,7 +206,9 @@ export function useCreateEir() {
   });
 }
 
+// Same keys useTasks.ts owns; copied, since useTasks imports from this file.
 const TASK_LIST_KEY = ["tasks", "list"] as const;
+const PROJECTS_KEY = ["projects"] as const;
 
 export interface PromoteEirInput {
   eir: Eir;
@@ -275,22 +280,15 @@ export function usePromoteEirToTask() {
           // failure (the discussion landed, the link didn't) still seeds the
           // cache with the real comment thread — see createTask.
           task = err.task;
-          const lostLink = err.failedFields.includes("EIRReference");
-          const lostComments = err.failedFields.includes("Communication");
-          const missing = lostLink
-            ? lostComments
-              ? "its link back to the EIR and the carried-over discussion"
-              : "its link back to the EIR"
-            : "the carried-over discussion";
-          // Name the recovery for whichever half was lost. The comments are
-          // the half nobody can reconstruct from memory, so say where they
-          // still are rather than just "by hand".
-          const fix = lostComments
-            ? `copy ${lostLink ? "the discussion" : "it"} across from ${
-                eir.eirNo || `EIR #${eir.id}`
-              }`
-            : "add the link by hand";
-          warnings.push(`${missing} couldn't be saved — ${fix}`);
+          // Only the carried-over discussion can fail now: the task's link
+          // back is derived from the EIR's Task Reference (see createTask).
+          // The comments are the half nobody can reconstruct from memory, so
+          // say where they still are rather than just "by hand".
+          warnings.push(
+            `the carried-over discussion couldn't be saved — copy it across from ${
+              eir.eirNo || `EIR #${eir.id}`
+            }`,
+          );
         } else {
           throw err;
         }
@@ -351,6 +349,7 @@ export function usePromoteEirToTask() {
           id: eir.id,
           eirNo: eir.eirNo,
           title: eir.title,
+          description: eir.description,
           watchers: eir.watchers,
           reporter: eir.reporter,
         },
@@ -370,7 +369,13 @@ export function usePromoteEirToTask() {
       // navigation lands on a stale list that doesn't have the new task yet,
       // flashing "Task not found" until invalidateQueries' background
       // refetch catches up. Same fix, same reason, as useCreateTask's.
-      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? [task, ...old] : [task]));
+      // Through mergeTaskIntoList: the row came from a single-item read, so
+      // its project titles and the parent's child list are derived here.
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) =>
+        old
+          ? mergeTaskIntoList(old, task, qc.getQueryData<ProjectReference[]>(PROJECTS_KEY) ?? [])
+          : [task],
+      );
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
       qc.invalidateQueries({ queryKey: EIRS_KEY });
       if (followUpWarning) {
@@ -452,11 +457,7 @@ export function useUpdateEirFields() {
       // so fire each independently. Recipients = watchers + assigned engineers
       // + reporter, minus the actor.
       if (ctx?.prevEir) {
-        const target = {
-          kind: "eir" as const,
-          id,
-          title: eirTargetTitle(ctx.prevEir),
-        };
+        const target = eirEmailTarget(ctx.prevEir);
         const recipients = {
           actor,
           watchers: ctx.prevEir.watchers,
@@ -622,7 +623,7 @@ export function useSetEirAssignedEngineers() {
       });
       if (ctx?.prevEir) {
         fireAssigneeChangeAlert({
-          target: { kind: "eir", id, title: eirTargetTitle(ctx.prevEir) },
+          target: eirEmailTarget(ctx.prevEir),
           prev,
           next: people,
           actor,
@@ -723,15 +724,22 @@ export function useAddEirComment() {
         void notifyMentions({
           recipients,
           sender: { displayName: comment.authorName, email: comment.authorEmail },
-          target: {
-            kind: "eir",
-            id: eir.id,
-            title: eirTargetTitle(eir),
-          },
+          target: eirEmailTarget(eir),
           commentExcerpt: eirCommentExcerpt(comment.bodyHtml),
           attachments: [],
         });
       }
+
+      // Copy it onto the task this EIR was promoted into, and notify THAT
+      // side's watchers minus whoever we just emailed (Ray, 2026-10-27).
+      // Best-effort: the comment is already written, so a failed mirror
+      // toasts rather than failing the post.
+      void fanOutComment({
+        qc,
+        source: { kind: "eir", id },
+        comment,
+        alreadyNotified: recipients,
+      });
     },
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
@@ -856,7 +864,7 @@ export function useEditEirComment() {
           void notifyMentions({
             recipients,
             sender: { displayName: prevComment.authorName, email: prevComment.authorEmail },
-            target: { kind: "eir", id: eir.id, title: eirTargetTitle(eir) },
+            target: eirEmailTarget(eir),
             commentExcerpt: eirCommentExcerpt(newBodyHtml),
             attachments: prevComment.attachments ?? [],
           });
@@ -877,8 +885,13 @@ export function useEditEirComment() {
 // =============================================================================
 
 /** Human-readable EIR label for email subjects/callouts ("EIR_2026-0042 — Title"). */
-function eirTargetTitle(e: Eir): string {
+export function eirTargetTitle(e: Eir): string {
   return [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title;
+}
+
+/** An EIR's email target: its title, and its description as the third block (BusinessIT#67). */
+export function eirEmailTarget(e: Eir): { kind: "eir"; id: number; title: string; context: EmailContext } {
+  return { kind: "eir", id: e.id, title: eirTargetTitle(e), context: eirEmailContext(e) };
 }
 
 /**

@@ -111,12 +111,18 @@ export const SP_SITE_URL = import.meta.env.VITE_SP_SITE_URL as string | undefine
 export const SHARED_MAILBOX = import.meta.env.VITE_SHARED_MAILBOX as string | undefined;
 
 /**
- * Email address of the app maintainer — recipient of "Notify app manager"
- * error reports. Falls back to a sensible default if unset so the button
+ * Who receives "Report issue" reports — a recipient list in the same format
+ * as the alert lists below: `"Ray White <ray.white@x.com>, tim@x.com"`,
+ * comma-separated, names optional. Falls back to Ray if unset so the button
  * still works on day one even before the env var is wired up.
+ *
+ * `||`, never `??`, on every env default in this file: deploy.yml passes a
+ * repo variable nobody has set as an EMPTY STRING, not undefined, and `??`
+ * keeps it. That shipped a Report issue button that mailed nobody (Graph:
+ * "Recipient 'App Manager' is not resolved"), 2026-10-22.
  */
 export const APP_MANAGER_EMAIL =
-  (import.meta.env.VITE_APP_MANAGER_EMAIL as string | undefined) ??
+  (import.meta.env.VITE_APP_MANAGER_EMAIL as string | undefined) ||
   "ray.white@altronic-llc.com";
 
 // =============================================================================
@@ -277,11 +283,11 @@ export const MAINTENANCE_ROLES_ENFORCED = USE_MOCK || !!SP_MAINTENANCE_ROLES_LIS
  * SP_SITE_URL, so the same acquired token covers both — only the path differs.
  */
 export const SP_SALESTEAM_SITE_URL =
-  (import.meta.env.VITE_SP_SALESTEAM_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SALESTEAM_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM";
 
 export const SP_PMO_SITE_URL =
-  (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
 
 // =============================================================================
@@ -410,7 +416,7 @@ export const SP_WHERE_AM_I_LIST_ID =
  * lives on the **PMO site** (SITES.pmo) rather than a Supply Chain one — that's
  * where it has always been, and the PMO grant already covers it.
  *
- * `Title` is the Altronic assembly number, `LogNo_x002e_Raw` carries the
+ * `Title` is the SAP P/N, `LogNo_x002e_Raw` carries the
  * GMR_YYYY-### number the app generates, and the list already has the
  * `Communication` and `Watchers` columns the standard comment thread needs.
  * Schema discovered live 2026-08-19 — scripts/gray-market-request-schema.json.
@@ -614,13 +620,34 @@ export const SP_FAIT_LIST_ID =
 
 /**
  * QCFRM-012 — CPU-95 Ignition Module Electrical Test and Inspection, the
- * first "QC Forms" module. The SharePoint list is named "CPU-95", on the
- * Engineering site. Any signed-in user can create/edit; no delete (each row
- * is a signed, dated test record).
+ * first "QC Forms" module. The SharePoint list is "QCFRM-012 CPU-95 Test
+ * Sheets" on Altronic_PMO (`SITES.pmo`), created 2026-10-21. It replaced the
+ * "CPU-95" list on the Engineering site (4843afdc-…), which is kept as an
+ * archive and no longer read. Any signed-in user can create/edit; no delete
+ * (each row is a signed, dated test record).
  */
 export const SP_QC_CPU95_LIST_ID =
   import.meta.env.VITE_SP_QC_CPU95_LIST_ID ||
-  "4843afdc-5697-4f44-8113-003cc220b57a";
+  "01d4cb25-a642-4652-b3db-0370f9a04b98";
+
+/**
+ * GET-1 — GE Transportation Log Sheet (Quality Control Inspection), the QC
+ * Forms Phase 1 pilot. "GET-1 GE Transportation Log Sheets" on Altronic_PMO,
+ * built by `scripts/create-qc-form-list.ps1 -Columns qc-get1-columns.json`.
+ * No default: the list doesn't exist until that script runs, and until this
+ * is set the GET-1 screen says the variable isn't set.
+ */
+export const SP_QC_GET1_LIST_ID = import.meta.env.VITE_SP_QC_GET1_LIST_ID || "";
+
+/**
+ * QCFRM-035 — Series X Controller GE Transportation Log Sheet, the second GE
+ * log sheet in QC Forms Phase 1. "QCFRM-035 Series X Controller Log Sheets" on
+ * Altronic_PMO, built by
+ * `scripts/create-qc-form-list.ps1 -Columns qc-series-x-columns.json`. No
+ * default, the GET-1 arrangement: until this is set the Series X screen says
+ * the variable isn't set.
+ */
+export const SP_QC_SERIES_X_LIST_ID = import.meta.env.VITE_SP_QC_SERIES_X_LIST_ID || "";
 
 /**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.
@@ -729,6 +756,18 @@ export const SP_ECNS_LIST_ID =
 export const SP_ECN_CHECKLISTS_LIST_ID =
   import.meta.env.VITE_SP_ECN_CHECKLISTS_LIST_ID || "";
 
+/**
+ * ECN Distribution Groups (BusinessIT#57) — who receives an ECN for each role
+ * on the form's DISTRIBUTION block. Engineering site, created and seeded by
+ * `scripts/create-ecn-distribution.ps1`, managed by ARC admins in ARC.
+ *
+ * **No default**: until it is set, an ECN's distribution card says the groups
+ * aren't set up and nothing is emailed. Nothing was emailed before this, so an
+ * unset id takes nothing away.
+ */
+export const SP_ECN_DISTRIBUTION_GROUPS_LIST_ID =
+  import.meta.env.VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID || "";
+
 // =============================================================================
 // Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),
 // one per product family. QC defect log entries are stored per-family list.
@@ -827,7 +866,7 @@ export const SP_TERADYNE_REMARKS_LIST_ID =
 
 // =============================================================================
 // Harness Production Log — TWO lists on the PMO site (SITES.pmo), part of the
-// Operations department, replacing an Access database on a production PC.
+// Harness department, replacing an Access database on a production PC.
 // Created by scripts/create-harness-production-lists.ps1 and loaded by
 // scripts/load-harness-production-log.ps1.
 //
@@ -843,6 +882,53 @@ export const SP_HARNESS_PRODUCTION_LOG_LIST_ID =
 /** "Harness Part Numbers" — the log's PartNumber lookup source, admin-managed. */
 export const SP_HARNESS_PART_NUMBERS_LIST_ID =
   (import.meta.env.VITE_SP_HARNESS_PART_NUMBERS_LIST_ID as string | undefined) ?? "";
+
+// =============================================================================
+// Crimp Height Checks (BusinessIT#55) — TWO lists on the PMO site, Harness
+// department, replacing the paper Terminal Crimp Verification Chart (MFGFRM 002).
+// Created by scripts/create-crimp-lists.ps1; the spec sheet is loaded by
+// scripts/load-crimp-specs.ps1.
+//
+// NO DEFAULTS, the Harness Production Log's reasoning: the lists don't exist
+// until the script runs, and an unset id shows "not set up yet". Nothing gates
+// on them. `||`, never `??` — deploy.yml passes an unset repo variable as "".
+// =============================================================================
+
+/** "Crimp Specs" — one row per terminal + applicator + wire gauge. ARC admins manage it. */
+export const SP_CRIMP_SPECS_LIST_ID = import.meta.env.VITE_SP_CRIMP_SPECS_LIST_ID || "";
+
+/** "Crimp Height Checks" — one row per check of three readings. */
+export const SP_CRIMP_CHECKS_LIST_ID = import.meta.env.VITE_SP_CRIMP_CHECKS_LIST_ID || "";
+
+/**
+ * "Harness Alert Recipients" — who the Harness department's emails go to
+ * (an out-of-spec crimp check, a part number request), one row per person per
+ * alert. ARC admins manage it at /harness/alert-recipients, so changing who is
+ * told needs no redeploy (Tim, 2026-10-27). Unset = nobody is told, and the
+ * screens say so.
+ */
+export const SP_HARNESS_ALERT_RECIPIENTS_LIST_ID = import.meta.env.VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID || "";
+
+// =============================================================================
+// Conformal Coating Thickness Checks (BusinessIT#60) — Operations, THREE lists
+// on the PMO site, created by scripts/create-coating-lists.ps1. The crimp
+// log's arrangement: NO DEFAULTS (an unset id shows "not set up yet"), nothing
+// gates on them, and `||` never `??` — deploy.yml passes an unset var as "".
+// =============================================================================
+
+/** "Coating Specs" — the min / max coating thickness in mils, and coated sides. ARC admins manage it. */
+export const SP_COATING_SPECS_LIST_ID = import.meta.env.VITE_SP_COATING_SPECS_LIST_ID || "";
+
+/** "Coating Checks" — one row per check of six readings. */
+export const SP_COATING_CHECKS_LIST_ID = import.meta.env.VITE_SP_COATING_CHECKS_LIST_ID || "";
+
+/**
+ * "Operations Alert Recipients" — who the Operations department's emails go
+ * to (an out-of-spec coating check), one row per person per alert. ARC admins
+ * manage it at /operations/alert-recipients, no redeploy. Unset = nobody is
+ * told, and the screens say so.
+ */
+export const SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID = import.meta.env.VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID || "";
 
 // =============================================================================
 // Coils — Potting Sample Log, THREE lists on the PMO site (SITES.pmo). The
@@ -914,7 +1000,7 @@ export const SP_PANEL_TASKS_LIST_ID =
  * bare LookupId via Graph). Same tenant/token as SP_SITE_URL.
  */
 export const SP_PANELTEAM_SITE_URL =
-  (import.meta.env.VITE_SP_PANELTEAM_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_PANELTEAM_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICPANELTEAM";
 
 /**
@@ -926,6 +1012,67 @@ export const SP_PANELTEAM_SITE_URL =
  * so an env override to "" can switch gating off without a code change.)
  */
 export const PANEL_ROLES_ENFORCED = USE_MOCK || !!SP_PANEL_ROLES_LIST_ID;
+
+/**
+ * "Panel Time Off" — the panel team's own "Where am I?" (BusinessIT#42): a
+ * person, a date range and the hours off each day, which the Capacity view
+ * takes out of that person's capacity. Created by
+ * scripts/create-panel-time-off-list.ps1. NO default: unset means the Time
+ * Off screen says it isn't set up and Capacity assumes nobody is off.
+ */
+export const SP_PANEL_TIME_OFF_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_TIME_OFF_LIST_ID || undefined;
+
+/**
+ * "Panel Task Templates" — the tasks every new Panel Order raises (ARC's
+ * version of Wrike's "Panel Blueprint - Production Job"), managed by the
+ * panel managers in ARC. Created and seeded by
+ * scripts/setup-panel-planning.ps1. NO default: unset means ARC raises the
+ * built-in four (DEFAULT_PANEL_TASK_TEMPLATES) and the screen that edits them
+ * says the list isn't set up.
+ */
+export const SP_PANEL_TASK_TEMPLATES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID || undefined;
+
+/**
+ * "Panel Settings" — the panel team's few adjustable settings, one row per
+ * setting (Title = its name, Value = text): today the Capacity view's amber
+ * threshold, changed in ARC by a panel Super User or an ARC admin. Created by
+ * scripts/setup-panel-planning.ps1. NO default: unset means the built-in 85%,
+ * and the setting can't be changed.
+ */
+export const SP_PANEL_SETTINGS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_SETTINGS_LIST_ID || undefined;
+
+/**
+ * Panel SAP BOM Builder (BusinessIT#59) — three lists on ALTRONICPANELTEAM,
+ * created by scripts/create-panel-bom-lists.ps1 and loaded once from the
+ * PANEL Parts Database workbook by scripts/load-panel-bom-lists.ps1. ARC is
+ * the master for the parts and kits from then on (Tim, 2026-11-05).
+ *
+ *   - Panel BOM Parts — one row per part (Title = SAP #). NO cost column:
+ *     cost comes from SAP through Fabric, per viewer.
+ *   - Panel BOM Kits  — one row per kit (Title = kit name), components as JSON.
+ *   - Panel BOMs      — saved BOMs, optionally linked to a Panel Order.
+ *
+ * NO defaults: unset, the screens say the builder isn't set up yet.
+ */
+export const SP_PANEL_BOM_PARTS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_BOM_PARTS_LIST_ID || undefined;
+export const SP_PANEL_BOM_KITS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_BOM_KITS_LIST_ID || undefined;
+export const SP_PANEL_BOMS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PANEL_BOMS_LIST_ID || undefined;
+
+/**
+ * The BOM Builder is in a LIMITED LIVE DEMO until this is "true" (Tim,
+ * 2026-11-05): only panel Super Users (on Panel User Roles) can open it;
+ * everyone else sees "Panel SAP BOM Builder — Coming soon" on the Dashboard
+ * and in the Departments menu. Going live is this repo variable and a
+ * redeploy, after which the whole panel team gets it — the MCN / Sales
+ * Pricing switch. Mock mode is always live.
+ */
+export const PANEL_BOM_LIVE = USE_MOCK || import.meta.env.VITE_PANEL_BOM_LIVE === "true";
 
 /**
  * "QC Time Tracking" — the panel team's log of hours QC spends on a project.
@@ -1038,7 +1185,7 @@ export const SP_CAPACITY_LIST_ID =
  * in api/siteUsers.ts). Same tenant/token as SP_SITE_URL; only the path differs.
  */
 export const SP_SALES_ORDERENTRY_SITE_URL =
-  (import.meta.env.VITE_SP_SALES_ORDERENTRY_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SALES_ORDERENTRY_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/OrderEntry";
 
 // =============================================================================
@@ -1072,7 +1219,7 @@ export const SP_SCNS_LIST_ID =
  * Mirrors SP_SALES_ORDERENTRY_SITE_URL for the OrderEntry subsite.
  */
 export const SP_SCN_SITE_URL =
-  (import.meta.env.VITE_SP_SCN_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SCN_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/SCN";
 
 /**
@@ -1080,7 +1227,7 @@ export const SP_SCN_SITE_URL =
  * Documentation folder's "Open in SharePoint" link (api/salesDocumentation.ts).
  */
 export const SP_SALES_DOCUMENTATION_SITE_URL =
-  (import.meta.env.VITE_SP_SALES_DOCUMENTATION_SITE_URL as string | undefined) ??
+  (import.meta.env.VITE_SP_SALES_DOCUMENTATION_SITE_URL as string | undefined) ||
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/AltronicDocumentation";
 
 // =============================================================================
@@ -1144,7 +1291,7 @@ export const COST_IMPACT_NOTICE_ALERTS =
   "Katie Fleming <katie.fleming@altronic-llc.com>";
 
 // =============================================================================
-// Insourcing Quotes (BusinessIT #37) — FIVE lists on the PMO site (SITES.pmo),
+// Insourcing Quotes (BusinessIT #37) — FOUR lists on the PMO site (SITES.pmo),
 // created by `scripts/create-quote-lists.ps1` and kept off the site's
 // navigation (reachable via Site contents only). Design:
 // docs/INSOURCING-QUOTING-DESIGN.md.
@@ -1153,19 +1300,19 @@ export const COST_IMPACT_NOTICE_ALERTS =
 // an unset id must read as "not set up" rather than point at nothing. Set each
 // as a repo variable once the script has run — and every one is in
 // deploy.yml's named list, or a production build can never see it.
+//
+// A fifth list, "Quote Items" (the old component breakdown), still exists in
+// SharePoint but ARC stopped reading it in v0.209.0: a line now carries its
+// final material, labor and overhead.
 // =============================================================================
 
 /** "Quotes" — the header, one row per quote REVISION. */
 export const SP_QUOTES_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_QUOTES_LIST_ID || undefined;
 
-/** "Quote Assemblies" — the final assemblies on a quote. */
+/** "Quote Assemblies" — the lines on a quote. */
 export const SP_QUOTE_ASSEMBLIES_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_QUOTE_ASSEMBLIES_LIST_ID || undefined;
-
-/** "Quote Items" — the components under each final assembly. */
-export const SP_QUOTE_ITEMS_LIST_ID: string | undefined =
-  import.meta.env.VITE_SP_QUOTE_ITEMS_LIST_ID || undefined;
 
 /** "Quote Customers" — name, generated code, SAP sold-to number. */
 export const SP_QUOTE_CUSTOMERS_LIST_ID: string | undefined =
@@ -1180,12 +1327,11 @@ export const SP_QUOTE_CUSTOMERS_LIST_ID: string | undefined =
 export const SP_QUOTE_ROLES_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_QUOTE_ROLES_LIST_ID || undefined;
 
-/** Are all five quote lists configured? Mock mode always is, for demos. */
+/** Are all four quote lists configured? Mock mode always is, for demos. */
 export const QUOTES_CONFIGURED =
   USE_MOCK ||
   (!!SP_QUOTES_LIST_ID &&
     !!SP_QUOTE_ASSEMBLIES_LIST_ID &&
-    !!SP_QUOTE_ITEMS_LIST_ID &&
     !!SP_QUOTE_CUSTOMERS_LIST_ID &&
     !!SP_QUOTE_ROLES_LIST_ID);
 
@@ -1244,6 +1390,33 @@ export const PRICING_LIVE = USE_MOCK || import.meta.env.VITE_PRICING_LIVE === "t
 /** Comma-separated addresses let in while PRICING_LIVE is off. */
 export const PRICING_PREVIEW_USERS: string =
   import.meta.env.VITE_PRICING_PREVIEW_USERS || "ray.white@altronic-llc.com";
+
+// =============================================================================
+// Manufacturing Change Notices — Operations (BusinessIT#38). Three lists on
+// the PMO site, created by scripts/create-mcn-lists.ps1.
+//
+// **No defaults.** The lists don't exist until the script runs, and an unset
+// id shows a "not set up yet" notice rather than an error. Nothing is lost by
+// that: nobody could raise an MCN in ARC before this, so there is no one to
+// lock out.
+// =============================================================================
+
+export const SP_MCNS_LIST_ID: string | undefined = import.meta.env.VITE_SP_MCNS_LIST_ID || undefined;
+export const SP_MCN_ROLES_LIST_ID: string | undefined = import.meta.env.VITE_SP_MCN_ROLES_LIST_ID || undefined;
+export const SP_MCN_DISTRIBUTION_GROUPS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID || undefined;
+
+/** Are all three MCN lists there? Mock mode always is. */
+export const MCNS_CONFIGURED =
+  USE_MOCK || (!!SP_MCNS_LIST_ID && !!SP_MCN_ROLES_LIST_ID && !!SP_MCN_DISTRIBUTION_GROUPS_LIST_ID);
+
+/**
+ * MCNs are IN PILOT until this is "true": only the Manufacturing Team, the
+ * approvers, MCN admins and ARC admins can open the section; everyone else
+ * sees "MCNs — Coming soon". Going live is this repo variable and a redeploy
+ * — the Sales Pricing switch. Mock mode is always live.
+ */
+export const MCN_LIVE = USE_MOCK || import.meta.env.VITE_MCN_LIVE === "true";
 
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 

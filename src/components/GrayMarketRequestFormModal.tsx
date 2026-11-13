@@ -162,7 +162,7 @@ export function GrayMarketRequestFormModal({
                 ref={firstFieldRef}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Altronic assembly number"
+                placeholder="SAP P/N"
                 className="input"
               />
             </Field>

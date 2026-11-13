@@ -14,7 +14,8 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
-import { useProjects, useSetStatus, useTasks } from "@/hooks/useTasks";
+import { useProjects, useSetStatus, useTaskListWithPreview } from "@/hooks/useTasks";
+import { TaskListPreviewNotice } from "@/components/TaskListPreviewNotice";
 import { filterSearch, useFilters } from "@/hooks/useFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { STATUSES, type Status, type Task } from "@/types/task";
@@ -89,7 +90,11 @@ export function planTaskStatusDrop({
 export function KanbanView() {
   const navigate = useNavigate();
   const { search } = useLocation();
-  const { data: tasks = [], isLoading } = useTasks();
+  // The most recently changed tasks show while the full list downloads. A
+  // drop is held until it has: a status write cancels the full download in
+  // flight (see snapshotAndPatch), and its optimistic patch would land on a
+  // list that isn't there yet, so the card wouldn't move.
+  const { data: tasks = [], isLoading, preview } = useTaskListWithPreview();
   const { data: projects = [] } = useProjects();
   const [filters, setFilters] = useFilters();
   const setStatus = useSetStatus();
@@ -144,6 +149,7 @@ export function KanbanView() {
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null);
+    if (preview) return;
     const plan = planTaskStatusDrop({
       activeId: event.active.id,
       overId: event.over?.id ?? null,
@@ -189,6 +195,8 @@ export function KanbanView() {
 
       <FilterBar filters={filters} onChange={setFilters} projects={projects} people={people} />
 
+      {preview && <TaskListPreviewNotice shown={tasks.length} board />}
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -206,6 +214,7 @@ export function KanbanView() {
                 status={status}
                 tasks={tasksByStatus[status]}
                 onOpen={(id) => navigate(`/task/${id}`)}
+                dragDisabled={preview}
               />
             ))}
           </div>
@@ -227,9 +236,10 @@ interface ColumnProps {
   status: Status;
   tasks: Task[];
   onOpen: (id: number) => void;
+  dragDisabled?: boolean;
 }
 
-function Column({ status, tasks, onOpen }: ColumnProps) {
+function Column({ status, tasks, onOpen, dragDisabled = false }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
     <div className="flex w-72 shrink-0 flex-col sm:w-80">
@@ -255,7 +265,7 @@ function Column({ status, tasks, onOpen }: ColumnProps) {
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
-            <KanbanCard key={t.id} task={t} onOpen={onOpen} />
+            <KanbanCard key={t.id} task={t} onOpen={onOpen} dragDisabled={dragDisabled} />
           ))}
         </SortableContext>
         {tasks.length === 0 && (

@@ -37,7 +37,7 @@ describe("GrayMarketRequestFormModal — Part Manufacturer", () => {
 
   it("refuses to submit without it, and says why", async () => {
     renderWithProviders(<GrayMarketRequestFormModal onClose={() => {}} />);
-    await userEvent.type(screen.getByPlaceholderText(/altronic assembly number/i), "791950-08");
+    await userEvent.type(screen.getByPlaceholderText("SAP P/N"), "791950-08");
     await userEvent.click(screen.getByRole("button", { name: /log request/i }));
     expect(await screen.findByText("Part Manufacturer is required.")).toBeInTheDocument();
     expect(mocks.create.mutateAsync).not.toHaveBeenCalled();
@@ -45,7 +45,7 @@ describe("GrayMarketRequestFormModal — Part Manufacturer", () => {
 
   it("treats whitespace as blank", async () => {
     renderWithProviders(<GrayMarketRequestFormModal onClose={() => {}} />);
-    await userEvent.type(screen.getByPlaceholderText(/altronic assembly number/i), "791950-08");
+    await userEvent.type(screen.getByPlaceholderText("SAP P/N"), "791950-08");
     await userEvent.type(screen.getByLabelText(/part manufacturer/i), "   ");
     await userEvent.click(screen.getByRole("button", { name: /log request/i }));
     expect(await screen.findByText("Part Manufacturer is required.")).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe("GrayMarketRequestFormModal — Part Manufacturer", () => {
   it("sends the manufacturer with the request", async () => {
     const onCreated = vi.fn();
     renderWithProviders(<GrayMarketRequestFormModal onClose={() => {}} onCreated={onCreated} />);
-    await userEvent.type(screen.getByPlaceholderText(/altronic assembly number/i), "791950-08");
+    await userEvent.type(screen.getByPlaceholderText("SAP P/N"), "791950-08");
     await userEvent.type(screen.getByLabelText(/part manufacturer/i), "Infineon");
     await userEvent.click(screen.getByRole("button", { name: /log request/i }));
     expect(mocks.create.mutateAsync).toHaveBeenCalledTimes(1);

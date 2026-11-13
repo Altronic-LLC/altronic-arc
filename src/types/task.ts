@@ -110,6 +110,7 @@ export const DASHBOARD_DEPARTMENTS = [
   "Engineering",
   "Panels",
   "Operations",
+  "Harness",
   "Coils",
   "Quality Control",
   "Supply Chain",
@@ -863,7 +864,7 @@ export interface BuildRequestItem {
 //     number (numbering scheme TBD), plus type/description/DWG/customer/dept.
 //   - Panel User Roles: admin-managed; one row = one User + one Role choice.
 //     Multiple roles per user = multiple rows. Rights mapping lives in
-//     lib/panelRoles.ts; NO fields are gated in v1 (infra ships dark).
+//     lib/panelRoles.ts; NO fields are gated — everyone edits everything (Tim, 2026-11-05).
 // =============================================================================
 
 export const PANEL_ORDER_STATUSES = [
@@ -908,6 +909,12 @@ export interface PanelOrder {
   /** Single lookup into the Panel Project Reference list. */
   projectRef: ProjectReference | null;
   salesOrder: string;
+  /**
+   * `SAPNumber` — the job's SAP number (Wrike's SAP# custom field). NOT the
+   * Sales Order: the panel team confirmed they're different things
+   * (2026-10-30). A standard task copies it when it's raised.
+   */
+  sapNumber: string;
   purchaseOrder: string;
   customerReference: string;
   /** Choice column — values discovered at runtime (mirrors the reference list's customer choices). */
@@ -925,6 +932,16 @@ export interface PanelOrder {
   modifiedAt: Date;
   author: Person | null;
   editor?: Person | null;
+  /**
+   * `Archived` (yes/no) — a finished order brought over from the old Panel
+   * Job Dashboard list by scripts/move-panel-orders-to-arc.ps1. Hidden from
+   * the Panel Orders list unless asked for (lib/panelOrderArchive.ts).
+   */
+  archived: boolean;
+  /** `LegacySource` — "PanelJobDashboard#<old item id>" on a moved order, else "". */
+  legacySource: string;
+  /** `LegacyCreated` — when the order was created on the OLD list (Graph can't set Created). */
+  legacyCreatedAt: Date | null;
   rawFields?: Record<string, unknown>;
 }
 
@@ -951,6 +968,12 @@ export interface PanelRoleEntry {
   role: PanelRole | null;
   /** The Title column — free-text note/label. */
   note: string;
+  /**
+   * `OnCapacity` — give this person a row on Panel Engineering Capacity
+   * although the row's role isn't Engineer (Tim, 2026-10-30). An Engineer row
+   * always counts; this is for anyone else who does engineering work.
+   */
+  onCapacity: boolean;
 }
 
 /**
@@ -1018,11 +1041,77 @@ export interface PanelQcDefect {
   name: string;
 }
 
-export const PANEL_TASK_STATUSES = ["Pending", "In Process", "On Hold", "Complete"] as const;
+/**
+ * Panel task statuses — the panel team's Wrike "Panel Workflow", one for one
+ * (BusinessIT#42, Tim, 2026-10-28), in Wrike's order. Each sits in one of
+ * Wrike's four GROUPS (`PANEL_TASK_STATUS_GROUP`), which do the coarse work:
+ * Open = Active + Deferred, and Completed / Canceled count nowhere.
+ * Must match the SharePoint Status column's choices —
+ * scripts/set-panel-task-statuses.ps1 sets them.
+ */
+export const PANEL_TASK_STATUSES = [
+  "New",
+  "Pending Scheduling",
+  "Ready",
+  "In Progress",
+  "Revision Needed",
+  "Awaiting Pre-Req",
+  "Possible Support",
+  "Completed",
+  "On Hold - Approval",
+  "On Hold - Internal",
+  "Canceled",
+] as const;
 export type PanelTaskStatus = (typeof PANEL_TASK_STATUSES)[number];
 
-export const PANEL_TASK_TYPES = ["Drawings", "SOO", "Quote", "Administrative"] as const;
+/** Wrike's four status groups. */
+export const PANEL_TASK_STATUS_GROUPS = ["Active", "Deferred", "Completed", "Canceled"] as const;
+export type PanelTaskStatusGroup = (typeof PANEL_TASK_STATUS_GROUPS)[number];
+
+export const PANEL_TASK_STATUS_GROUP: Record<PanelTaskStatus, PanelTaskStatusGroup> = {
+  New: "Active",
+  "Pending Scheduling": "Active",
+  Ready: "Active",
+  "In Progress": "Active",
+  "Revision Needed": "Active",
+  "Awaiting Pre-Req": "Active",
+  "Possible Support": "Active",
+  Completed: "Completed",
+  "On Hold - Approval": "Deferred",
+  "On Hold - Internal": "Deferred",
+  Canceled: "Canceled",
+};
+
+/** A new panel task's status. */
+export const PANEL_TASK_DEFAULT_STATUS: PanelTaskStatus = "New";
+
+// BOM and Programming arrived with the order's standard tasks (Wrike's
+// "Panel Blueprint - Production Job"). The SharePoint TaskType column must
+// declare the same values — scripts/setup-panel-planning.ps1 adds them.
+export const PANEL_TASK_TYPES = [
+  "Drawings",
+  "BOM",
+  "SOO",
+  "Programming",
+  "Quote",
+  "Administrative",
+] as const;
 export type PanelTaskType = (typeof PANEL_TASK_TYPES)[number];
+
+/**
+ * Work Type — the panel space's Wrike custom field (Tim, 2026-10-29). Must
+ * match the SharePoint WorkType choices (scripts/setup-panel-planning.ps1).
+ */
+export const PANEL_TASK_WORK_TYPES = [
+  "Production Order",
+  "Non-Production",
+  "Improvement / Internal",
+] as const;
+export type PanelTaskWorkType = (typeof PANEL_TASK_WORK_TYPES)[number];
+
+/** Priority — the panel space's Wrike custom field, in Wrike's order (Tim, 2026-10-29). */
+export const PANEL_TASK_PRIORITIES = ["High", "Medium", "Low"] as const;
+export type PanelTaskPriority = (typeof PANEL_TASK_PRIORITIES)[number];
 
 /**
  * A task from the Panel Tasks list (ALTRONICPANELTEAM site). Structurally a
@@ -1035,12 +1124,47 @@ export interface PanelTask {
   title: string;
   status: PanelTaskStatus;
   taskType: PanelTaskType | null;
+  /** `WorkType` — Production Order / Non-Production / Improvement / Internal; null = not set. */
+  workType: PanelTaskWorkType | null;
+  /** `Priority` — High / Medium / Low; null = not set. */
+  priority: PanelTaskPriority | null;
   /** Single lookup into the Panel Project Reference list (shared with panel orders). */
   projectRef: ProjectReference | null;
-  /** Single person — Graph returns only the bare AssignedLookupId; resolved via panel site users. */
-  assigned: Person | null;
+  /**
+   * `PanelOrderRef` — single lookup into Panel Order Headers: the order this
+   * task was raised for (its standard tasks). A project can carry several
+   * orders, so the project alone can't say which. Title "" until joined.
+   */
+  orderRef: ProjectReference | null;
+  /**
+   * `ChainStep` — where a standard task sits in its order's chain (the
+   * template's SortOrder when it was raised). Null for any other task. A
+   * chained task waits as Awaiting Pre-Req until every earlier step of the
+   * same order is done — lib/panelOrderChain.ts.
+   */
+  chainStep: number | null;
+  /**
+   * `StatusBeforeHold` — the status this task had when its Panel Order went
+   * On Hold; restored when the order comes off hold, then cleared. Null when
+   * the order didn't put it on hold.
+   */
+  statusBeforeHold: PanelTaskStatus | null;
+  /** `SAPNumber` — copied from the order when raised, editable on the task. */
+  sapNumber: string;
+  /**
+   * Everyone assigned — a MULTI-person column since 2026-10-29 (Tim); the
+   * Capacity view splits the hours evenly between them. Read either shape:
+   * rows saved while it was single come back as one person.
+   */
+  assigned: Person[];
   /** Long-form description — supports `- [ ]` checklists like a task Description. */
   description: string;
+  /** `StartDate` — date-only (midday UTC). With DueDate + EstimatedHours it places the task on the Capacity view. */
+  startDate: Date | null;
+  /** `DueDate` — date-only (midday UTC). */
+  dueDate: Date | null;
+  /** `EstimatedHours` — total hours, spread evenly over the working days from start to due. */
+  estimatedHours: number | null;
   watchers: Person[];
   comments: Comment[];
   hasAttachments: boolean;
@@ -1049,6 +1173,50 @@ export interface PanelTask {
   author: Person | null;
   editor?: Person | null;
   rawFields?: Record<string, unknown>;
+}
+
+/**
+ * One row of the Panel Task Templates list (ALTRONICPANELTEAM): a task every
+ * new Panel Order raises — ARC's version of Wrike's "Panel Blueprint -
+ * Production Job". Managed by the panel managers in ARC; a task stores its own
+ * copy, so editing a template changes no task already raised.
+ */
+export interface PanelTaskTemplate {
+  id: number;
+  /** `Title` — the task's name, e.g. "Drawing Creation". */
+  title: string;
+  /** `TaskType` — same choices as Panel Tasks. */
+  taskType: PanelTaskType | null;
+  /** `EstimatedHours` — the task's usual total effort. */
+  estimatedHours: number | null;
+  /** `SortOrder` — the order the tasks are raised and listed in. */
+  sortOrder: number;
+  /** `Active` — false = kept, but no longer raised for new orders. */
+  active: boolean;
+}
+
+/**
+ * One row of the Panel Time Off list (ALTRONICPANELTEAM) — the panel team's
+ * own "Where am I?". Unlike Engineering's, it has a PERSON column and a date
+ * RANGE, because the Capacity view has to know whose capacity it takes away.
+ */
+export interface PanelTimeOff {
+  id: number;
+  /** `TeamMember` — single person; Graph returns a bare LookupId, names joined from the site's users. */
+  person: Person | null;
+  /** `Title` (shown "Reason") — free text. */
+  reason: string;
+  /** `StartDate` — date-only (midday UTC). */
+  startDate: Date | null;
+  /** `EndDate` — date-only (midday UTC), inclusive. */
+  endDate: Date | null;
+  /** `HoursPerDay` — hours off on each day; null = the whole day. */
+  hoursPerDay: number | null;
+  /**
+   * `CompanyHoliday` — off for EVERYONE on the Capacity view, with no person
+   * (Tim, 2026-10-29). Only a panel Super User or an ARC admin adds one.
+   */
+  companyHoliday: boolean;
 }
 
 // =============================================================================
@@ -1164,46 +1332,8 @@ export interface QcTimeEntryInput {
   holdReason: string;
 }
 
-// =============================================================================
-// QC Forms — digitized paper QC/test forms, reached from the Quality Control
-// dashboard's "QC Forms" card. Each form is its own SharePoint list; the
-// registry in `lib/qcForms.ts` is what the landing page (search + a button
-// per form) is built from.
-//
-// The first form, QCFRM-012 (CPU-95 Ignition Module Electrical Test and
-// Inspection), has SEVERAL PAPER VARIANTS depending on the unit's Altronic
-// Part Number — CPU-95, CPU-95C, CPU-95 Varispark, CPU-95 EVS, and a
-// multi-application 16/18/20-cylinder sheet. The old Power Apps form used a
-// `Switch()` on the part number to compute an "Altmode" (0-6) that decided
-// which fields printed; see `qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts`.
-// Every column beyond the identifying handful lives in `values`, keyed by the
-// descriptor keys in `lib/qcCpu95Fields.ts` — the same "columns are DATA"
-// pattern as FAIT and the Drawing File Logs. Booleans are carried as
-// "Yes"/"" (checked/unchecked).
-//
-// Which fields apply to which Altmode is `QcCpu95Field.altModes` on each
-// descriptor — `undefined` means always visible, otherwise only for the
-// Altmodes listed (see the file header comment in `lib/qcCpu95Fields.ts`).
-// No delete: each row is a signed, dated test record (Final Test By / Final
-// Inspection By), the same "correct with an edit" treatment as FAIT and
-// Visit Reports.
-// =============================================================================
-
-export interface QcCpu95Record {
-  id: number;
-  /**
-   * Every QCFRM-012 column, keyed by `lib/qcCpu95Fields.ts` descriptor keys —
-   * including the unit's Serial/Unit Number (`Title`, key `serialNumber`) and
-   * its Altronic Part Number (key `altronicPartNumber`), which drives the
-   * Altmode. Booleans are "Yes"/"".
-   */
-  values: Record<string, string>;
-  createdAt: Date;
-  modifiedAt: Date;
-}
-
-/** Everything a create/update writes — the whole values bag, same shape as the record. */
-export type QcCpu95Input = Record<string, string>;
+// QC Forms records are `QcFormRecord` in lib/qcFormEngine.ts, beside the form
+// engine that reads them.
 
 // =============================================================================
 // Drawing File Logs — Engineering's drawing registers, on the Engineering site.
@@ -1853,7 +1983,7 @@ export const US_STATES = [
 
 export interface GrayMarketRequest {
   id: number;
-  /** `Title` — the Altronic assembly number the part is used on. */
+  /** `Title` — the SAP P/N (Katie Fleming, 2026-10-28; it was labelled the Altronic assembly number). */
   title: string;
   /**
    * `LogNo_x002e_Raw`, e.g. "GMR_2026-004". SharePoint's calculated
@@ -1961,6 +2091,19 @@ export interface Ecn {
   hasAttachments: boolean;
   /** Every workflow column, keyed by the descriptor keys in ecnFields.ts. */
   values: Record<string, string>;
+  /**
+   * `Distribution` — the roles ticked on the form's DISTRIBUTION block
+   * (BusinessIT#57). A MULTI-choice column (checkboxes). See
+   * lib/ecnDistribution.ts.
+   */
+  distribution: string[];
+  /**
+   * `DistributedTo` — who the ECN was actually emailed to when its Sign-off
+   * status was first filled in, one "Name <email>" per line. Empty until then.
+   */
+  distributedTo: Person[];
+  /** `DistributedAt` — when that email went. Null = not sent yet. */
+  distributedAt: Date | null;
   createdAt: Date;
   modifiedAt: Date;
 }
@@ -1973,6 +2116,20 @@ export interface EcnInput {
   /** Typed by whoever raises the ECN — see the note on `Ecn.logNo`. */
   logNo: string;
   values: Record<string, string>;
+  /** The distribution roles ticked on the form. Omitted = none. */
+  distribution?: string[];
+}
+
+/**
+ * One row of ECN Distribution Groups (Engineering site): a role on the ECN
+ * form's DISTRIBUTION block and who receives an ECN for it.
+ */
+export interface EcnDistributionGroup {
+  id: number;
+  /** The role, as printed on the form ("QUALITY MANAGER" → "Quality Manager"). */
+  role: string;
+  members: Person[];
+  sortOrder: number;
 }
 
 // =============================================================================
@@ -3361,6 +3518,7 @@ export const FEATURE_REQUEST_DEPARTMENTS = [
   "Engineering",
   "Panels",
   "Operations",
+  "Harness",
   "Coils",
   "Quality Control",
   "Supply Chain",
@@ -3511,6 +3669,13 @@ export interface MrbEntry {
    */
   notes: string;
   /**
+   * `PanelDepartment`, a real boolean column (BusinessIT#71) — the entry came
+   * from the panel department, so it can be sorted and filtered in reporting.
+   * Blank is No; every row predating the column reads false. Added by
+   * `scripts/add-mrb-panel-column.ps1`.
+   */
+  panelDepartment: boolean;
+  /**
    * The comment thread, from the `Communications` column.
    *
    * **Note the PLURAL internal name** — every other list in ARC calls this
@@ -3565,6 +3730,7 @@ export interface MrbEntryInput {
   pricePerUnit: number | null;
   pricePerIssue: number | null;
   notes: string;
+  panelDepartment: boolean;
 }
 
 // =============================================================================

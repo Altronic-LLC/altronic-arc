@@ -394,7 +394,12 @@ describe("useUpdateBuildRequestItemFields — alert b", () => {
     // A part with every required field filled in, so the readiness rule lets it through.
     const ready = { ...part(10, 1, null), qty: 2, partDesc: "Bracket", partType: "Machining" as const, disposition: "For Stock" as const };
     await setPartStatus([br(1, "In-process")], [ready], 10, "Ready for Production");
+    await waitFor(() => expect(email.fireFieldChangeAlert).toHaveBeenCalledTimes(1));
     expect(email.fireBuildRequestPartProductionCompleteAlert).not.toHaveBeenCalled();
-    expect(email.fireFieldChangeAlert).toHaveBeenCalledTimes(1);
+    // BusinessIT#56: one part number can sit on several open requests, so the
+    // email names which one.
+    expect(email.fireFieldChangeAlert.mock.calls[0][0].target.title).toBe(
+      "P-10 on BR_2026-001 — Request 1",
+    );
   });
 });

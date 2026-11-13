@@ -58,6 +58,7 @@ $Departments = @(
     "Engineering",
     "Panels",
     "Operations",
+    "Harness",
     "Coils",
     "Quality Control",
     "Supply Chain",

@@ -1,4 +1,5 @@
-import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   isPricingDataNotConnected,
   isRetryableSapCostFailure,
@@ -9,7 +10,10 @@ import {
   sapCustomerGroupDiscounts,
   sapMpgDistributorDiscounts,
   searchSapCustomers,
+  warmSapCostLookup,
 } from "@/api/pricingLookup";
+import { sapMaterialLookupKey } from "@/lib/sapMaterialCost";
+import { lookupArgsFor } from "@/lib/sapPartFill";
 import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
 import {
   buildComparablesPanel,
@@ -50,6 +54,84 @@ export function useSapPart(args: { altronicPartNumber: string; sapPartNumber: st
     retry,
   });
   return { ...q, ...connectionOf(q) };
+}
+
+/**
+ * A part looked up AS SOMEBODY TYPES (Ray, 2026-10-17; shared 2026-10-22) — an
+ * SAP number the moment its 10th digit lands, anything else after a 400 ms
+ * pause. Fabric is woken as the caller mounts, so the first lookup doesn't
+ * also pay for the token and a cold endpoint. Used by the pricing request form
+ * and by adding a component or a part to a worksheet.
+ *
+ * `enabled: false` asks nothing — a read-only row, or a saved part nobody has
+ * retyped (looking that up on open would quietly re-cost a saved worksheet).
+ * `asked` is the key the current answer belongs to.
+ */
+export function useSapPartAsYouType(altronicPartNumber: string, sapPartNumber: string, enabled = true) {
+  const [asked, setAsked] = useState({ altronicPartNumber: "", sapPartNumber: "" });
+  const found = useSapPart(asked, enabled);
+  useEffect(() => {
+    if (enabled) void warmSapCostLookup();
+  }, [enabled]);
+  const current = found.data;
+  useEffect(() => {
+    if (!enabled) return;
+    // Filling in the numbers of the part just found isn't a new part: asking
+    // again would blank the answer for a moment ("Looking it up…") for nothing.
+    const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    if (current && same(altronicPartNumber, current.altronicPartNumber) && same(sapPartNumber, current.sapPartNumber)) return;
+    const whole = sapMaterialLookupKey(sapPartNumber) !== null;
+    const t = setTimeout(
+      () => setAsked({ altronicPartNumber: altronicPartNumber.trim(), sapPartNumber: sapPartNumber.trim() }),
+      whole ? 0 : 400,
+    );
+    return () => clearTimeout(t);
+  }, [altronicPartNumber, sapPartNumber, enabled]);
+  const askedAnything = !!(asked.altronicPartNumber || asked.sapPartNumber);
+  return { ...found, asked, askedAnything };
+}
+
+export interface PastedPartResult {
+  number: string;
+  part: SapPart | null;
+  /** SAP couldn't be asked about this one (not connected, refused, unreachable) — NOT the same as "not in SAP". */
+  failed: boolean;
+  /** Why, when `failed`. */
+  error?: unknown;
+}
+
+/**
+ * Look up several pasted numbers at once (Ray, 2026-10-22), in parallel, each
+ * through the SAME cache entry `useSapPart` uses — a number already looked up
+ * answers at once. One failure never stops the rest, and a failed number is
+ * asked ONCE more after the batch (a cold endpoint or a blip under a burst of
+ * lookups), so "couldn't check" means it really couldn't.
+ */
+export function useLookUpSapParts() {
+  const qc = useQueryClient();
+  const one = async (number: string): Promise<PastedPartResult> => {
+    const args = lookupArgsFor(number);
+    try {
+      const part = await qc.fetchQuery<SapPart | null>({
+        queryKey: ["pricing-sap", "part", args.altronicPartNumber.toLowerCase(), args.sapPartNumber.toLowerCase()],
+        queryFn: () => lookupSapPart(args),
+        staleTime: STALE_MS,
+        retry,
+      });
+      return { number, part, failed: false };
+    } catch (error) {
+      return { number, part: null, failed: true, error };
+    }
+  };
+  return async (numbers: string[]): Promise<PastedPartResult[]> => {
+    const first = await Promise.all(numbers.map(one));
+    const out: PastedPartResult[] = [];
+    for (const r of first) {
+      // A "not connected" answer won't change on a second ask.
+      out.push(r.failed && !isPricingDataNotConnected(r.error) ? await one(r.number) : r);
+    }
+    return out;
+  };
 }
 
 /**
@@ -192,7 +274,11 @@ export function useSapComparison(sapPartNumbers: string[]) {
       figures: part && discountKnown ? comparisonFigures(part, part.mpg ? discounts.data?.[part.mpg] ?? null : null) : null,
     };
   });
-  const notConnected = parts.some((q) => isPricingDataNotConnected(q.error)) || isPricingDataNotConnected(discounts.error);
-  const failed = !notConnected && (parts.some((q) => q.isError) || discounts.isError);
+  // The per-MPG discount table isn't in the warehouse yet, while the part, its
+  // cost and its list price are (2026-10-22). A discount that isn't connected
+  // is the standard 34% — the card footnotes it — not a reason to say SAP is.
+  const notConnected = parts.some((q) => isPricingDataNotConnected(q.error));
+  const failed =
+    !notConnected && (parts.some((q) => q.isError) || (discounts.isError && !isPricingDataNotConnected(discounts.error)));
   return { rows, notConnected, failed };
 }

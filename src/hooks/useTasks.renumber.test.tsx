@@ -216,6 +216,38 @@ describe("useUpdateTaskFields — a title edit keeps the number", () => {
     expect(updateEirFields).not.toHaveBeenCalled();
   });
 
+  // THE BUG (2026-10-27): the list and the board show NumberedTitle, and the
+  // old Power App numbered `T1-328-title` under project `328-MT-SAVES` — a
+  // prefix the rule didn't recognise, on 2,255 of 3,148 live tasks. A title
+  // edit changed Title only, so the task page showed the new name and the
+  // list and board kept the old one.
+  it("rewrites the old app's T{n}-{project number}- prefix too", async () => {
+    const { qc, wrapper } = harness();
+    const P328: ProjectReference = { lookupId: 328, title: "328-MT-SAVES" };
+    qc.setQueryData(["tasks", "list"], [
+      { ...MOVING, title: "Next Steps for the SAVeS", numberedTitle: "T1-328-Next Steps for the SAVeS", parentProject: P328 },
+    ]);
+    const { result } = renderHook(() => useUpdateTaskFields(), { wrapper });
+
+    await act(() => result.current.mutateAsync({ id: 1, fields: { Title: "SAVeS next steps" } }));
+
+    expect(updateTaskFields).toHaveBeenCalledWith(1, {
+      Title: "SAVeS next steps",
+      NumberedTitle: "T1-328-SAVeS next steps",
+    });
+    expect(cached(qc, 1)?.numberedTitle).toBe("T1-328-SAVeS next steps");
+  });
+
+  it("follows the rename on a row whose NumberedTitle is just its old title", async () => {
+    const { qc, wrapper } = harness();
+    qc.setQueryData(["tasks", "list"], [{ ...MOVING, title: "Test EIR", numberedTitle: "EIR_2026-0084 | Test EIR" }]);
+    const { result } = renderHook(() => useUpdateTaskFields(), { wrapper });
+
+    await act(() => result.current.mutateAsync({ id: 1, fields: { Title: "Retest" } }));
+
+    expect(updateTaskFields).toHaveBeenCalledWith(1, { Title: "Retest", NumberedTitle: "EIR_2026-0084 | Retest" });
+  });
+
   it("touches nothing numbered when the title isn't in the write", async () => {
     const { wrapper } = harness();
     const { result } = renderHook(() => useUpdateTaskFields(), { wrapper });

@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FileStack, History, Lock, Plus } from "lucide-react";
 import { DRAWING_LOGS, availableDrawingLogs } from "@/api/drawingLogs";
-import { tableFields, type LogField } from "@/lib/drawingLogFields";
+import {
+  DRAWING_LOG_FIELDS,
+  tableFields,
+  type DrawingLogFieldSpec,
+  type LogField,
+} from "@/lib/drawingLogFields";
 import { useDrawingLog } from "@/hooks/useDrawingLogs";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -11,6 +16,9 @@ import { DrawingLogDetailModal } from "@/components/DrawingLogDetailModal";
 import { DrawingLogCreateModal } from "@/components/DrawingLogCreateModal";
 import { drawingLogLabel, drawingLogMatches } from "@/lib/drawingLogMapper";
 import { formatSpDate } from "@/lib/spDates";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import type { SortColumn } from "@/lib/tableSort";
 import { DRAWING_LOG_KINDS, type DrawingLogEntry, type DrawingLogKind } from "@/types/task";
 import { cn } from "@/lib/cn";
 
@@ -42,6 +50,58 @@ function kindFromParam(raw: string | null): DrawingLogKind {
   return available[0]?.kind ?? "ccc";
 }
 
+/**
+ * A register's table columns as sort/filter columns, straight from its field
+ * descriptors — so a fifth register sorts with no edit here.
+ *
+ * Numbers and dates SORT as values. The value filter is offered only on short
+ * text columns that aren't the row's identifier: a filter menu over 2,000
+ * sketch numbers, titles or dates is a list nobody can use, and the search box
+ * already covers those.
+ */
+export function drawingLogSortColumns(
+  spec: DrawingLogFieldSpec,
+  fields: LogField[],
+): SortColumn<DrawingLogEntry>[] {
+  return fields.map((f) => {
+    const identifier = f.key === spec.primaryKey || f.key === spec.secondaryKey;
+    const base = {
+      key: f.key,
+      label: f.label,
+      noFilter: f.type !== "text" || f.wide || identifier,
+    };
+    if (f.type === "date") {
+      return {
+        ...base,
+        kind: "date" as const,
+        value: (e: DrawingLogEntry) => cellText(e, f),
+        sortValue: (e: DrawingLogEntry) => {
+          const v = e.values[f.key];
+          return v instanceof Date ? v : null;
+        },
+      };
+    }
+    if (f.type === "number") {
+      return {
+        ...base,
+        kind: "number" as const,
+        value: (e: DrawingLogEntry) => cellText(e, f),
+        sortValue: (e: DrawingLogEntry) => {
+          const v = e.values[f.key];
+          return typeof v === "number" ? v : null;
+        },
+      };
+    }
+    return {
+      ...base,
+      value: (e: DrawingLogEntry) => {
+        const v = e.values[f.key];
+        return typeof v === "string" ? v.trim() : v == null ? "" : String(v);
+      },
+    };
+  });
+}
+
 /** One cell's text, formatted for its declared type. */
 function cellText(entry: DrawingLogEntry, field: LogField): string {
   const value = entry.values[field.key];
@@ -57,13 +117,11 @@ export function DrawingLogsView() {
   const logs = availableDrawingLogs();
   const kind = kindFromParam(searchParams.get("log"));
   const spec = DRAWING_LOGS[kind];
-  const columns = tableFields(kind);
 
   const { data: entries = [], isLoading, error } = useDrawingLog(kind);
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
-  const [showAll, setShowAll] = useState(false);
 
   const setParam = (key: string, value: string) => {
     const sp = new URLSearchParams(searchParams);
@@ -77,9 +135,6 @@ export function DrawingLogsView() {
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     return entries.filter((e) => drawingLogMatches(e, tokens));
   }, [entries, query]);
-
-  const capped = !showAll && filtered.length > INITIAL_ROWS;
-  const visible = capped ? filtered.slice(0, INITIAL_ROWS) : filtered;
 
   // Look the selection up by id each render, so recording a change updates the
   // open panel instead of leaving it showing a stale copy.
@@ -118,8 +173,6 @@ export function DrawingLogsView() {
             aria-selected={log.kind === kind}
             onClick={() => {
               setParam("log", log.kind);
-              // Different register, different dataset — reset the row cap.
-              setShowAll(false);
               setSelectedId(null);
             }}
             className={cn(
@@ -169,16 +222,90 @@ export function DrawingLogsView() {
         </div>
       ) : (
         <>
+          {/* Keyed by register: each tab opens on its own default sort, with
+              no column filters and the row cap back on. */}
+          <DrawingLogTable
+            key={kind}
+            kind={kind}
+            rows={filtered}
+            total={entries.length}
+            onOpen={setSelectedId}
+          />
+
+          <p className="text-[11px] text-fg-muted">
+            Click a row for the full record
+            {spec.hasChangeLog ? " and its change log." : "."}
+          </p>
+
+          {!isAdmin && !adminResolving && (
+            <p className="flex items-start gap-1.5 text-[11px] text-fg-muted">
+              <Lock className="mt-px h-3.5 w-3.5 shrink-0" />
+              <span>
+                Drawing records are controlled documents, so adding, editing and recording changes
+                is limited to admins. Reading and searching are open to everyone.
+              </span>
+            </p>
+          )}
+        </>
+      )}
+
+      {selected && (
+        <DrawingLogDetailModal
+          entry={selected}
+          isAdmin={isAdmin}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
+      {creating && <DrawingLogCreateModal kind={kind} onClose={() => setCreating(false)} />}
+    </div>
+  );
+}
+
+/** The sortable, filterable register table. One instance per register (keyed). */
+function DrawingLogTable({
+  kind,
+  rows,
+  total,
+  onOpen,
+}: {
+  kind: DrawingLogKind;
+  rows: DrawingLogEntry[];
+  total: number;
+  onOpen: (id: number) => void;
+}) {
+  const spec = DRAWING_LOGS[kind];
+  const fieldSpec = DRAWING_LOG_FIELDS[kind];
+  const columns = useMemo(() => tableFields(kind), [kind]);
+  const sortColumns = useMemo(() => drawingLogSortColumns(fieldSpec, columns), [fieldSpec, columns]);
+  const [showAll, setShowAll] = useState(false);
+
+  // No default sort = an unknown key, which keeps the order the rows arrive in:
+  // the register's own most-recent-first (`compareDrawingLogEntries`).
+  const table = useSortableTable<DrawingLogEntry>({
+    rows,
+    columns: sortColumns,
+    stableKey: (e) => e.id,
+    initialKey: fieldSpec.defaultSort?.key ?? "",
+    initialDirection: fieldSpec.defaultSort?.direction ?? "asc",
+    onChange: () => setShowAll(false),
+  });
+
+  const shownRows = table.rows;
+  const capped = !showAll && shownRows.length > INITIAL_ROWS;
+  const visible = capped ? shownRows.slice(0, INITIAL_ROWS) : shownRows;
+
+  return (
+    <>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-fg-muted">
             <span>
               {capped ? (
                 <>
                   Showing the first {INITIAL_ROWS.toLocaleString()} of{" "}
-                  {filtered.length.toLocaleString()} matching drawings
+                  {shownRows.length.toLocaleString()} matching drawings
                 </>
               ) : (
                 <>
-                  Showing {filtered.length.toLocaleString()} of {entries.length.toLocaleString()} in{" "}
+                  Showing {shownRows.length.toLocaleString()} of {total.toLocaleString()} in{" "}
                   {spec.label}
                 </>
               )}
@@ -188,7 +315,7 @@ export function DrawingLogsView() {
                 onClick={() => setShowAll(true)}
                 className="font-semibold text-accent underline-offset-2 hover:underline"
               >
-                Show all {filtered.length.toLocaleString()}
+                Show all {shownRows.length.toLocaleString()}
               </button>
             )}
           </div>
@@ -198,9 +325,16 @@ export function DrawingLogsView() {
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-left">
                   {columns.map((f) => (
-                    <Th key={f.key} className={f.numeric ? "text-right" : undefined}>
-                      {f.label}
-                    </Th>
+                    <SortableHeader
+                      key={f.key}
+                      label={f.label}
+                      // Th's look, so the sortable headers match the register's.
+                      className={cn(
+                        "px-3 text-[11px] uppercase tracking-wider text-fg-muted [&_button]:uppercase",
+                        f.numeric && "text-right [&>div]:justify-end",
+                      )}
+                      {...table.headerProps(f.key)}
+                    />
                   ))}
                   {spec.hasChangeLog && <Th className="text-center">Changes</Th>}
                 </tr>
@@ -211,12 +345,12 @@ export function DrawingLogsView() {
                     key={e.id}
                     // The whole row opens the detail — that's the described
                     // interaction, and the change log has nowhere else to live.
-                    onClick={() => setSelectedId(e.id)}
+                    onClick={() => onOpen(e.id)}
                     tabIndex={0}
                     onKeyDown={(ev) => {
                       if (ev.key === "Enter" || ev.key === " ") {
                         ev.preventDefault();
-                        setSelectedId(e.id);
+                        onOpen(e.id);
                       }
                     }}
                     aria-label={`Open ${drawingLogLabel(e)}`}
@@ -259,32 +393,18 @@ export function DrawingLogsView() {
             </table>
           </div>
 
-          <p className="text-[11px] text-fg-muted">
-            Click a row for the full record
-            {spec.hasChangeLog ? " and its change log." : "."}
-          </p>
-
-          {!isAdmin && !adminResolving && (
-            <p className="flex items-start gap-1.5 text-[11px] text-fg-muted">
-              <Lock className="mt-px h-3.5 w-3.5 shrink-0" />
-              <span>
-                Drawing records are controlled documents, so adding, editing and recording changes
-                is limited to admins. Reading and searching are open to everyone.
-              </span>
-            </p>
-          )}
-        </>
+      {shownRows.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-fg-muted">
+          No drawings match the column filters.{" "}
+          <button
+            onClick={table.clearFilters}
+            className="font-semibold text-accent underline-offset-2 hover:underline"
+          >
+            Clear filters
+          </button>
+        </div>
       )}
-
-      {selected && (
-        <DrawingLogDetailModal
-          entry={selected}
-          isAdmin={isAdmin}
-          onClose={() => setSelectedId(null)}
-        />
-      )}
-      {creating && <DrawingLogCreateModal kind={kind} onClose={() => setCreating(false)} />}
-    </div>
+    </>
   );
 }
 

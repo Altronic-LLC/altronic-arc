@@ -27,18 +27,19 @@ describe("toPanelTask", () => {
     );
     expect(task.id).toBe(5);
     expect(task.title).toBe("Draw enclosure layout");
-    expect(task.status).toBe("In Process");
+    // A row saved under the old four statuses reads as its Panel Workflow match.
+    expect(task.status).toBe("In Progress");
     expect(task.taskType).toBe("Drawings");
     expect(task.projectRef).toEqual({ lookupId: 3, title: "" });
-    expect(task.assigned).toEqual({ lookupId: 46, displayName: "" });
+    expect(task.assigned).toEqual([{ lookupId: 46, displayName: "" }]);
     expect(task.description).toBe("GA drawing");
     expect(task.author?.displayName).toBe("Ray White");
   });
 
   it("clamps unknown status/type to safe defaults", () => {
-    expect(toPanelTask(graphItem({ Status: "Bogus" })).status).toBe("Pending");
+    expect(toPanelTask(graphItem({ Status: "Bogus" })).status).toBe("New");
     expect(toPanelTask(graphItem({ TaskType: "Bogus" })).taskType).toBeNull();
-    expect(toPanelTask(graphItem({})).status).toBe("Pending");
+    expect(toPanelTask(graphItem({})).status).toBe("New");
   });
 
   it("parses a resolved single-person Assigned and the comment thread", () => {
@@ -48,7 +49,7 @@ describe("toPanelTask", () => {
         Communication: "7/10/2026 9:00:00 AM|||Ray White|||ray@x.com|||<p>hi</p>",
       }),
     );
-    expect(task.assigned).toEqual({ lookupId: 46, displayName: "Sarah Shaffer", email: "s@x.com" });
+    expect(task.assigned).toEqual([{ lookupId: 46, displayName: "Sarah Shaffer", email: "s@x.com" }]);
     expect(task.comments).toHaveLength(1);
   });
 });
@@ -73,13 +74,13 @@ describe("attachPanelTaskReferences", () => {
     const task = toPanelTask(graphItem({ ProjectReferenceLookupId: "3", AssignedLookupId: "46" }));
     attachPanelTaskReferences([task], PROJECTS, USERS);
     expect(task.projectRef?.title).toBe("P-0003");
-    expect(task.assigned?.displayName).toBe("Sarah Shaffer");
+    expect(task.assigned[0]?.displayName).toBe("Sarah Shaffer");
   });
 
   it("leaves unresolvable ids alone", () => {
     const task = toPanelTask(graphItem({ ProjectReferenceLookupId: "99", AssignedLookupId: "77" }));
     attachPanelTaskReferences([task], PROJECTS, USERS);
     expect(task.projectRef).toEqual({ lookupId: 99, title: "" });
-    expect(task.assigned).toEqual({ lookupId: 77, displayName: "" });
+    expect(task.assigned).toEqual([{ lookupId: 77, displayName: "User #77" }]);
   });
 });

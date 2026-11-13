@@ -1,19 +1,33 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createTestSheet,
   listTestSheets,
   updateTestSheetFields,
   type CreateTestSheetInput,
 } from "@/api/testSheets";
+import { listTasks } from "@/api/tasks";
+import { TASK_LIST_KEY } from "./useTasks";
 import type { Person, TestSheet } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 
 export const TEST_SHEETS_KEY = ["testSheets", "list"] as const;
 
+/**
+ * The sheets, with task titles taken from the task list ARC already holds
+ * (fetched only if nothing has loaded it yet), rather than downloading the
+ * whole Project Task List again just to name each sheet's task.
+ */
+export function fetchTestSheets(qc: QueryClient) {
+  return listTestSheets(() =>
+    qc.ensureQueryData({ queryKey: TASK_LIST_KEY, queryFn: listTasks }),
+  );
+}
+
 export function useTestSheets() {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: TEST_SHEETS_KEY,
-    queryFn: listTestSheets,
+    queryFn: () => fetchTestSheets(qc),
     staleTime: 120_000,
   });
 }

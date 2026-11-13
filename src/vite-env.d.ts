@@ -20,7 +20,6 @@ interface ImportMetaEnv {
   readonly VITE_SP_SCNS_LIST_ID: string;
   readonly VITE_SP_QUOTES_LIST_ID: string;
   readonly VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: string;
-  readonly VITE_SP_QUOTE_ITEMS_LIST_ID: string;
   readonly VITE_SP_QUOTE_CUSTOMERS_LIST_ID: string;
   readonly VITE_SP_QUOTE_ROLES_LIST_ID: string;
   readonly VITE_SP_PRICING_ROLES_LIST_ID: string;
@@ -31,6 +30,11 @@ interface ImportMetaEnv {
   readonly VITE_SP_CUSTOMER_QUOTES_LIST_ID: string;
   readonly VITE_PRICING_LIVE: string;
   readonly VITE_PRICING_PREVIEW_USERS: string;
+  readonly VITE_SP_MCNS_LIST_ID: string;
+  readonly VITE_SP_MCN_ROLES_LIST_ID: string;
+  readonly VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID: string;
+  readonly VITE_MCN_LIVE: string;
+  readonly VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID: string;
   readonly VITE_SP_PMO_SITE_ID: string;
   readonly VITE_SP_LIST_ID: string;
   readonly VITE_SP_PROJECTS_LIST_ID: string;
@@ -43,6 +47,26 @@ interface ImportMetaEnv {
   readonly VITE_SP_MAINTENANCE_ROLES_LIST_ID: string;
   readonly VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID: string;
   readonly VITE_SP_HARNESS_PART_NUMBERS_LIST_ID: string;
+  /** Crimp Height Checks (BusinessIT#55) on the PMO site. No defaults. */
+  readonly VITE_SP_CRIMP_SPECS_LIST_ID: string;
+  readonly VITE_SP_PANEL_TIME_OFF_LIST_ID: string;
+  readonly VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID: string;
+  readonly VITE_SP_PANEL_SETTINGS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOM_PARTS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOM_KITS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOMS_LIST_ID: string;
+  readonly VITE_PANEL_BOM_LIVE: string;
+  readonly VITE_SP_CRIMP_CHECKS_LIST_ID: string;
+  /** Harness Alert Recipients list (who the Harness emails go to). No default. */
+  readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;
+  /** Conformal Coating Checks (BusinessIT#60, Operations) on the PMO site. No defaults. */
+  readonly VITE_SP_COATING_SPECS_LIST_ID: string;
+  readonly VITE_SP_COATING_CHECKS_LIST_ID: string;
+  readonly VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID: string;
+  /** GET-1 (GE Transportation Log Sheet) on the PMO site. No default. */
+  readonly VITE_SP_QC_GET1_LIST_ID: string;
+  /** QCFRM-035 (Series X Controller log sheet) on the PMO site. No default. */
+  readonly VITE_SP_QC_SERIES_X_LIST_ID: string;
   /** Exact Windows printer name for QZ Tray to print Panel QC labels
    * directly to. Unset = always fall back to the browser print dialog. */
   readonly VITE_PANEL_QC_LABEL_PRINTER_NAME: string;

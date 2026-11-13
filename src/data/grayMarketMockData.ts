@@ -4,7 +4,7 @@ import type { GrayMarketRequest } from "@/types/task";
 // Sample gray market requests for mock mode.
 //
 // Shaped after the real rows (scripts/gray-market-request-schema.json): an
-// Altronic assembly number in Title, a GMR_YYYY-### log number, and the
+// SAP P/N in Title, a GMR_YYYY-### log number, and the
 // workflow columns filled in to the point each request has reached — most of
 // the live rows are part-filled, because the request moves between four teams
 // and each one adds its bit.

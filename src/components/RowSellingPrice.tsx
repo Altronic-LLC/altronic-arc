@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Plus, Tag, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Tag, X } from "lucide-react";
 import type { PriceBreakTier, PriceInput, RowPricing } from "@/types/pricing";
 import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
 import { MAX_PRICE_BREAKS, priceBreaksProblem, rowSellingPrice, tierRanges } from "@/lib/pricingMath";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
-import { COST_PANEL, FieldColumn, FieldLabel, PRICE_PANEL } from "./pricingAtoms";
+import { COST_PANEL, FieldColumn, PRICE_PANEL } from "./pricingAtoms";
+import { SMALL_LABEL } from "./pricingFields";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -18,6 +19,8 @@ import { cn } from "@/lib/cn";
 // * The discount is the WORKSHEET's unless this row overrides it — a part that
 //   sells in another MPG. Blank = the worksheet's, said beside the box.
 // * Edits the DRAFT, like everything else on the worksheet; Save writes it.
+// * Folds to one line — list, customer price, GM (Ray, 2026-10-22). View
+//   only: folding changes nothing that is saved.
 // =============================================================================
 
 const KINDS: { kind: PriceInput["kind"]; label: string; field: string }[] = [
@@ -49,6 +52,7 @@ export function RowSellingPrice({
   const [discountText, setDiscountText] = useState(() =>
     draft.pricing?.distributorDiscountPct != null ? String(draft.pricing.distributorDiscountPct) : "",
   );
+  const [open, setOpen] = useState(true);
 
   if (draft.pricingCorrupt) {
     return (
@@ -89,11 +93,27 @@ export function RowSellingPrice({
 
   return (
     <section aria-label={`${label} — own selling price`} className="mt-3 rounded-lg border border-border border-l-4 border-l-cooper-green bg-cooper-green/3 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+          <button
+            type="button"
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            aria-label={`${open ? "Collapse" : "Expand"} the own selling price for ${label}`}
+            className="rounded-sm p-0.5 hover:text-fg"
+          >
+            {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          </button>
           <Tag className="h-3.5 w-3.5" /> Own selling price
         </h3>
-        {!readOnly && (
+        {!open && (
+          <span className="mr-auto text-xs tabular-nums text-fg">
+            List {formatMoney(sell.result.listPrice)} · Customer {formatMoney(sell.result.distributorPrice)} · GM{" "}
+            {formatPct(sell.result.baseGM)}
+            {tiers.length > 0 && ` · ${tiers.length} break${tiers.length === 1 ? "" : "s"}`}
+          </span>
+        )}
+        {!readOnly && open && (
           <button
             type="button"
             onClick={() => onChange({ ...draft, pricing: null })}
@@ -104,6 +124,8 @@ export function RowSellingPrice({
         )}
       </div>
 
+      {open && (
+      <>
       <div className="mt-2 flex flex-wrap items-start gap-x-6 gap-y-3">
         <FieldColumn
           header={
@@ -120,7 +142,7 @@ export function RowSellingPrice({
                     set({ input: { kind: k.kind, value: Number.NaN } });
                   }}
                   className={cn(
-                    "rounded-sm px-2 text-[11px] font-semibold uppercase tracking-wider",
+                    "rounded-sm px-2 text-[10px] font-semibold uppercase tracking-wider",
                     pricing.input.kind === k.kind ? "bg-surface-2 text-fg shadow-xs" : "text-fg-muted hover:text-fg",
                   )}
                 >
@@ -148,7 +170,7 @@ export function RowSellingPrice({
         </FieldColumn>
 
         <FieldColumn
-          header={<FieldLabel>Distributor discount</FieldLabel>}
+          header={<span className={SMALL_LABEL}>Distributor discount</span>}
           hint={overridden ? `This row only — the worksheet's is ${worksheetDiscountPct}%.` : `The worksheet's (${worksheetDiscountPct}%).`}
         >
           <input
@@ -184,7 +206,7 @@ export function RowSellingPrice({
 
       <div className="mt-3">
         <div className="flex max-w-lg items-center justify-between">
-          <h4 className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Quantity breaks</h4>
+          <h4 className={SMALL_LABEL}>Quantity breaks</h4>
           {!readOnly && tiers.length < MAX_PRICE_BREAKS && (
             <button
               type="button"
@@ -202,7 +224,7 @@ export function RowSellingPrice({
           <p className="mt-1 text-xs text-fg-muted">No quantity breaks — one price at every quantity.</p>
         ) : (
           <table className="mt-1 w-full max-w-lg text-sm">
-            <thead className="text-[11px] uppercase tracking-wider text-fg-muted">
+            <thead className="text-[10px] uppercase tracking-wider text-fg-muted">
               <tr>
                 <th className="px-2 py-1 text-left font-semibold">Quantity</th>
                 <th className="px-2 py-1 text-left font-semibold">From</th>
@@ -262,6 +284,8 @@ export function RowSellingPrice({
         )}
         {breakProblem && <p className="mt-1 text-xs text-cooper-red">{breakProblem}</p>}
       </div>
+      </>
+      )}
     </section>
   );
 }
@@ -269,7 +293,7 @@ export function RowSellingPrice({
 function Figure({ label, value, strong, title }: { label: string; value: string; strong?: boolean; title?: string }) {
   return (
     <div title={title}>
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</dt>
+      <dt className={SMALL_LABEL}>{label}</dt>
       <dd className={cn("mt-0.5 tabular-nums text-fg", strong ? "text-base font-semibold" : "text-sm")}>{value}</dd>
     </div>
   );

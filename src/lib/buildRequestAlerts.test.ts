@@ -5,6 +5,7 @@ import {
   buildBrPartProductionCompleteEmails,
   buildBrProductionCompleteReviewEmails,
   buildBrReadyForProductionEmails,
+  buildRequestPartEmailTitle,
 } from "./buildRequestAlerts";
 
 const AMANDA: Person = { displayName: "Amanda Hoagland", email: "Amanda.Hoagland@altronic-llc.com" };
@@ -16,7 +17,11 @@ const PART_WATCHER: Person = { displayName: "Katie Fleming", email: "katie.flemi
 const RAY: Person = { displayName: "Ray White", email: "ray.white@altronic-llc.com" };
 
 const BR = { kind: "buildRequest" as const, id: 9, title: "BR_2026-0070" };
-const PART = { kind: "buildRequestItem" as const, id: 41, title: "791950-16" };
+const PART = {
+  kind: "buildRequestItem" as const,
+  id: 41,
+  title: "791950-16 on BR_2026-0070 — Panel build",
+};
 
 const to = (emails: { email: string }[]) => emails.map((e) => e.email.toLowerCase());
 
@@ -81,7 +86,8 @@ describe("b. a part reaches Production Complete", () => {
   const build = (over: Partial<Parameters<typeof buildBrPartProductionCompleteEmails>[0]> = {}) =>
     buildBrPartProductionCompleteEmails({
       target: PART,
-      buildRequestTitle: "BR_2026-0070",
+      partNumber: "791950-16",
+      buildRequestTitle: "BR_2026-0070 — Panel build",
       partWatchers: [PART_WATCHER],
       actor: RAY,
       engineer: ENGINEER,
@@ -99,9 +105,9 @@ describe("b. a part reaches Production Complete", () => {
 
   it("names the part and its build request", () => {
     const e = build()[0];
-    expect(e.subject).toBe("Part production complete: 791950-16 (BR_2026-0070)");
-    expect(e.headlineHtml).toContain("791950-16");
-    expect(e.headlineHtml).toContain("BR_2026-0070");
+    expect(e.subject).toBe("Part production complete: 791950-16 on BR_2026-0070 — Panel build");
+    expect(e.headlineHtml).toContain("part <strong>791950-16</strong>");
+    expect(e.headlineHtml).toContain("build request <strong>BR_2026-0070 — Panel build</strong>");
   });
 
   it("one email for someone watching both the part and the request", () => {
@@ -112,6 +118,39 @@ describe("b. a part reaches Production Complete", () => {
 
   it("never emails the actor — not even when they are the only person involved", () => {
     expect(build({ actor: ENGINEER, engineer: ENGINEER, watchers: [], partWatchers: [], requestor: null })).toEqual([]);
+  });
+});
+
+describe("buildRequestPartEmailTitle — BusinessIT#56", () => {
+  const br = { id: 9, brNo: "BR_2026-0070", title: "Panel build" };
+
+  it("names the part AND its build request, so two requests for one part read differently", () => {
+    expect(buildRequestPartEmailTitle({ id: 41, partNumber: "672255-01" }, br)).toBe(
+      "672255-01 on BR_2026-0070 — Panel build",
+    );
+    expect(
+      buildRequestPartEmailTitle(
+        { id: 42, partNumber: "672255-01" },
+        { id: 12, brNo: "BR_2026-0094", title: "Series X field kit" },
+      ),
+    ).toBe("672255-01 on BR_2026-0094 — Series X field kit");
+  });
+
+  it("falls back to the request's title, then its id, like the request's own emails", () => {
+    expect(buildRequestPartEmailTitle({ id: 41, partNumber: "672255-01" }, { ...br, brNo: "" })).toBe(
+      "672255-01 on Panel build",
+    );
+    expect(
+      buildRequestPartEmailTitle({ id: 41, partNumber: "672255-01" }, { id: 9, brNo: "", title: "" }),
+    ).toBe("672255-01 on Build request #9");
+  });
+
+  it("is the part number alone when the parent isn't known", () => {
+    expect(buildRequestPartEmailTitle({ id: 41, partNumber: " 672255-01 " }, null)).toBe("672255-01");
+    expect(buildRequestPartEmailTitle({ id: 41, partNumber: "" }, undefined)).toBe("Part #41");
+    expect(buildRequestPartEmailTitle({ id: 41, partNumber: "" }, br)).toBe(
+      "Part #41 on BR_2026-0070 — Panel build",
+    );
   });
 });
 

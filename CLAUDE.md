@@ -371,7 +371,7 @@ script exists; until then, copy the lines.
 Paste into the PR description and tick each line.
 
 - [ ] Changelog entry at the top of `src/data/changelog.ts`, same version in `public/version.json` and `package.json`, same bullets in the commit message (or `chore:` / `docs:` with none, for zero-behaviour changes)
-- [ ] New `VITE_*` variable → added to `deploy.yml`'s named list and documented in `.env.example`
+- [ ] New `VITE_*` variable → added to `deploy.yml`'s named list, documented in `.env.example`, and set in `.env.local` if one exists (see below)
 - [ ] New list → `api/` with mock + real branches, `hooks/`, `views/`; sorting and column filters on any table; the file-by-file overview, About diagrams and User Manual updated
 - [ ] Every `$filter` string uses `odataString()`; every list read pages; every rendered HTML goes through `sanitiseHtml()`
 - [ ] No `accounts[0]`; identity through `useCurrentUser` / `resolveAccount`
@@ -381,6 +381,19 @@ Paste into the PR description and tick each line.
 - [ ] New dependency: licence and maintenance checked; lazy-loaded if heavy
 - [ ] Tests for the change; none mock what they assert; `npm run typecheck`, `npm test`, `npm run build` pass locally (or the PR's `Checks` run is green)
 - [ ] CLAUDE.md updated if a rule was learned, a decision was made, or a file was added or removed
+
+**A new `VITE_*` variable goes into both env files without being asked**
+(Tim, 2026-10-28):
+
+- **`.env.example`** — always, in the same commit as the variable, with a
+  comment saying what it is and where its value comes from. Leave the value
+  blank unless it is a documented default; this file is committed and the repo
+  is public.
+- **`.env.local`** — if the file exists, add the line too, beside its
+  neighbours. Put the real value in when you know it (a list id the user has
+  just given you); otherwise leave it blank and say so. The file is
+  git-ignored, so this changes nothing in the commit. Tell the user to restart
+  `npm run dev`, which reads it only at start-up.
 
 ### Decisions on record
 
@@ -460,6 +473,7 @@ src/
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── ecns.ts                   ECN CRUD + comments (Engineering) — admin-only delete
 │   ├── ecnChecklists.ts          ECN Checklist CRUD (MFGFRM-038), one row per ECN — no delete
+│   ├── ecnDistributionGroups.ts  ECN Distribution Groups (BusinessIT#57) — who each DISTRIBUTION role reaches; list + set members, no add/delete
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
@@ -467,7 +481,7 @@ src/
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
 │   ├── altronicParts.ts          Altronic Part List read/create/edit/approve/delete (~14,000 part numbers) — delete blanks for reuse
 │   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HCO components) — delete blanks for reuse
-│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup
+│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup, one list's rows by prefix
 │   ├── partsRoles.ts             Parts Roles list CRUD (who may edit/approve parts) — unset = read-only
 │   ├── componentDescriptionOptions.ts  Component Description Options — the new-component Description/Type/SIL dropdowns (delete OK: parts hold text)
 │   ├── datasheets.ts             Part + component datasheets — finds / uploads General/Datasheets/<part #>.pdf (never overwrites), archives on delete
@@ -485,12 +499,28 @@ src/
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── harnessProductionLog.ts   Harness Production Log CRUD, year-scoped (Operations, PMO site) — admin-gated delete
 │   ├── harnessPartNumbers.ts     Harness Part Numbers — the log's part lookup; add/rename/retire, NO delete
+│   ├── crimpSpecs.ts             Crimp Specs (Harness, PMO site) — per terminal + applicator + gauge; admin writes, delete only when unused
+│   ├── crimpChecks.ts            Crimp Height Checks CRUD, year-scoped on the indexed CheckedAt — spec figures copied on, admin-gated delete
+│   ├── crimpMachines.ts          The asset register's rows for the crimp machine pickers — its own 5-column read of the Altronic Equipment List, READ-ONLY
+│   ├── harnessAlertRecipients.ts Harness Alert Recipients — who each Harness email goes to; admin-managed list, read fresh at send
+│   ├── coatingSpecs.ts           Coating Specs (Operations, PMO site) — min / max stored in mm + the unit entered in + coated sides; admin writes, delete only when unused
+│   ├── coatingChecks.ts          Conformal Coating Checks CRUD, year-scoped on the indexed MeasuredAt — spec figures copied on, admin-gated delete
+│   ├── operationsAlertRecipients.ts Operations Alert Recipients — who each Operations email goes to; admin-managed list, read fresh at send
+│   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
+│   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
-│   ├── panelRoles.ts             Panel User Roles list CRUD
+│   ├── panelRoles.ts             Panel User Roles list CRUD — the OnCapacity toggle read with a fallback (a missing column must not lock the panel team out)
+│   ├── panelTimeOff.ts           Panel Time Off CRUD (panelTeam site) — the panel team's "Where am I?", person + date range, or a company holiday (nobody); delete OK
+│   ├── panelTaskTemplates.ts     Panel Task Templates CRUD — the standard tasks a new Panel Order raises; unset = the built-in four, read-only; delete OK
+│   ├── panelSettings.ts          Panel Settings (Title/Value rows) — the Capacity amber threshold; unset = 85%, read-only
+│   ├── panelBomParts.ts          BOM Builder parts + kits (panelTeam site) — whole-list reads, Super User writes; NO cost column, no delete (retire)
+│   ├── panelBoms.ts              Saved BOMs — picks + lines snapshot as JSON, optional PanelOrderRef (single lookup); refuses to write over unreadable picks
+│   ├── panelBomCosts.ts          BOM Builder SAP unit costs through Fabric (tbl_cogs_material_apis), `in` batches of 100, never stored
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
-│   ├── qcCpu95.ts                QCFRM-012 (CPU-95) test sheet CRUD (Quality Control, Engineering site) — no delete
+│   ├── qcForms.ts                EVERY QC form's test sheet CRUD, by form spec (Quality Control, PMO site) — mock store per form, no delete
+│   ├── qcFormLists.ts            Each QC form's SharePoint list (site, id, env var) — the api half of the registry
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
@@ -499,6 +529,7 @@ src/
 │   ├── suppliers.ts              SRM Tool — Suppliers List CRUD + comments + watchers (Supply Chain, PMO site)
 │   ├── supplierContacts.ts       SRM Tool — Supplier Contacts CRUD + comments + watchers, scoped to a Supplier
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
+│   ├── supplierPerformance.ts    SRM Tool — SAP supplier performance from Fabric (`tbl_arc_supplier_performance`), the whole table in one paged read
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
 │   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
 │   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download/rename/delete (recycle bin)
@@ -510,11 +541,10 @@ src/
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
 │   ├── quotes.ts                 Insourcing Quotes header CRUD + comments + watchers (PMO site) — numbered create with ONE retry, no delete
-│   ├── quoteAssemblies.ts        Quote LINES CRUD — final assemblies and standalone Parts (delete OK — the composition of a draft)
-│   ├── quoteItems.ts             Quote components CRUD + comments + watchers (delete OK)
+│   ├── quoteAssemblies.ts        Quote LINES CRUD — final material, labor, overhead and target GM per line (delete OK — the composition of a draft)
 │   ├── quoteCustomers.ts         Quote Customers create/edit — unique CustomerCode, retired not deleted
 │   ├── quoteRoles.ts             Quote Roles list CRUD (viewer / quoter / manager) — unset = nobody has access
-│   ├── quoteRevisions.ts         New rev — copies header, assemblies, components, comments, attachments; best-effort after the header
+│   ├── quoteRevisions.ts         New rev — copies header (reference, alternates, links), lines, comments, attachments; best-effort after the header
 │   ├── quotePdfFiles.ts          Save a quote PDF to General/IC Quotes (PMO library) — rename on clash, never creates the folder
 │   ├── pricingLookup.ts          Sales Pricing's ONE seam to SAP (Fabric warehouse) — parts, customers, discounts, comparables; mock now, real throws PricingDataNotConnectedError
 │   ├── pricingRequests.ts        Pricing Requests CRUD + comments + watchers (salesTeam site) — PR-YYYY-####, final price only, DIFFED edits, no delete
@@ -548,10 +578,17 @@ src/
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── harnessMockData.ts        Sample harness log rows (this year + last) + part numbers, one retired
+│   ├── crimpMockData.ts          Sample crimp specs + checks — INVENTED terminals/applicators, one out of spec, one spec with no height
+│   ├── coatingMockData.ts        Sample coating specs + checks — INVENTED machines, mm and inch checks, one out of spec, one retired spec
+│   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
+│   ├── panelBomMockData.ts       Sample BOM parts, kits (one with non-SAP parts), costs + a saved BOM — all INVENTED
 │   ├── qcCpu95MockData.ts        Sample CPU-95 (QCFRM-012) test sheets, one per Altmode shape
+│   ├── qcCpu95FiringSpecs.json   Standard TEST firing specs by part number — the form, the blank sheet and the backfill script read it
+│   ├── qcGet1MockData.ts         Sample GET-1 (GE ECU) log sheets — signed off, reworked, part-way, just scanned
+│   ├── qcSeriesXMockData.ts      Sample QCFRM-035 (Series X) log sheets — two signed off (one board blank), part-way, just scanned
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
@@ -578,13 +615,21 @@ src/
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
 │   ├── useEirWorkflowAccess.ts   useCanEditEirWorkflow() + the awaited write guard (Status / engineer)
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
-│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), gated writes + their emails
+│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), one part / one list "slices", gated writes + their emails
 │   ├── usePartsRoles.ts          Parts Roles CRUD (admin-guarded) + useMyPartsAccess / resolvePartsPeople
 │   ├── useComponentDescriptionOptions.ts  The description dropdowns + their gated writes (SAP admin / reviewing engineers) and reorder
 │   ├── useDatasheet.ts           A part's datasheet, by part number (file lookup, not the flag) + the gated upload
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts, monthly FPY)
 │   ├── useHarnessProductionLog.ts Harness log + part-number queries/mutations; delete and every part write are ARC-admin only
+│   ├── useCrimpChecks.ts         Crimp checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
+│   ├── useHarnessAlertRecipients.ts Who's notified CRUD (ARC admins) + readHarnessRecipients (fresh) + the part number request
+│   ├── useCoatingChecks.ts       Coating checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
+│   ├── useOperationsAlertRecipients.ts Operations Who's notified CRUD (ARC admins) + readOperationsRecipients (fresh)
+│   ├── useRequireArcAdmin.ts     "Only ARC admins can…" asked INSIDE a mutationFn, awaiting the Admins list (Harness + Crimp)
+│   ├── useRememberedView.tsx     List or Kanban remembered per browser (#51) — saved in the switcher, applied by a list route wrapper
+│   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
+│   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -594,9 +639,15 @@ src/
 │   ├── useEquipment.ts           Equipment register queries + create + edits, every write gated by manageAssetsGate
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
-│   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
+│   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded) + usePanelTeamAccess / useRequirePanelTeamEdit / …TemplateManager / …CapacityManager
+│   ├── usePanelTimeOff.ts        Panel Time Off queries + team-gated writes; a company holiday also needs a Super User / ARC admin
+│   ├── usePanelOrderTasks.ts     Raising an order's standard tasks (with the order, or the order page's button) + the ONE email to its engineer
+│   ├── usePanelOrderChain.ts     Runs the chain (a finished step opens the next) and the order's hold/release over its tasks
+│   ├── usePanelTaskTemplates.ts  Panel Task Templates query + manager-gated writes
+│   ├── usePanelSettings.ts       Panel Settings query + the Super User-gated amber threshold write
+│   ├── usePanelBom.ts            BOM Builder queries (parts, kits, saved BOMs, SAP costs) + gated writes (Super User for parts/kits, team edit for BOMs)
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
-│   ├── useQcCpu95.ts             QCFRM-012 (CPU-95) test sheet queries + mutations — no delete hook
+│   ├── useQcForms.ts             Any QC form's test sheet queries + mutations, cached per form — no delete hook
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useCustomerNotes.ts       CRM Tool — Customer Notes queries, mutations + comments
 │   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
@@ -605,6 +656,7 @@ src/
 │   ├── useSuppliers.ts           SRM Tool — Suppliers List queries, mutations + comments + watchers
 │   ├── useSupplierContacts.ts    SRM Tool — Supplier Contacts queries, mutations + comments + watchers
 │   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
+│   ├── useSupplierPerformance.ts SRM Tool — SAP's performance table keyed by BP number, one cached read for the list and every supplier page
 │   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
 │   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
 │   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
@@ -615,11 +667,11 @@ src/
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useQuotes.ts              Quote queries, numbered create, diffed edits, watchers, comment thread, New rev
-│   ├── useQuoteAssemblies.ts     Assembly queries + gated mutations; re-stores CustomerPrice after any change
-│   ├── useQuoteItems.ts          Component queries + gated mutations, watchers + per-component comment thread
+│   ├── useQuoteAssemblies.ts     Line queries + gated mutations; re-stores CustomerPrice after any change
 │   ├── useQuoteCustomers.ts      Quote Customers queries + manager-gated mutations
 │   ├── useQuoteRoles.ts          Quote Roles CRUD + useMyQuoteAccess / useResolveQuoteAccess (awaited in every mutationFn)
 │   ├── useQuotePdf.ts            Generate the customer PDF (local download) + the explicit Save to folder
+│   ├── useQuoteToTask.ts         A Won quote → an Engineering / Operations task: carries the discussion, links it back, emails the watchers
 │   ├── usePricingRoles.ts        Pricing Roles CRUD + useMyPricingAccess / useResolvePricingAccess — the preview switch sits in front of both
 │   ├── usePricingLookup.ts       SAP facts as queries — each answers `notConnected` so a screen falls back to typed entry
 │   ├── usePricingRequests.ts     Pricing request queries + the workflow (submit routing, Added to SAP, In Review, Price → History first, reopen, cancel), comments, watchers
@@ -635,6 +687,7 @@ src/
 │   ├── useDeleteProject.ts       Delete an Engineering project — admin only, refused while anything still points at it
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
+│   ├── useEcnDistributionGroups.ts ECN distribution groups query, ARC-admin-gated member edits, readEcnDistributionGroups (fresh, for a send)
 │   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
@@ -653,6 +706,7 @@ src/
 │   ├── useListAccess.ts          Shared "SharePoint refused this list" store (banner + nav gating)
 │   ├── useEmptyListCheck.ts      An empty list: really empty, or trimmed away from you?
 │   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
+│   ├── useFitToWindow.ts         Fits a table box between its top and the fixed footer on a desktop (Parts List, BOM parts & kits) so a sticky header stays in view
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
@@ -668,6 +722,7 @@ src/
 │   ├── mentions.ts               @-mention parsing, recipients, rankMentionCandidates
 │   ├── mentionDetector.ts        Detecting @-mentions in stored comment HTML
 │   ├── people.ts                 Merge/dedupe Person lists (by lowercased email)
+│   ├── peopleLines.ts            People as plain text, one "Name <email>" per line — MCN and ECN distribution lists (shared)
 │   ├── itemSearch.ts             Shared multi-keyword all-fields search for list views
 │   ├── adminAccess.ts            Bootstrap admin set (admins before the list loads)
 │   ├── appUrl.ts                 Absolute in-app links that keep the Pages sub-path
@@ -684,7 +739,8 @@ src/
 │   ├── eirStatusAlerts.ts        Response Accepted / Not Accepted work requests
 │   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
 │   ├── eirWorkflowEditors.ts     Who may change an EIR's Status / assigned engineer (hard-coded)
-│   ├── eirTaskReference.ts       EIR Task Reference → the task it names; never guesses between repeated T-numbers
+│   ├── eirTaskReference.ts       EIR Task Reference → the task it names; never guesses between repeated T-numbers; a task's EIR link → its EIR; linked only when both sides agree
+│   ├── eirTaskBackfill.ts        The one-time promoted EIR ⇄ task backfill (pure) — pairs, link writes, comments to copy; run by scripts/eir-task-backfill.ps1
 │   ├── recipientAudit.ts         Checks configured alert addresses against the directory
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
 │   ├── listAccess.ts             A refused Graph READ — which list/site, and the wording
@@ -693,6 +749,7 @@ src/
 │   ├── ecnChecklistTemplate.ts   The 84 MFGFRM-038 items as DATA (generated, verbatim)
 │   ├── ecnChecklistRaci.ts       The MFGFRM-038 RACI matrix as STATIC REFERENCE (never stored)
 │   ├── ecnChecklist.ts           Checklist answers — parse/merge/progress (pure)
+│   ├── ecnDistribution.ts        ECN distribution (pure) — the ten roles, the seven default ticks, recipients, when it sends, the email
 │   ├── ecnChecklistMapper.ts     Graph item → EcnChecklist (single-lookup trap)
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
 │   ├── faitMapper.ts             Graph item → Fait (+ bare-LookupId people)
@@ -704,6 +761,7 @@ src/
 │   ├── partSearch.ts             Parts List search rules (substring, & terms, ranges), Parts Book grouping, Global rows
 │   ├── partNumberScheme.ts       What a part number's digits mean (EWI-005 Rev 5) — Parts Book + list labels (pure)
 │   ├── engineeringValue.ts       Reads 4K7 / .1uF / 250mW / 1/4W / -55°C as numbers + units, for range search (pure)
+│   ├── componentCsv.ts           The Component List as a CSV (Export components, Parts Book) — live rows, COMPONENT_FIELDS columns, UTF-8 BOM (pure)
 │   ├── componentRatings.ts       What Rating A/B/C mean per component type (the guide's table, as DATA)
 │   ├── partFields.ts             Parts List columns as DATA — form ⇄ SharePoint, required rules, next number
 │   ├── partsRoles.ts             Parts Roles tags → rights, the add/edit/approve gates, the approval chain (pure)
@@ -716,10 +774,11 @@ src/
 │   ├── buildRequestNumber.ts     Next BR No for a new Build Request
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
+│   ├── buildRequestTaskLink.ts   Linking a BR to a task (#58) — picker order, "Create a task for this", earlier comments to SHOW, not copy (pure)
 │   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
 │   ├── buildRequestPartProduction.ts A PART's production buttons — readiness, who presses which step, the write guard (pure)
 │   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
-│   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
+│   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part, task ⇄ EIR, quote ⇄ its Eng/Ops task: the origin banner + fan-out routing (pure)
 │   ├── commentReplies.ts        Threaded replies — the reply marker in the body, and grouping a thread one level deep (pure)
 │   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
@@ -739,13 +798,33 @@ src/
 │   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
+│   ├── panelOrderArchive.ts      Archived panel orders (moved from Panel Job Dashboard) — ?archived= scope, real created date, pickers skip them (pure)
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
-│   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
+│   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays, BOM parts + kits) + capacityPeople (who gets a Capacity row) (pure)
+│   ├── panelOrderTasks.ts        A Panel Order's standard tasks (pure) — defaults, titles, who's assigned, what's missing, the one email
+│   ├── panelOrderChain.ts        A Panel Order's task chain + hold (pure) — start status, what a finished step opens, hold/release writes, the Ready email
+│   ├── panelSettings.ts          Panel Settings (pure) — keys, defaults, reading Title/Value rows, the amber threshold rule
+│   ├── panelBom.ts               THE BOM rules (pure) — sum per SAP #, kit × component, hand-entry lines, cluster item numbers, 28/27 paste blocks, CSV, picks JSON, picker filters
+│   ├── capacity.ts               SHARED capacity engine (pure) — generic work items + time off → per-person day/week load, amber >85% / red >100%, backlog
+│   ├── panelCapacity.ts          Panels' adapter: PanelTask → CapacityWorkItem (Engineering/Operations get one beside their mappers)
+│   ├── panelTaskStatus.ts        Panel task statuses (Wrike's Panel Workflow) — groups, open/done, old-four → new reading (pure)
+│   ├── panelTimeOff.ts           Panel Time Off on a calendar — a range on every day it covers, company holidays first, cell labels, search (pure)
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
 │   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
-│   ├── qcForms.ts                QC Forms registry — one entry per controlled form, drives the search/button dashboard
-│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~200 fields) + per-field Altmode visibility
-│   ├── qcCpu95Mapper.ts          Graph item → QcCpu95Record, and back; qcCpu95Altmode() (part number → 0-6)
+│   ├── qcForms.ts                QC Forms registry — every form's spec, by route id; drives the landing page and /qc-forms/:formId
+│   ├── qcFormEngine.ts           THE QC form engine (pure) — QcFormSpec / QcFormRecord, visibility, labels, Graph ⇄ record, status + sort
+│   ├── qcFormSheet.ts            Paper-sheet draw ops + the shared blank/value helpers every form's layout uses (pure)
+│   ├── qcFormPdf.ts              Any form's sheet layout → PDF (jsPDF, dynamically imported); long values continue on a last page
+│   ├── qcCpu95Form.ts            QCFRM-012 (CPU-95) as a QcFormSpec — hands its rules to the engine, nothing more
+│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~150 fields) + the unit variants, firing grid and standard specs
+│   ├── qcCpu95Mapper.ts          qcCpu95Altmode() (part number → 0-6) + the part number suggestions
+│   ├── qcCpu95Sheet.ts           The QCFRM-012 REV 2 paper sheet as a layout model (pure) — blank, or filled with the Altmode's visible fields
+│   ├── qcGet1Form.ts             GET-1 (GE Transportation Log Sheet) as a QcFormSpec, and its GE log sheet text
+│   ├── qcGet1Fields.ts           GET-1 column descriptors — 15 checks, firmware revision, 12 board work orders, sign-off
+│   ├── qcGeLogSheet.ts           The GE log sheet (GET-1 Rev 3 scan) as a layout model, described by DATA — the GE family's shared paper
+│   ├── qcGeControllerChecks.ts   The fifteen GE controller checks — word for word the same on GET-1 and Series X, so shared
+│   ├── qcSeriesXForm.ts          QCFRM-035 (Series X Controller log sheet) as a QcFormSpec, and its GE log sheet text + spacing
+│   ├── qcSeriesXFields.ts        QCFRM-035 column descriptors — the shared checks, firmware revision, 11 board work orders, sign-off
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -755,6 +834,7 @@ src/
 │   ├── supplierMapper.ts         Graph item → Supplier (SRM Tool anchor list)
 │   ├── supplierContactMapper.ts  Graph item → SupplierContact
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
+│   ├── supplierPerformance.ts    SAP performance rows → by BP number; supplierPerformanceFor = SAP first, ARC's typed scores as the fallback (pure)
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
 │   ├── scnFields.ts              SCN column descriptors (columns are DATA) — the four internal names that LIE are decoded here
@@ -762,7 +842,7 @@ src/
 │   ├── scnNumber.ts              nextScnNumber() — YYYY-NNNN, a GLOBAL 4-digit sequence since 2024 (legacy 3-digit titles ignored)
 │   ├── scnProjects.ts            SCN Project Reference ⇄ Engineering's Projects — matched by title (it's a text column on another site collection)
 │   ├── scnTasks.ts               SCN Task List hyperlink ⇄ an Engineering task — writes ARC's task URL, recognises it on read
-│   ├── quotePricing.ts           Quote pricing (pure) — component COST, the line's ONE target GM, Part lines, breaks, WEIGHTED quote GM
+│   ├── quotePricing.ts           Quote pricing (pure) — a line's material × (1 + overhead%) + labor, its ONE target GM, breaks, WEIGHTED quote GM, the Target & volume summary
 │   ├── quoteMoney.ts             Quote money display — derived values 2 decimals, a typed unit cost up to 4 (pure)
 │   ├── sapPartNumber.ts          SAP part # ####-####-## — format as typed, validate (pure; not the sold-to)
 │   ├── quoteRoles.ts             Quote Roles tags → rights + every gate (pure) — no role = no access
@@ -770,6 +850,7 @@ src/
 │   ├── quoteCustomerCode.ts      Propose a 2–5 letter customer code, next candidates on a clash, similar-name check (pure)
 │   ├── quotePdfModel.ts          Record → QuotePdfModel, the customer-facing shape that CANNOT carry cost or margin
 │   ├── quotePdf.ts               QuotePdfModel → real-text PDF (jsPDF + AutoTable, dynamically imported)
+│   ├── quoteToTask.ts            Won quote → task (pure): refusal, the created-from marker, who shares a thread (latest rev), description, Communication, emails
 │   ├── quoteMapper.ts            Graph item ⇄ all five quote lists; field builders, PriceBreaks JSON, unique-value refusal
 │   ├── priceCalculator.ts        The Pricing tool's quick calculator (pure) — customer price from COGS + GM or a manual price, the round-5 GM ladder, copy text
 │   ├── pricingMath.ts            Sales Pricing maths (pure) — list from target GM ÷ distributor discount (whole dollar), base GM, customer price, comparables, BOM cost, breaks
@@ -788,11 +869,13 @@ src/
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── mrbFields.ts              MRB column descriptors (field_1…field_23 decoded) + the drifted-choice guard
 │   ├── mrbMapper.ts              Graph item → MrbEntry, and back; the DIFFED write, state + price rules
+│   ├── mrbExport.ts              The MRB meeting export — which entries (date window, all undecided), the PDF and the xlsx (both dynamically imported)
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
 │   ├── grayMarketAlerts.ts      Gray Market intake alert + the testing/engineering/production change alert (pure)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
 │   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
-│   ├── odata.ts                  `odataString()` — the ONE way a string goes into a `$filter`
+│   ├── odata.ts                  `odataString()` — the ONE way a string goes into a `$filter`; `encodeFilter()` for a whole filter expression
+│   ├── graphValues.ts            toNumberOrNull / toLookupId — reading Graph field values (shared; teradyneMapper re-exports)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
 │   ├── agenda.ts                 My agenda (pure) — whose tasks/EIRs, which dates, the window, LOCAL-day grouping, the badge count
@@ -805,6 +888,20 @@ src/
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── harnessLogMapper.ts       Graph item ⇄ harness log entry / part number; the derived Title
 │   ├── harnessLegacyClean.ts     Cleaning the Access export for the load (pure; run by scripts/clean-harness-production-log.mjs, not imported by the app)
+│   ├── crimpCheck.ts             Crimp height rules (pure) — limits inclusive, any reading out = out of spec, mm detection, when to email, labels
+│   ├── crimpMachines.ts          Crimp machines (pure) — a press in a Harness location, picker options that keep a picked one, which specs run on a press
+│   ├── crimpMapper.ts            Graph item ⇄ Crimp Spec / Crimp Check; Average, OutOfSpec and Title derived on write
+│   ├── crimpAlerts.ts            The out-of-spec crimp email (pure)
+│   ├── coatingCheck.ts           Conformal coating rules (pure) — averages, thickness ÷ coated sides, judged in the SPEC'S unit (mm or in), limits inclusive, labels
+│   ├── coatingMapper.ts          Graph item ⇄ Coating Spec / Coating Check; averages, both thicknesses, OutOfSpec and Title derived on write
+│   ├── coatingAlerts.ts          The out-of-spec conformal coating email (pure)
+│   ├── harnessPartRequest.ts     A harness part number request — new / retired / already listed, and its email (pure)
+│   ├── mcnFields.ts              MCN columns as DATA — the 10 Requires…/Incorporate lines, $select, scope JSON, people-as-lines
+│   ├── mcnMapper.ts              Graph item ⇄ Mcn; diffed update payload; refuses to write over an unreadable scope
+│   ├── mcnNumber.ts              MCNyy### — highest that year + 1, never count + 1 (pure)
+│   ├── mcnRoles.ts               MCN role tags → rights + the raise / approve / manage gates (pure)
+│   ├── mcnWorkflow.ts            The MCN workflow — actions per status, submit rules, which card is editable when (pure)
+│   ├── mcnAlerts.ts              MCN emails — submitted, approved, rejected, implemented; distribution prefill (pure)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
 │   ├── monthTrend.ts             Reports' this-month-vs-last-month rule — rates not counts, good ≠ up, too-early threshold (pure)
@@ -812,6 +909,8 @@ src/
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
 │   ├── emailThread.ts            One Outlook conversation per item — the subject + conversation index every email about it carries (pure)
+│   ├── emailContext.ts           A task / EIR / build request email's context — parent or linked task, description, details — drawn as three blocks (pure)
+│   ├── pottingSampleAlerts.ts    The coil potting sample out-of-limit email — subject + the pieces the shared layout draws (pure)
 │   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
 │   ├── linkify.ts               Bare URL → <a>; two entry points (escaped vs markup)
@@ -823,12 +922,19 @@ src/
 │   ├── cameraPhoto.ts            Photos from the phone/iPad camera — renamed "Photo YYYY-MM-DD HH-MM-SS.jpg" (an iPhone calls every shot image.jpg)
 │   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
 │   ├── sapMaterialCost.ts        SAP rows from Fabric (pure) — cost per plant, the part lookup (SapPart), the customer search terms + rows, the 10-digit SAP # key
+│   ├── sapPartFill.ts            Filling a new component / part from SAP as it is typed (typed boxes kept, SAP cost as base) + pasted numbers → lines
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
 │   ├── task.ts                   All domain types + constants (Task, Eir, Panel*, …)
 │   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
-│   └── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
+│   ├── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
+│   ├── crimp.ts                  Crimp Height Checks types + constants (CrimpSpec, CrimpCheck, check points)
+│   ├── coating.ts                Conformal Coating Checks types + constants (units — mm first, coated sides, spec, check)
+│   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
+│   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
+│   ├── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
+│   └── panelBom.ts               Panel SAP BOM Builder types + PANEL_BOM_CLUSTERS (the ten clusters, which drive item numbers)
 │
 ├── components/
 │   ├── Header.tsx                Top nav (departments menu, view switcher, theme, Report issue)
@@ -838,12 +944,14 @@ src/
 │   ├── UpdateAvailableBanner.tsx "A new version of ARC is available"
 │   ├── LoadingTasks.tsx          THE app-wide loading screen — verb/noun headline + a rotating "did you know" fact about ARC (data/loadingFacts.ts)
 │   ├── RequireAdmin.tsx          Route guard for /admin/*
+│   ├── MovedTo.tsx               Redirect for a moved route that KEEPS the query string (old /operations/harness-log links)
 │   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
 │   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
 │   ├── TaskStagePills.tsx        Shared-stage pills for the task lists' Engineering + Operations scope
 │   ├── CombinedTaskList.tsx      Both task lists' scope toggle, Department filter, other-list notice, sortable capped rows
+│   ├── TaskListPreviewNotice.tsx "Showing the N most recently updated tasks while the rest load" (task List + Kanban)
 │   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
 │   ├── EirFilterBar.tsx          EIR Project / Engineer / Search / Reporter filters
@@ -868,6 +976,8 @@ src/
 │   ├── PanelOrderRow.tsx         One panel order row
 │   ├── PanelTaskRow.tsx          One panel task row
 │   ├── BuildRequestRow.tsx       One build request row
+│   ├── BuildRequestTaskField.tsx A BR's Task Reference — link when empty, Change (with a confirm) when linked (#58)
+│   ├── LinkedDiscussion.tsx      The linked task's / BR's EARLIER comments, read-only and collapsed (#58)
 │   ├── BuildRequestItemCard.tsx  One part on a build request
 │   ├── WorkflowDiagram.tsx       The User Manual's shared workflow diagram — numbered steps, gates, branches/loops, tracks; each department passes DATA + its own status badge
 │   ├── BuildRequestWorkflowDiagram.tsx  The build request process (User Manual), on WorkflowDiagram
@@ -880,9 +990,17 @@ src/
 │   ├── TaskResolutionModal.tsx   "Mark complete" resolution capture
 │   ├── OperationsTaskFormModal.tsx  Create/edit Operations task
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
-│   ├── PanelTaskFormModal.tsx    Create/edit panel task
+│   ├── PanelTaskFormModal.tsx    Create/edit panel task (incl. start/due dates + estimated hours)
+│   ├── CapacityGrid.tsx          SHARED capacity screen body — Days/Weeks + navigation in the URL, grid, task bars, cell detail, backlog
+│   ├── PanelTeamGate.tsx         "Panel team only" gate for Capacity + Time Off
+│   ├── PanelTimeOffFormModal.tsx Add/edit/remove a Panel Time Off entry (defaultDate from the calendar)
+│   ├── PanelBomPartFormModal.tsx Add/edit a BOM Builder part (Super User / ARC admin) — no cost field
+│   ├── PanelBomKitFormModal.tsx  Add/edit a BOM Builder kit + its components; fills MFG # / description from a listed SAP #
+│   ├── PanelOrderBomsCard.tsx    A Panel Order's BOMs (the link lives on the BOM) — New BOM for this order, Link a saved BOM
+│   ├── MonthCalendar.tsx         SHARED month calendar + day panel — Where Am I? and Panel Time Off (grows to fit, "+N more", ?day= panel)
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
-│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven
+│   ├── QcFormModal.tsx           Create/edit a test sheet for ANY QC form — spec driven; Enter-as-Tab, firing grid, Export (filled form) in edit mode
+│   ├── QcFormExportButton.tsx    Shared QC Forms export button — build a PDF, download it, toast a failure
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
@@ -893,6 +1011,7 @@ src/
 │   ├── SupplierContactCard.tsx       SRM Tool — one contact, inline expandable card (comments/watchers/attachments)
 │   ├── SupplierIssueFormModal.tsx    SRM Tool — log an issue, scoped to a supplier (create-only)
 │   ├── SupplierIssueCard.tsx         SRM Tool — one issue, inline expandable card (comments/watchers/attachments)
+│   ├── SupplierClassChip.tsx         SRM Tool — SAP's A / B / C supplier class (letter + dot, colour never on the text)
 │   ├── SupplierLogo.tsx              SRM Tool — resolves and renders a supplier's Logo image column
 │   ├── SupplierLogoEditor.tsx        SRM Tool — Change/Remove links over SupplierLogo (detail page only)
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
@@ -900,9 +1019,13 @@ src/
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
 │   ├── scnAtoms.tsx                  SCN Status / Category / Approval chips (Supply Chain)
 │   ├── QuotesNav.tsx                 Insourcing Quotes sub-nav — Quotes / Customers / Roles (Roles only for whoever can manage it)
-│   ├── QuoteFormModal.tsx            New quote — customer, contact, validity, budgetary text, notes (number shown as "will be …")
-│   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE (final assembly or Part) — part numbers, target GM, Part cost, breaks, manual price
-│   ├── QuoteItemFormModal.tsx        Add/edit a component — part numbers, quantity, cost, overhead (NO margin — that's the line's)
+│   ├── QuoteFormModal.tsx            New quote — customer (+ its notes), customer reference, contact, validity, budgetary text, notes (number shown as "will be …")
+│   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE — part numbers, material / labor / overhead (18% default), target GM, breaks, manual price
+│   ├── QuoteToTaskModal.tsx          Create task from a Won quote — Engineering / Operations, title, project (sets the number)
+│   ├── FromQuoteLink.tsx             "From quote: IQ-…" on a task created from a quote, read off its own thread
+│   ├── QuoteLinksPanel.tsx           A quote's Linked work — Engineering / Operations task (item id) and project (title) pickers, saved on pick
+│   ├── QuoteTargetSummaryCard.tsx    A quote's Target & volume card — price vs the customer's target, a year's revenue at the EAU, GM % / GM $ (cost-gated), Project context
+│   ├── QuoteAlternatesCard.tsx       A quote's Alternates table (designator, 3 × manufacturer / part # / lead time, reason) + its editor (typed, or pasted from Excel) — printed on its own PDF page
 │   ├── QuoteCustomerFormModal.tsx    New/edit a quote customer — proposed code, clash candidates, similar-name warning (manager)
 │   ├── pricingAtoms.tsx              Sales Pricing status chip, sub-nav (Requests / New Products / Customer Quotes / Roles), access gate, card shells
 │   ├── PricingRequestFormModal.tsx   New pricing request — Altronic # / SAP # (optional), description, customer from SAP (typed while not connected)
@@ -914,9 +1037,11 @@ src/
 │   ├── RowSellingPrice.tsx           A worksheet row's OWN selling price — "Sell separately", target GM / list / customer, discount override, its own breaks (edits the DRAFT)
 │   ├── SapComparisonCard.tsx         A worksheet's SAP comparison — reference SAP parts, list / cost / base GM re-read from SAP, saved straight away
 │   ├── SubAssemblyCard.tsx           A worksheet sub-assembly (CSV and/or hand-added components) or standalone part (SAP or manual) — Altronic + SAP #, base vs adjusted cost, files (edits the DRAFT)
+│   ├── MultiPartAdd.tsx              Paste several SAP / Altronic numbers — each looked up in SAP, added as a component or a part
 │   ├── QuoteLineModal.tsx            Add a customer-quote line — worksheet (pinned rev), SAP part, priced request, or free line
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
+│   ├── MrbExportModal.tsx        Export for the MRB meeting — date presets / From–To, PDF or Excel, a live count
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
 │   ├── FeatureRequestGitHub.tsx  GitHub connect bar + token dialog, per-row issue link / Create issue, confirm dialog
 │   ├── GitHubMark.tsx            Inline GitHub mark (lucide 1.x dropped brand icons); sized like a lucide icon
@@ -930,6 +1055,8 @@ src/
 │   ├── PartFormModal.tsx         New part (fields follow the number's list, optional datasheet PDF) + NewPartButton (hidden without a role)
 │   ├── ComponentDescriptionPicker.tsx  New component's SIL category / Description / Type dropdowns (Type waits on Description)
 │   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
+│   ├── EcnDistributionCard.tsx   An ECN's Distribution card — ticked roles and who they reach, sent to/when, Send now, the tick-box editor
+│   ├── EcnDistributionChecklist.tsx The ten DISTRIBUTION roles as tick boxes (New ECN + the card's editor), each saying who it reaches
 │   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── ErDiagram.tsx             About-page Data model — zoom/pan/full screen, hover or tap a table to trace its links
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
@@ -945,6 +1072,15 @@ src/
 │   ├── DrawingLogFields.tsx      Descriptor-driven detail grid + form inputs
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
 │   ├── HarnessLogFormModal.tsx   Create/edit a harness log entry — part picked from the list, never typed
+│   ├── CrimpCheckFormModal.tsx   Record/correct a crimp check — spec picked, readings judged live, Enter-as-Tab for the micrometer, mm refused
+│   ├── CrimpSpecFormModal.tsx    Add/edit a crimp spec (ARC admins)
+│   ├── CoatingCheckFormModal.tsx Record/correct a coating check — spec picked, mm/in, six readings, thickness judged live in the spec's unit, Enter-as-Tab
+│   ├── CoatingSpecFormModal.tsx  Add/edit a coating spec in mm or inches, with coated sides (ARC admins)
+│   ├── HarnessPartRequestDialog.tsx  Request a new or retired harness part number — portalled, emails the part-request recipients
+│   ├── mcnAtoms.tsx              MCN status / priority chips, the Register / Settings nav, McnAccessGate (configured? pilot?)
+│   ├── McnFields.tsx             MCN dialog shell, scope-line editor, single-person picker, distribution ticks
+│   ├── McnFormModal.tsx          New MCN — saved as a Draft, number previewed; staged attachments upload after the create
+│   ├── McnDialogs.tsx            MCN card editors (description, scope, items, distribution) + approve / reject-reopen / implement
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
@@ -952,6 +1088,7 @@ src/
 │   ├── CommentThread.tsx         Sorted comment list + inline edit (own mention picker)
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
+│   ├── PendingAttachmentsCard.tsx  Files staged on a NEW form (EIR, MCN, Panel QC issue), uploaded once the item exists; renames same-name files
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
@@ -1013,8 +1150,17 @@ src/
 │   ├── MaintenanceReferenceListsView.tsx  Departments & Locations for the CMMS — inside the module, gated by manageAssetsGate (not /admin)
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
-│   ├── HarnessProductionLogView.tsx  Harness Production Log — any year (or all), sortable, cards on a phone
+│   ├── HarnessProductionLogView.tsx  Harness Production Log (/harness/production-log) — any year (or all), sortable, cards on a phone
 │   ├── HarnessPartNumbersView.tsx    Harness Part Numbers — readable by all, ARC admins add/rename/retire
+│   ├── CrimpChecksView.tsx       Crimp Height Checks (/harness/crimp-checks, /:id opens one) — year picker, out-of-spec filter, cards on a phone
+│   ├── CrimpSpecsView.tsx        Crimp Specs — readable by all, ARC admins add/edit/retire, delete only when unused
+│   ├── HarnessAlertRecipientsView.tsx  Harness → Who's notified (/harness/alert-recipients) — people per alert, picked from the directory, ARC admins edit
+│   ├── CoatingChecksView.tsx     Conformal Coating Checks (/operations/coating-checks, /:id opens one) — year picker, machine + out-of-spec filters, cards on a phone
+│   ├── CoatingSpecsView.tsx      Coating Specs — readable by all, ARC admins add/edit/retire, delete only when unused; cards on a phone
+│   ├── OperationsAlertRecipientsView.tsx  Operations → Who's notified (/operations/alert-recipients) — people per alert, ARC admins edit
+│   ├── McnsView.tsx              MCN register (/operations/mcns) — opens on open MCNs, sortable, cards on a phone
+│   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
+│   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
 │   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
 │   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
 │   ├── TeradyneDefectBreakdownReportView.tsx  Teradyne Defect Breakdown — latest month's donut, grouped by remark
@@ -1027,9 +1173,15 @@ src/
 │   ├── PanelOrderDetailView.tsx  Panel order detail
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
+│   ├── PanelCapacityView.tsx     Panel Engineering Capacity (/panels/capacity) — Panels' gate, header and data around the shared CapacityGrid
+│   ├── PanelTimeOffView.tsx      Panel Time Off (/panels/time-off) — month calendar + day panel (shared MonthCalendar); ?view=list / phone = sortable list
+│   ├── PanelTaskTemplatesView.tsx Panel Orders → Standard tasks (/panels/task-templates) — the tasks a new order raises; panel managers edit
+│   ├── PanelBomBuilderView.tsx   Panel SAP BOM Builder (/panels/bom-builder, /:id) — clusters, parts + kits, the live SAP BOM, copy blocks, CSV, save; unsaved picks kept in the browser
+│   ├── PanelBomsView.tsx         Saved BOMs (/panels/boms) — sortable, filterable
+│   ├── PanelBomPartsView.tsx     BOM parts & kits (/panels/bom-parts, ?tab=kits) — sortable tables; Super User / ARC admin edit
 │   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
 │   ├── QcFormsView.tsx           QC Forms landing dashboard — search + a button per controlled form
-│   ├── QcCpu95View.tsx           QCFRM-012 (CPU-95) test sheet list (Quality Control)
+│   ├── QcFormView.tsx            /qc-forms/:formId — any QC form's sheet list (status lights, sortable, cards on a phone, blank export)
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
 │   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
@@ -1063,12 +1215,13 @@ src/
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── MrbView.tsx               MRB register — Needs disposition / Decided / Archive / All
 │   ├── MrbDetailView.tsx         One MRB entry — Part / Nonconformance / Cost cards, attachments, comments
-│   ├── WhereAmIView.tsx          Where am I? — month grid (rows grow, +N more, day panel via ?day=) on desktop, agenda on a phone
+│   ├── WhereAmIView.tsx          Where am I? — the shared MonthCalendar (rows grow, +N more, day panel via ?day=) on desktop, agenda on a phone
 │   ├── AgendaView.tsx            /agenda — your tasks + EIRs overdue or coming due; window + Watching in the URL and remembered
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
 │   ├── FaitsView.tsx             FAITs list (Supply Chain)
 │   ├── FaitDetailView.tsx        One FAIT — five workflow cards, sign-offs, comments
 │   ├── EcnDetailView.tsx         One ECN — workflow cards, attachments, comments
+│   ├── EcnDistributionGroupsView.tsx  ECN distribution groups (/engineering/ecns/distribution) — readable by all, ARC admins pick people
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── FeatureRequestsView.tsx   ARC Feature Requests list — status pills, Department filter, search, open-first
 │   ├── FeatureRequestDetailView.tsx  One feature request — sidebar (Status/Priority/Department/Target Version), comments, watchers
@@ -1250,6 +1403,18 @@ This is not hypothetical. `setRelatedProjects` hand-built `{ ProjectReference: [
 
 ## Hyperlink columns: never in the create POST, only a follow-up PATCH
 
+> **SUPERSEDED for `EIRReference`, 2026-10-27: Graph cannot write a Hyperlink
+> column AT ALL — not at create, not in a later PATCH.** `{ Url, Description }`
+> and the `"url, description"` string both 400 `invalidRequest` on an existing
+> task, and none of the 3,147 tasks held an ARC-written link: every promotion's
+> follow-up write below had failed and warned. `createTask` no longer sends it
+> in real mode, and the task finds its EIR from the EIR's Task Reference
+> (`linkedEirForTask`; see "A promoted EIR and its task share ONE
+> conversation"). SharePoint REST `ValidateUpdateListItem` CAN write it — the
+> Azure CLI's token is refused by SharePoint, so that needs an app registration
+> PnP can use. The history below is kept for the Communication half, which
+> still applies.
+
 `EIRReference` on the Task list (a Hyperlink column, written as
 `{ Url, Description }`) is written correctly but at the WRONG TIME if it
 travels in the same POST that creates the item — Graph does not support
@@ -1383,7 +1548,80 @@ to fix it by hand, and THAT read as no link at all, because only Power Apps
 - Guessing is the bug. Don't reintroduce "first match wins" for tidiness.
 
 No SharePoint data needed changing: every affected EIR already stored the
-right full title. `EirDetailView.linkedTask.test.tsx` restores the sample
+right full title.
+
+### A promoted EIR and its task share ONE conversation (2026-10-27)
+
+Ray: "if somebody comments on an EIR, it should go to the task and if
+somebody comments on the task, it should go to the EIR similar to the build
+request." It rides the build-request mirror (see "One conversation across a
+task, its build request, and its parts") — `eir` is a fourth origin/target
+kind in `lib/commentMirror.ts`, and `useAddEirComment` calls `fanOutComment`
+like the task and BR hooks do.
+
+- **The pair is resolved from BOTH sides and must AGREE**
+  (`linkedEirForTask` / `linkedTaskForEir` in `lib/eirTaskReference.ts`).
+  The task's EIR link names the EIR, and that EIR's Task Reference names this
+  task or is blank — and vice versa. Live, two "Test" tasks (1630, 1663) both
+  link to EIR_2025-0191; only 1663 is its task, so 1630 mirrors nowhere.
+  Copying a comment onto the wrong record is worse than not copying it.
+- **Direct links only.** A BR comment reaches the task, never the EIR behind
+  it (`mirrorTargetsFor` pins it). Chaining copies comments onto records the
+  author never looked at.
+- **A task with NO `EIRReference` finds its EIR from the EIR's Task
+  Reference** — the task page's "From EIR" button, the completion prompt that
+  closes the EIR, and the mirror all use it. Seven promoted tasks had no link
+  (ARC's own promotions, whose link write always failed).
+- **A task's `EIRReference` has TWO live shapes**, and `eirForTask` reads
+  both: ARC's `…/eir/{id}` (label = EIR number) and the old Power App's
+  SharePoint form link, `…/Lists/EIREngineering…/DispForm.aspx?ID=768`, as
+  url AND label. The task page's "From EIR" button only knew the first, so
+  every pre-ARC promotion opened SharePoint in a new tab. Some form links name
+  an EIR id that is GONE — the EIRs were re-created (EIR_2024-0396 is item
+  1492, not 396) — so the EIR number in the task's old title
+  (`T40-0003-EIR_2024-0396 | …`) is the fallback, when exactly one EIR has it.
+  **A title alone never pairs**: "ECN for EIR_2025-0286" is related work.
+
+#### The one-time backfill — `scripts/eir-task-backfill.ps1`
+
+Three steps, so nothing is written unseen: `-Export` (read both lists into a
+folder OUTSIDE the repo) → `node scripts/plan-eir-task-backfill.mjs <dir>`
+(bundles `lib/eirTaskBackfill.ts` with **Rolldown** — Vite 8 dropped esbuild —
+and writes `plan.json`, `report.md`, `pairs.csv`, `unlinked.csv`,
+`conflicts.csv`, `suggestions.csv`) → `-Check` (re-reads every touched record,
+writes nothing) → `-Apply`. Fill `TaskId` on `unlinked.csv` and pass it back
+with `--links` to link the ones it couldn't. Rules worth keeping:
+
+- **Pair evidence order**: your `--links` list, the EIR's Task Reference, the
+  task's EIR link. Contradictions go to `conflicts.csv`, never linked.
+- **Write only what's missing, and only on the EIR.** A working Power Apps
+  `ItemID=` Task Reference is left alone; an EIR with none gets the task's
+  numbered title — or an ARC task URL if that title is shared. **The task's
+  EIR link is never written** (Graph can't write a Hyperlink column; see the
+  superseded note under "Hyperlink columns"). The first `-Apply` tried, and
+  all 34 were refused while the comments landed.
+- **Comments are APPENDED, never rewritten**, each side getting the other
+  side's OWN comments under the live mirror's banner, original author and
+  time kept. Copies are never copied (mirrors, ARC's promotion note, its
+  "carried over from EIR" comments). "Already there" is `commentKey`: same
+  author, same words — NOT time, since a copy is stamped when copied. So a
+  re-run plans nothing.
+- **A comment write is refused if the thread changed since the export**
+  (SHA-256 of the exported value vs a fresh read) — re-export and re-plan.
+  Every write is read back. No email is sent.
+
+Live, 2026-10-27: 35 EIRs looked promoted; 34 paired (31 already pointed at
+each other in old formats). APPLIED that day: 349 comments copied (145 EIR →
+task, 204 task → EIR) and EIR_2026-0103's Task Reference filled in; a re-export
+re-planned to zero writes. Task 1630 (a second "Test" task claiming
+EIR_2025-0191) and the twelve suggestions were left alone on Ray's say-so. EIR_2026-0257's "Task
+Reference" is a sentence typed into the wrong field — unlinked. Twelve tasks
+name an EIR in their title without a link (ECNs, build requests "for" an EIR)
+and are only SUGGESTED.
+
+**`scripts/clean-harness-production-log.mjs` still imports `esbuild`**, which
+left with Vite 8, so it no longer runs; swap it to Rolldown the way the
+backfill planner does before its next use. `EirDetailView.linkedTask.test.tsx` restores the sample
 EIR's reference in an `afterEach` — the mock EIR store is module state with
 no reset helper, so a test that saves a reference otherwise leaks it.
 
@@ -1406,9 +1644,9 @@ A dangling lookup would render as a project nobody can identify. Two rules:
 
 - **A list that can't be read refuses the delete.** "Couldn't look" must
   never read as "nothing uses it".
-- **SCNs and CPU-95 are not checked**: SCNs store the project TITLE as text
-  (another site collection), and CPU-95's `ProjectTag` lookup isn't read by
-  ARC yet. Add it to `projectUsage` the day it is.
+- **SCNs and CPU-95 are not checked**: both store the project TITLE as text
+  on another site collection (SCN's Project Reference; CPU-95's Project
+  Reference on the PMO list, since 2026-10-21), so nothing dangles.
 
 The lists are re-read at most 30s old; the remaining race (somebody linking a
 record in the seconds before the DELETE) is stated, not closed.
@@ -1489,7 +1727,9 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
 
   **The list EXISTS** — confirmed live 2026-08-24. This entry said "not yet created" for months and was wrong; the id above is the one the site returned. There is deliberately **no default in `config.ts`**: adding one turns EIR field gating ON at the next deploy, and every engineer not on the list would lose fields they can edit today. Set the env var only once the list is populated — that decision is Ray's, not a tidy-up.
 - **Shared mailbox** (env: `VITE_SHARED_MAILBOX`) — email address that @-mention notifications send FROM. See setup below.
-- **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipient of "Report issue" reports sent from the life-buoy button in the header. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd. See `src/api/errorReport.ts`.
+- **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipients of "Report issue" reports sent from the life-buoy button in the header. A recipient LIST in the alert lists' format (`"Ray White <ray.white@…>, tim.webster@…"`, parsed by `parseRecipientList`), audited on Admin → Notification recipients. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd; an empty list refuses to send. See `src/api/errorReport.ts`.
+
+  **Every env default in `config.ts` uses `||`, never `??`.** `deploy.yml` passes each `VITE_*` var it names whether or not the repo variable exists, so an unset one arrives as `""` — and `??` keeps it. From v0.112.6 (2026-08-24, which added this var to `deploy.yml`) until v0.201.1, Report issue mailed a blank address (Graph: "Recipient 'App Manager' is not resolved"), and `VITE_HIDDEN_PEOPLE`, `VITE_SP_SCN_SITE_URL` and `VITE_SP_SALES_DOCUMENTATION_SITE_URL` lost their defaults the same way. Pinned by `api/config.envFallback.test.ts`.
 
 ### Drawing File Logs (Engineering)
 
@@ -1530,6 +1770,24 @@ similar-looking lists match.
 
 Note `CADNumber` is NOT a duplicate of `Title`: e.g. Title `"501 505"` vs
 CADNumber `"501505"`. Both are shown.
+
+**Sorting, and the Sketch No. auto-number** (Tim, 2026-11-04). Every
+register's table sorts through the shared `useSortableTable`, with columns
+built from the descriptors (`drawingLogSortColumns` in `DrawingLogsView`):
+numbers and dates sort as values, and the value filter is offered only on
+short text columns that aren't the row's identifier — a menu of 2,000 sketch
+numbers or titles helps nobody. The table is a child keyed by register, so a
+tab switch resets sort, filters and the row cap. Two descriptor flags:
+
+- **`defaultSort`** — the column a register opens on. Only Sketches sets it
+  (Sketch No., descending). Without it `initialKey` is `""`, an unknown key,
+  so the rows keep the API's most-recent-date order until a header is clicked.
+- **`autoNumberKey`** — the Add form fills that number field with
+  `nextDrawingNumber` (highest + 1, never count + 1), once the register has
+  loaded and only until the person types in it. It stays editable, and a
+  number already in use is WARNED about (`entriesWithNumber`), never refused —
+  the register has never been unique. Computed from the cached list, so two
+  people adding at once can pick the same number (rule 7's accepted risk).
 
 **`By`, `EnteredBy` and `Software` are CAD-ONLY text columns that behave like
 choice fields.** Declared `suggest: true`, which makes the form offer the values
@@ -1804,15 +2062,64 @@ the Parts List" because their real bullets were folded into v0.168.0.
 
 Seven things that are load-bearing:
 
-- **The Part List is fetched WHOLE: about 15 `$top=999` pages, with no
-  `$filter` or `$orderby`.** Past 5,000 items SharePoint refuses a filter or
-  sort on an unindexed column. A plain paged read works at any size, and a
-  substring search on a description is impossible server-side anyway.
+- **The Part List is fetched WHOLE for the screens that need every row** —
+  the Parts Book, Global Search and the New Part form. That's about 15
+  `$top=999` pages, with no `$filter` or `$orderby`. Past 5,000 items
+  SharePoint refuses a filter or sort on an unindexed column. A plain paged
+  read works at any size, and a substring search on a description is
+  impossible server-side anyway.
   - The queries hold the data for a long time (`staleTime` 10 min, `gcTime`
     30 min), so stepping from the Parts Book into a list and back doesn't
     re-download 14,000 rows.
   - The Dashboard card deliberately carries **no count**, so the Dashboard
     doesn't download the list to print a number.
+- **A part's page and a single list's screen read only what they show**
+  (Tim, 2026-10-26). These are the "slices" in `hooks/useAltronicParts.ts`.
+  Measured live that day: the whole Part List took 11.2 s and 14.3 MB; one
+  part by id took 0.3 s; list 309 took 0.4 s (254 rows, one request).
+  - **A part's page** (`useAltronicPart` / `useAltronicComponent`) reads its
+    one row (`findAltronicPart`, `readItem`; a 404 is null).
+  - **A list screen** (`useAltronicPartsInLists` /
+    `useAltronicComponentsInLists`) reads `startswith(fields/Title,'309')`,
+    filtered on the INDEXED Title. SharePoint allows that past 5,000 rows and
+    needs no Prefer header. A component list reads every list in its
+    CATEGORY (one request each, de-duped), so a search from 711 still finds
+    a 701 part. Rows are re-checked with `partPrefix`, since startswith reads
+    the raw Title.
+  - **Neither starts the whole download.** Each observes the whole-list key
+    with `enabled: false`: if that list is cached it shows at once, but it is
+    never fetched from here.
+  - **A cached copy and a fresh read are reconciled by `modifiedAt`** — the
+    newer one wins (`newer`). A fresh read saying "gone" wins outright.
+  - **The slices live under their OWN key** (`PARTS_SLICE_KEY`), never
+    `ALTRONIC_PARTS_KEY`. Next free, the new-list check and the Parts Book
+    counts read that key, and a partial list there gives them wrong answers
+    (the task-list lesson).
+  - **`upsert` lands a written row in every cache that holds it**: the whole
+    list, the row's single read, and any list slice. A new part joins only
+    the slices whose lists include its prefix. `useDatasheet` uses it too.
+  - **An edit diffs against `cachedRow`** (the list's copy or the single
+    read, whichever is newer). An edit made before the whole list loaded
+    must still email the SAP admins what changed. Diffing against the list
+    alone sent nothing.
+  - **An empty single list asks one more question.** A list with no parts
+    and a list SharePoint security-trimmed both come back empty. So when the
+    slice is empty and no whole list is cached, `listHasRows` asks for one
+    row of the whole list (`$select=id&$top=1`). Only a whole list with
+    nothing in it gets "No parts to show" and the permissions wording.
+  - **The Communication 400 fallback covers every read** —
+    `withCommunicationFallback` in `api/partsListShared.ts` wraps the whole
+    read, the prefix read and `readItem`. A part's page may be the first
+    read of a session.
+  - Pinned in `api/altronicParts.slices.real.test.ts` (request shapes, real
+    mode) and `hooks/useAltronicParts.slices.test.tsx`. Each guard was
+    verified by breaking it.
+- **New part fills in Next free only once BOTH lists have loaded**
+  (`listsLoaded` in `PartFormModal`). The Component List usually arrives
+  seconds before the Part List. Working from it alone made a Part List list
+  look empty, so 604001 was offered on a full list. Until then the number
+  stays blank, a status line says why, and Next free refuses with a reason.
+  Pinned in `PartFormModal.listsLoading.test.tsx`.
 - **The nine book tiles render BEFORE either list loads.** Only the counts
   and a book's lists wait. A blank page for the few seconds the Part List
   takes reads as broken.
@@ -1891,11 +2198,19 @@ Seven things that are load-bearing:
     different names on the two lists.
   - Item ids repeat across the lists, so rows key on `key` (component ids
     offset by 10,000,000), never `id`.
+- **Export components** (BusinessIT#53, Ray, 2026-10-22) — a button on the
+  Parts Book that downloads the Component List as a CSV (`lib/componentCsv.ts`),
+  built from the list already loaded for the tiles, so it costs no request.
+  Live rows only, by part number; the columns ARE `COMPONENT_FIELDS` plus
+  number, category, sign-off and dates, so a new field is exported with no
+  change. UTF-8 BOM first (or Excel garbles ±, µ, Ω), RFC 4180 quoting, CRLF.
+  Open to everyone who can read the list.
 - **A detail page is keyed by ITEM ID, not part number.** The legacy data had
   duplicated part numbers, and a page by number can only ever show one of two.
 - **A whole list returning ZERO rows says so, and names item-level
   permissions.** It never says "no parts in list 309": thousands of rows
-  coming back empty is how SharePoint security-trims.
+  coming back empty is how SharePoint security-trims. A list screen, which
+  reads only its own list, asks `listHasRows` before deciding which it is.
   - The three branches (refused / failed / empty) live in `PartsDataGate`
     (`components/partsAtoms.tsx`), which all three screens share.
 
@@ -2256,12 +2571,10 @@ Four details:
   `flagged` is `undefined` for a part, and only `false` (not "absent")
   triggers the "flag says No" note. Same folder, same `<part #>.pdf` name.
 
-**Uploading** (Tim, 2026-09-28) — a PDF on the New Part form (**REQUIRED**
-since 2026-10-09, Tim: the form refuses to submit without one, naming
-"Datasheet" with the other missing fields; it was optional before — EXCEPT
-on a drawing number, EWI-005 device type 9 "Wire Diagram, Sales Drawing,
-etc." (`isDrawingNumber` in `lib/partNumberScheme.ts`), which has no
-datasheet and stays optional), and
+**Uploading** (Tim, 2026-09-28) — a PDF on the New Part form (**OPTIONAL on
+every part** — Tim removed the requirement entirely on 2026-10-22. It was
+required from 2026-10-09 except on a drawing number; `isDrawingNumber` in
+`lib/partNumberScheme.ts` was that exception and now has no caller), and
 an **Upload datasheet** button on a part's page when it has none (the way
 back from a failed upload, and the only way the ~14,000 Part List parts get
 one — none had a PDF when this shipped). `uploadDatasheet` writes
@@ -2987,6 +3300,84 @@ a "show all"; the filters and the count always run over everything.
 
 Attachments are enabled on the list (kind `ecn` in `api/attachments.ts`).
 
+**"Waiting for serial numbers" is a filter, not a column** (BusinessIT#61,
+David Bulkley; Tim, 2026-11-04). The rules are in `lib/ecnMapper.ts`, and
+the ECN list's Serial numbers filter (`?serials=Waiting` / `Recorded`) reads
+them. Waiting (`isEcnWaitingForSerialNumbers`) is EITHER:
+
+- **The field says "Please provide serial numbers"** (`ecnAsksForSerialNumbers`,
+  Tim, 2026-11-05: "any and all"). That wording anywhere in `field_6`, any
+  case, "number" or "numbers" — on ANY ECN, whatever its stock disposition,
+  and even with an answer written after it. Other wordings ("Please include…",
+  "enter serial numbers") don't count on their own.
+
+Or BOTH of these:
+
+- **The stock disposition needs them** (`ecnStockNeedsSerialNumbers`): In
+  House Stock (`field_7`) is set, and not "Do NOT modify". Blank or Do NOT
+  modify means no serial numbers are ever logged. Tim added this half after
+  the first cut listed 1,409 of 1,829 ECNs; with it, live, 65 (2020–2026).
+- **None are recorded** (`isEcnSerialNumbersMissing`): `field_6` is blank, OR
+  it is ONE line asking for them ("Please provide serial numbers", "enter
+  serial numbers") with no answer after the request (`Response`, an `s/n`,
+  `see ECN`). Live, 90 rows held such a request; counting blanks alone
+  misses them.
+
+Recorded (`isEcnSerialNumbersRecorded`) = serial numbers on file AND not
+Waiting, so the two never list the same ECN — an answered "Please provide
+serial numbers" is Waiting. An ECN that needs none and has none is in
+neither — only Any shows it. **There is no "closed" ECN**: the list has no status
+column, and Sign-off status (`field_12`) was blank on all 1,829 rows. Tim
+parked hiding closed ECNs until that is decided, so don't build it on
+`field_12` or on Log# age unasked.
+
+### ECN distribution (BusinessIT#57)
+
+Ray: "mirror MCN distribution list structure". Tim's decisions, 2026-11-05.
+Pieces: `lib/ecnDistribution.ts` (pure — the rules), `api/ecnDistributionGroups.ts`,
+`hooks/useEcnDistributionGroups.ts`, the send in `hooks/useEcns.ts`
+(`distributeEcn`, `useSendEcnDistribution`), `EcnDistributionCard`,
+`EcnDistributionChecklist`, `EcnDistributionGroupsView`
+(`/engineering/ecns/distribution`), and `scripts/create-ecn-distribution.ps1`.
+
+- **The roles are the paper ECN form's ten** (`ECN_DISTRIBUTION_ROLES`):
+  CAD Department, VP Operations Eng., Quality Manager, Logistics Manager,
+  Production Director, Sales, Op. Program Manager, Purchasing Manager, SHE
+  Coordinator, Panel Plant. Not the MCN's eight. They must equal the
+  `Distribution` column's choices — change both together.
+- **A new ECN starts with the form's seven X's** (`ECN_DEFAULT_DISTRIBUTION`,
+  VP Operations Eng. through Purchasing Manager), editable on the form.
+- **It SENDS the first time Sign-off status (`field_12`) is filled in** —
+  blank → anything (`shouldDistributeEcn`). Not on create, not on a later
+  edit. The pre-patch row is captured in `useUpdateEcnFields`' `onMutate`
+  (after the optimistic patch the sign-off already reads as set), and
+  `updated` — SharePoint's row after the PATCH — must have no
+  `distributedAt`. Recipients are the ticked roles' members, de-duped by
+  address, minus the signer STRICTLY (the MCN approved-email rule).
+- **Who it went to is RECORDED**, in `DistributedTo` (plain text, one
+  "Name <email>" per line — `lib/peopleLines.ts`, moved out of
+  `mcnFields.ts` into the shared layer for this; `mcnFields` re-exports
+  it) and `DistributedAt`. Only the addresses the send reports as sent.
+- **Send now** (`canSendDistributionNow`: signed off, not sent) is the
+  recovery — nobody was set up, the send failed, or the ECN was signed off
+  before this. It re-reads the ECN first and refuses one already sent.
+- **Three columns on the ECN list**: `Distribution` (MULTI-choice,
+  checkboxes — annotated `Collection(Edm.String)` at the write site in
+  `api/ecns.ts`), `DistributedTo`, `DistributedAt`. The script adds them;
+  until then **a read asks for them and, on a 400 only, retries without and
+  remembers** (`withDistributionFallback`, the MRB Watchers shape), so the
+  1,800-row register never goes blank. A create then leaves the ticks off,
+  and a write naming those columns is refused with the script's name.
+- **ECN Distribution Groups is its OWN list** on the Engineering site
+  (`VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID`, **no default** — unset, the
+  card says so and nothing is emailed). Not MCN's: re-pointing one must never
+  re-point the other. Matched to an ECN's ticks by role NAME (no FK), read
+  FRESH at send time. **ARC admins** pick people from the directory
+  (`useRequireArcAdmin` in the mutationFn); anyone can view. ARC never adds
+  or deletes a group; the script seeds the ten only into an EMPTY list.
+- **The form's RCVD (received) column is NOT tracked** (Tim). Comments are
+  unchanged: still submitter + mentions only.
+
 ### ECN Checklist — the Cross-Functional ECN Checklist (Form# MFGFRM-038)
 
 `VITE_SP_ECN_CHECKLISTS_LIST_ID` on `SITES.engineering`, created by
@@ -3245,7 +3636,7 @@ that table exists:
 | `InCircuitPCBW_x002e_O_x002e__x00` | **truncated** internal name, "In Circuit PCB W.O. #" |
 | `FinalAssemblyW_x002e_O_x002e__x0` | **truncated** too |
 | `Parts_x0020_Location` | a **person** column, despite the name |
-| `Title` | the Altronic assembly number |
+| `Title` | the **SAP P/N** — the form called it the Altronic assembly number until Katie Fleming corrected it (2026-10-28) |
 
 Also:
 
@@ -3536,14 +3927,93 @@ Seven things that shape this feature:
   record a disposition (Tim, 2026-09-21), matching Visit Reports and QC Time
   Tracking. SharePoint's list permissions remain the real boundary.
 
+- **Panel department is a real boolean column, `PanelDepartment`**
+  (BusinessIT#71, Tim, 2026-11-11) — marks an entry as coming from the panel
+  department, for sorting and filtering in reporting. Added by
+  `scripts/add-mrb-panel-column.ps1`, which writes and reads back Yes and No
+  on a throwaway row. **It must run BEFORE the deploy that ships it**: it is
+  an ordinary `MRB_FIELDS` descriptor, so it is in the `$select`, and
+  selecting a column the list hasn't got 400s the whole read. (It is NOT in
+  the Watchers fallback — folding it in would read a missing Panel column as
+  a missing Watchers column.) Rules:
+  - **Blank is No.** Every row from before the column reads false; there is
+    no third "not answered" state, so the pills are `YesNoField` without
+    `allowUnset`, and New Entry starts at No.
+  - **A create always SENDS it**, `false` included (`buildMrbCreateFields`
+    drops only `""` / `null`), so SharePoint's views read No, not blank. An
+    edit sends it only when it changed (the diff).
+  - **It shows as Yes / No everywhere**: the Nonconformance card, the
+    register's Panel column (sort + value filter), the phone card, and both
+    export formats. `?panel=yes|no` is the URL filter; anything else is
+    ignored rather than matching nothing.
+  Pinned in real mode in `api/mrb.panelDepartment.test.ts`.
+
 **No delete**, in the UI or the module — an MRB entry records material that
 was rejected and what was decided, and most of the list is retained history.
 `mrb.test.ts` asserts the module exports nothing matching /delete|remove/.
 
+**The meeting export** (`lib/mrbExport.ts` + `components/MrbExportModal.tsx`,
+2026-10-20) — an **Export** button on the register, pressed before the MRB
+meeting: a date window (presets or From/To, default last 30 days) as a
+landscape PDF to print or an xlsx. Five rules, each pinned in
+`mrbExport.test.ts`:
+
+- **Two sections, Needs disposition then Decided**, oldest first, undated
+  last, each with a cost total.
+- **Every undecided live entry goes in by default, WHATEVER its date** — the
+  backlog is what the meeting is for; a window-only pack would let an old
+  undecided entry sit for ever. A checkbox keeps it to the window.
+- **Decided entries go in only inside the window**, bounds inclusive — and
+  not at all under **Needs disposition only** (`needsOnly`, Tim,
+  2026-11-11), which leaves the Decided section out of the PDF entirely.
+- **Archive rows never go in**, and the export ignores the tab and filters on
+  screen — it reads the whole register.
+- **Dates compare as `yyyy-mm-dd` keys** (`toDateInputValue`, UTC — MRB dates
+  are midday UTC); the presets are LOCAL days ending today.
+
+On the PDF the undecided rows leave Disposition blank, so the decision can be
+written in; `rowPageBreak: "avoid"` keeps a row on one page.
+The workbook has a Status column, real dates and numbers, a frozen header and
+an autofilter.
+
+**Each section is a Main plant table then a Panels table** (`splitByPlant`,
+by the Panel department flag), and the PDF has NO Panel column; the workbook
+has a **Plant** column ("Main plant" / "Panels") to filter on instead, rows
+in the same order. An empty table is one line ("Panels (0) None."), never a
+header over nothing.
+
+**The PDF is laid out for the fewest pages that stay readable** (Tim,
+2026-11-11) — `pdfColumns` / `pdfColumnWidths`:
+- **Only the Reason wraps.** Every other column is MEASURED (`getTextWidth`
+  at the table's own font, over every entry in the export, so all tables
+  line up) and sized to its longest value up to a `cap`; Reason gets the
+  rest. A value past its cap wraps, never truncates. If the others leave
+  Reason under `MIN_REASON_WIDTH` (150pt), Description then Vendor give way.
+  A header may wrap between words, never inside one; the column before Cost
+  fits the foot's bold "Total".
+- **No minimum row height**, so a row is exactly as tall as its Reason.
+  (Write-in rows were 30pt, then 24pt; Tim chose short rows over them.)
+- **Dates are mm/dd/yy** (`mrbShortDate`, UTC). The Altronic Part Number has
+  its own column headed **"Old Material"** — the PDF only; screens keep the
+  `MRB_FIELDS` label.
+- **Needs disposition only drops the Disposition column** as well as the
+  Decided section; with both sections, Disposition is a fixed 64pt.
+- 28pt margins, a two-line page header, 7.5pt text.
+A 34-backlog / 42-decided pack went from 5 pages to 4, and 2 with Needs only.
+Check a change by rendering the PDF and LOOKING at it (PyMuPDF into the
+scratchpad) — a test can't see a wrap.
+
+**The register fits without scrolling sideways** (Tim, 2026-11-11):
+`COLUMN_CLASS` in `MrbView`, shared by header and cell. Description takes the
+width the others leave (`w-full` header, `max-w-0` cell) and truncates;
+Vendor and Where Caused truncate at a fixed width; below `xl` Altronic Part
+Number and Where Caused are hidden (they stay on the card, the entry and the
+export). Checked by eye at 1100, 1280 and 1500px.
+
 **On a phone the list is CARDS, not the table** — `MrbView` renders two
 siblings over the same `shown` rows, a `sm:hidden` card list and a
 `hidden sm:block` table, split at 640px. Nine columns don't fit a phone even
-truncated. The `QcCpu95View` / `QcTimeTrackingView` shape, including the card
+truncated. The `QcFormView` / `QcTimeTrackingView` shape, including the card
 being a real `<button>` (nothing competes for the tap target here).
 **jsdom has no breakpoints, so both render at once in a test** and every
 entry's text appears twice — scope to the table or use `getAllBy*`.
@@ -3638,10 +4108,13 @@ Six things about this list's columns:
   ALWAYS sends it, false included, or SharePoint's own views read the column
   as blank rather than No. Settable on the New Supplier form (it is known
   when a supplier is set up) and editable from the Details card after.
-- **The four performance NUMBER columns are editable** (Ray, 2026-09-09) —
-  `SupplierPerformanceRate`, `QualityPerformance`, `QualityPeformance` and
-  `AllDeliveries`, through an "Edit scores" button on the sidebar's
-  Performance field. Two things about that panel: it renders **even when every
+- **The four performance NUMBER columns are now the FALLBACK** — SAP's
+  figures win wherever SAP scores the supplier (see "Supplier performance
+  comes from SAP" below). They are still editable, through an "Edit scores"
+  button that shows ONLY when the figures on screen are ARC's (Ray,
+  2026-09-09, for the editing) — `SupplierPerformanceRate`,
+  `QualityPerformance`, `QualityPeformance` and `AllDeliveries`. Two things
+  about that panel: it renders **even when every
   score is null**, because gating it on `supplierPerformanceRate !== null`
   (as it did) left a supplier with no scores yet no way to enter the first
   one; and a null reads **"Not recorded"** rather than being hidden or shown
@@ -3776,6 +4249,22 @@ it on `AssignedBuyer` and `PointofContact`, both fixed in the same pass.
 Graph also hands the id back as a **string** (`"353"`), which is why the
 mappers go through `toInt`.
 
+**That pass fixed only the `$select` for `AssignedBuyer`, not the mapper —
+so Assigned Buyer still "didn't save" until 2026-11-03.** `toSupplier` read
+`parseSinglePersonField(f.AssignedBuyer)` alone, so a buyer that saved read
+back as nobody. The write was also broken: `ensurePersonLookupId(...)
+?.lookupId ?? null` cleared the column whenever `ensureuser` couldn't answer.
+The fix is the full three-step for a single-person column: a local
+`personOrLookup` in `supplierMapper.ts` that reads either shape;
+`attachSupplierPeople` naming the buyer from the PMO User Information List
+(best-effort, `User #n` otherwise); and `resolveAssignedBuyer` in
+`api/suppliers.ts` (Graph-first `resolvePersonLookupId`, REFUSES rather than
+writing `null`). A newly assigned buyer is also folded into Watchers in the
+SAME PATCH (watchers re-read first; clearing the buyer removes nobody), the
+house assign-path rule. `getSupplier` now returns null only on a 404. Pinned in
+`api/suppliers.assignedBuyer.test.ts` (real mode), each half checked by
+removing it and watching the test fail.
+
 **None of it is visible from mock mode**, which is why `supplierContacts.test.ts`
 passed throughout. `api/srm.bpReference.test.ts` forces `USE_MOCK: false` and
 asserts the request shape; each case was verified by reintroducing the bug and
@@ -3862,6 +4351,63 @@ their own inner `<div>` (full-width on mobile, `flex flex-col` container)
 and the two buttons into a second inner `<div>` means each row only ever
 sizes against its own content — a new button next to New Supplier should go
 in that second `<div>`, not back onto one shared row with the title block.
+
+#### Supplier performance comes from SAP — Fabric first, ARC's scores as the fallback
+
+Tim, 2026-10-22. The four scores and SAP's A / B / C class come from the
+Fabric warehouse table **`tbl_arc_supplier_performance`**, on the GraphQL
+API as **`tbl_arc_supplier_performances`**. It was created misspelt
+(`…_perfomance`) and Tim renamed it on 2026-10-22; the old name no longer
+answers (both checked with a live query). `SAP_SUPPLIER_PERFORMANCE_TABLE` in
+`api/supplierPerformance.ts` is the one place it is spelled. Columns:
+`BP_NUMBER` (text), `VENDOR_NAME`, `SUPPLIER_GROUP` (Production /
+Packaging), `PERIOD_YEAR`, `SUPPLIER_PCT`, `QUALITY_PCT`, `LOGISTICAL_PCT`,
+`ALL_DELIVERIES`, `CLASSIFICATION` (A / B / C). Pieces:
+`lib/supplierPerformance.ts` (pure), `api/supplierPerformance.ts`,
+`hooks/useSupplierPerformance.ts`, `components/SupplierClassChip.tsx`.
+
+What the live data looked like (2026-10-22): **321 rows, one per BP number,
+all PERIOD_YEAR 2026**; 306 of the 531 suppliers matched on BP number (304 of
+the 526 Active), 17 SAP vendors have no supplier in ARC, 3 rows have no
+LOGISTICAL_PCT. Where both existed, the typed SharePoint scores were older
+than SAP's and disagreed with them.
+
+Seven things that are load-bearing:
+
+- **The whole table is read ONCE** (paged by `endCursor`, 1,000 a page), cached
+  30 minutes, and matched in the browser. One request serves the list and
+  every supplier page. A cursor that never ends throws rather than handing
+  back a partial table, which would quietly put ARC's figures on suppliers
+  SAP does score.
+- **`supplierPerformanceFor` is the ONE rule**: SAP's row when the BP number
+  matches, else the four SharePoint columns. The list and the detail page
+  both call it, so they can't disagree.
+- **Matched on BP number, SAP's zero padding ignored** (`supplierBpKey`, both
+  sides). A blank BP number matches nothing.
+- **Several years per supplier → the latest PERIOD_YEAR wins.** The table
+  holds one year today; it is per year by design.
+- **A missing figure is `null` ("Not recorded"), never 0** — 0 would read as
+  the worst score.
+- **Nothing is shown as THE answer while SAP is being asked** — the sidebar
+  says "Checking SAP…" and the list cell "…". Showing ARC's older figures
+  first and then swapping them is the flicker this avoids.
+- **Edit scores shows only when the figures on screen are ARC's** (SAP has
+  no row, or SAP couldn't be read). SAP's figures are read-only in ARC. A
+  failure says why once (`describeSupplierPerformanceFailure`); on the list
+  that line replaces the per-row `*` that otherwise marks ARC's scores.
+
+**Who can read it is Fabric's call**, not ARC's: Tim set up a purchasing role
+on the GraphQL API item (2026-10-22). Somebody without it gets a 403 and
+ARC's own scores, with a sentence saying so. There is no ARC roles list for
+this, deliberately — the figures aren't sensitive, and two places deciding
+access is how they drift.
+
+**Real mode only.** `SUPPLIER_PERFORMANCE_LIVE = !USE_MOCK`; the demo reads
+`MOCK_SAP_SUPPLIER_PERFORMANCE` (invented figures; suppliers 25 and 29 have
+a row, 30 deliberately hasn't, to show the fallback). `VITE_FABRIC_IN_DEMO`
+is the Pricing Calculator's switch and does not reach this. Pinned in
+`api/supplierPerformance.real.test.ts` (the table name, paging) and the two
+`*.performance.test.tsx` view tests, verified by disabling the SAP-first rule.
 
 ### Cost Impact Notices (Supply Chain, ALTRONICSALESTEAM site)
 
@@ -4271,64 +4817,152 @@ Sales folder). Pieces: `api/applicationPhotos.ts`,
 
 ### Insourcing Quotes (Customer Service / Sales, PMO site)
 
-BusinessIT #37. A tool for building insourcing quotes — the customer's data
-package, per-component cost, one margin per line, the conversation between Sales,
-Engineering, Supply Chain and Operations — that outputs a customer PDF.
+BusinessIT #37. A tool that takes the FINAL cost of each part being quoted —
+material, labor, overhead — and turns it into a selling price, and where
+Sales, Engineering, Supply Chain and Operations discuss the quote and get
+buy-in, beside the customer's data package; it outputs a customer PDF.
 **Customers never use it; they only receive the PDF.** Routes:
 `/sales/quotes`, `/sales/quotes/:id`, `/sales/quotes/customers`,
 `/sales/quotes/roles`, lazy-loaded, with `QuotesNav` across all four.
 `docs/INSOURCING-QUOTING-DESIGN.md` is the design, and its section 13 (the
-build contract) wins wherever it differs from the sections above it. The
-pricing maths is ported from Ray's AltronicQuoteTool (AQT).
+build contract) wins wherever it differs from the sections above it — EXCEPT
+where this section says the 2026-10-29 rework changed it (no components,
+final cost per line). The pricing maths is ported from Ray's
+AltronicQuoteTool (AQT).
 
-Five lists on **`SITES.pmo`**, created by `scripts/create-quote-lists.ps1`
+Four lists on **`SITES.pmo`**, created by `scripts/create-quote-lists.ps1`
 (readable internal names, idempotent, `-WhatIf`), off the site navigation:
 
 | List | env | Shape |
 |---|---|---|
-| Quotes | `VITE_SP_QUOTES_LIST_ID` | the header; attachments ON (the customer's data package) |
-| Quote Assemblies | `VITE_SP_QUOTE_ASSEMBLIES_LIST_ID` | quote LINES (assembly or Part); `QuoteRef` single lookup; `TargetGM`; attachments OFF |
-| Quote Items | `VITE_SP_QUOTE_ITEMS_LIST_ID` | `QuoteRef` + `AssemblyRef` single lookups; attachments ON |
-| Quote Customers | `VITE_SP_QUOTE_CUSTOMERS_LIST_ID` | `CustomerCode` unique |
+| Quotes | `VITE_SP_QUOTES_LIST_ID` | the header; attachments ON (the customer's data package, supplier quotes) |
+| Quote Assemblies | `VITE_SP_QUOTE_ASSEMBLIES_LIST_ID` | quote LINES; `QuoteRef` single lookup; `Cost` (material), `LaborCost`, `MaterialOverheadPct`, `TargetGM`, `TargetPrice`, `EstimatedEAU`; attachments OFF |
+| Quote Customers | `VITE_SP_QUOTE_CUSTOMERS_LIST_ID` | `CustomerCode` unique; `Note` = the customer notes |
 | Quote Roles | `VITE_SP_QUOTE_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles`, `Note` |
 
-**None of the five has a default in `config.ts`**, and `QUOTES_CONFIGURED`
-needs all five. Unlike EIR Roles, a default here is not a lockout risk — an
+**None of the four has a default in `config.ts`**, and `QUOTES_CONFIGURED`
+needs all four. Unlike EIR Roles, a default here is not a lockout risk — an
 unset Quote Roles list means NOBODY has access — but the lists must exist and
 the roles list be populated before anyone is admitted, so turning the feature
-on is a deliberate act (set all five repo variables, redeploy). All five are in
-`deploy.yml`'s named list and `vite-env.d.ts`.
+on is a deliberate act. All four are in `deploy.yml`'s named list and
+`vite-env.d.ts`.
 
-**Quote → Line → Component.** A quote holds LINES (what the customer buys),
-each one of two types (`LineType` on Quote Assemblies — the list and the
-`QuoteAssembly` type keep their names to avoid churn):
+#### The 2026-10-29 rework — final cost per line, no components
 
-- **Final assembly** — built from components. A component carries **cost
-  only**: cost, optional material overhead, quantity per assembly. **No target
-  GM, no sell price, no GM — anywhere** (type, column, form, worksheet).
-- **Part** — a standalone part quoted on its own (Ray, 2026-10-09). Its
-  `Cost` and `MaterialOverheadPct` live on the line itself and it has **no
-  components** (no components section, no "Add component"; `useCreateQuoteItem`
-  refuses one).
+The first review (2026-10-27) asked for CSV component import, alternates per
+component and more. Ray's call afterwards: **no CSV import, and no component
+breakdown** — "this tool would take the final cost of a part for material,
+labor and overhead then generate a selling price. This tool would give the
+ability to comment and discuss and get buy-in from other departments."
 
-**The margin is set ONCE, on the line** (`TargetGM` on Quote Assemblies) —
-Ray, 2026-10-09: "I only want to adjust the gross margin on the final
-assembly." It moved there from Quote Items; the script reports a leftover
-Quote Items `TargetGM` column as unused and never deletes it. **Assembly →
-Part is REFUSED while the line has components** (`QuoteLineTypeChangeError`);
-**Part → Assembly clears the line's own Cost / overhead in the same write**
-(`normalizeLineTypePatch`). The worksheet's "Add line" offers Final assembly or
-Part as pills. On lines and items `Title` IS the Altronic part number. **A
-component has NO customer part number** (Ray, 2026-10-09) — it's a LINE
-field; `QUOTE_ITEM_SELECT` must not ask for `CustomerPartNumber` (selecting a
-column the list hasn't got 400s the whole read), and the script stops creating
-it on Quote Items (an existing one is reported unused, never deleted). The
-customer sees per line only its part numbers, description and quantity-break
-table — a Part prints exactly like an assembly — never components, cost or
-margin.
+- **A line carries `Cost` (MATERIAL — the column predates labor and keeps its
+  name so existing rows read), `LaborCost` and `MaterialOverheadPct`
+  (overhead as a % of MATERIAL).** Unit cost = material × (1 + overhead/100) +
+  labor; **labor carries no overhead**. Blank material, labor or overhead
+  count as 0; a total that isn't > 0 is "no cost entered".
+- **A new line starts at 18% overhead** (`DEFAULT_QUOTE_OVERHEAD_PCT`) — a
+  FORM default only. A stored blank still reads as 0; an edit shows what is
+  stored.
+- **The Quote Items list and the Final assembly / Part split are gone from
+  ARC.** `api/quoteItems.ts`, `useQuoteItems`, `QuoteItemFormModal`, the
+  `quoteItem` attachment parent and `VITE_SP_QUOTE_ITEMS_LIST_ID` were
+  deleted. The list and Quote Assemblies' `LineType` column stay in
+  SharePoint, unread; the script reports them as retired and never deletes.
+  A line priced from components before the rework reads as "no cost entered"
+  until its material and labor are typed in — only the dummy Motor Tech data
+  was affected.
+- **No alternates feature** — there are no component rows to hang one on.
+  Alternates are a header-level table instead (below).
+- **Per-line threads were NOT added.** Discussion is the quote's, and supplier
+  quotes go in the quote's attachments.
+
+**Customer notes** — Quote Customers' `Note` column, relabelled "Customer
+notes", shows on every quote for that customer (the Quote card) and under the
+picker on New quote (`CustomerNotes` in `QuoteFormModal`). Internal, never
+printed. Displayed live, never copied into the quote, so editing a
+customer's notes reaches every quote at once.
+
+**Customer reference / description** — `CustomerReference` (text) on Quotes,
+on the header form, printed under PREPARED FOR on the PDF, and a sortable
+column (no value filter — free text) in the quotes list, which the search
+covers too.
+
+**Customer type** (Ray, 2026-10-30) — `CustomerType`, a strict choice
+(`QUOTE_CUSTOMER_TYPES`: Cooper / Arcline / External) on Quotes; pills with
+Not set on the header form, shown on the Quote card, and a Type column in
+the quotes list with a Customer type filter (`?type=Cooper`, `?type=none`
+for quotes with none set). `toCustomerType` reads
+anything else as null; null clears. Internal, never printed. Change the
+const and the script's choice list together — SharePoint refuses a value the
+column doesn't declare.
+
+**Target & volume** (`QuoteTargetSummaryCard`, Ray, 2026-10-30) — each LINE
+carries the customer's `TargetPrice` (currency) and `EstimatedEAU` (number,
+whole ≥ 1 — `parseEau` reads anything else as null), both optional, entered
+on the line form. Per line, not per quote: a quote is several parts, each
+with its own target and volume. `quoteTargetSummary` (lib/quotePricing.ts)
+is the maths:
+- **Our price is the unit price at the line's QUOTED quantity** (the
+  Subtotal's tier), not the base price.
+- Annual revenue = that price × EAU; annual cost = unit cost × EAU; GM $ =
+  the difference; GM % is weighted over the totals, never averaged.
+- A total includes only the lines that HAVE the figure, and the card says how
+  many have no EAU, so a partial total never reads as the whole quote. A line
+  with a price but no cost counts in revenue, never in GM.
+- The quote-level "vs target" compares only lines with a price, a target AND
+  an EAU, weighted by volume. Positive = ABOVE their target; the chip says
+  "above" / "below" in words, colour only as a tint.
+- GM % and GM $ are cost — `canSeeCost` only. Price vs target and revenue
+  are sell-side and show to viewers.
+
+The card also holds **Project context** — `ProjectContext` (plain multi-line
+note) on Quotes, edited through the card's Edit button (`FieldEditModal`).
+NOT behind the Sent guard: it is internal collaboration, like the links.
+None of the card is printed, and `QuotePdfModel` has no field for any of it.
+A new rev copies all four.
+
+**Linked work** (`QuoteLinksPanel`, the right panel) — `EngineeringTaskId` /
+`OperationsTaskId` are **NUMBER columns** holding the task's item id, and
+`EngineeringProjectRef` / `OperationsProjectRef` hold a project TITLE. The old
+`EngineeringTaskLink` / `OperationsTaskLink` Hyperlink columns are left unread
+— Graph can't write a Hyperlink column at all (see "Hyperlink columns"), so
+`setQuoteLinks` was deleted. Each pick saves at once through
+`useUpdateQuoteFields` (diffed, `editQuoteGate`), and is NOT behind the Sent
+guard — a link is collaboration. A stored value the lists no longer offer
+stays in its picker, marked (`withStoredValue`). A linked task gets an Open
+link. Links never print.
+
+**Alternates** (`QuoteAlternatesCard`, Ray, 2026-10-29) — `Alternates` JSON
+on Quotes. Each row has a free-text `designator` (the part, "5a" — the first
+column of the working sheet, added 2026-10-30) and EXACTLY three options (`QUOTE_ALTERNATE_SOURCES`,
+`padSources`), each `{ manufacturer, partNumber, leadTime }`, plus a free-text
+`reason` for choosing the alternate. Deliberately no part # / description
+column — Ray asked for only those. Typed, or pasted from Excel
+(`parsePastedAlternates`: tab-separated, [Designator |] Mfr 1 | Mfr part # 1
+| Lead time 1 | … | Lead time 3 | Reason, extra columns joined into the
+reason, rows ADDED below). A first line with two or more header-looking cells
+(Designator, MFR, Lead Time…) is the header: skipped, and its first cell says
+whether a designator leads (not a manufacturer → yes). With no header, 11+
+cells means a designator, 10 or fewer means none. The whole table prints on a page of its own after the quote; a
+portrait page can't fit eleven columns, so the PDF shows Designator |
+Alternate 1 | Alternate 2 | Alternate 3 | Reason (the screen says Option 1–3), each option cell stacking manufacturer, part # and "Lead
+time: …" (`alternateSourceCell`). No rows, no page. Behind the Sent guard (it
+prints). **A value ARC can't parse is `alternatesCorrupt`**: shown as an
+error, not editable, and `updateQuoteFields` REFUSES a write over it
+(`AlternatesUnreadableError`); a new rev starts with an empty table and a
+warning. The ECN checklist rule. The column was briefly `LeadTimes` (Part # |
+Description | Lead time | Reason) on the branch and never reached
+SharePoint.
+
+**These columns must exist before v0.209.0 deploys** — `CustomerReference`,
+`CustomerType`, `ProjectContext`, `Alternates`, `EngineeringTaskId`,
+`OperationsTaskId`, `OperationsProjectRef` (Quotes), `LaborCost`,
+`TargetPrice` and `EstimatedEAU` (Quote Assemblies) are `$select`ed, and selecting a
+missing column 400s the WHOLE read. Re-run `create-quote-lists.ps1` against
+the live lists first; it only adds what's missing.
 
 **SAP part numbers are `####-####-##`** (10 digits, 4-4-2, e.g.
-1003-0114-40) on lines and components — `lib/sapPartNumber.ts` is the ONE
+1003-0114-40) on lines — `lib/sapPartNumber.ts` is the ONE
 place: `formatSapPartNumber` dashes as you type (digits only, max 10),
 `sapPartNumberProblem` allows blank or exactly 10 digits. The forms format and
 validate and store the DASHED form; **the mapper reads whatever is stored**
@@ -4343,8 +4977,8 @@ Parts Roles / CMMS pattern). Each tag implies the ones below it.
 | | `viewer` | `quoter` | `manager` |
 |---|---|---|---|
 | See quotes and sell / break prices; comment, attach, watch | yes | yes | yes |
-| See and edit cost, overhead, a line's target GM, margin | — | yes | yes |
-| Create and edit quotes, assemblies, components, revs; generate the PDF | — | yes | yes |
+| See and edit material, labor, overhead, a line's target GM, margin | — | yes | yes |
+| Create and edit quotes, lines, alternates, links, revs; generate the PDF | — | yes | yes |
 | Set Won / Lost / Expired | — | — | yes |
 | Create and edit customers; manage the roles list | — | — | yes |
 
@@ -4367,18 +5001,15 @@ Parts Roles / CMMS pattern). Each tag implies the ones below it.
 **Pricing — `lib/quotePricing.ts`, pure, the single source of truth.** GM is
 `(price − cost) / price`.
 
-- **A component is COST only**: `loadedUnitCost = cost × (1 +
-  MaterialOverheadPct/100)` (blank overhead = 0), `extendedCost = quantity ×
-  loadedUnitCost`. `QuoteItemPricing` is `{ itemId, loadedUnitCost,
-  extendedCost, problem }` — nothing else.
-- **A line's `unitCost`**: an assembly's = Σ component `extendedCost`; a
-  Part's = its own `cost × (1 + overhead/100)`. Overhead is a real cost, so GM
-  is measured on loaded cost.
+- **A line's `unitCost`** = material × (1 + overhead/100) + labor
+  (`lineCostBreakdown`, which also hands the worksheet the overhead in
+  dollars). Overhead is a real cost, so GM is measured on loaded cost.
 - **`computedPrice` = `roundCents(unitCost ÷ (1 − targetGM/100))`** — the
   margin applied ONCE, to the line's total, rounded ONCE, there. Null (with a
-  named problem — "No target GM set for this assembly.", a component with no
-  cost, …) when the cost is unknown or the GM is missing or not `0 < GM < 100`.
-  Worked example, pinned: components $38.40 + $18.795 at 40% → **$95.33**.
+  named problem — "No target GM set for this line.", "No cost entered — enter
+  the material and/or labor cost.", …) when the cost is unknown or the GM is
+  missing or not `0 < GM < 100`. Worked example, pinned: material $520 + 18%
+  ($93.60) + labor $85 = $698.60 at 40% → **$1,164.33**.
 - **`roundCents` trims the cents figure to 12 significant digits before
   rounding**, so `57.195 ÷ 0.6` (floats as 95.32499…) rounds to 95.33. A bare
   `Number.EPSILON` nudge was too small above ~1.
@@ -4392,7 +5023,7 @@ Parts Roles / CMMS pattern). Each tag implies the ones below it.
   `PriceBreaks`. Each tier is `roundCents(price × (1 − discount))` with cost
   held fixed, so GM falls at volume; the base tier is `1 – (firstBreak − 1)`.
 - **`CustomerPrice` is STORED** so SharePoint's own views and exports can show
-  it, and re-stored by the hooks after any line or component change —
+  it, and re-stored by the hooks after any line change —
   `quotePricing` recomputes it every time; never trust the stored value over it.
 - **Every line has a QUOTED QUANTITY** (`QuotedQty`, Ray, 2026-10-09: "defaults
   to ONE piece and is never blank") — a whole number ≥ 1; the mapper reads a
@@ -4404,14 +5035,15 @@ Parts Roles / CMMS pattern). Each tag implies the ones below it.
   Qty / Unit price / Subtotal on every line to EVERYONE (sell figures) and the
   Total card; QuotesView's Total column is `quoteTotal`. `totalPrice` (one of
   each at base) still exists but nothing shows it.
-- **Display — `lib/quoteMoney.ts`**: every DERIVED money value (loaded / ext.
-  cost, line cost, price, profit, tiers, totals) shows exactly 2 decimals; a
-  TYPED unit cost shows up to 4 only when sub-cent precision was entered
+- **Display — `lib/quoteMoney.ts`**: every DERIVED money value (overhead,
+  total cost, line cost, price, profit, tiers, totals) shows exactly 2
+  decimals; a TYPED material or labor cost shows up to 4 only when sub-cent
+  precision was entered
   (`formatUnitCost`). Display only — the maths keeps full precision. A
   walkthrough once showed "$18.795"; that's what this rule is for.
 - **The AQT "user price" layer is DEFERRED** (channel discount, round-up to a
   dollar, which price the customer sees): no columns for it. It can be added
-  later without disturbing anything, because it applies once, on the assembly.
+  later without disturbing anything, because it applies once, on the line.
 
 **Numbering — `IQ-<CUSTOMERCODE>-<####>-R<rev>`** (`lib/quoteNumber.ts`), e.g.
 `IQ-COO-0042-R1`. The sequence is **GLOBAL** (one counter, not per customer),
@@ -4440,7 +5072,8 @@ Enforce Unique Values; the in-app check only gives the friendly message first.
 SAP leading zeros survive.
 
 **Revisions.** Two actions: **New rev** (`api/quoteRevisions.ts`) copies the
-header, every assembly and every component forward as NEW rows, carries the
+header (customer reference, alternates and links included, all in the create
+POST) and every line forward as NEW rows, carries the
 comments (original author and timestamp, oldest-first, tagged "carried over
 from R1" — the EIR promotion rule) and copies attachments with
 `copyAttachments`; the old rev is never touched, so each rev keeps exactly
@@ -4458,14 +5091,15 @@ made deliberate. **The latest rev is DERIVED** (highest `Rev` for a
   html2canvas screenshot; built-in Helvetica, the Altronic PNG mark;
   **dynamically imported**, so it is not in the main bundle.
 - **Built ONLY from `QuotePdfModel`**, a customer-facing type with no cost,
-  margin, discount or component fields. One mapper builds it and the printer
+  material, labor, overhead, margin or discount fields. One mapper builds it and the printer
   accepts only the model, so a future edit cannot print cost — the field
   doesn't exist where the printer can reach it.
 - **Leak tests** generate a PDF from distinctive cost and margin values,
   extract its text and fail on any of them or the words "cost", "margin",
   "markup". That works only because the text is real.
-- **`BudgetaryText` and `QuoteNotes` are the only customer-visible free
-  text**, typed on purpose, so the leak test cannot judge them — the form says
+- **`BudgetaryText`, `QuoteNotes`, `CustomerReference` and the Alternates
+  rows are the only customer-visible free text**, typed on purpose, so the
+  leak test cannot judge them — the form says
   beside each that it prints. Budgetary text is seeded from AQT's default
   wording when Budgetary is ticked and the field is empty, and never
   overwritten once edited. Comments and attachments never print.
@@ -4496,43 +5130,82 @@ since a token can be regenerated). It goes through `uploadToDriveTarget` with
 folder**: it resolves it by path first and a 404 is an error naming the path,
 because a PUT by full path would silently create it in the wrong place.
 
-**Phase 2 columns exist but are read-only in this release** —
-`EngineeringTaskLink` and `OperationsTaskLink` (Hyperlink; the Project Task
-List is in another site collection, so no lookup) and
-`EngineeringProjectRef` (text holding an Engineering project TITLE, the SCN
-pattern). Hyperlinks are **never in the create POST**, only their own
-follow-up PATCH (see "Hyperlink columns"); a new rev copies them that way. No
-FK on the About diagram for any of the three.
-
 Six more things that are load-bearing:
 
-- **Single lookups (`CustomerRef`, `QuoteRef`, `AssemblyRef`) are bare
+- **Single lookups (`CustomerRef`, `QuoteRef`) are bare
   integers on write with both halves `$select`ed** — invisible from mock mode,
   so each is pinned by a `USE_MOCK: false` request-shape test.
-- **Delete is per-list**: assemblies and components CAN be deleted by a
+- **Delete is per-list**: lines CAN be deleted by a
   quoter/manager (they are a draft's composition, and a rev preserves what was
   sent); **quotes cannot** — a withdrawn quote is Lost or Expired; customers
   are retired; roles rows can be deleted.
-- **Comments follow the full house rules** on quotes and on each component
+- **Comments follow the full house rules** on the quote
   (`commentNotifyRecipients`, auto-watch on create and on mention against the
   PMO resolver, `useCommentFileUpload`). There is deliberately **no thread on
-  assemblies** — assembly-level discussion goes on the quote — and component
-  threads are never mirrored.
-- **Both `Communication` columns must be verified BEHAVIOURALLY** after the
+  a line** — line-level discussion goes on the quote.
+- **The `Communication` column must be verified BEHAVIOURALLY** after the
   script runs: post two comments and confirm the second replaces rather than
   doubles the thread. Graph's `appendChangesToExistingText` answer proves
   nothing (FAIT 89).
-- **Worksheet layout**: the quote's own Attachments (the customer's data
-  package) sit in the MAIN column directly above the Discussion, not the
-  sidebar. A component's expanded panel is a two-column grid — Attachments
-  then the thread in the wide column, Watchers in the narrow one, stacked
-  below `md` — rendered in a full-width `<td colSpan>` whose content is
-  `sticky left-0` at the components box's measured visible width, so the
-  table scrolling sideways never makes the panel scroll.
+- **Worksheet layout**: the quote's own Attachments sit in the MAIN column
+  directly above the Discussion, after the Alternates card; Linked work and
+  Saved PDFs are in the sidebar.
 - **The roles list is managed at `/sales/quotes/roles`**, inside the module,
   by a quote manager or an ARC admin — not under `/admin`.
-- **Still open**: manager approval before Sent (not built), and nested
-  component sub-assemblies (out of scope; the roll-up is flat).
+- **Still open**: manager approval before Sent (not built); SAP lookup of the
+  customer and part (Ray: not this round — the Pricing tool's Fabric lookups
+  are the place to start); an automated monthly component CSV for the Claude
+  project (the Parts Book's Export components button is the manual one).
+
+#### A won quote becomes an Engineering or Operations task
+
+Ray, 2026-10-30: the EIR → Task promotion, for quotes. A **Create task**
+button on a **Won** quote (quoter or manager — `editQuoteGate`, asked again
+in the mutationFn against a FRESH read of the quote) opens
+`QuoteToTaskModal`: Engineering or Operations, title, parent project
+(required: it sets the number; defaulted from the quote's Linked work
+project, matched by title). Pieces: `lib/quoteToTask.ts` (pure),
+`hooks/useQuoteToTask.ts`, `components/QuoteToTaskModal.tsx`,
+`components/FromQuoteLink.tsx`.
+
+- **What carries**: the quote's discussion (original author and time,
+  oldest-first, tagged "carried over from quote …"), its watchers plus the
+  creator, its attachments (`copyAttachments`), and a plain-text description
+  (quote, customer, reference, project context, lines). An Operations task is
+  numbered from a FRESH list and retried once on a refused create (the form's
+  rule); its Communication is a separate PATCH after the create.
+- **What the quote records**: `EngineeringTaskId` / `OperationsTaskId` and
+  the project title in `EngineeringProjectRef` / `OperationsProjectRef` —
+  the existing Linked work columns, no new ones — plus a note in its own
+  discussion naming the task number, and an email to its watchers threaded
+  into the quote's conversation. One task per department per quote.
+- **Only the task create is fatal.** Everything after it is collected into
+  one warning toast, the promotion's rule. A failed link-back says to pick the
+  task under Linked work, because without it nothing is shared.
+- **Only a task CREATED from the quote shares its conversation** (Ray: "only
+  button links"). A task picked by hand under Linked work is a reference. The
+  pair is proven from BOTH sides: the task's thread holds the header ARC
+  wrote at creation — an origin banner carrying `data-created-from-quote`,
+  `data-quote-base` and `data-quote-number` (`quoteOriginOfTask`) — and the
+  quote's link column names the task. No column anywhere stores the marker;
+  don't "simplify" it into the link alone, or every hand link starts
+  copying comments.
+- **Task → quote goes to the LATEST revision of the base** (Ray), and only
+  while that rev still names the task (`linkedQuoteForTask`). A new revision
+  copies the links forward, so R1 and R2 can both name it.
+- **The mirror** is the task ⇄ build request one (`fanOutComment`), with
+  `quote` and `operationsTask` as new kinds — Operations task comments fan
+  out for the first time. Direct links only: a quote comment reaches its
+  tasks, never their build request or EIR. A task page doesn't load quotes,
+  so a task comment reads the Quotes list — ONLY when its thread carries the
+  marker, and a refused read mirrors nothing.
+- **From quote** on both task pages is read off the same marker, so it costs
+  no request; it opens the revision the task was created from.
+
+Pinned in `lib/quoteToTask.test.ts`, `hooks/useQuoteToTask.test.tsx` (mock
+mode, end to end, both mirror directions and the hand-linked case — the gate
+and the marker rule each verified by removing them) and
+`views/QuoteDetailView.toTask.test.tsx`.
 
 ### Sales Pricing (Customer Service / Sales, ALTRONICSALESTEAM site)
 
@@ -4586,21 +5259,32 @@ admins get "Run Queries and Mutations" on the GraphQL API item.
 
 #### Roles — `lib/pricingRoles.ts`, the ONE place the rules live
 
-| Right | `requester` | `manager` | `admin` |
-|---|---|---|---|
-| See requests and final prices, raise, comment, watch, customer PDF | yes | yes | yes |
-| See cost, margin, comparables and price history | — | yes | yes |
-| Price / re-price; New Product Pricing; Customer Quotes | — | yes | yes |
-| Added to SAP | — | — | yes |
-| Manage the Pricing Roles list | — | — | yes |
+| Right | `requester` | `manager` | `admin` | `new products` |
+|---|---|---|---|---|
+| See requests and final prices, raise, comment, watch, customer PDF, calculator | yes | yes | yes | — |
+| See cost, margin, comparables and price history | — | yes | yes | — |
+| Price / re-price; Customer Quotes | — | yes | yes | — |
+| New Product Pricing — see and work worksheets | — | yes | yes | yes |
+| Added to SAP | — | — | yes | — |
+| Manage the Pricing Roles list | — | — | yes | — |
 
 - **admin ⊃ manager ⊃ requester.** **No role = no access** — the Quote Roles
   rule, and the opposite of EIR Roles' fall-open.
+- **`new products` stands ALONE** (Ray, 2026-10-22: "a permission level that
+  is only able to see and interact with new product pricing"). Rights:
+  `canOpen` (the Dashboard card and the menu) and `canNewProducts`, nothing
+  else — `canAccess` stays the REQUEST side. Every New Products write asks
+  `newProductsGate`, and `PricingManagerGate newProducts` lets the role in.
+  Landing on a request screen (the card, the menu, an old link) REDIRECTS to
+  New Products rather than saying "no access" (`PricingAccessGate`); the
+  Pricing bar is hidden, since the role has one tab and no calculator. In
+  SharePoint the role needs New Product Pricing and NP Sub-Assemblies (and
+  Pricing Roles, read by everyone) — never Pricing Requests or History.
 - **An ARC admin gets ONLY `canManageRoles`**, so a roles list nobody holds
   `admin` on is never locked from the inside. Being an ARC admin is not a
   reason to see cost.
 - Every control AND every `mutationFn` asks the same gate
-  (`accessPricingGate`, `seePricingCostGate`, `priceGate`, `addedToSapGate`,
+  (`accessPricingGate`, `seePricingCostGate`, `priceGate`, `newProductsGate`, `addedToSapGate`,
   `managePricingRolesGate`, `cancelRequestGate`); the mutationFn goes through
   `useResolvePricingAccess`, which AWAITS the roles and Admins lists rather
   than trusting a render-time flag.
@@ -4786,17 +5470,23 @@ then:
   rather than breaking. `usePricingLookup`'s queries report `notConnected` and
   never retry it.
 
-Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`. **Three
+Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`. **Four
 lookups are live now** — the Calculator's cost (below), and the request
-form's part and customer lookups (the section after it). Each has its own
+form's part (with its list price) and customer lookups (the section after it). Each has its own
 switch; everything else in the seam still throws.
 
-#### The Calculator's cost view — the first real Fabric read
+#### The Calculator's cost table — the first real Fabric read
 
 Ray, 2026-10-15. ONE lookup in the seam is live: `lookupSapMaterialCosts`
-reads the warehouse view **`rpt.vw_cogs_material_api`**, exposed on the
-Fabric API for GraphQL as **`vw_cogs_material_apis`** (the SQL name plus an
-`s`, no schema prefix; field names match the SQL columns). Confirmed with a
+reads the warehouse TABLE **`tbl_cogs_material_api`**, exposed on the
+Fabric API for GraphQL as **`tbl_cogs_material_apis`** (the SQL name plus an
+`s`, no schema prefix; field names match the SQL columns). **It replaced the
+view `rpt.vw_cogs_material_api` on 2026-10-20** (Ray): same six columns, same
+dashed SAP numbers, and a warm lookup by SAP # took ~0.3s against ~1.9s on
+the view (by old number ~0.6s against ~1.8s). The first call of a session is
+still ~2.8s on either — the token and a cold endpoint, which the warm-up
+covers. Every query names it in one place per function in
+`api/pricingLookup.ts`; the old view still exists and nothing reads it. Confirmed with a
 live query on 2026-10-15 — introspection is OFF on the API item, so names are
 read from the warehouse explorer and proved with a query, not discovered.
 Only the Calculator uses it (`useSapMaterialCosts`); everything else in the
@@ -4824,10 +5514,9 @@ What the live rows taught, each load-bearing:
   page session, never throws — so the first lookup doesn't also pay for the
   silent token and a cold Fabric endpoint; and the lookup fires on the 10th
   digit, no click. Look up stays, and `lookupSeq` makes pressing it again on
-  the same number re-apply SAP's figures. What's left is Fabric's own time:
-  `Material` is `varchar(max)` in a VIEW, which the warehouse can't skip
-  through cheaply — a real table with a short `Material` column (refreshed by
-  a pipeline) is the fix on that side, Fabric's, not ARC's.
+  the same number re-apply SAP's figures. What was left was Fabric's own
+  time — `varchar(max)` columns in a VIEW — and the table that replaced the
+  view on 2026-10-20 fixed that on Fabric's side.
 - **The description FOLLOWS the part** (Ray: "whenever you enter a new SAP part
   number, the description must be … updated"). Every new lookup replaces it
   with SAP's `MaterialDescription`. When SAP doesn't hold the new number, a
@@ -4838,7 +5527,7 @@ What the live rows taught, each load-bearing:
   unit for V, standard for S) — taken as it comes. **0 or blank is NO cost**,
   never a $0 COGS.
 - **A blank `MaterialPriceGroup` is no group.**
-- **The view holds no list price** — it is cost only.
+- **The cost table holds no list price** — that is `tbl_altronic_user_pricing`, read by the part lookup (below).
 - **The number goes through a variable, never string interpolation**
   (`filter: { Material: { eq: $sap } }`).
   Pinned in `api/pricingLookup.materialCost.real.test.ts` with `USE_MOCK:
@@ -4901,14 +5590,32 @@ Ray, 2026-10-17. Two more lookups read the warehouse, both on
 `SAP_PART_LOOKUP_LIVE` / `SAP_CUSTOMER_LOOKUP_LIVE` (`!USE_MOCK ||
 FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
 
-- **Part — `lookupSapPart`, on `vw_cogs_material_apis`**, six columns
+- **Part — `lookupSapPart`, on `tbl_cogs_material_apis`**, six columns
   (`SAP_PART_FIELDS`: Plant, Material, OldMaterialNumber, MaterialDescription,
   MaterialPriceGroup, UnitCost). A 10-digit SAP # is ONE `eq` on `Material`;
   otherwise the Altronic number, upper-cased, is one `eq` on
   `OldMaterialNumber`; an SAP miss falls back to the Altronic number. Never an
   OR across the two `varchar(max)` columns — that is what made the first cost
-  lookup slow. The first plant by number gives the cost; the view holds no
-  list price. `toSapPart` in `lib/sapMaterialCost.ts`.
+  lookup slow. The first plant by number gives the cost. `toSapPart` in
+  `lib/sapMaterialCost.ts`.
+- **List price — `tbl_altronic_user_pricing`** (GraphQL
+  `tbl_altronic_user_pricings`, Ray, 2026-10-22), asked as a SECOND ROOT FIELD
+  of the same request, so a lookup is still one round trip (measured: no
+  slower than cost alone). Columns, read off the live table since
+  introspection is off: `PartNumber` (the DASHED SAP #, i.e. the cost table's
+  `Material`), `OldMaterialNumber`, `PartDescription`, `Amount`, `Currency`,
+  `UoM`, `ValidFrom`, `ValidTo`. ARC asks for the last four
+  (`SAP_LIST_PRICE_FIELDS`), keyed by `PartNumber` or `OldMaterialNumber` to
+  match the cost query. `currentListPrice` picks the USD row valid TODAY
+  (latest ValidFrom wins; a missing bound is open; 0 or blank is no price) —
+  one row per part when checked, all USD, current rows end 9999-12-31. It
+  feeds `SapPart.listPrice`, so the New Product SAP comparison and a customer
+  quote's SAP-part line get it with no change of their own. Pinned in
+  `pricingLookup.part.real.test.ts` (verified by dropping the price).
+- **The per-MPG distributor discount is still NOT wired.** In live mode
+  `sapMpgDistributorDiscounts` throws not-connected, and `useSapComparison`
+  reads that as the standard 34% (footnoted on the card) — never as "SAP
+  isn't connected", which hid real list and cost figures behind a banner.
 - **The form looks the part up AS YOU TYPE** — at once on the 10th SAP digit,
   else 400 ms after typing stops — and warms the endpoint as it opens. It
   fills only BLANK boxes, so a typed Altronic number is kept.
@@ -4949,6 +5656,36 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   numbers, description and quantity are editable, and any line removable.
 - **A standalone part** is looked up in SAP by either number (its cost comes
   in as the base cost, chipped SAP) or typed by hand.
+- **A new worksheet starts with NO row** and asks what goes in — Add a
+  sub-assembly / Add parts (Ray, 2026-10-22). Sub-assemblies and Parts are
+  two SECTIONS, each shown once it has a row or is chosen; the draft array
+  still holds both in one order, which is what Save writes.
+- **New components and parts are looked up AS THEY ARE TYPED**
+  (`useSapPartAsYouType`, shared with the request form: at once on the 10th
+  SAP digit, else 400 ms). The fill rule is `lib/sapPartFill.ts`: SAP fills a
+  box only if it is blank or still holds what SAP put there last
+  (`SapFill`), so a typed description survives; SAP's COST always comes in
+  as the base. Only TYPED numbers are looked up (`sapLookupArgs`) — a number
+  SAP filled for the last part would otherwise steer the next lookup back to
+  it. A number SAP lacks takes back what SAP filled (`clearSapFill`). A SAVED
+  part is never looked up on open (`touched`), or opening a worksheet would
+  quietly re-cost it.
+- **Add several** (`components/MultiPartAdd.tsx`) — the SAP comparison's
+  paste box, on a sub-assembly (components) and on the Parts section (one
+  part per number). Each number is looked up through `useLookUpSapParts`
+  (the same cache entry as `useSapPart`, in parallel, at most 100 a paste);
+  10 digits = SAP #, else Altronic # (`lookupArgsFor`). A number SAP lacks is
+  still added as a MANUAL line to fill in; one already there (`samePart`,
+  either number) is skipped and counted. A number SAP COULDN'T BE ASKED about
+  is retried once, then LEFT IN THE BOX with the reason (`sapFailureReason`,
+  plus Sign in to SAP when that's it) — never added as a blank row; only "not
+  connected" is added as typed, since asking again changes nothing. Words
+  with no digit (a pasted header) are dropped (`pastedPartNumbers`).
+- **Each card collapses to one line** (`CollapseToggle` / `CollapsedRow`) —
+  view-only state, the draft untouched.
+- **The worksheet's right column is ONE sticky block** on wide screens
+  (`xl:sticky`, scrolling inside itself past the window height). Only the
+  Save panel used to be sticky, and the cards under it slid beneath it.
 - **Each line has a BASE cost** (the JSON field `uploadedCost`, named for the
   CSV case) and a `source`: `csv` and `sap` base costs are never edited — the
   manager types an ADJUSTED cost; a `manual` line's base cost is typed and
@@ -4990,11 +5727,18 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   disagree with the lines. The `Rev` column moves in the same PATCH.
 - The worksheet's `History` is JSON keyed by revision (one totals snapshot
   each). Its `Bom` column predates sub-assemblies and is unused.
-- **Compare to SAP** reads a chosen revision's figures against SAP's now, by
-  the **SAP part number** typed there (remembered in the worksheet's
-  `SapPartNumber` column); **Excel export**
-  (`lib/worksheetExcel.ts`, ExcelJS dynamically imported). Cancelled, never
-  deleted.
+- **Compare to SAP was REMOVED** from the right column (Ray, 2026-10-22);
+  the SAP comparison card below the rows covers it. The worksheet's
+  `SapPartNumber` column it remembered is left as it is, unread. **Excel
+  export** (`lib/worksheetExcel.ts`, ExcelJS dynamically imported).
+  Cancelled, never deleted.
+- **Layout** (Ray, 2026-10-22): field labels are `SMALL_LABEL`
+  (`components/pricingFields.tsx` — 10px, never wraps, so a row's boxes line
+  up); a card's cost row and a component row's figures sit on the same
+  label-row / 36px-control-row grid. **Collapse all / Expand all** above the
+  sections drive every card's fold (`open` / `onOpenChange` on both cards,
+  keyed by the draft key, view-only); a row's own selling price folds on its
+  own to a one-line summary.
 - **A sub-assembly or part can have its OWN selling price** (Ray,
   2026-10-14) — so one worksheet can price a few parts individually, each with
   its own quantity breaks. `components/RowSellingPrice.tsx` ("Sell
@@ -5157,23 +5901,190 @@ renders a day off from what SharePoint's own list view shows, check the
 actual stored time-of-day on a live row before assuming the bug is
 elsewhere, the same lesson Visit Reports and Gray Market already paid for.
 
-### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, Engineering site)
+### QC Forms — the form engine (Quality Control)
 
-`4843afdc-5697-4f44-8113-003cc220b57a` (env: `VITE_SP_QC_CPU95_LIST_ID`), list
-name **"CPU-95"**, on `SITES.engineering`. The first of what will be several digitized paper
-QC/test forms, reached from a **"QC Forms"** card on the Quality Control
-dashboard. `lib/qcForms.ts` is the registry a search-plus-button landing page
-(`QcFormsView`, `/qc-forms`) is built from — a second controlled form is a
-second `QcFormDef` entry plus its own list/mapper/fields/view; nothing else
-is shared beyond the registry and the landing page.
+About 60 paper QC forms are to be digitized (`docs/QC-FORMS-ROADMAP.md`, a
+trimmed copy of Tim's Claude Doc, which is the source of truth — local file
+paths and customer names are left out, since the repo is public). Copying CPU-95's
+12–15 files per form 60 times was the cost risk, so **Phase 0 (2026-10-23)
+pulled a generic engine out of CPU-95** and rebuilt CPU-95 on it with no
+change to how it works. GET-1 is the Phase 1 pilot, built 2026-10-26, and
+QCFRM-035 (Series X) the second, built 2026-10-28 (see both below).
 
-QCFRM-012 (CPU-95 Ignition Module Electrical Test and Inspection) has
-SEVERAL PAPER VARIANTS depending on the unit's Altronic Part Number —
-CPU-95, CPU-95C, CPU-95C-3516, CPU-95 Varispark, CPU-95 EVS, and a combined
-16/18/20-cylinder sheet — and which fields print depends on an "Altmode"
-(0–6) the old Power Apps form computed with a `Switch()` on the part
-number. `qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts` is the exact same
-lookup:
+**A form is a `QcFormSpec`** (`lib/qcFormEngine.ts`): its fields (one
+descriptor per SharePoint column), sections, `unitOf(values)` (what the part
+number says: a `variant` and how many grid `slots`), status keys, list
+columns and search keys, an optional `firingGrid`, and its paper `sheet`
+(layout, scan geometry, blank variants). Everything else is generic and reads
+only the spec:
+
+| Generic piece | File |
+|---|---|
+| Visibility, labels, Graph ⇄ record, status + sort | `lib/qcFormEngine.ts` |
+| Sheet draw ops + blank/value helpers | `lib/qcFormSheet.ts` |
+| PDF renderer (sheet → Letter) | `lib/qcFormPdf.ts` |
+| CRUD, mock store per form | `api/qcForms.ts` (lists in `api/qcFormLists.ts`) |
+| Hooks, cached per form (`["qcFormRecords", id]`) | `hooks/useQcForms.ts` |
+| The form modal | `components/QcFormModal.tsx` |
+| The list, `/qc-forms/:formId` | `views/QcFormView.tsx` |
+| List script, from the form's column JSON | `scripts/create-qc-form-list.ps1 -Columns <json>` |
+
+**Adding a form** is: a column JSON in `scripts/data/`, a descriptor file and
+a sheet layout in `lib/`, a spec, one entry in `QC_FORMS` (`lib/qcForms.ts`)
+and one in `QC_FORM_LISTS` (with its `VITE_SP_*_LIST_ID` in `config.ts`,
+`deploy.yml`, `vite-env.d.ts`, `.env.example`). No route, view or modal.
+
+Seven things that are load-bearing:
+
+- **Route ids are PRODUCT slugs, not form numbers** (`/qc-forms/cpu-95`, later
+  `/qc-forms/get-1`). Form numbers and revs may change once document control
+  comes into ARC (roadmap decision 8), and some forms have no number yet. An
+  unknown id redirects to `/qc-forms`.
+- **The spec lives in `lib/`, its list in `api/`** — `lib/` may not import
+  `config.ts` (layering rule 9), so `QC_FORM_LISTS` is the api half.
+  `api/qcForms.test.ts` fails if a registered form has no list.
+- **`qcFormEngine.test.ts` checks EVERY registered spec** — keys and columns
+  unique, every field in a listed section, the serial first (a scan must land
+  there), and every key named by status, list, search or grid actually
+  declared. A new form that names a key it hasn't got fails there.
+- **Status is generic**: Complete when every `completeKeys` field is filled,
+  In Repair when `repairKey` is "Yes", In Queue when ONLY `serialKey` and
+  `partNumberKey` are filled, else In Process. Same priority as CPU-95 had.
+- **The firing grid is a spec block** (`QcFiringGrid`: section, at-spec key,
+  spec/actual keys per slot, row letter, standard specs). The modal's
+  "standard specs fill a NEW sheet, typed specs are never overwritten" rule
+  is generic; CIS, TEM and CPU-2000 will reuse it (roadmap decision 6).
+- **A sheet layout is per form or per FAMILY** (pixels on a scan); the shared
+  part is `qcFormSheet.ts`'s `sheetBlank` (tick for Yes, NO / N/A in words,
+  MM/DD/YYYY, N/A in print on a line the unit doesn't use). The GE family's
+  is `qcGeLogSheet.ts`, a layout driven by a `GeLogSheetDef` (title, checks,
+  board work orders, footer, and `spacing` where the paper differs) — GET-1
+  and Series X use it. Grow it as each GE sheet arrives; the Yes/No checklists
+  and the logs get theirs the same way.
+- **A section renders its fields in the order the form declares them**
+  (`qcFieldRuns`: consecutive inputs, checks and flags), so a field that
+  follows its checks on the paper follows them on screen. CPU-95's sections
+  were already inputs → checks → flags, which is the order the modal used to
+  force, so nothing on it moved — `qcFormEngine.test.ts` pins that.
+- **Mock fixtures are per form** (`MOCK_FIXTURES` in `api/qcForms.ts`); a form
+  with none starts empty in the demo. `__resetQcFormMockStores()` resets all.
+- **Update the roadmap as you go** (Tim, 2026-10-26). Every QC Forms change
+  updates `docs/QC-FORMS-ROADMAP.md` in the same commit — the phase's status,
+  the form's inventory row, any finding the scans turned up — and the Claude
+  Doc it copies ("QC Forms in Arc – Digitization Roadmap", the source of
+  truth) with the same news.
+- **Check a sheet layout BY EYE** — generate the PDF (a throwaway vitest that
+  writes `buildQcFormPdfDocument(...).output("arraybuffer")` to the
+  scratchpad) and render it to PNG with PyMuPDF (`pip install --target
+  <scratchpad>/pylib pymupdf`, then `PYTHONPATH`). Times is wider than most
+  paper fonts, so blanks after a label need room.
+
+### QC Forms — GET-1, the GE Transportation Log Sheet (Quality Control, PMO site)
+
+The Phase 1 pilot (2026-10-26), at `/qc-forms/get-1`: "GE Transportation Log
+Sheet — Quality Control Inspection", GET-1 Rev 3, 10-May-2016. One **log
+sheet** per GE ECU (17FM760D3, a few 17FM760D2). Pieces: `lib/qcGet1Fields.ts`
+(descriptors), `lib/qcGet1Form.ts` (spec + the sheet's text),
+`lib/qcGeLogSheet.ts` (the paper), `data/qcGet1MockData.ts`.
+
+**The list was created 2026-10-26** — "GET-1 GE Transportation Log Sheets"
+on `SITES.pmo`, built by `scripts/create-qc-form-list.ps1 -Columns
+qc-get1-columns.json` (run it in your own terminal), with
+`VITE_SP_QC_GET1_LIST_ID` set as a repo variable. **No default
+in `config.ts`**, and the variable is in `deploy.yml`'s named list — unlike
+CPU-95's, which survives without one only because it has a default. Until it
+is set the screen shows "VITE_SP_QC_GET1_LIST_ID is not set"; demo mode works.
+
+What the form holds, read off ~130 scanned 2025 sheets:
+
+- **Unit**: Serial Number (Title, scanned first) and Part Number (ECU),
+  suggestions 17FM760D3 / 17FM760D2. The paper splits the serial
+  ("FM2512 / 0012T"); ARC holds it as one text, and the blank export prints
+  the slash.
+- **Inspection**: fifteen Yes / No / N/A checks in the paper's order, then the
+  Ship Firmware Revision text (blank on most scans). The two USB lines are N/A
+  on every 2025 sheet — not defaulted, answered.
+- **Board Work Orders**: twelve text fields, 672-series left, 681-series
+  right. The paper says "(2 WO#'s per board)" but has one blank per board;
+  ARC follows the blanks.
+- **Sign-off**: QC Inspector, Inspection Date, Notes. Complete = inspector
+  AND date; no In Repair flag (the paper has none). Search covers every board
+  work order ("which units carry WO 508123?").
+
+Three calls Tim made from the scans (2026-10-26), each deliberate:
+
+- **681 105-3, not the printed 105-2.** Operators correct it by hand on
+  nearly every sheet; the column is `WO681105_3` and the export prints 105-3.
+  The form itself still says 105-2 — that's for document control.
+- **No check for the Part Number line's tick box** — nobody ticks it. The
+  export still draws the box, so the sheet looks like the paper.
+- **Sheet marks go in Notes**: the circled D (Deviation, often with "Flange"),
+  the circled F, "Tested", "SFI". Fields for them can come later if
+  reporting needs them; don't add them unasked.
+
+The export: one page, the GET-1 Rev 3 scan's geometry. A Yes ticks the box;
+**No and N/A are written to the LEFT of the box** — where operators write N/A
+on a sheet that has no box for it. Notes wrap over the three note lines and
+continue on a last page.
+
+**GET-1 turned out to be the SMALL GE sheet** (Tim, 2026-10-28): operations
+haven't done many lately, and Series X (QCFRM-035) is the larger group —
+which is why it came next.
+
+### QC Forms — QCFRM-035, the Series X Controller log sheet (Quality Control, PMO site)
+
+Phase 1's second form (2026-10-28), at `/qc-forms/series-x`: "Series X
+Controller GE Transportation Log Sheet — Quality Control Inspection", QCFRM 035
+Rev 0. One **log sheet** per Series X controller (17FM850A1, 17FM850A2). By
+volume the biggest GE sheet: 542 scanned pages in 2024 and 441 in 2025.
+Pieces: `lib/qcSeriesXFields.ts`, `lib/qcSeriesXForm.ts`,
+`data/qcSeriesXMockData.ts`, on the shared `lib/qcGeLogSheet.ts`.
+
+**The list was created 2026-10-28** — "QCFRM-035 Series X Controller Log
+Sheets" on `SITES.pmo` (`6541b7d7-26d8-4738-8255-2afd4e3217e2`), built by
+`scripts/create-qc-form-list.ps1 -Columns qc-series-x-columns.json`, with
+`VITE_SP_QC_SERIES_X_LIST_ID` set as a repo variable. No default in
+`config.ts`, in `deploy.yml` — the GET-1 arrangement.
+
+It is GET-1's sheet with different boards. Five things, read off the scans:
+
+- **The fifteen checks are word for word GET-1's**, so both forms read
+  `lib/qcGeControllerChecks.ts`, with the same column names
+  (`qcSeriesXFields.test.ts` compares the two JSONs). If one form's revision
+  rewords a line, give THAT form its own copy — the other's paper hasn't
+  changed.
+- **Eleven boards**: 672 255-1, 007-1, 257-1, 005-1, 259-1, 265-2 on the left;
+  681 100-1, 138-1, 102-1, 104-1, 105-3 on the right. The right column's
+  fourth line is printed **"No populated VD board."** — no blank, no field;
+  it's a `GeLogSheetBoardRow` with no `key`. 672 005-1 is sometimes a dash on
+  the paper, which is a blank, not a value.
+- **681 105-3, not the printed 105-2** — but unlike GET-1 the scans show the
+  change happening: sheets up to early 2025 use 105-2 as printed, from about
+  mid-2025 operators correct it to 105-3. ARC records 105-3, GET-1's call.
+- **The two-line title and tighter rows are `spacing`** in `QC_SERIES_X_SHEET`,
+  measured off the 2025 scans. GET-1's spacing is the default
+  (`GE_SHEET_SPACING`), so its export didn't move.
+- **The Part Number line's box is ticked on some sheets** — still not a check
+  (GET-1's call), and "Turbo CC Test", "Tested", "SFI" and the circled F go
+  in Notes.
+
+### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, PMO site)
+
+`01d4cb25-a642-4652-b3db-0370f9a04b98` (env: `VITE_SP_QC_CPU95_LIST_ID`), list
+name **"QCFRM-012 CPU-95 Test Sheets"**, on `SITES.pmo` — moved from the
+Engineering site's **"CPU-95"** list (`4843afdc-…`) on 2026-10-21, which is kept
+as an archive and no longer read (see "Moving the list to Altronic_PMO" below).
+The first digitized paper QC/test form, reached from a **"QC Forms"** card on
+the Quality Control dashboard and `/qc-forms/cpu-95`. It runs on the form
+engine above: `lib/qcCpu95Form.ts` is its spec, and everything below is
+CPU-95's own rules, which the spec hands to the engine.
+
+QCFRM-012 (CPU-95 Ignition Module Electrical Test and Inspection) is ONE
+paper sheet — the "95" sheet — that every unit is tested on (Tim, 2026-10-21,
+with operations). Which fields apply depends on the unit's Altronic Part
+Number in two ways. Its **Altmode** (0–6, the old Power Apps form's `Switch()`,
+`qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts`) picks the firing grid and the
+high-voltage spec:
 
 | Altronic Part Number | Altmode |
 |---|---|
@@ -5185,74 +6096,73 @@ lookup:
 | 791962-18 | 6 |
 | anything else (incl. blank) | 0 |
 
+And its **variant** (`qcCpu95Variant` in `lib/qcCpu95Fields.ts`) picks the
+checks:
+
+| Variant | Part numbers | Differs from the base sheet |
+|---|---|---|
+| `highVolt` | 791952-18, 791962-18 (Altmode 5/6) | peak volts at 140/160/180 V, nothing else |
+| `791956` | 791956-16 | four "On 791956-16" checks of its own |
+| `95c` | 791955-16 (CPU-95C, incl. the 3516) | seven checks of its own, Application in place of Memory No., eleven base checks hidden |
+| `evs` | 791963-16A, 791963-16E | E1 single supply current in place of the peak volts, E1S/CAVG, a six-energy-level check; short one primary, 4-20 mA and triac/diode leakage hidden |
+| `base` | everything else | — |
+
+Varispark is obsolete and has nothing in ARC.
+
 **The columns are DATA** (`lib/qcCpu95Fields.ts`), the same reasoning as
-Drawing File Logs and FAIT — ~200 fields across 13 sections (Header,
-Startup/Final 20V/24V input, checklists, three firing-angle Spec/Actual
-grids for 16/18/20 cylinders, Current Loop, Defects/NCM, Comments &
-Sign-off), each carrying an optional `altModes?: readonly number[]` —
-`undefined` means always visible, otherwise the field only shows for those
-Altmodes. `qcCpu95VisibleFields(altMode)` filters the whole descriptor
-list; `QcCpu95FormModal` recomputes `altMode` LIVE off the Altronic Part
-Number field as it's typed, so picking a part number immediately shows or
-hides the matching voltage set and cylinder grid — there is no separate
-"visibility rule" to maintain per variant.
+Drawing File Logs and FAIT — ~150 fields in ten sections. Each descriptor
+carries `only` / `hiddenIn` (variants), `labelIn` (the variant's own paper
+wording), `slot` (a firing row, 1-20) and `sheetLabel` (a short name for the
+export's notes line). The engine's `qcVisibleFields(spec, values)` filters
+the list through the spec's `unitOf` (variant + cylinder count), and
+`QcFormModal` recomputes it LIVE off the Altronic Part Number as it's typed;
+`null` (the blank form) shows everything. The sheet layout uses
+`qcCpu95VisibleFields(altMode, partNumber)`, the same rule
+(`qcFieldShownFor`).
+
+Five kinds that are load-bearing:
+
+- **`check` — a choice of Yes / No / N/A**, the 54 tests and inspection
+  points. Blank is "not answered", NEVER "No": the mapper writes null for it,
+  and reads anything outside the three choices as blank. The form renders
+  `ChoicePills` with a Not set pill; Enter skips the whole pill group
+  (`[role=radiogroup]`), not pill by pill.
+- **`flag` — yes/no**, the Defects / NCM boxes. Stays a checkbox.
+- **`datetime`** — the oven ON/OFF: `DateField` plus a time box, held as local
+  `yyyy-mm-ddThh:mm` (`toLocalDateTimeValue` / `fromLocalDateTimeValue`).
+- **Firing angles are 20 row SLOTS** (`firingSpec01..20`, `firingActual01..20`),
+  labelled by the unit's grid (`qcCpu95FiringGrid`): 8 rows on 791950-08
+  (Altmode 1, A-L of the 16-cyl letters), 16 on Altmode 0/2, 18 on 4-6, 20 on 3.
+- **"All firing actuals at spec"** (`firingActualsAtSpec`, Tim, 2026-10-21).
+  Operators draw a line for "at spec"; Yes hides the actual boxes, and
+  otherwise only a cylinder that was off gets an actual — a blank actual is
+  at spec. The export draws the line down the TEST actual column.
 
 The record is a flat `values: Record<string, string>` bag (mirrors FAIT's
-`Fait.values`), not a ~200-property interface — booleans are carried as
-`"Yes"`/`""`, the same convention as everywhere else in ARC. Confirmed live
-against `scripts/cpu-95-schema.json` (`discover-list.ps1`, 2026-09-17), not
-guessed from the original CSV export alone — that pass caught the 18-cylinder
-firing grid actually having 18 columns (it adds G and H; the 16-cylinder grid
-doesn't), which an earlier version of this file had silently missed by
-sharing one 16-letter alphabet between both grids.
+`Fait.values`). **`qcCpu95Fields.test.ts` reads
+`scripts/data/qc-cpu95-columns.json`** — the layout the PMO list was built
+from — and fails if a descriptor names a column that file hasn't got, or the
+types disagree. The only columns ARC leaves out are the migration's own four
+(`LegacySource`, `LegacyCreated`, `LegacyCreatedBy`, `DataQualityNotes`).
 
-**There is deliberately NO `$select` on the CPU-95 read at all** — both
-`listQcCpu95Records` and `getQcCpu95Record` in `api/qcCpu95.ts` use a bare
-`$expand=fields`. With ~200 columns, a fully-named `$select` pushed the
-request URL to nearly 5,000 characters, and Graph/SharePoint's edge came back
-with a bare `404 "UnknownError"` and no rows rather than a clean error —
-found live, 2026-09-17, the first time this shipped against the real list.
-Every other wide list in ARC stays well clear of this (FAIT: 51 columns; the
-ECN checklist collapsed 84 items into one JSON column specifically to avoid
-this exact problem) — CPU-95 is the one list actually wide enough to hit it.
-Fetching every field costs a bigger response, never a wrong one, since
-`toQcCpu95Record` only reads the columns it knows about. **If a future list
-needs a `$select` this large, split it across two reads or drop the `$select`
-the same way — don't assume a $select is always cheaper than fetching
-everything.**
+**There is still no `$select` on the read** — both `listQcFormRecords` and
+`getQcFormRecord` use a bare `$expand=fields`, for every form. On the old
+list's ~230 columns a fully-named `$select` pushed the URL to nearly 5,000
+characters and came back a bare `404 "UnknownError"` with no rows (found live,
+2026-09-17). The PMO list is ~150 columns; `toQcFormRecord` only reads the
+columns the form declares, so fetching every field costs a bigger response,
+never a wrong one. **If a future list needs a `$select` this large, split it across two
+reads or drop it — don't assume a $select is always cheaper.**
 
-**"Project Tag" (`ProjectTag`) IS a real column** — confirmed via the same
-schema pull as a multi-value lookup into the Projects list (the same list
-Tasks/EIRs/ECNs point at). It's deliberately NOT mapped yet: wiring it in is
-the same join-and-render treatment those other lists give a Project
-Reference, a small feature of its own rather than a field-name fix.
+**Project Reference is TEXT on the PMO list** (an Engineering project's title,
+the SCN pattern): the old list's `ProjectTag` lookup couldn't come across,
+since a lookup can't reach the Projects list from another site. It is mapped
+as a plain text field and nothing joins it to a project.
 
-**Which fields are visible per Altmode came from a SECOND export**, not the
-original schema — a 146-line CSV mapping each field to one of five Altmode
-conditions (`ALTMODE_LT_5` / `ALTMODE_GT_4` / `ALTMODE_LT_3` / `ALTMODE_GT_3`
-/ `ALTMODE_EQ_3` in `qcCpu95Fields.ts`, named after the CSV's own condition
-language rather than a guessed meaning). The 32 Startup/Final
-voltage-and-current fields split 16 standard / 16 "Alt" (the
-791962/791952-18 variant); four "On 791956-16 …" checklist booleans share
-the Alt condition; the three firing-angle grids are each pinned to exactly
-one cylinder count's condition.
-
-**791950-08 (Altmode 1) is an 8-cylinder unit hiding inside the 16-cylinder
-firing-angle grid** (Tim, 2026-09-17) — it's the only part number mapping to
-Altmode 1, and SharePoint gives it no columns of its own: it reuses the SAME
-`FiringAngleSpec16*`/`FiringAngleActual16*` columns Altmode 0 and 2 (genuinely
-16-cylinder) use, and only the first 8 of the 16 letters (A-L) ever hold real
-values on it — M through V are unused. `EIGHT_CYL_HIDDEN_KEYS` in
-`qcCpu95Fields.ts` is a DISPLAY-ONLY filter layered on top of the ordinary
-Altmode rule inside `qcCpu95VisibleFields()`, hiding those 16 keys (8 letters
-× Spec/Actual) specifically when `altMode === 1` — Altmode 0 and 2 still show
-all 16 letters. `qcCpu95SectionTitle(section, altMode)` relabels the two
-"16 Cyl" section headers to "8 Cyl", and `qcCpu95FieldLabel(field, altMode)`
-relabels each visible grid cell from "16A".."16L" to "8A".."8L", both for the
-same Altmode only — purely cosmetic, the section's fields, columns and write
-payload are untouched, so this is pinned entirely by tests on those three
-functions rather than needing new descriptor fields.
-
+**The header's scan order is load-bearing**: Serial, Altronic Part Number,
+then the three date codes are scanned back to back, Enter moving to the next
+field, so SAP Number and Memory No. come AFTER them. Putting them earlier
+broke the scan test, which is what it's there for.
 **Altronic Part Number is a `SuggestInput`, not a closed dropdown** (Tim,
 2026-09-17) — it drives the Altmode switch, so a typo used to silently fall
 through to Altmode 0's field set with nothing saying so. First tried as a
@@ -5303,7 +6213,7 @@ in a single-line text or number input — native behavior, not something this
 app opted into — which saved a half-finished sheet or threw the Serial
 Number required-field error mid-entry.
 
-`handleEnterAsTab` in `QcCpu95FormModal.tsx` is on the DIALOG container, not
+`handleEnterAsTab` in `QcFormModal.tsx` (every QC form) is on the DIALOG container, not
 the `<form>` — Cancel and Save sit in a footer `<div>` that's a DOM sibling
 of the `<form>`, not a descendant, so the handler has to cover the whole
 modal for Tab-order continuity into those buttons. For an Enter on anything
@@ -5333,19 +6243,151 @@ pairs its input with its own auxiliary button the same way.
 
 **No delete** — a test sheet is a signed, dated record (Final Test By /
 Final Inspection By), the same "correct with an edit" treatment as FAIT and
-Visit Reports. `api/qcCpu95.ts` has no delete function at all.
+Visit Reports. `api/qcForms.ts` has no delete function at all, for any form.
+
+**Export reproduces the paper sheet** (Tim, 2026-10-20) — **Blank form** on
+the list and **Export** in the edit form, both through the shared
+`QcFormExportButton`. `lib/qcCpu95Sheet.ts` is a pure layout model in PIXELS
+of the 950 × 1230 scan of the paper form; the shared `lib/qcFormPdf.ts` scales it to
+Letter and draws it with jsPDF (Times for the form, blue Helvetica for
+entries). The things that are load-bearing:
+
+- **It is the "95" sheet, FORM QCFRM-012 REV 2**, plus its Post Test
+  Inspection page — every unit is tested on it, so the blank export needs no
+  variant pick. **Every export carries the inspection page** (Tim,
+  2026-10-21: it is used for all units, though its title says "per QWI-342
+  and 791950 Print"); Yes and No tick their columns, N/A is written across Yes.
+- **Height is stretched, width is not.** The paper leaves a fifth of the page
+  empty at the bottom; `qcFormPdf.ts` maps the scan's content band
+  (`CONTENT_TOP_PX`–`CONTENT_BOTTOM_PX`) onto the page between the margins,
+  so the extra room goes between the lines. Text keeps its size. Times is
+  wider than the scan's font: leave room after a label (the header blanks
+  start at 250px for that reason).
+- **A filled sheet prints only `qcCpu95VisibleFields(altMode, partNumber)`**,
+  the edit form's rule, so a stale value on a hidden field never reaches
+  paper. A check prints a tick for Yes and the words NO / N/A.
+- **A blank can be printed for ONE unit** (Tim, 2026-10-21) — the picker
+  beside Blank form, `QC_CPU95_BLANK_VARIANTS` in `qcCpu95Sheet.ts` (each
+  stands for its part numbers by one of them), passed as `blankVariantId`.
+  A filled sheet is "for one unit" too (`ctx.known`), and both follow the
+  same rules: only that unit's grid letter column (headed by its cylinder
+  count) and rows; its own peak-volt spec on the left, with the "791962-18
+  and 791952-18 Units only" column dropped; the 791956-16 lines only on a
+  791956-16; the lines it doesn't use pre-printed **N/A in black** — the
+  form's own print, telling it apart from an operator's blue N/A. A blank
+  for a 95C / EVS gets a tick line per check of its own above Comments, a
+  single-part-number blank prints that number in the header, and the footer
+  names the unit. Every-variant (nothing picked) is the old sheet, unchanged.
+- **The paper's own variant lines are reused**: the 20V/24V blanks take the
+  791952/62-18 readings too, and their final-test labels switch to
+  140/160/180 V; an EVS prints E1S and CAVG; a 95C prints APPLICATION where
+  the 95 sheet has MEMORY NO.
+- **The 95C and EVS checks the sheet has no line for go above Comments**
+  (`qcCpu95VariantLines`), by their short `sheetLabel`, on two lines (one if
+  Defects / NCM also print, below them). The full wording would always run
+  to a third page.
+- **ARC holds ONE firing-angle spec and ONE actual per cylinder, and both
+  are the TEST figure** (Tim, 2026-10-20) — the paper's SHIP columns stay
+  blank. Operators confirmed (2026-10-21) that they record only the TEST spec
+  and actual, so SHIP needs no SharePoint columns. **All at spec prints as a
+  line down the TEST actual column**, the way operators draw it.
+- **A NEW sheet's firing specs are pre-filled from the part number** (Tim,
+  2026-10-21, reversing an earlier "always typed" call), and still stored and
+  editable per cylinder. The table is `src/data/qcCpu95FiringSpecs.json`
+  (`offset`, `pair`, `cylinders` per part number), read by `qcCpu95Fields.ts`
+  (`qcCpu95StandardFiringSpecs` expands it) AND by
+  `scripts/backfill-qc-cpu95-firing-specs.ps1`, which filled the 30 migrated
+  rows; a test checks each entry's `cylinders` against the unit's grid.
+  **Each sheet stores its own specs, so a later spec change never rewrites a
+  unit already tested** — that is the record of which spec it was tested to,
+  and why the backfill fills only BLANK specs and lists (never changes) typed
+  ones that differ from today's standard. Four rules:
+  - **The TEST spec comes from the TEST PROGRAM**, not the unit: the 95C and
+    the 3516 both load CAT16TST, so 791955-16 has one spec.
+  - **The pattern wraps at 360.** Operators write "0, 45, 90 ↓"; the REV 2
+    workbook pre-prints the full column on CPU-95C / 3516 (0, 60, 90, 150,
+    180, 240, 270, 330, then again for M-V) and Varispark (0, 45 … 315 twice),
+    and `(floor(i/2)·pair + (i%2)·offset) mod 360` reproduces both. The 18-cyl
+    entries ([50, 80], from "0, 50, 80 ↓") use the same wrap, and 791962-18
+    takes 791952-18's spec — both inferences confirmed by Tim, 2026-10-21.
+  - **Create mode only, and a typed spec is never overwritten**: the form
+    tracks typed slots (`typedSpecs`), and a corrected part number refills the
+    rest. An edit never changes by itself; "Fill standard specs" fills blanks.
+  - **Only part numbers the sheets agree on are listed.** 708939 is "Per
+    sheet" (a customer document), and 705162 / 702585 are 18-cyl patterns on
+    customer numbers that read as Altmode 0 (16 rows), so they start blank.
+  **A blank printed for one unit prints its standard TEST spec in black** (the
+  form's own print, as the old 95C sheet had it); the every-variant blank and
+  a unit with no standard print the column empty. The "16" blank stands for
+  "791950-16 and others", so it carries 791950-16's spec.
+- **Exports the SAVED record, not the draft** on screen; the footer says
+  so while there are unsaved edits.
+- **The ON/OFF log prints the oven ON and OFF** the operator recorded (date
+  and local time). The second pair is for a re-run in the oven (Tim,
+  2026-10-21): always printed, filled in by hand. The time is formatted by
+  hand — `toLocaleTimeString` emits a narrow no-break space WinAnsi can't
+  print. It used to be derived (ON = Created, OFF = the sign-off date); the
+  2025 paper showed ON/OFF is the oven burn-in, often overnight, so it is a
+  real column now.
+- **Memory No. HAS a column after all** (Tim, 2026-10-21). Operators first
+  said it was rare and went in Comments, but it is filled on about a quarter
+  of the 2025 sheets (custom-program units), on the Memory No. line.
+- **Nothing is cut off**: a `wrap` op that overflows prints "(continued on
+  page N)" and the full text goes on a continuation page.
+
+#### Moving the list to Altronic_PMO (done, 2026-10-21)
+
+The list was rebuilt on `SITES.pmo` as **"QCFRM-012 CPU-95 Test Sheets"**
+(`01d4cb25-a642-4652-b3db-0370f9a04b98`, every column verified by write and
+read-back), with readable column names. `scripts/data/qc-cpu95-columns.json`
+is the ONE copy of the layout, and of where each column's value came from on
+the old list. It built the list (then as `create-qc-cpu95-pmo-list.ps1`, now
+`scripts/create-qc-form-list.ps1 -Columns qc-cpu95-columns.json`; re-run it
+after adding a column there — it adds only what's missing);
+`scripts/migrate-qc-cpu95-to-pmo.ps1` copied rows into it. Add a column in
+the JSON, never in a script, and add its descriptor in `qcCpu95Fields.ts` —
+the test fails until both agree.
+
+- **Only the ARC-era rows moved** (Tim): the earlier ones came from the Power
+  Apps form and have paper copies, with a 64-day gap between the two. The
+  cut-over is **2026-09-18**, the day the first sheet went in through ARC; 30
+  rows (all written by the ARC app) were copied, 0 failed. Add-only,
+  matched on `LegacySource` (`CPU-95#<id>`); the old list was never changed.
+  A sheet entered on the old list after the copy is picked up by re-running
+  the migration with the same `-Since`. None had attachments.
+- **The old list holds 601 rows Ray bulk-loaded on 2026-07-16** — the same
+  count as the 601 Power Apps rows, very likely a re-import of them. Not
+  copied; worth knowing before reporting off the old list.
+- **Migrated values**: a ticked check became "Yes", an unticked one BLANK
+  (never "No" — the old list can't tell "not done" from "failed"); the
+  791952/62-18 voltage set or the standard one by part number; firing angles
+  from the unit's grid in row order, with "at spec" Yes when every typed
+  actual matched its spec, No (and only the differing actuals copied) when
+  one didn't; date-only columns through ARC's own midday pivot, so a row
+  shows the date it showed before. Oven ON/OFF, SAP Number and Memory No.
+  came across blank, for operations to fill in from the paper.
+- **Graph sign-in for these scripts can't run from Claude's shell**: the
+  module signs in through the Windows account window (WAM), which needs a
+  window a background process hasn't got, and device-code sign-in timed out
+  twice. Run them in your own terminal; from VS Code the WAM window can open
+  behind it (`-DeviceCode` is the fallback).
+
+The built-in fonts encode WinAnsi only, so typed values go through
+`toWinAnsi` (Greek μ → micro sign µ, anything unencodable → `?`). Check a
+layout change BY EYE, not only by test: generate a PDF and render it to PNG
+(PyMuPDF into the scratchpad worked; no tool here views a PDF directly).
 
 **Any signed-in user can create or edit** — no admin gate, matching Visit
 Reports and QC Time Tracking. Reading and searching are open to everyone;
 SharePoint's own list permissions remain the real boundary.
 
-**No detail page** — clicking a row in `QcCpu95View` opens the same giant
-`QcCpu95FormModal` in edit mode, the QC Time Tracking shape, since every
+**No detail page** — clicking a row in `QcFormView` opens the same giant
+`QcFormModal` in edit mode, the QC Time Tracking shape, since every
 field (whichever the current Altmode shows) fits on one scrollable form.
 
 **The list is a card/table split on mobile, the `QcTimeTrackingView` shape**
 (Tim, 2026-09-17) — the table's eight columns don't fit a phone even
-truncated, so `QcCpu95View.tsx` renders two sibling elements over the same
+truncated, so `QcFormView.tsx` renders two sibling elements over the same
 `table.rows`: a `<div className="... sm:hidden">` of `RecordCard`s and a
 `<div className="hidden ... sm:block">` `<table>` of `Row`s, split at the `sm`
 (640px) breakpoint. `RecordCard` is a real `<button>`, not a `<div>` —
@@ -5353,12 +6395,12 @@ unlike `QcTimeTrackingView`'s card, there's no competing delete/edit icon
 here, so the whole card is the one tap target, leading with the status dot
 and serial number and listing every other column as a `<dl>` label/value
 pair underneath. **jsdom renders both at once** (no real CSS breakpoints),
-so `QcCpu95View.test.tsx` says so up top and uses `getAllByText`/
+so `QcFormView.test.tsx` says so up top and uses `getAllByText`/
 `getAllByTitle` with a length assertion instead of the singular form —
 the same convention `QcTimeTrackingView.test.tsx` already established.
 
 **The firing-angle grid is 2 columns on a phone** (Tim, 2026-09-17) —
-`QcCpu95FormModal`'s grid className is `grid-cols-2 gap-2 sm:grid-cols-6
+`QcFormModal`'s grid className is `grid-cols-2 gap-2 sm:grid-cols-6
 md:grid-cols-8`; 4 across made each box too small to tap or read
 comfortably. No re-ordering logic was needed: the letters are already
 declared in the paper form's own left-to-right, top-to-bottom order (A, B,
@@ -5372,8 +6414,9 @@ in the leading column instead: yellow **In Process**, blue **In Queue**
 (Tim, 2026-09-17: ONLY Serial Number and Altronic Part Number are filled
 in — the barcode-scanned identifying pair, nothing from the actual test
 yet), red **In Repair** (`values.inRepair === "Yes"`), green **Complete**
-(`finalInspectionBy` AND `finalInspectionDate` both set). `qcCpu95Status()` /
-`qcCpu95StatusSortKey()` in `lib/qcCpu95Mapper.ts` are the pure functions.
+(`finalInspectionBy` AND `finalInspectionDate` both set). `qcFormStatus()` /
+`qcFormStatusSortKey()` in `lib/qcFormEngine.ts` are the pure functions, generic
+over the spec's `status` keys.
 
 Priority order, each checked before falling through to the next:
 
@@ -5393,7 +6436,7 @@ Priority order, each checked before falling through to the next:
    `dateTested` silently makes its real status "new" instead, and a test
    that doesn't assert the status directly can pass for the wrong reason
    anyway (this happened once here — see the comment in
-   `qcCpu95Mapper.test.ts`'s `qcCpu95StatusSortKey` suite).
+   `qcFormEngine.test.ts`'s `qcFormStatusSortKey` suite).
 
 The list's default sort groups by that status — **In Process, then In
 Queue, then In Repair, then Complete** (Tim, 2026-09-17: In Queue sorts
@@ -5405,6 +6448,473 @@ rather than a bespoke multi-key sort, so it still plugs into the shared
 flipping direction reverses both the group order and the within-group date
 order together — accepted, since compressing two sort keys into one numeric
 value is the standard trade-off here).
+
+### Panel Orders — moving in the old Panel Job Dashboard (2026-11-13)
+
+The panel team's orders lived on **Panel Job Dashboard** (`7c74061d-…`, same
+ALTRONICPANELTEAM site, ~1,380 rows, 55 columns). ARC's **Panel Order
+Headers** had one test row, so the old orders are MOVED in by
+`scripts/move-panel-orders-to-arc.ps1` (Tim: "we don't need all the info").
+Dry run by default; `-ColumnsOnly`, `-Apply`, `-SkipShipped`, `-Limit`.
+
+- **Only the columns ARC has come across** — the script's `$FieldMap` /
+  `$StatusMap` are the mapping (Part Number → SAP #, Unit No. → Customer
+  Reference, Notes and Quote Ref appended to Order Notes; old statuses
+  folded into ARC's six). The old list is never changed.
+- **Three columns it adds**: `Archived` (yes/no — set when the old Status is
+  Shipped), `LegacySource` (`PanelJobDashboard#<id>`, indexed; a re-run skips
+  what's already moved and never rewrites it) and `LegacyCreated` (Graph
+  can't set Created, so ARC shows and sorts by this). ARC selects them and,
+  on a 400, retries without and remembers (the MRB Watchers arrangement), so
+  the deploy doesn't depend on the script having run.
+- **Archived is hidden by default** (`lib/panelOrderArchive.ts`): the list's
+  Active / Archived / All switch is `?archived=only|all`; status counts are
+  within the scope. Archived orders don't count on the Dashboard card, aren't
+  offered when linking a BOM (`pickableOrders` keeps the linked one), and
+  don't offer "Create standard tasks". Nothing stops editing one. There is
+  no un-archive control yet — edit the column in SharePoint.
+- **Engineer Assigned ids carry over as-is** — same site collection, so the
+  lookupIds mean the same people.
+- **The Status and Customer columns held "Choice 1/2/3" placeholders**; with
+  `-Apply` the script sets ARC's six statuses and the moved customers (needs
+  Manage Lists), which the New Order form then offers.
+- **The plan CSVs hold customer data**: `-OutDir` is required and refused
+  inside the repo.
+- **`getPanelOrder` reads ONE item** now (it read the whole list, which every
+  write re-reads through), and the list renders 150 rows with Show all.
+
+### Panel Engineering Capacity + Panel Time Off (Panels, panelTeam site)
+
+**Panel Tasks' `Communication` column was SINGLE-LINE, max 255 characters**
+(found 2026-11-05, when the Wrike import's comment writes were refused with a
+bare 400). The whole comment thread lives in that one column, so any panel
+task thread past 255 characters could not be saved, in ARC as well as the
+import. Panel Order Headers and Panel QC Issues were already multi-line. Fixed
+in List settings (Multiple lines of text, Plain text, Append Changes = No);
+if the list is ever recreated, check it with a read of `/columns`.
+
+BusinessIT#42 (Ray's brainstorm on the issue; Tim, 2026-10-28). The panel team
+plans in Wrike's Workload chart today; this brings that into ARC. Panel Orders
+and Panel Tasks had never been used by the team, so their shape was free to
+change. Pieces: `lib/capacity.ts` (pure, every rule — SHARED),
+`components/CapacityGrid.tsx` (the screen body — SHARED), `lib/panelCapacity.ts`
+(the Panels adapter), `PanelCapacityView` (`/panels/capacity`),
+`PanelTimeOffView` (`/panels/time-off`), `api/panelTimeOff.ts`,
+`hooks/usePanelTimeOff.ts`, `PanelTeamGate`.
+
+**Built to serve Engineering and Operations tasks too** (Tim, 2026-10-28).
+The engine and the grid know nothing about Panels: they take
+`CapacityWorkItem`s (id, title, href, assignees, start, due, hours, done,
+context, statusLabel) and `CapacityTimeOff`s (`everyone` = a company holiday). To add capacity to another
+task system:
+
+1. Give its list a start date and estimated hours (Engineering tasks have
+   only `DueDate` today; check Operations), with a column script and a
+   real-mode `$select` test, the way Panel Tasks got them.
+2. Write an adapter beside its mapper — `lib/<dept>Capacity.ts`, like
+   `panelTaskWorkItem`: a source-prefixed `id` (`task:3344`), its `href`, and
+   what "done" means on that list (Complete? Closed? Cancelled?).
+3. A view that gates and fetches, then renders `<CapacityGrid>`; pass
+   `dailyHours` if that team's day isn't 8.
+4. Time off: Panel Time Off is the panel team's list. Engineering's Where am
+   I? has no person column, so it can't feed this; a company-wide time-off list
+   would be the shared answer — a decision, not a tidy-up.
+
+**Hover and planning live in the shared grid** (Tim, from Wrike, 2026-10-28).
+Each bar shows hours a day and has a hover card (title, `h/d · total`, dates,
+days off skipped, context). With `onSave`, the grid PLANS in day view:
+
+- **Drags are STAGED, never saved one by one** (Tim: an email per drag would
+  be a mess). The middle of a bar moves both dates, an end moves one
+  (`rescheduled` — never past the other end), a bar dropped on another
+  person's row swaps THAT row's person for the new one on the item, keeping
+  any other assignees (`reassigned` — the drag remembers the row it came
+  from), and a backlog task carried onto a person and a
+  day is assigned and scheduled — the WHOLE backlog row drags except its
+  title, whose own text is the link (Tim, 2026-10-28) (`placeOnDay`: undated → starts
+  the first working day there, `ceil(hours / dailyHours)` working days long;
+  dated → keeps its length).
+- **The plan is `Map<id, CapacityChange>` against the items AS SAVED**
+  (`mergeChange`): a field dragged back to its saved value drops out, so
+  dragging away and back is not a change. Cells, bars and the backlog show
+  the plan plus the live drag; changed bars get a dashed yellow outline.
+- **Save hands the lot to `onSave` at once**; ids it reports failed stay
+  staged. Discard clears it.
+- **An unsaved plan is KEPT, not blocked** (Tim, 2026-10-28: he left for the
+  Dashboard and lost one). ARC uses a `BrowserRouter`, which has no
+  `useBlocker`, so the Header's links can't be stopped; instead, with
+  `draftKey` the plan is written to localStorage
+  (`arc:capacity-plan:<key>`, `serializePlan` — dates as day keys) on every
+  change, read back on the next visit and announced ("kept from your last
+  visit"), pruned once the items load (`prunePlan`: gone, done or already
+  saved drops out), removed on Save/Discard, ignored after 7 days — the
+  `useDraft` rules. Without `draftKey` the old guard applies instead
+  (`beforeunload` + a confirm on links inside the grid).
+- **The person under the pointer comes from `data-person-id`** on every row
+  via `document.elementFromPoint`; the day from the headers' boxes
+  (`data-day-key`). Tests stub both (`CapacityGrid.test.tsx`).
+- Mouse and pen only — touch still opens the task, and the task page is the
+  keyboard path.
+
+Panels passes `onSave` only when `usePanelTeamAccess().canEdit`, through
+`useSavePanelTaskPlan`: the team rule asked in the mutationFn, ONE PATCH per
+task (`setPanelTaskPlan`: dates, Assigned in the multi-person two-key shape,
+new assignees folded into Watchers, refused if anybody is unresolvable on the
+panel site), one task at a time, then one assignment alert per task whose
+assignees changed (newly added people only), carrying its due date. A failed
+task doesn't stop the rest.
+
+**Several people can be assigned to a Panel Task** (Tim, 2026-10-29).
+`Assigned` became a MULTI-person column (`setup-panel-planning.ps1` step 6 —
+run before the deploy, since ARC now writes the multi shape). `PanelTask.assigned`
+is `Person[]`; the mapper reads either shape (an old single value is one
+person; a bare id gets its name joined, else `User #n`). The engine splits an
+item's hours evenly between its assignees (Wrike's rule, `hoursEach`), each
+share spread over that person's own working days and time off. A plan kept in
+the browser before this stored one `assignee`; `parsePlan` reads it as a
+one-person list. The Wrike import now assigns every resolved responsible.
+
+**Only engineers get a row** (Tim, 2026-10-29) — `onlyPeople` +
+`notOnGridReason` on the grid. "Engineer" means the Engineer role on Panel
+User Roles, OR **On capacity** ticked on any of the person's role rows (the
+`OnCapacity` yes/no column, Tim 2026-10-30, the panel team's answer to "add a
+toggle in roles"); `capacityPeople` in `lib/panelRoles.ts` is the rule, one
+row per person. That list decides who may open the panel tools at all, so
+`listPanelRoles` retries ONCE without `OnCapacity` when the column is missing
+and remembers (the MRB Watchers arrangement); the toggle then refuses to
+write, naming the setup script. An item shows on each engineer it names, at
+their share; an item naming NO engineer goes to the backlog with "Assigned to
+X, who isn't on the capacity grid (Panel User Roles)" (never dropped), where dragging
+it onto an engineer REPLACES its assignees with that engineer (a backlog carry
+assigns; a bar drag swaps one person).
+
+**Amber is adjustable** (Tim, 2026-10-29): `CAPACITY_AMBER_RATIO` is only the
+default; `buildCapacity`/`CapacityGrid` take `amberRatio`. Panels keeps its
+value on the **Panel Settings** list (`VITE_SP_PANEL_SETTINGS_LIST_ID`, no
+default; Title = setting name, Value = text; `lib/panelSettings.ts` +
+`api/panelSettings.ts`). A whole percentage from 50 to 100; an unreadable
+value falls back to 85 rather than breaking the screen. Changed from the
+"Amber above N% · Change" control on the Capacity header, by a panel **Super
+User** or an ARC admin only (`canManageCapacity`,
+`useRequirePanelCapacityManager` inside the mutationFn). A setting's row is
+found by Title and updated, or added when missing.
+
+**Company holidays** (Tim, 2026-10-29): a Panel Time Off entry with
+`CompanyHoliday` = Yes and NO person (`TeamMember` stopped being required;
+setup step 5). The engine's `timeOffFor` gives an `everyone` entry to every
+row. Only a panel Super User or an ARC admin sees the form's "Company holiday"
+box, and adding, editing or removing a holiday asks
+`useRequirePanelCapacityManager` in the mutationFn (an existing entry is
+judged by its cached row). A write for a holiday clears `TeamMemberLookupId`
+and never resolves a person. Everyone else sees a holiday read-only.
+
+**Panel Tasks use the panel team's Wrike "Panel Workflow"** (Tim,
+2026-10-28) — 11 statuses in Wrike's four groups: Active (New, Pending
+Scheduling, Ready, In Progress, Revision Needed, Awaiting Pre-Req, Possible
+Support), Deferred (On Hold - Approval, On Hold - Internal), Completed,
+Canceled. `PANEL_TASK_STATUSES` + `PANEL_TASK_STATUS_GROUP` in types/task.ts;
+every "open / done" question goes through `lib/panelTaskStatus.ts`
+(Completed and Canceled are done; on-hold work still takes capacity). The
+SharePoint Status column must declare the same eleven —
+`scripts/set-panel-task-statuses.ps1` sets them (strict choice: an undeclared
+value is refused), and `-MigrateRows` moves rows still on the old four, which
+ARC reads as their match meanwhile (`normalisePanelTaskStatus`). Found via
+`/spaces/{id}/workflows`: the account `/workflows` endpoint returns only
+account-wide workflows, and 251 of 252 Wrike tasks used the space one.
+
+**Panel Time Off is a calendar like Where Am I?** (Tim, 2026-10-28). The month
+grid and day panel were LIFTED out of WhereAmIView into
+`components/MonthCalendar.tsx` (`MonthCalendar` + `CalendarDayPanel`, generic
+over the entry) rather than copied — a department can't import another's view,
+and two copies drift. Where Am I?'s tests passed unchanged across the move.
+A time-off row is a RANGE, so `panelTimeOffByDay` puts it on every day it
+covers (weekends included); a part day reads "Name · 4h". Without edit rights
+(`onAdd` omitted) there's no "+" and no click-to-add. A phone, and `?view=list`,
+get the sortable list.
+
+A view mixing two lists needs each item's assignee to carry an EMAIL:
+`samePerson` trusts lookupIds, which are only valid on one site.
+
+**Panel Tasks gained `StartDate`, `DueDate` (date-only) and `EstimatedHours`**
+— `scripts/add-panel-task-capacity-columns.ps1` adds them and **must run
+BEFORE the deploy that ships this**: the read `$select`s them, and selecting a
+column a list hasn't got 400s the whole read. The same script adds
+`LegacySource` + `ImportHash`, which only the Wrike import uses; ARC never
+selects them.
+
+The capacity rules (Wrike's "Basic" effort, decided with Tim):
+
+- **A task's hours are spread EVENLY over the working days (Mon–Fri)** from
+  start to due, inclusive. A task that started before the window counts at its
+  real daily share, not its whole total on day one.
+- **Capacity is 8h a day for everyone** (`PANEL_DAILY_CAPACITY_HOURS`), less
+  time off. No per-person capacity yet.
+- **Blue up to the amber threshold (85% by default), amber above it (Ray's
+  addition — Wrike has none), red over 100%** — 8.05h of 8h is red, Wrike's
+  rule. A week is the worst of its days.
+- **A WHOLE day off moves the task's hours onto the days around it; a PART day
+  only lowers that day's capacity.** Wrike skips non-working days the same way.
+- **Nothing is guessed onto the grid.** No assignee, no hours, or a missing
+  date → the backlog, with the reason. Complete tasks count nowhere.
+- **Day loads are kept UNROUNDED**; only display rounds. A week summed from
+  rounded days read 51.35h for 51.33h (caught by eye).
+- Rows: everyone with the **Engineer** role on Panel User Roles, and nobody
+  else (above). Generic callers that don't pass `onlyPeople` still add anyone
+  with work on screen.
+
+**Panel Time Off is its own list** (`VITE_SP_PANEL_TIME_OFF_LIST_ID`, no
+default — unset means "assume nobody is off"), created by
+`scripts/create-panel-time-off-list.ps1`. Engineering's Where am I? couldn't
+serve: no person column, one row per day. `TeamMember` is a single person —
+both halves selected, bare-integer write resolved on the PANEL site, refused
+when unresolvable. It has a delete (an intention, like Where am I?).
+
+**Access: Panel User Roles, plus ARC admins** (Tim: "limit the group but give
+an ARC admin the ability to add more people"). `panelTeamAccess` in
+`lib/panelRoles.ts`: any role opens; any role but **Viewer** edits; an ARC admin
+does both. Matched with `matchesAnyEmail` on every address. The menu entries
+and the Dashboard card show only to the team; the routes show "Panel team
+only". Time Off writes ask `useRequirePanelTeamEdit` INSIDE the mutationFn
+(awaits both lists; verified by breaking the Viewer rule). Two narrower
+rights sit beside it, asked the same way: `canManageTemplates` (Manager,
+Admin, Super User) for the standard tasks, and `canManageCapacity` (Super
+User only) for the amber threshold and company holidays; an ARC admin holds
+both. **Panel Order and Panel Task FIELDS are not gated, by decision**
+(Tim, 2026-11-05: "everyone can edit everything") — `panelRights` is kept
+unused; don't wire a gated field without a new decision.
+
+**A Panel Order raises its standard tasks** (Tim, 2026-10-29) — ARC's
+version of Wrike's "New Production Order" form + "Panel Blueprint - Production
+Job". Pieces: `lib/panelOrderTasks.ts` (pure), `api/panelTaskTemplates.ts`,
+`hooks/usePanelOrderTasks.ts`, `hooks/usePanelTaskTemplates.ts`,
+`PanelTaskTemplatesView` (`/panels/task-templates`, the "Standard tasks"
+button on Panel Orders). Rules:
+
+- **"Create standard tasks" on the New Order form, ticked by default.**
+  `useCreatePanelOrder` creates the order FIRST, then each active template in
+  SortOrder as a Panel Task — one at a time, best-effort: a refused task is
+  named in a toast and never fails the order. It returns `{ order, raised }`.
+- **Each task:** the template's type and hours, NO dates (so it
+  waits in the Capacity backlog), the order's Project Reference, and
+  `PanelOrderRef` → the order (a single lookup, bare integer; a project can
+  carry several orders, so the project alone can't say which). Title is
+  "<project ref or order title> — <template>", like Wrike's Job # prefix.
+- **Assigned to the order's Engineer Assigned, or to nobody** when that's
+  blank. Any task can be reassigned on its own later; **changing the order's
+  engineer later does NOT move the tasks** (it would undo a deliberate
+  reassignment).
+- **ONE email to the engineer** listing every task, linked
+  (`buildOrderTasksAssignedEmails`, sent against the order so it threads with
+  it). It replaces the order's old "assigned to this order" alert, so the
+  engineer never gets two. None when the engineer raised the order.
+- **The order page's Tasks card** lists `tasksForOrder`; its "Create standard
+  tasks" / "Add missing standard tasks (N)" button raises only templates whose
+  task title isn't on the order yet (`missingTemplates`), so it is also the
+  retry after a partial failure and never doubles a task. A task's page links
+  back to its order.
+- **Panel Task Templates** (`VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID`, no default:
+  unset = the built-in four, read-only) — Title, TaskType, EstimatedHours,
+  SortOrder, Active. Seeded by the setup script ONLY while empty. It HAS a
+  delete: a task stores its own copy, so removing a template changes no task.
+  Edited by a panel **Manager, Admin or Super User**, or an ARC admin
+  (`canManageTemplates`, `useRequirePanelTemplateManager` in the mutationFn).
+  A short ordered list with up/down arrows — deliberately not a table.
+- **Task types BOM and Programming** were added for it (setup step 1).
+- **Work Type is Production Order** on every task an order raises, and each
+  copies the order's **SAP #** (`SAPNumber`, on both lists — the panel team
+  said SAP# and the Sales Order are different things, 2026-10-30). Changing
+  the order's SAP # later doesn't touch its tasks, like the engineer.
+
+**The order's tasks are CHAINED, and its hold carries them** (the panel
+team's answers + Tim, 2026-10-30). Rules in `lib/panelOrderChain.ts` (pure),
+run by `hooks/usePanelOrderChain.ts`. This is Wrike's rules 1 and 6–9 (see
+the review doc's "Wrike automation rules"), minus their faults:
+
+- **Each standard task stores `ChainStep`** — its template's SortOrder.
+  Raised as **New** when nothing earlier in the order is still to do, else
+  **Awaiting Pre-Req** (`chainStartStatus`). The whole batch counts as still
+  to do, so a step whose create failed still holds the later ones back.
+  Templates sharing a SortOrder run side by side.
+- **A step becoming done (Completed OR Canceled) opens the next**: every
+  chained task of the order still Awaiting Pre-Req whose earlier steps are all
+  done becomes **Ready**, and its assignees are emailed ("Ready to start"; the
+  person who finished the step before is left off). Fired from
+  `useUpdatePanelTaskFields`' onSuccess (the only Status write), reading the
+  list FRESH. **It keeps its planned assignee** — Wrike handed it to whoever
+  finished the last step (question 8: no). A task somebody already started is
+  never reopened. A waiting task's page says what it waits for (`ChainNote`).
+- **An order going On Hold puts its open tasks On Hold - Internal** and
+  stores each one's status in `StatusBeforeHold`; coming off hold restores it
+  and clears the column (`holdWrites` / `releaseWrites`, from
+  `useUpdatePanelOrderFields`' onSuccess). Completed, Canceled and
+  already-held tasks are left alone; a task moved by hand while held keeps
+  what it was given. Coming off hold also opens any step whose turn came
+  meanwhile (`chainTasksReadyToOpen`). Wrike's rules set every task to one
+  status — finished ones too — and lost where each was.
+- **Best-effort per task, one at a time**: the order's or task's own change
+  has landed, so a task that couldn't be moved is named in a toast.
+- **Not built, by the team's answers**: no reassigning (Q8), no Pending
+  Scheduling → Ready rule (Q9), and a task waiting for approval does NOT hold
+  its order (Q11). No per-task email when a hold moves a task.
+- Imported Wrike tasks have no `ChainStep`, so the chain only applies to
+  orders raised in ARC.
+
+**Panel Tasks carry Wrike's two custom fields** (Tim, 2026-10-29): **Work
+Type** (`WorkType`: Production Order / Non-Production / Improvement /
+Internal) and **Priority** (`Priority`: High / Medium / Low) —
+`PANEL_TASK_WORK_TYPES` / `PANEL_TASK_PRIORITIES`, strict choice columns added
+by setup steps 7-8 (step 8 adds missing choices to a Priority column that's
+already there). Three options each, so pills (`ChoicePills`, with Not set) on
+the form and the task page; dot chips on the list and page header
+(`PanelWorkTypeChip` / `PanelPriorityChip`, colour on the dot only); list
+filters in the URL (`?workType=`, `?priority=`, `none` = not set). The
+mapper reads an unknown value as not set. The Wrike import maps both by the
+custom field's TITLE (read from the exported `/customfields`), leaving an
+unknown value blank with a note. The **SAP#** text custom field goes to the
+task's `SAPNumber` (hashed like any other field). Project/Job is still unmapped.
+
+`scripts/setup-panel-planning.ps1` makes every SharePoint change above in one
+idempotent run (`-WhatIf` first): TaskType choices, PanelOrderRef, the
+Templates list (seeded), the Settings list, Time Off's CompanyHoliday +
+TeamMember not required, Assigned → multi, WorkType and Priority, then
+(2026-10-30) Panel Tasks' ChainStep / StatusBeforeHold / SAPNumber (written
+and read back on a throwaway task), Panel Order Headers' SAPNumber and Panel
+User Roles' OnCapacity. **Run it BEFORE the deploy** —
+ARC's reads select PanelOrderRef, CompanyHoliday, ChainStep, StatusBeforeHold
+and both SAPNumbers, and it writes Assigned in the multi shape. It prints the two new list ids for the repo variables.
+
+**Wrike import** — `scripts/import-wrike-panel-tasks.ps1` + `docs/WRIKE-IMPORT.md`.
+Re-runnable on purpose (Tim: pull during testing, run again before go-live):
+`-Export` (token from `$env:WRIKE_TOKEN`, raw JSON outside the repo) →
+`-Plan` → `-Apply`. Rows match on `LegacySource = wrike:<id>`; `ImportHash`
+holds the hash of what the import wrote, so a re-run **never overwrites a task
+somebody edited in ARC** — it lands in `conflicts.csv`. Nothing in it has run
+live yet.
+
+### Panel SAP BOM Builder (Panels, panelTeam site)
+
+BusinessIT#59 (ARC Feature Request #33). Mark Balent's standalone builder —
+a generated single HTML file (`dash_template.html` + `Rebuild BOM Builder.py`
+reading the PANEL Parts Database workbook) — brought into ARC. The panel team
+picks parts and kits and copies SAP-ready lines (Item, L, Qty, SAP #) into
+SAP. Tim's decisions, 2026-11-05:
+
+- **ARC is the master for the parts and kits.** They're loaded ONCE from the
+  workbook, then edited in ARC; the workbook's rebuild step and Mark's Excel
+  version of the builder retire once ARC is live.
+- **Cost comes from SAP through Fabric, never a SharePoint column.** Who sees
+  it is Fabric's call (the Supplier performance arrangement): somebody without
+  read access on the GraphQL API item gets every cost column hidden, with a
+  sentence saying why.
+- **Access:** anyone on Panel User Roles (or an ARC admin) opens it; any role
+  but Viewer saves a BOM (`useRequirePanelTeamEdit`); only a panel **Super
+  User** or an ARC admin changes the parts and kits (`canManageBomParts`,
+  `useRequirePanelBomManager`). Both asked inside every mutationFn.
+- **A finished BOM is saved as JSON on its own list**, optionally linked to a
+  Panel Order — and a BOM can be saved first and linked later.
+- **It ships as a limited live demo: `PANEL_BOM_LIVE`**
+  (`VITE_PANEL_BOM_LIVE`, the MCN / Sales Pricing switch; repo variable set
+  to `false` on 2026-11-05). Off: only panel **Super Users** open, build and
+  manage it — NOT ARC admins, not the rest of the team (Tim's call); everyone
+  else gets "Panel SAP BOM Builder — Coming soon" on the Dashboard and in the
+  Departments menu, and the screens say it's coming soon. On: the panel team,
+  with the rights below, and no "Coming soon" row at all (non-team people
+  don't see it, like Capacity). The rule is `canOpenBom` / `canBuildBom` /
+  `bomHint` in `panelTeamAccess` (it takes `bomLive`), asked by
+  `PanelTeamGate bom`, the menu (`panelBomAccess`), the Dashboard, the order
+  page's BOMs card and — inside every mutationFn — `useRequirePanelBomBuild`
+  / `useRequirePanelBomManager`. Mock mode is always live, so the demo-off
+  behaviour is only visible in tests that pass `bomLive: false` or mock the
+  config (`usePanelBom.gate.test.tsx`). Going live = set the variable to
+  `true` and redeploy.
+
+Pieces: `lib/panelBom.ts` (THE rules), `api/panelBomParts.ts`,
+`api/panelBoms.ts`, `api/panelBomCosts.ts`, `hooks/usePanelBom.ts`,
+`PanelBomBuilderView` (`/panels/bom-builder`, `/:id`), `PanelBomsView`
+(`/panels/boms`), `PanelBomPartsView` (`/panels/bom-parts`),
+`PanelOrderBomsCard` on the order page. Three lists on `SITES.panelTeam`, all
+**no default** (unset = "not set up yet"), created by
+`scripts/create-panel-bom-lists.ps1` (idempotent, `-WhatIf`, write/read-back
+check — its internal names are the contract):
+
+| List | env | Holds |
+|---|---|---|
+| Panel BOM Parts | `VITE_SP_PANEL_BOM_PARTS_LIST_ID` | Title = SAP #, AltronicPartNumber, Description, Cluster (0–9), Category, Standard, Preferred, DoNotQuote, Datasheet, QtyIfUsed, Active |
+| Panel BOM Kits | `VITE_SP_PANEL_BOM_KITS_LIST_ID` | Title = kit name (unique), Description, Category, Standard, Preferred, Active, Components (JSON) |
+| Panel BOMs | `VITE_SP_PANEL_BOMS_LIST_ID` | Title = Panel System #, Notes, PanelOrderRef (single lookup), Picks (JSON), BomLines (JSON snapshot) |
+
+**The BOM rules — `lib/panelBom.ts`, the ONE copy now the Excel version
+retires:**
+
+- Sum per SAP # from parts picked directly AND kit qty × component qty —
+  picking a kit's part as well is how extras go on top.
+- A kit component with no SAP # is listed to enter in SAP by hand ("manual").
+- Lines come out in parts-list order (cluster, category, description), one
+  per SAP #. A SAP # on two rows (the live list has a few, in two categories)
+  is named, clustered and numbered by its FIRST row in that order.
+- Item numbers: cluster 0 runs 10, 20, 30…; cluster N starts at N × 1000,
+  steps of 10. **The clusters are fixed in code** (`PANEL_BOM_CLUSTERS`),
+  since they drive the numbers.
+- **One deliberate change from Mark's tool: an SAP # that isn't on the parts
+  list is LISTED ("unlisted"), never dropped.** His `computeBom()` skipped it
+  silently, which was harmless on a frozen snapshot and is not now that the
+  list is edited. ARC can't number it (no cluster), so it goes with the
+  hand-entry lines, saying why. A picked kit no longer on the kits list is
+  listed the same way.
+- Copy in blocks of **28 rows, then 27** (`SAP_PASTE_FIRST_BLOCK` /
+  `SAP_PASTE_NEXT_BLOCKS`) — Mark's numbers, **not yet confirmed** with
+  somebody who pastes BOMs daily (Tim is checking). The ticks clear when the
+  BOM changes.
+- A kit's display cluster is its components' majority vote, the LOWER cluster
+  on a tie (Python's `max(set(...))` wasn't deterministic).
+
+Seven things that are load-bearing:
+
+- **Picks are keyed by SAP # and kit NAME, never row position.** Mark's tool
+  saved quantities by array index, which lands them on the wrong part the
+  moment the list changes. Renaming a kit therefore takes it off saved BOMs —
+  the kit form says so.
+- **A saved BOM holds the picks AND a snapshot of the SAP lines.** Picks
+  reopen and edit it; the snapshot is the record of what went into SAP, and
+  the builder says when today's lines differ from it ("the parts or kits have
+  changed since this BOM was saved").
+- **Unreadable JSON is never written over**: Picks (`updatePanelBom`, read
+  FRESH in the mutationFn) and a kit's Components (`updatePanelBomKit`) each
+  refuse, and say how to recover. An unreadable snapshot just reads as empty —
+  nothing is decided from it.
+- **`PanelOrderRef` is a SINGLE lookup**: both halves selected, a bare integer
+  on write (in the create POST — a lookup, unlike a Hyperlink, is fine there),
+  `null` to unlink. Pinned in real mode in `api/panelBoms.real.test.ts`. The
+  link is stored ONCE, on the BOM; the order page derives its list
+  (`bomsForOrder`).
+- **Fabric's `in` filter takes at most 100 values** ("IN operator filter
+  object cannot process more than 100 values at a time", measured live
+  2026-11-05). `listPanelBomCosts` chunks by 100 and sends the chunks
+  together — all ~800 panel SAP #s took 1.5 s, 780 found, 33 with no cost,
+  every row plant 4222. 0 or missing is "No SAP cost", never $0. Real mode
+  only (`PANEL_BOM_COSTS_LIVE`); the demo reads invented costs.
+- **Unsaved work is kept in this browser** (`arc:panel-bom:<new|id>`, 7-day
+  expiry, every access in try/catch) and **announced** with
+  `DraftRestoredNotice` — the `useDraft` rules, by hand because the draft is
+  four fields, not one string.
+- **No delete on parts or kits** — retire (Active = No): off the picker, kept
+  on any BOM already using it (a picked part always shows). Saved BOMs DO
+  have a delete (a working document).
+
+**The one-time load** — `node scripts/prepare-panel-bom-load.mjs
+"<PANEL Parts Database.xlsm>" "<qiu_map.json>" <dir>` (refuses a dir inside
+the repo; leaves COGS behind; writes `parts.json`, `kits.json`, `report.md`),
+then `scripts/load-panel-bom-lists.ps1 -DataDir <dir> -PartsListId …
+-KitsListId … [-Apply]` — ADD-ONLY (parts matched on SAP # + category, kits
+on name), so a re-run never puts workbook values back over ARC edits. Dry
+run on the latest workbook (2026-11-05): 801 parts, 30 kits, 102 components,
+580 qty-if-used hints. Two things it learned: **Kit-List's name column is a
+formula on every row**, and the empty rows past the last kit carry it with no
+result — read those as blank (Python's `data_only` did); and one part
+(1023-3191-00) is listed twice in the same category, loaded once. Mark's
+source (template, `qiu_map.json`, the Python script, the workbook) is outside
+the repo at `C:\Working_Dir\ProcessImprovement\Arc\Panels\BOM Builder` — the
+workbook carries COGS, so none of it is committed.
 
 ### Panel QC Issue Tracker (Panels, panelTeam site)
 
@@ -5508,11 +7018,11 @@ right after creation** (Ray, 2026-09-03: "attachments should be visible in
 the new entry view") — a real SharePoint list-item attachment needs an
 item id to attach to, which doesn't exist until the create POST succeeds,
 so there's no way to genuinely upload before that. `PendingAttachmentsCard`
-(a small stand-in for `AttachmentsSection`, local to
-`PanelQcIssueFormModal.tsx`) lets the user pick/drag files into memory
-while filling out the rest of the form; `submit()` uploads every staged
-file via `uploadAttachment("panelQcIssue", created.id, file)` immediately
-after `create.mutateAsync` resolves, best-effort per file (one failed
+(a small stand-in for `AttachmentsSection`, shared since 2026-10-22 with the
+New EIR form) lets the user pick/drag files into memory while filling out
+the rest of the form; `submit()` uploads every staged file with
+`uploadAttachments("panelQcIssue", created.id, files)`, ONE AT A TIME,
+immediately after `create.mutateAsync` resolves, best-effort per file (one failed
 upload doesn't fail the issue, which already exists by that point — the
 same "a write that already landed must not look like it failed" reasoning
 as the EIR→Task promotion's `EIRReference`/attachment follow-ups). Edit
@@ -6268,8 +7778,18 @@ all in `lib/taskNumbering.ts`:
   never below count + 1, excluding the moving task. Highest, not count, so a
   deleted task can't hand its number out twice. NEW tasks still use
   `computeNumberedTitle`'s count + 1 — deliberately untouched here.
-- **A title edit keeps the prefix** (`retitledNumberedTitle`). A legacy row
-  with no recognisable `T{n}-{code}-` prefix is left alone, never invented.
+- **A title edit keeps the prefix** (`retitledNumberedTitle`). The list and
+  the board SHOW `NumberedTitle`, so a prefix the rule can't read means a
+  rename appears on the task page and nowhere else (reported 2026-10-27).
+  `numberedTitlePrefix` reads three shapes: ARC's own `T5-276--title` (the
+  code is the project title's first 4 characters, here `276-`), the old
+  Power App's `T1-328-title` (the project NUMBER — 2,255 of 3,148 live tasks,
+  which the rule used to miss), and a bare `T{n}-{3–4 digits}-` for a task
+  whose project is unknown. A row with no prefix gets no number invented, but
+  if its `NumberedTitle` ends with the old title that ending is replaced.
+  Fifteen live tasks had been renamed before this, and their numbered titles
+  were corrected to match on 2026-10-27 (number kept, text after it replaced;
+  no EIR named any of the old ones).
 - **Re-picking the same project is not a move** — the number stays.
 
 Four things in the hooks that are load-bearing:
@@ -6659,7 +8179,29 @@ holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
 
-### Harness Production Log (Operations, PMO site)
+### The Harness department
+
+**Harness is its own department** (Tim, 2026-10-27), moved out of Operations:
+the Harness Production Log and Crimp Height Checks have their own Departments
+menu group, Dashboard section (between Operations and Coils), Manual group and
+About-diagram group. Routes live under `/harness/`; the old
+`/operations/harness-log` paths redirect through `components/MovedTo.tsx`,
+which keeps the query string. The lists stay on `SITES.pmo` — a department
+in ARC is not a SharePoint site.
+
+**"Harness" is in `DASHBOARD_DEPARTMENTS` and `FEATURE_REQUEST_DEPARTMENTS`**,
+so it's offered by Admin → Quick Links and the feature request form. Both
+SharePoint `Department` columns are strict choices (`allowTextEntry: false`),
+so **`scripts/add-harness-department-choice.ps1` must run BEFORE the deploy**
+that ships this, or a Quick Link or feature request tagged Harness is refused.
+A new department anywhere in ARC needs the same choice added to both columns.
+
+**No cross-department imports**: Harness code used to borrow `encodeFilter`
+from `api/teradyneLog.ts` and `toLookupId` / `toNumberOrNull` from
+`lib/teradyneMapper.ts` (Operations). They now live in the shared layer
+(`lib/odata.ts`, `lib/graphValues.ts`); the Teradyne modules re-export them.
+
+### Harness Production Log (Harness, PMO site)
 
 Two lists on `SITES.pmo`, replacing an **Access database on a production PC**
 (Tim, 2026-10-08). Both ids are **unset by default** —
@@ -6743,6 +8285,399 @@ and "All years" is every leaver and typo since 2018. Nothing is stored — a new
 code typed today is a suggestion on the next load. The Built By FILTER on the
 log still offers the loaded entries' values, since it filters them. **`HARN1` appears in ~2,950 comments** and its meaning is
 unconfirmed; it is left as comment text rather than guessed into a field.
+
+### Crimp Height Checks (Harness, PMO site)
+
+BusinessIT#55 (David Bulkley via Feature Request #31; built with Tim,
+2026-10-27). Replaces the paper **Terminal Crimp Verification Chart (MFGFRM
+002 REV 0)**, part of the CAT CES coil corrective action. Pieces:
+`types/crimp.ts`, `lib/crimpCheck.ts` (the rules), `lib/crimpMapper.ts`,
+`lib/crimpAlerts.ts`, `api/crimpSpecs.ts`, `api/crimpChecks.ts`,
+`hooks/useCrimpChecks.ts`, the two `Crimp*FormModal`s, `CrimpChecksView`
+(`/harness/crimp-checks`, `/:id` opens one check) and `CrimpSpecsView`
+(`/harness/crimp-checks/specs`).
+
+Two lists on `SITES.pmo`, created by `scripts/create-crimp-lists.ps1`
+(idempotent, `-WhatIf`, write/read-back check; **its internal names are the
+contract** with `lib/crimpMapper.ts`). **No defaults** — unset shows "not set
+up yet", the Harness arrangement:
+
+| List | env | Holds |
+|---|---|---|
+| Crimp Specs | `VITE_SP_CRIMP_SPECS_LIST_ID` | one row per **terminal + applicator + wire gauge**: crimp height, ± tolerance, settings |
+| Crimp Height Checks | `VITE_SP_CRIMP_CHECKS_LIST_ID` | one row per **check** of three readings; `CheckedAt` indexed |
+
+Tim's decisions, 2026-10-27:
+- **One entry per CHECK** (Start / In process / End), not one per paper
+  column. The paper says "every 100 terminations" but only has start and
+  end; each check is saved in one go, nothing to reopen.
+- **Any single reading out of spec** sends the alert — never the average
+  alone, which hides one bad crimp.
+- **Anyone signed in records and corrects a check**; only **ARC admins**
+  delete one and manage the specs (Tim: "a way for an ARC admin to
+  add/remove and adjust the specs").
+
+Seven things that are load-bearing:
+
+- **The limits are IN spec**, compared with a millionth-of-an-inch slack
+  (`LIMIT_SLACK`). The 610494 paper sheet reads .038 against .040 ± .002 over
+  and over, and 0.04 − 0.002 isn't exactly 0.038 in binary.
+- **A check COPIES its spec's figures** (terminal, gauge, applicator, crimp
+  height, tolerance) as well as pointing at it (`SpecRef`, a SINGLE lookup,
+  bare integer). An admin correcting a spec must never re-judge last month's
+  checks — the CPU-95 firing-spec rule. An edit keeps the stored figures
+  unless a different spec is picked, and says when the spec has changed since.
+- **`Average`, `OutOfSpec` and `Title` are derived on every write**
+  (`buildCrimpCheckFields`), stored only so SharePoint's own views show them.
+- **The email goes when a check BECOMES out of spec** (`shouldAlertOutOfSpec`):
+  a new out-of-spec check, or an edit that turns one out. Re-saving a check
+  that was already out (fixing the harness number) sends nothing. Sent from
+  `onSuccess`, not awaited by the save, and its outcome is TOASTED — "emailed
+  3 people", or, with nobody on the list, "tell your supervisor". Who is told
+  comes from **Harness Alert Recipients** (below), read FRESH at send time.
+  The actor rule is `withoutActorUnlessEmpty` (a work queue).
+- **The micrometer types the reading and presses Enter.** The form's Enter
+  moves to the next field (the CPU-95 `handleEnterAsTab`, with
+  `data-enter-group` on every plain field so a SuggestInput's chevron is
+  skipped). A reading **10× the nominal or more** (half an inch with no
+  nominal) is refused as millimetres — the 342-371-32 is switchable. The
+  form then says so, not "out of spec", and shows no average. The
+  micrometer sends readings through a Mitutoyo U-WAVE Bluetooth adaptor
+  when its orange button is pressed. Readings show to 5 decimals
+  (`formatCrimp`): it reads to 0.00005", and 4 decimals printed 0.04205
+  (High) as "0.042".
+- **A spec with no crimp height (or no tolerance) can't judge a check** —
+  five rows on the sheet have no height, one no tolerance. The check is still saved, as **Not judged**, never "In
+  spec"; the specs screen counts them.
+- **Delete a spec only while NO check uses it**, asked FRESH inside
+  `useDeleteCrimpSpec` (`listCrimpSpecUsage`), not from the screen's cached
+  count. A used spec is retired (`Active = false`); the check form keeps a
+  check's retired spec in its own picker.
+
+**Loading the spec sheet:** `scripts/load-crimp-specs.ps1 -CsvPath <csv>
+[-ParseOnly | -SpecsListId <id> [-Apply]]` — ADD-ONLY, keyed on terminal +
+applicator + gauge (`crimpSpecKey`). A continuation row (blank terminal)
+inherits the terminal, manufacturer part #, applicator and table height from
+the row above. The CSV holds Altronic data: **keep it out of the repo**. The
+mock specs are invented. Dry-run on Tim's CSV (2026-10-27): 19 specs, 6 with
+no crimp height (615611, 504350, 504351, 615626, 704206; 504373 has a height
+but no tolerance), 615345's table height "603243" and 504427's margin note
+("0.120 ± 0.005", probably an insulation crimp height) to check.
+
+**`WorkOrder` (text) was added 2026-10-29**, after the list was live, and is
+REQUIRED on the form (Tim) — except when editing a check that never had one,
+so a check saved before the column existed can still be corrected without a
+work order being invented (`workOrderRequired` in `CrimpCheckFormModal`; an
+existing one can't be blanked). It is NOT required in SharePoint, where the
+older rows are blank. It sits beside Harness or assembly on the form, has its own column in the log,
+is searched, and goes in the out-of-spec email. Nothing reads it as a number
+(the Harness Production Log's `WorkOrder` is text too); a check saved before
+the column existed reads blank. **Re-run `create-crimp-lists.ps1` BEFORE the
+deploy that selects it** — it adds only what's missing and reads every column
+back — or `CRIMP_CHECK_SELECT` asks for a column the list hasn't got and the
+whole log 400s blank.
+
+**Machines — which press a spec runs on** (Tim and the Harness manager,
+2026-11-12). One terminal can run on different applicators on different
+presses, so a spec names its presses and the check form asks for the press
+first. Pieces: `lib/crimpMachines.ts` (pure), `api/crimpMachines.ts`,
+`useCrimpMachines`. Seven things that are load-bearing:
+
+- **The presses are rows of the Altronic Equipment List** (the CMMS asset
+  register), not a list of ARC's: maintenance already keeps them there.
+  `api/crimpMachines.ts` is Harness's OWN five-column read of that list (plus
+  Maintenance Locations for the names), deliberately NOT
+  `api/operationsEquipment.ts` — no cross-department import. Read-only.
+- **The picker filter is `isCrimpMachine`: Equipment Type PRESS, in a Harness
+  location, not retired.** The register has two Harness locations ("HARNESS
+  DEPARTMENT", "HARNESS"), so it matches the word. Live (2026-11-12) that is
+  AMP PRESS #1/#2, MECAL APPLICATOR PRESS #1/#2 and PACKARD APPLICATOR PRESS
+  (Tim retyped it from APPLI that day). **The Schleuniger crimp center
+  SCHCC36S stays typed CUT/STRP and is offered by NAME** —
+  `CRIMP_MACHINE_EXCEPTIONS`, the one place a machine joins the list without
+  the type rule (still not when retired). Applicators are assets too
+  (their serials match the specs' Applicator values), but Applicator stays
+  text for now (Tim).
+- **Specs: `Machines`, a MULTI lookup** — written with
+  `multiLookupField` (the `Collection(Edm.Int32)` annotation; `[]` clears),
+  read as `[{ LookupId, LookupValue }]` (`parseMachineRefs`). A bare id is
+  named from the register (`withMachineNames`), never shown blank.
+- **Machine is NOT in the unique key.** Several presses per spec (Tim), so a
+  spec is still one per terminal + applicator + gauge.
+- **Checks: `MachineRef` (SINGLE lookup, bare integer) + `Machine` (the name
+  COPIED)**, the SpecRef + copied-figures rule: a renamed asset doesn't change
+  what an old check says.
+- **The check form: press first, then that press's specs, then the specs with
+  NO machine yet** (marked "no machine set"), so the floor isn't stopped while
+  the specs are assigned. A spec for another press is left out; an edit keeps
+  its own spec. Changing the press drops a spec that doesn't run on it. The
+  press is required on a new check and on an edit of a check that has one —
+  **unless the asset list can't be read or offers no press**, when the form
+  still records (a form that can't record is worse). Remembered per browser
+  (`arc-crimp-machine`, try/catch). A picker keeps a picked machine that no
+  longer passes the filter, saying why (`crimpMachineOptions`).
+- **`create-crimp-lists.ps1` adds the three columns and must run BEFORE the
+  deploy**: they are `$select`ed, and a missing column 400s the whole read.
+  `check-crimp-specs-against-wi.ps1 -MachinesByTable @{ "3-1" = …; "3-2" = … }`
+  sets machines on the WI's specs (new ones, and existing ones with none —
+  never overwriting). Pinned in `crimpChecks.real.test.ts` (request shapes,
+  real mode; the annotation verified by removing it) and
+  `CrimpCheckFormModal.test.tsx`.
+
+Not built: insulation crimp height (only wire crimp height is checked), and
+any chart of readings over time.
+
+#### Who's notified — Harness Alert Recipients, a LIST, not a variable
+
+Tim, 2026-10-27: "an admin can also select who gets notified … so we just set
+that id and don't have to redeploy each time." A third list on `SITES.pmo`,
+**Harness Alert Recipients** (`VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID`, no
+default; created by `create-crimp-lists.ps1`): `Title` = name, `Email`,
+`Alert` (strict choice: `Crimp out of spec` / `Part number request` —
+`HARNESS_ALERTS` in `types/harness.ts`, change both together). One row per
+person per alert. Managed at `/harness/alert-recipients` ("Who's notified",
+linked from the Admin page and a note on Admin → Notification recipients;
+the button on both Harness logs shows to **ARC admins only**, Tim,
+2026-10-27): the route itself is readable by anyone who has the link, and
+**ARC admins** add and remove (`useRequireArcAdmin` in the mutationFn).
+
+- **People are PICKED from the staff directory, never typed** — Graph accepts
+  mail for a mailbox that doesn't exist, so a typo would be silent for ever.
+  That's also why this list isn't on Admin → Notification recipients: that
+  screen audits typed `VITE_*` lists. The `VITE_CRIMP_OUT_OF_SPEC_ALERTS`
+  variable this replaced never shipped.
+- **Read FRESH at send time** (`readHarnessRecipients`, `staleTime: 0`), so
+  an admin's edit reaches the very next email. Whoever triggers an email
+  reads the list, so the list must be readable by the floor.
+- **It HAS a delete** — a membership list, not a record. A duplicate (same
+  email, same alert) is refused. A row with no email or an unknown alert is
+  dropped on read, never guessed at.
+- **A new Harness email gets an alert here**, not a new variable.
+
+#### Requesting a harness part number
+
+Only ARC admins add or restore part numbers, so anyone else gets **Request a
+part number** — under the Part Number box in the entry form, and on the Part
+Numbers screen (Tim, 2026-10-27; "send to me directly for now" = Tim puts
+himself on the `Part number request` alert). `lib/harnessPartRequest.ts`
+says what the typed number is (new / retired → "restore" / already live →
+refused, pick it); `useRequestHarnessPartNumber` sends it AWAITED and throws
+when it reaches nobody, the Parts List new-list request's rule, so "Sent to
+…" is true. Not about one item: `thread: null`, the button links to the part
+numbers screen. `HarnessPartRequestDialog` is **portalled to `<body>`** — it
+opens inside the entry form, and a form in a form is invalid. Escape is
+handled on the document (after a send the focused button is gone), and the
+entry form ignores Escape while it's open — pinned, verified by removing it.
+
+### Conformal Coating Checks (Operations, PMO site)
+
+BusinessIT#60 (David Bulkley via Feature Request #34; built with Tim,
+2026-11-04). The start-of-shift conformal coating thickness check. Built on
+the Crimp Height Checks pattern, as an OPERATIONS feature, so it imports
+nothing from Harness. Pieces: `types/coating.ts`, `lib/coatingCheck.ts` (the
+rules), `lib/coatingMapper.ts`, `lib/coatingAlerts.ts`,
+`api/coatingSpecs.ts`, `api/coatingChecks.ts`,
+`api/operationsAlertRecipients.ts`, `hooks/useCoatingChecks.ts`,
+`hooks/useOperationsAlertRecipients.ts`, the two `Coating*FormModal`s, and
+three views: `/operations/coating-checks` (`/:id` opens one check),
+`/operations/coating-checks/specs` and `/operations/alert-recipients`.
+
+Three lists on `SITES.pmo`, created by `scripts/create-coating-lists.ps1`
+(idempotent, `-WhatIf`, write/read-back check; **its internal names are the
+contract** with `lib/coatingMapper.ts`). **No defaults**. An unset id shows
+"not set up yet":
+
+| List | env | Holds |
+|---|---|---|
+| Coating Specs | `VITE_SP_COATING_SPECS_LIST_ID` | Title = spec name; `MinMm`, `MaxMm` (always mm), `SpecUnit` (mm/in, as entered), `CoatedSides` (1/2), Notes, Active |
+| Coating Checks | `VITE_SP_COATING_CHECKS_LIST_ID` | one row per check; `MeasuredAt` indexed; six readings; the spec's figures copied on |
+| Operations Alert Recipients | `VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID` | Title = name, Email, Alert (`Coating out of spec`) |
+
+Tim's decisions, 2026-11-04:
+- **Three readings off an uncoated board, three off a coated one.** Each
+  side is averaged and the averages are subtracted. All six are required: an
+  average of two is not this check.
+- **A check is JUDGED IN THE SPEC'S UNIT.** A spec is entered in mm or
+  inches (Tim, 2026-11-04), and a check measured in either unit is compared
+  against it. The thickness is worked out in mm (`coatingThicknessMm`, 6
+  decimals), then `thicknessStatus` converts it to the limits' unit and
+  rounds it to `JUDGE_PLACES` (0.0001 mm / 0.00001 in) before comparing. That
+  is why an inch limit is not judged in mm: 0.0013 in is 0.03302 mm, which a
+  4-decimal mm comparison reads as 0.0330 and calls low. Mils are reference
+  only. The history: the first build judged in mils, then in mm, then (the
+  same day) in the spec's unit. Don't flip it back.
+- **A spec's limits are STORED in mm** (`MinMm` / `MaxMm`, full precision
+  via `toMm`) with `SpecUnit` beside them, so `mmTo` gives back exactly what
+  was typed. A missing `SpecUnit` reads as mm. **Inch limits are X.XXX**
+  (Tim, 2026-11-04): typed to at most three decimals (the form refuses more)
+  and always shown to three (`formatInLimit`). A measured thickness in inches
+  keeps `formatIn`'s finer figure. Every screen shows a spec in mm
+  AND inches, with mils for reference; the form and email lead with the
+  spec's unit (`thicknessText`, `coatingSpecRefText`). Each check copies
+  `SpecUnit` with the limits, and stores `ThicknessMm`, `ThicknessIn` and
+  `ThicknessMils`.
+- **Coated sides is per spec**, 1 or 2. A micrometer across a board picks up
+  both coats, so a both-sides spec halves the difference. Each check copies
+  the setting it was divided by.
+- **Readings are in mm (the DEFAULT) or inches**, chosen per check
+  (`COATING_UNITS` lists mm first). The last unit a browser saved with is
+  remembered in localStorage (`arc-coating-unit`, try/catch); a missing or
+  unknown stored `Unit` reads as mm.
+- **Specs are a list**, and a new check picks the only active spec for you.
+- **Each entry has machine, operator and date + time.** Machine and Operator
+  are free text with suggestions from earlier checks. Operator is filled in
+  with the signed-in user, since the floor may share a login. Date is a
+  `DateField`, time a native time box, and both default to now.
+- **The permissions are the crimp log's.** Anyone signed in records and
+  corrects a check. ARC admins delete checks, manage specs and pick who's
+  notified. Each admin write asks `useRequireArcAdmin` inside its mutationFn.
+
+Five things that are load-bearing:
+- **A reading that looks like the other unit is refused** (`looksLikeOtherUnit`):
+  under 0.2 in mm mode is inches, and 0.5 or more in inch mode is mm. A board
+  is 0.8–3.2 mm.
+- **The limits are IN spec**, with a 1e-9 slack in the spec's unit.
+- **A check copies its spec's figures** (name, min, max, coated sides) as
+  well as `SpecRef` (a SINGLE lookup, bare integer), so an edited spec never
+  re-judges an old check. A spec is deleted only while NO check uses it,
+  asked fresh in `useDeleteCoatingSpec`; otherwise it is retired.
+- **The averages, both thicknesses, OutOfSpec and Title are derived on every
+  write** (`deriveCoatingFigures`, used by the mock AND the Graph branch).
+- **The email goes when a check BECOMES out of spec** (the crimp rule), to the
+  `Coating out of spec` people on Operations Alert Recipients, read fresh. The
+  actor is dropped only if somebody else is left, and the outcome is toasted.
+
+**Machine and Operator keep a SHORT list** (Tim, 2026-11-04,
+`shortListSuggestions`). Before any check uses a value, opening the box shows
+the whole source: the Altronic Equipment List (`useOperationsEquipment`) for
+Machine, the staff directory for Operator. Once checks exist, opening shows
+ONLY what they used, most-used first, and typing ALSO searches the whole
+source (`SuggestInput`'s `searchOptions`). So a new machine can be picked,
+and once it's saved on a check it joins the short list. Don't merge the
+register into the open list; "it should just be a small list". Both stay
+free text.
+`SuggestInput` now filters ONLY after the person types since opening — before
+that it shows every option. It used to filter on whatever the box started
+with, so a prefilled name (or an edit) showed an empty list and the box looked
+dead. That is a change to the shared component; the crimp, CAD log and QC
+forms get it too.
+
+**The form opens on the Spec picker** (a button), never the Machine box: a
+`SuggestInput` opens its suggestions on focus, so autofocusing it opened a
+dropdown over the form on every new check and edit (Tim, 2026-11-04). The
+Specs screen is cards on a phone, rendered INSTEAD of the table (`useIsPhone`,
+the Parts List way) so each admin button exists once.
+
+**Operations Alert Recipients is its own list**, a copy of Harness Alert
+Recipients' shape and screen. Sharing the Harness one would be a cross-department
+import. A new Operations email gets an `Alert` choice here, and the
+`OPERATIONS_ALERTS` const and the script's choice list change together.
+
+**Run `create-coating-lists.ps1` before the deploy that ships this**, then
+set the three repo variables. Tim created the lists and set the variables on
+2026-11-04, BEFORE `SpecUnit` / `ThicknessIn` were added, so the script must
+be RE-RUN before this deploys. It adds only what's missing, and ARC selects
+those columns, so a missing one fails the whole read. Not built: a reminder when a shift's check
+is missed, which needs Power Automate, since ARC has no scheduler.
+
+### Manufacturing Change Notices (Operations, PMO site)
+
+BusinessIT#38 / Feature Request #24 (David Bulkley). MCNs record changes to how
+product is made, replacing the MFGFRM-021 Word form and the old log list on a
+site that no longer exists (MWI-762). Design and roadmap: the two Word
+documents attached to BusinessIT#38 — Dave's decisions (2026-10-21) are the
+spec. Pieces: `api/mcns.ts`, `api/mcnRoles.ts`, `hooks/useMcns.ts`,
+`hooks/useMcnRoles.ts`, `lib/mcn*.ts`, `types/mcn.ts`, the `Mcn*` components,
+`McnsView` / `McnDetailView` / `McnSettingsView` (`/operations/mcns`,
+`/operations/mcns/:id`, `/operations/mcns/settings`).
+
+Three lists on `SITES.pmo`, created by `scripts/create-mcn-lists.ps1`
+(idempotent, `-WhatIf`; **its internal names are the contract** with
+`lib/mcnFields.ts`). **No defaults in `config.ts`** — `MCNS_CONFIGURED` needs all
+three, and an unset id shows "not set up yet":
+
+| List | env | Holds |
+|---|---|---|
+| Manufacturing Change Notices | `VITE_SP_MCNS_LIST_ID` | Title = MCNyy### (unique); every box on the form; attachments ON |
+| MCN Roles | `VITE_SP_MCN_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles` (member / approver / admin), `Note` |
+| MCN Distribution Groups | `VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID` | Title = the form's Distribution role, `Members` ("Name <email>" per line), `SortOrder`; seeded with the eight roles |
+
+Who may do what — `lib/mcnRoles.ts`, asked by every control AND inside every
+`mutationFn` (`useResolveMcnAccess` awaits the lists):
+
+| | anyone | member | approver | admin |
+|---|---|---|---|---|
+| Read, search, comment, watch | yes | yes | yes | yes |
+| Raise, edit drafts, submit, implementation | — | yes | — | — |
+| Approve / reject / reopen | — | — | yes | — |
+| MCN Settings (team + groups) | — | — | — | yes |
+
+- **The tags are independent** — an approver can't raise, a member can't
+  approve; Dave holds whichever he needs. **An ARC admin gets only `canManage`.**
+  Unset list = nobody can raise.
+- **The pilot is `MCN_LIVE`** (`VITE_MCN_LIVE`, the Sales Pricing switch). Off:
+  only tag holders and ARC admins open the section (`canOpen`); everyone else
+  sees "MCNs — Coming soon" on the card and the menu. Going live is the repo
+  variable and a redeploy.
+- **Names go in through MCN Settings, never `src/`** — the repo is public, and
+  the mock data is invented. The real team list is in the roadmap document.
+
+The workflow — `lib/mcnWorkflow.ts`, pure:
+Draft → Submitted → Approved → Implemented, or Submitted → Rejected; Approved
+and Rejected reopen to Draft.
+
+- **Every step reads the row FRESH and writes ONE PATCH** (`transitionMcn`):
+  status, its stamps and a line appended to the discussion. A step from a status
+  the row has left is refused (`McnMovedOnError`) and refetches — two approvers a
+  minute apart can't both approve.
+- **The content locks at Submit**, and after approval only the Implementation
+  card is editable (`mcnEditGate`). Reopen clears the approval and the sent list;
+  the discussion line records who had approved it. Reject and reopen need a reason.
+- **Submit needs** process, priority, an assigned engineer and a description
+  (`submitProblems`) — MWI-762: the engineer prepares and submits it.
+- **Approve and send** prefills the ticked groups' people
+  (`distributionRecipients`), says which ticked role has nobody, and lets the
+  approver remove or add anyone. The final list is stored as `DistributedTo`
+  (plain text, one "Name <email>" per line) — **not a person column**, which would
+  silently drop anybody PMO can't resolve; and lines, not commas, because names
+  here are often "Last, First". Implemented emails the same people.
+- Emails (`lib/mcnAlerts.ts`): submitted → approvers, read from MCN Roles at send
+  time, actor dropped only if somebody is left; approved → the final list;
+  rejected → originator + engineer; implemented → the final list; those three
+  drop the actor strictly. Comments follow the house rules.
+
+Columns and shapes:
+
+- **Originated By, Assigned Engineer, Approved By are single-person**: both halves
+  selected, names from the PMO User Information List, written as **bare
+  integers**, and a person PMO can't resolve **refuses** the write. The engineer
+  is folded into Watchers in the same PATCH.
+- **`Distribution` is the one multi-choice column** (`checkBoxes`) — annotated
+  with `Collection(Edm.String)` at the write site.
+- **Scope lines are JSON** in `ScopeLines` (department id + title, process,
+  equipment). Department is picked from **Maintenance Departments** (Dave
+  confirmed); process and equipment stay free text until the CMMS is in use. An
+  unreadable value is `scopeCorrupt` — shown as an error, never written over.
+- **The Requires… / Incorporate into lines are ten Yes/No choice columns**, nine
+  with a reference text column (`MCN_ITEM_FIELDS`). Blank is unanswered, never No;
+  clearing writes `null`.
+- **`OperationsTaskRef` is a single lookup** into the Operations Task List (same
+  site) — any team member can set it in any status; it isn't approved content.
+- **Numbering is MCNyy###, highest that year + 1**, from a fresh read; Title is
+  unique, a unique-value refusal renumbers once, and `settleMcnNumber` (the EIR
+  pattern) covers a list without the constraint. A create whose number can't be
+  confirmed is a create with a warning (`McnNumberUnconfirmedError`, `writeLanded`).
+- **The New MCN form takes attachments** (`PendingAttachmentsCard`, the New
+  EIR arrangement): held in memory, uploaded one at a time once the MCN exists;
+  a failed file is a warning naming it, never a failed create.
+- **No delete** — a withdrawn change is Rejected. `LegacySource` / `LegacyNote`
+  are for the import of the eight old MCNs (roadmap step 8, not built yet; MCN20001
+  is Level 3, per its signed form).
+
+Still to do (the roadmap): run the script and verify each column by write and
+read-back, plus the behavioural Communication check (FAIT 89); import the eight
+MCNs; Dave names the approver delegate and the group members; pilot; go live.
+Phase 2: the MFGFRM-021 print layout and MFGFRM-001 Information Requests.
 
 ### Build Request Items — Assembly / Operations / Testing are MULTI-choice
 
@@ -7094,6 +9029,11 @@ Four things that shape this feature:
     mutates a module-level array, so an earlier test moving a request leaked
     into the guard test and made it pass for the wrong reason — caught because
     the first version of the test failed with `from: "In Work"`.
+- **Attachments** (2026-11-05): an `AttachmentsSection` on the page, kind
+  `featureRequest`, and a file attached to a comment uploads there through
+  `useCommentFileUpload` — before that the composer showed the file and
+  dropped it on Send. Pinned end to end, mock mode, in
+  `FeatureRequestDetailView.attachments.test.tsx`.
 - **Comments follow the full house rules** —
   `commentNotifyRecipients`/`commentRenotifyRecipients` (not ECN's narrower
   submitter-only rule, since this list DOES have a Watchers column and a
@@ -7697,6 +9637,14 @@ Six things that are load-bearing:
 - **SAP material numbers are zero-padded** (`000000000001234`). Run them
   through `stripSapPadding` before matching or showing them; it is null-safe,
   since one null row in a GraphQL batch would otherwise throw for all of them.
+- **Retry only a blip** — `isRetryableFabricFailure` in `api/fabric.ts`: a
+  network failure or a 5xx. A missing endpoint, a refused token or a rejected
+  query fails the same way every time. Every Fabric hook uses it.
+- **Introspection is OFF, so prove a table's GraphQL name with a live query**
+  before writing code against it. The quick way, read-only, as yourself:
+  `az account get-access-token --resource https://analysis.windows.net/powerbi/api`
+  and POST the query to `FABRIC_GRAPHQL_ENDPOINT`. That is how the supplier
+  performance table's name was checked, before and after its rename.
 
 **The dev harness's pasted-token box** bypasses MSAL so the whole route can be
 proven before ARC's app registration has the scope (that is how the query was
@@ -8392,6 +10340,45 @@ If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mo
 
 **A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
 
+### One email per reason, Bcc'd — not one per person
+
+Every recipient used to get their own `sendMail`, one after another, so a
+comment on an item with a dozen watchers took several seconds to send, and
+**closing or reloading the tab part-way cancelled the rest with nothing logged
+anywhere**. Alexandra Russell's mention of Jerrod Waldron and Thomas Westbrook
+on EIR 1205 (2026-10-26) never arrived, while Glenn Terry, the first watcher in
+the loop, got his. Watchers sorted first; the mentioned people were last.
+SPA navigation never cancelled anything; only an unload did. Now
+(`api/email.ts`, both `notifyMentions` and `notifyChangeEmails`):
+
+- **A comment sends one message per REASON** (mentioned, replied, assigned,
+  submitted, edited, watching), in that order, so the people somebody is
+  waiting on go first. A change alert merges emails that are identical apart
+  from the greeting (subject, headline, detail, actions), so a builder that
+  words one person's email differently still sends them their own.
+- **Several people go in `bccRecipients`, never To or Cc.** Nobody sees the
+  list, and nobody can reply-all from `automation@`, which nobody reads. A
+  message to ONE person keeps `toRecipients` and the "Hello Name" greeting;
+  several get "Hello,". `recipientName` in the renderers is `string | null`
+  for this.
+- **At most `MAX_RECIPIENTS_PER_MESSAGE` (100) per message.** Exchange
+  Online refuses past 500 by default.
+- **A failed message fails everyone on it.** `MailSendResult` still lists
+  addresses, so the toast still names who missed out.
+- **`beforeunload` asks before leaving** while a send is in flight
+  (`warnIfSendingOnUnload`). Browsers show their own wording.
+
+**`fetch` keepalive was considered and NOT used.** It would let a send survive
+the unload, but a keepalive request that needs a CORS preflight (Graph's
+`Authorization` header does) was refused outright by Chrome for years, and
+whether today's browsers allow it was not verified. Getting it wrong fails
+EVERY notification, and a POST can't safely be retried without keepalive in
+case it was sent. Verify it live before adding it.
+
+A test that reads who an email went to must read `bccRecipients` as well as
+`toRecipients` — see `email.grouped.test.ts` and
+`email.buildRequestProduction.test.ts`.
+
 ### One Outlook conversation per item — the subject is the ITEM, not the event
 
 BusinessIT#7 (Brandon Mirto; built 2026-10-12, Tim). Every email about one
@@ -8434,15 +10421,20 @@ Five things that are load-bearing:
 - **Every call site for one kind must build the SAME title**, or its emails
   split into two conversations. An audit on 2026-10-12 found Build Requests
   with three spellings ("BR-12", "BR-12 — title", the mirror's own); they all
-  go through `buildRequestEmailTitle` now. A new email about an existing kind
+  go through `buildRequestEmailTitle` now. A build request PART goes through
+  `buildRequestPartEmailTitle` — "672255-01 on BR_2026-0081 — name", since one
+  part number can sit on several open requests (BusinessIT#56). It reads the
+  parent from the cache or `ensureQueryData`, best-effort; with no parent it
+  falls back to the part number alone. A new email about an existing kind
   reuses that kind's existing label — check its other call sites.
 - **`target.thread` overrides the default.** An `EmailThread` files the email
   under ANOTHER item's conversation: a quote component's comments go to the
-  quote (`useQuoteItems.itemTarget`), the EIR-promotion email to the EIR
-  (`firePromotionAlert`), and a PM-schedule alert gets its own
-  `scheduledMaintenance:id` key, since its id is a schedule's and the default
-  would be a work order's. **`thread: null` opts out** — the two parts-list
-  requests, which aren't about one part.
+  quote (the old quote component threads did), and a quote-to-task email to the
+  quote. **`thread: null` opts out** — the two parts-list requests, which
+  aren't about one part. (The EIR-promotion email and the PM-schedule alert
+  used overrides until v0.218.0; both are now sent with their OWN kind, `eir`
+  and `scheduledMaintenance`, whose default keys are the ones they used, so
+  no open conversation split.)
 - **`id: 0` never threads**, nor does a blank title — `emailThreadFor`
   returns null and the email keeps its summary as its subject.
 - **Renaming an item starts a new conversation.** Accepted (Tim): an id-only
@@ -8453,6 +10445,62 @@ Five things that are load-bearing:
 `api/email.threading.test.ts` pins the guarantee in real mode across both
 paths — a comment and a status alert on one item share subject AND index —
 and was verified by removing the index and watching it fail.
+
+### Task, EIR and build request emails: three blocks (BusinessIT#67)
+
+Valerie Sweeney (Feature Request #41): an email should say what it's about
+before it's opened. Decided with Tim, 2026-11-06, from mock-ups of every
+email (the "ARC Email Cut Sheet" Claude Doc). A target may carry a
+**`context`** (`lib/emailContext.ts`, on `MentionTarget` and `ChangeTarget`);
+when it does, `renderEmailShell` draws three blocks under the greeting:
+
+1. **The card** — the item's number and title, with `context.above` on a line
+   above it as a link: a task's **Parent task**, a build request's linked
+   **Task**.
+2. **What's new** — the headline (who did what), then the comment / change /
+   request. Always ABOVE the description, so a phone shows it first.
+3. **Description** — `descriptionExcerpt` (lib/changeAlerts.ts, the 600-char
+   word-boundary cut the assignment email already used, renamed from
+   `assignmentDescriptionExcerpt`), with "Read the full description in ARC"
+   only when it was cut. A build request has no description column, so
+   `context.details` (product, type, sample phase, quoted ship date, customer,
+   blanks dropped) fills this block instead.
+
+Rules that are load-bearing:
+
+- **Only Engineering tasks, EIRs and build requests carry a context**
+  (`taskEmailTarget`, `eirEmailTarget` in useEirs, `brEmailTarget` in
+  useBuildRequests, and `audienceFor` in useCommentMirror for the mirrored
+  copies). Every other email keeps the single-message layout, pinned in
+  `api/email.context.test.ts`. Build request PART emails were left alone
+  (Tim). Operations tasks weren't asked for.
+- **The subject never changes** — the parent is NOT in it (Tim): a moved task
+  would start a new Outlook conversation, and subjects would run long.
+- **The assignment email doesn't repeat the description**: with a context,
+  callers pass `details: { dueDate }` only, so the due date sits in What's new
+  and the description in its own block. `AssignmentDetails.description` is
+  optional for this; Operations tasks still pass it.
+- **A build request's linked task is read from the cached task list**
+  (`["tasks","list"]`, else the recent preview). The mention scanner keeps it
+  mounted on every page; when it isn't cached the card has no Task line.
+- **The EIR promotion email is the EIR's** — card, description and
+  conversation — with the new task named as a link in What's new and the
+  button pointed at it (`link`). It used to be the task's card and button
+  under the EIR's subject.
+
+**The potting alert is the deliberate odd one** (`sendOpenAlert`): the
+standard layout, but NO button (everything is in the email), everyone in
+**To** so Reply all reaches the list (Tim: they discuss a sample by email),
+a footer inviting Reply all instead of "Do not reply", its own subject, and
+failures reported like every other send. It runs in the background so the
+sample's save no longer waits on mail.
+
+**A PM schedule is its own email kind, `scheduledMaintenance`** ("PM
+schedule", button "Open this PM schedule"). As `maintenanceTask` the email
+said "this work order" and its button opened the work order with the
+schedule's id. `KIND_SEGMENTS.scheduledMaintenance` is
+`/operations/maintenance/schedules/:id`, which `PmLibraryView` reads as "show
+just this schedule" (retired included, filters hidden, Show all link).
 
 ## Theming
 
@@ -8856,6 +10904,7 @@ shows: a multi column's sample values are arrays.
 | Build Request Items | `Assembly`, `Operations`, `Testing` |
 | Suppliers List | `CoreCompetency` (and `PrimarySupplyFocus`, still unconfigured) |
 | Customer Notes | `CustomerType` |
+| ECN NEW | `Distribution` (added 2026-11-05, BusinessIT#57) |
 
 `Project Task List` has one (`Orderanynewpartsthatwedonothavey`) that ARC
 never writes. The Build Request **Tracker** and the EIRs list have none.
@@ -9030,6 +11079,23 @@ Two details that are easy to get wrong:
 **A multi-select still doesn't close on a pick** — ticking several is the
 point — which is why it now carries a **Done** row. If you add a dropdown that
 stays open, give it a visible way out.
+
+**A panel opens ABOVE its trigger when it won't fit below** (BusinessIT#66,
+2026-11-05). On a short page the task's Watchers search opened under the fixed
+footer and the page couldn't scroll far enough to reach it.
+`choosePanelPlacement` in `SearchableSelect.tsx` is the rule: below when the
+whole panel (`max-h-80`) fits above the footer's top (`[data-fixed-footer]`,
+else the window bottom), otherwise whichever side has more room, shortened to
+fit. An above panel is portalled to `<body>`, `fixed z-100`, and re-measured
+on scroll and resize. Two things that go with it:
+
+- **The panel isn't rendered until it's placed** (a layout effect, before
+  paint), so it mounts once, in the right place.
+- **Focus landing in the panel is recognised by `data-dropdown-panel`**, not
+  only `panelRef`. The search box autofocuses during the commit, BEFORE React
+  attaches `panelRef`, and a portalled panel isn't inside the wrapper — so
+  without the id the panel closed the instant it opened above. The
+  ColumnFilterButton lesson, met again.
 
 Testing note: `resetOpenDropdown()` in a `beforeEach`, or a claim left by a
 previous test closes the one under test. And jsdom does NOT populate
@@ -9557,6 +11623,63 @@ columns) and calls `onClose()` without awaiting them. That's safe because a
 failed write rolls its own field back and toasts, and React Query finishes
 mutations after unmount. Validation still runs first.
 
+### Reading one task never downloads the task list
+
+Investigated 2026-10-26 when the Project Task List started answering Graph
+`504`s. The list is ~17 sequential pages carrying every comment thread, and
+three things were downloading it far more than needed:
+
+- **`getTask(id)` reads ONE item** (`items/{id}?$expand=fields($select=…)`).
+  It used to call `listTasks()` and pick a row — and every task write
+  re-reads through it, while Watch and Assign read through it first, so one
+  comment cost two full downloads.
+- **That row has no derived fields** (parent title, child tasks, project
+  titles). Anything putting it in the cache goes through `mergeTaskIntoList`
+  (`lib/taskGraph.ts`; `mergeIntoCache` in the hook), which re-derives them
+  against the list. Pasting it in raw blanks project names and drops a
+  parent's children.
+- **The detail page polls its own task** (`useTaskPoll`), not the whole list.
+  It skips a tick while a task write is in flight or its previous read is
+  still out, and throws away a read a write overtook. The list now refreshes
+  on writes, the header's Refresh, or when a list screen mounts over two
+  minutes stale — remember `refetchOnWindowFocus` is off and the mention
+  scanner keeps the task query mounted, so nothing else refetches it.
+- **Test Sheets takes task titles from the cache** (`fetchTestSheets`);
+  `getTestSheet` reads one sheet and one task. Never pass `listTestSheets`
+  bare as a `queryFn` — React Query would hand it the context as `loadTasks`.
+
+Still downloaded in full on purpose: the list itself, with `Communication`,
+because the list rows, the Kanban chips and the @-mention marker read it.
+Dropping it (Phase 2) needs a decision about those three first. Measured
+2026-10-26 (3,144 tasks): 16 pages, 16.1 s, 19 MB today; without
+`Communication`/`Description` at `$top=999`, 8.3 s and 6.7 MB, slowest page
+2.6 s. SharePoint spends ~2 ms a task even without the comments.
+
+### The task List and Kanban show a preview while the list loads
+
+`useTaskListWithPreview` (hooks/useTasks.ts): the full list once it's here,
+and until then the 200 most recently CHANGED tasks (`listRecentTasks`), with
+`TaskListPreviewNotice` above them. Five rules:
+
+- **The preview has its own key, `["tasks", "recent"]`, never
+  `TASK_LIST_KEY`.** That key means "every task" to numbering, the
+  project-delete guard, the open-child completion gate, the mention scanner
+  (which drops marks for ids it can't see) and EIR task links — each goes
+  wrong on a partial list. Only screens that SHOW tasks read the preview.
+- **It is ONE request, not a page of the full load.** `$orderby=fields/Modified
+  desc` is the only sort that works on this list (checked live:
+  `$orderby=id desc` and `createdDateTime desc` are silently ignored, oldest
+  first; `fields/ID` is a 400). Modified changes under you, so it must never
+  page the full list — a task edited mid-load could be skipped or doubled.
+- **The Kanban holds drags while previewing.** A status write cancels the
+  full download (`snapshotAndPatch`) and patches a list that isn't there.
+- **New Task waits for the full list** (`numberingPending` in
+  TaskFormModal) — the number counts the project's tasks, and from an empty
+  list it came out T1. That gap predates the preview; the preview made it
+  likely.
+- **Past 5,000 items** the sort is refused unless `Modified` is indexed; the
+  preview then fails quietly and the screen loads as it did before.
+
 ### A task can't be marked Complete with open child tasks — or an open build request
 
 Ray, 2026-09-04: child tasks were being left open after their parent was
@@ -9934,6 +12057,54 @@ Seven things that are load-bearing:
   — `mentions.ts` imports it, and `commentMirror.ts` imports `mentions.ts`.
   That's why it has its own `escapeHtml` and an `ORIGIN_BANNER_CLASS` copy
   (a test pins it equal to `ORIGIN_MARKER_CLASS`).
+
+### Every build request names a task — BusinessIT#58
+
+Build requests raised from the Build Requests list had no `TaskReference`,
+so people working from tasks never saw them (Matthew Traina / Ray White).
+Tim's decisions, 2026-11-02. Rules in `lib/buildRequestTaskLink.ts`; the
+form, `BuildRequestTaskField` on the detail page, and `LinkedDiscussion` on
+both pages use them.
+
+- **A new build request must name a task** (`BuildRequestFormModal` without
+  `fromTask`): a task picker, the request's project's open tasks first, or
+  **Create a task for this**. That makes the task FIRST (in the request's
+  FIRST project — no project, no task, since the number would read as 0000),
+  then the request with `TaskReference` in the create POST. A task made for a
+  request that then failed is kept and reused on the retry, never made twice.
+- **Engineering tasks only.** Operations needs a new Number column on the BR
+  Tracker (the Ops list is on another site collection), so it waits.
+- **"Create a task for this" is on the detail page's picker too** (Tim asked
+  after first seeing it), when linking and under Change: task first, then the
+  link, so a failed create links nothing; no project reference says so
+  before any confirm.
+- **Anyone signed in may link or re-link**, like creating either record. A
+  RE-link asks first (the warning dialog); a first link doesn't, since
+  nothing moves. `RichTextWarningDialog` gained `confirmLabel` / `cancelLabel`
+  for this — reuse it for the next confirm rather than writing another.
+- **The link is still stored ONCE**, as a bare-integer single lookup
+  (`setBuildRequestTask`, pinned in real mode). There is no "unlink" — a
+  request must name a task; Undo of a first link is the only `null` write.
+- **Earlier comments are SHOWN, not copied** (Tim: "keep them where they are
+  but display them in the other area"). `earlierLinkedComments` is the other
+  record's comments minus copies (mirror banner), minus ARC's "Raised from
+  task" note, minus anything already here by `commentKey` (author + words) —
+  so after the link, the live mirror's copies drop out and only pre-link
+  comments remain. Read-only `CommentThread` (no `onEdit`, no `onReply`);
+  nothing written, nobody emailed. Part comments from before the link are
+  NOT shown — the panel covers the request's own thread only.
+
+### List or Kanban is remembered — BusinessIT#51
+
+Thomas Terhune: "It remembers my dark mode." `hooks/useRememberedView.tsx`.
+The pick is saved ONLY when List / Kanban (Board) is pressed in the header
+switcher, never by which screen loaded — so a shared board link changes
+nobody's default. `RememberedViewRoute` wraps the three LIST routes in
+`App.tsx` (`/list`, `/eirs`, `/operations/tasks`) and redirects to the board,
+filters carried, when that was the last pick and the screen is big enough
+for a board. Per browser, localStorage key `arc-view-prefs`, every access
+wrapped. Pressing List writes the pick BEFORE the navigation (the Link's
+`onClick`), which is what stops it bouncing back to the board.
 
 ### Description checklists: sub-tasks and attribution
 
@@ -10774,6 +12945,47 @@ separately, because access wouldn't fix a bad address or a throttle. An unset
 for everyone, so a per-comment toast would be noise rather than something one
 person can act on.
 
+### The Save Failed email is for a save that really failed
+
+`reportEditFailure` (`api/editFailureReport.ts`) runs on EVERY mutation error,
+from the global `MutationCache.onError` in `main.tsx`. Reported 2026-10-22:
+people got "Save Failed" for changes that had saved. Two causes, three rules:
+
+- **An error meaning the write LANDED carries `writeLanded: true`** and is
+  never emailed — `FaitReadBackError` (the PATCH landed, the re-read failed;
+  the hook keeps the change on screen), plus `FaitInitiatorNotSetError`,
+  `TaskFollowUpWriteError` and `EirNumberUnconfirmedError`. A new "it saved,
+  but…" error class gets the flag too.
+- **A mutation opts out with `meta: NO_EDIT_FAILURE_EMAIL`** where the email
+  can't help. Attachment upload and delete do: nothing typed is lost, and
+  the card already says the upload failed. `main.tsx` passes `mutation.meta`
+  through.
+- **A `File` variable is described by name and size.** The old describer
+  walked `Object.entries`, which is empty for a File, so the email said "the
+  specific values couldn't be captured".
+
+The other cause was in the upload itself, below.
+
+### List-item attachments upload ONE AT A TIME per item
+
+`uploadAttachment` (`api/attachments.ts`) queues per `parent:itemId`. Every
+`AttachmentFiles/add` also updates the parent item, and two landing on one
+item together collide: SharePoint stores the file, then answers the item
+update with a bare `500 -2147467259 "Cannot complete this action"`. Picking
+several files fired one POST each in parallel (and Panel QC's staged files
+used `Promise.allSettled`), so the upload "failed" with the file already there.
+
+- **The queue is in the API, not the callers**, so the Attachments card,
+  comment files, a New form's staged batch and `copyAttachments` are all
+  covered. Don't parallelise uploads to one item anywhere.
+- **An ambiguous failure is settled by looking.** A 5xx, a 409 or a dropped
+  connection re-lists the item's attachments. The upload counts as saved only
+  if the name is there now AND was absent in the listing taken just before
+  the POST. Without the "before", a same-named older file would read as
+  success. A 400/403/404 is a refusal and is never re-checked. That costs one
+  GET per upload, which is cheap for something people do by hand.
+- Pinned in `attachments.upload.test.ts`, each guard verified by removing it.
+
 ### "Attachments unavailable" has two causes, not one
 
 The SharePoint REST token is acquired silently and never interactively — a
@@ -11384,11 +13596,15 @@ Three things about the wiring:
 - **Call the hook ABOVE the view's early return**, next to the nullable
   `<thing>Id`. These views `return` before the item loads, and a hook cannot
   be called conditionally; the hook takes `number | null` for exactly this.
-- **Two views are deliberately exempt**: `CustomerNoteDetailView` and
-  `FeatureRequestDetailView` have a Communication column but no
-  `AttachmentParent` entry and no `AttachmentsSection`, so there is nowhere
-  for a file to go. Giving either one comment attachments means adding its
-  parent config in `api/attachments.ts` first.
+- **One view is deliberately exempt**: `CustomerNoteDetailView` has a
+  Communication column but no `AttachmentParent` entry and no
+  `AttachmentsSection`, so there is nowhere for a file to go — and its
+  composer still shows a dropped file, then drops it on Send. Giving it comment
+  attachments means adding its parent config in `api/attachments.ts` first.
+  **Feature Requests was the other exemption until 2026-11-05**, when exactly
+  that was reported ("it says it is attaching but doesn't show anything"); it
+  now has a `featureRequest` parent (Engineering site, the list is a
+  genericList so attachments were already ON) and an Attachments card.
 
 `views/commentFileUpload.wiring.test.ts` pins it structurally — reading each
 view's source via Vite's `?raw` (the app's tsconfig has no Node types), in the

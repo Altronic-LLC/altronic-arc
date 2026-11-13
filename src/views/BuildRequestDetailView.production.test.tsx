@@ -33,6 +33,7 @@ vi.mock("@/hooks/useBuildRequests", () => {
     useSetBuildRequestEngineer: noop,
     useSetBuildRequestProjects: noop,
     useSetBuildRequestRequestor: noop,
+    useSetBuildRequestTask: noop,
     useSetBuildRequestWatchers: noop,
   };
 });

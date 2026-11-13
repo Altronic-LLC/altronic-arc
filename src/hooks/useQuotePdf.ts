@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listQuotePdfs, saveQuotePdf, type QuotePdfFile, type SavedQuotePdf } from "@/api/quotePdfFiles";
-import type { Quote, QuoteAssembly, QuoteCustomer, QuoteItem } from "@/types/quote";
+import type { Quote, QuoteAssembly, QuoteCustomer } from "@/types/quote";
 import { buildQuotePdfModel } from "@/lib/quotePdfModel";
 import { generateQuotePdf, quotePdfFileName } from "@/lib/quotePdf";
 import { generatePdfGate } from "@/lib/quoteRoles";
@@ -36,7 +36,6 @@ export interface GenerateQuotePdfInput {
   quote: Quote;
   customer: QuoteCustomer | null;
   assemblies: QuoteAssembly[];
-  items: QuoteItem[];
 }
 
 /**

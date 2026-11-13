@@ -68,7 +68,7 @@ describe("NewProductPricingDetailView", () => {
   it("refuses a requester", async () => {
     who.email = REQUESTER;
     renderWorksheet();
-    expect(await screen.findByText("This is for pricing managers and admins.")).toBeInTheDocument();
+    expect(await screen.findByText("This is for pricing managers, admins and the New Products role.")).toBeInTheDocument();
     expect(screen.queryByText("NP-2026-0001")).toBeNull();
   });
 
@@ -272,13 +272,13 @@ describe("NewProductPricingDetailView — standalone parts", () => {
     await waitForWorksheet();
     await userEvent.click(screen.getByRole("button", { name: /Add part/ }));
     const blank = screen.getByRole("region", { name: "Part this part" });
+    // Looked up as it's typed — no button to press (Ray, 2026-10-22).
     await userEvent.type(within(blank).getByLabelText("Altronic part number of this row"), "593027-25");
-    await userEvent.click(within(blank).getByRole("button", { name: /Look up in SAP/ }));
 
     const part = await screen.findByRole("region", { name: "Part 593027-25" }, { timeout: 10_000 });
     await waitFor(() => expect(within(part).getByLabelText(/^SAP part number of/)).toHaveValue("2001-0310-25"));
     expect(within(part).getByLabelText("Description of 593027-25")).toHaveValue("HARNESS, CPU-95, 25 FT");
-    expect(within(part).getByText("Base cost").parentElement).toHaveTextContent("$142.00");
+    expect(within(part).getByText("Base cost").closest(".flex-col")).toHaveTextContent("$142.00");
     expect(within(part).getByText("SAP")).toBeInTheDocument();
     expect(within(part).queryByLabelText("Base cost for 593027-25")).toBeNull();
     // $142, no overhead on a new row: 817.24 + 142.
@@ -474,14 +474,116 @@ describe("NewProductPricingDetailView — customer price and Compare to SAP", ()
     expect(figures.getByText("Customer price").nextElementSibling?.textContent).toBe("$1,280.00");
   });
 
-  it("compares by the SAP part number typed, remembered on the worksheet", async () => {
+  it("has no Compare to SAP card any more (Ray, 2026-10-22)", async () => {
     renderWorksheet();
     await waitForWorksheet();
-    const box = screen.getByLabelText("SAP part number", { selector: "input[placeholder='SAP part #']" });
-    await userEvent.clear(box);
-    await userEvent.type(box, "1003-0114-16");
-    await userEvent.click(screen.getByRole("button", { name: /Remember|Change/ }));
-    await waitFor(() => expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.sapPartNumber).toBe("1003-0114-16"));
-    expect(await screen.findByRole("table", { name: "Intended versus SAP" })).toBeInTheDocument();
+    expect(screen.queryByText("Compare to SAP")).toBeNull();
+  });
+});
+
+describe("NewProductPricingDetailView — choosing what goes in, and adding several (2026-10-22)", () => {
+  function emptyWorksheet() {
+    pricingMockDb.subAssemblies = pricingMockDb.subAssemblies.filter((r) => r.worksheetId !== 1);
+  }
+
+  it("a worksheet with nothing in it asks what goes in — no empty sub-assembly or part section", async () => {
+    emptyWorksheet();
+    renderWorksheet();
+    await waitForWorksheet();
+    expect(screen.getByRole("region", { name: "What goes into this product" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Sub-assemblies" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Parts" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Add a sub-assembly" }));
+    expect(screen.getByRole("region", { name: "Sub-assemblies" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Parts" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "What goes into this product" })).toBeNull();
+  });
+
+  it("Add parts pastes several numbers, each a part looked up in SAP — one not found is kept to fill in", async () => {
+    emptyWorksheet();
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("button", { name: "Add parts" }));
+    const box = screen.getByLabelText("Part numbers to add as parts");
+    await userEvent.type(box, "2001-0310-25, 593027-15 NOPE-1{Enter}");
+
+    const found = await screen.findByRole("region", { name: "Part 593027-25" }, { timeout: 10_000 });
+    expect(within(found).getByLabelText("Description of 593027-25")).toHaveValue("HARNESS, CPU-95, 25 FT");
+    expect(within(found).getByText("Base cost").closest(".flex-col")).toHaveTextContent("$142.00");
+    expect(screen.getByRole("region", { name: "Part 593027-15" })).toBeInTheDocument();
+    const missing = screen.getByRole("region", { name: "Part NOPE-1" });
+    expect(within(missing).getByLabelText("Base cost for NOPE-1")).toHaveValue(null);
+    expect(screen.getByText(/Added 3 parts\. 1 not found in SAP/)).toBeInTheDocument();
+
+    // Pasting one already there adds nothing.
+    await userEvent.type(screen.getByLabelText("Part numbers to add as parts"), "593027-25{Enter}");
+    expect(await screen.findByText(/Nothing new to add\. 1 already here\./)).toBeInTheDocument();
+    expect(screen.getAllByRole("region", { name: /^Part / })).toHaveLength(3);
+  });
+
+  it("Add several on a sub-assembly adds components from SAP and skips one already on it", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    const before = within(board).getAllByRole("row").length;
+    await userEvent.click(within(board).getByRole("button", { name: /Add several/ }));
+    await userEvent.type(within(board).getByLabelText("Component part numbers to add to Main board"), "2001-0310-40 PCB-24-BARE{Enter}");
+
+    expect(await within(board).findByText(/Added 1 component\. 1 already here\./, undefined, { timeout: 10_000 })).toBeInTheDocument();
+    expect(within(board).getAllByRole("row")).toHaveLength(before + 1);
+    const row = within(board).getByDisplayValue("593027-40").closest("tr")!;
+    expect(within(row).getByDisplayValue("2001-0310-40")).toBeInTheDocument();
+    expect(within(row).getByDisplayValue("HARNESS, CPU-95, 40 FT")).toBeInTheDocument();
+    expect(within(row).getAllByText("$170.00")).toHaveLength(2); // base and extended, qty 1
+    expect(within(row).getByText("SAP")).toBeInTheDocument();
+  });
+
+  it("Add component looks the SAP # up as it's typed and fills the Altronic #, description and cost", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    await userEvent.click(within(board).getByRole("button", { name: /Add component/ }));
+    await userEvent.type(within(board).getByLabelText("New component SAP part number"), "2001-0322-10");
+    await waitFor(() => expect(within(board).getByLabelText("New component Altronic part number")).toHaveValue("593050-10"), {
+      timeout: 10_000,
+    });
+    expect(within(board).getByLabelText("New component description")).toHaveValue("HARNESS, DE-3000 I/O, 10 FT");
+    expect(within(board).getByLabelText("New component cost")).toHaveValue(98);
+  });
+
+  it("a sub-assembly or part folds to one line and opens again as it was", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    await userEvent.click(within(board).getByRole("button", { name: "Collapse Main board" }));
+    expect(within(board).queryByRole("table")).toBeNull();
+    expect(within(board).getByText("4 components · ×1")).toBeInTheDocument();
+    await userEvent.click(within(board).getByRole("button", { name: "Expand Main board" }));
+    expect(within(board).getByLabelText("Adjusted cost for PCB-24-BARE")).toHaveValue(185);
+  });
+
+  it("Collapse all folds every sub-assembly and part; Expand all opens them again", async () => {
+    renderWorksheet(2);
+    await waitForNumber("NP-2026-0002");
+    await userEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryByLabelText("Description of BRKT-KIT-SEAL")).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand BRKT-KIT-SEAL" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Sub-assemblies" })).queryAllByRole("table")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Collapse all" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getByLabelText("Description of BRKT-KIT-SEAL")).toHaveValue("Mounting bracket kit");
+  });
+
+  it("a row's own selling price folds to one line and opens again", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const priced = screen.getAllByRole("region", { name: / — own selling price$/ })[0];
+    await userEvent.click(within(priced).getByRole("button", { name: /^Collapse the own selling price/ }));
+    expect(within(priced).queryByText("Quantity breaks")).toBeNull();
+    expect(within(priced).getByText(/^List \$/)).toBeInTheDocument();
+    await userEvent.click(within(priced).getByRole("button", { name: /^Expand the own selling price/ }));
+    expect(within(priced).getByText("Quantity breaks")).toBeInTheDocument();
   });
 });

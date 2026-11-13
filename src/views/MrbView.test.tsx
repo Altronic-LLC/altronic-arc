@@ -16,7 +16,7 @@ import type { MrbEntry } from "@/types/task";
 // table BOTH render and every entry's text appears twice. Scope queries to
 // the table (`within(await table())`) or use getAllBy* — the singular
 // unscoped form throws "Found multiple elements". Same convention as
-// QcCpu95View.test.tsx.
+// QcFormView.test.tsx.
 // =============================================================================
 
 const listMrbEntries = vi.hoisted(() => vi.fn());
@@ -39,6 +39,7 @@ function entry(over: Partial<MrbEntry> = {}): MrbEntry {
     pricePerUnit: null,
     pricePerIssue: null,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -321,5 +322,70 @@ describe("MrbView — sorting", () => {
 
     const after = sapOrder();
     expect(after[0]).toContain("ARCHIVE-ROW");
+  });
+});
+
+describe("MrbView — Export for the meeting", () => {
+  it("opens the export dialog over the whole register, whatever tab is showing", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MrbView />, { route: "/supply-chain/mrb" });
+    await table();
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    const dialog = screen.getByRole("dialog", { name: "Export for MRB meeting" });
+    // Two undecided live entries (archive never), whatever the window.
+    expect(within(dialog).getByRole("status")).toHaveTextContent("2 need a disposition");
+  });
+});
+
+// BusinessIT#71 — "mark an entry as coming from panel department for sorting
+// and filtering in reporting".
+describe("MrbView — the Panel department flag", () => {
+  const FROM_PANEL = entry({ id: 5, sapNumber: "FROM-PANEL", panelDepartment: true });
+
+  beforeEach(() => {
+    listMrbEntries.mockResolvedValue([UNDECIDED, FROM_PANEL]);
+  });
+
+  it("shows a Panel column, right after Where Caused, reading Yes or No", async () => {
+    renderWithProviders(<MrbView />, { route: "/supply-chain/mrb" });
+    const t = await table();
+
+    const headers = within(t)
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent ?? "");
+    const at = headers.findIndex((h) => h.includes("Panel"));
+    expect(headers[at - 1]).toContain("Where Caused");
+
+    const cell = (sap: string) =>
+      within(within(t).getByText(sap).closest("tr")!).getAllByRole("cell")[at];
+    expect(cell("FROM-PANEL")).toHaveTextContent("Yes");
+    expect(cell("LIVE-UNDECIDED")).toHaveTextContent("No");
+  });
+
+  it("?panel=yes keeps only the panel department's entries, and opens the filters", async () => {
+    renderWithProviders(<MrbView />, { route: "/supply-chain/mrb?panel=yes" });
+    const t = await table();
+
+    expect(within(t).getByText("FROM-PANEL")).toBeInTheDocument();
+    expect(within(t).queryByText("LIVE-UNDECIDED")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Search and filters/i }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("?panel=no keeps everyone else's", async () => {
+    renderWithProviders(<MrbView />, { route: "/supply-chain/mrb?panel=no" });
+    const t = await table();
+
+    expect(within(t).getByText("LIVE-UNDECIDED")).toBeInTheDocument();
+    expect(within(t).queryByText("FROM-PANEL")).not.toBeInTheDocument();
+  });
+
+  it("ignores a ?panel= value it doesn't know, rather than matching nothing", async () => {
+    renderWithProviders(<MrbView />, { route: "/supply-chain/mrb?panel=maybe" });
+    const t = await table();
+
+    expect(within(t).getByText("LIVE-UNDECIDED")).toBeInTheDocument();
+    expect(within(t).getByText("FROM-PANEL")).toBeInTheDocument();
   });
 });

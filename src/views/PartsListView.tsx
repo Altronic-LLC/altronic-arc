@@ -1,12 +1,18 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowDownAZ, ArrowUpAZ, ChevronDown, Cpu, Globe, SlidersHorizontal, X } from "lucide-react";
-import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicParts";
+import {
+  useAltronicComponents,
+  useAltronicComponentsInLists,
+  useAltronicParts,
+  useAltronicPartsInLists,
+} from "@/hooks/useAltronicParts";
 import { PartKindChip, PartsDataGate, SignOffChip, type PartsQueryState } from "@/components/partsAtoms";
 import { SearchInput } from "@/components/SearchInput";
 import { NewPartButton } from "@/components/PartFormModal";
 import { SortableHeader } from "@/components/SortableTableHeader";
 import { useSortableTable } from "@/hooks/useSortableTable";
+import { useFitToWindow } from "@/hooks/useFitToWindow";
 import { useIsPhone } from "@/hooks/useIsPhone";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { dayLabel, type SortColumn } from "@/lib/tableSort";
@@ -116,11 +122,9 @@ const PART_SEARCH_FIELDS: SearchField<AltronicPart>[] = [
 ];
 
 function PartListScreen({ prefix }: { prefix: string }) {
-  const query = useAltronicParts();
-  const rows = useMemo(
-    () => (query.data ?? []).filter((p) => partPrefix(p.partNumber) === prefix),
-    [query.data, prefix],
-  );
+  // This list's rows only — not the whole ~14,000-row Part List.
+  const lists = useMemo(() => [prefix], [prefix]);
+  const { rows = NO_PARTS, state, sourceEmpty } = useAltronicPartsInLists(lists);
   const book = partBook(prefix);
   const meaning = listMeaning(prefix);
   return (
@@ -134,7 +138,7 @@ function PartListScreen({ prefix }: { prefix: string }) {
         .filter(Boolean)
         .join(" · ")}
       subtitleHint={meaning?.description}
-      queries={[query]}
+      queries={[state]}
       listNames="Altronic Part List"
       rows={rows}
       columns={PART_COLUMNS}
@@ -147,7 +151,7 @@ function PartListScreen({ prefix }: { prefix: string }) {
         return undefined;
       }}
       emptyText={`No parts in list ${prefix}.`}
-      sourceEmpty={query.data?.length === 0}
+      sourceEmpty={sourceEmpty}
       action={<NewPartButton prefix={prefix} />}
       book={partBook(prefix)}
       cardFields={PART_CARD_FIELDS}
@@ -159,6 +163,11 @@ function PartListScreen({ prefix }: { prefix: string }) {
 const PART_CARD_FIELDS = ["manufacturer", "mfgPartNumber", "dateAssigned", "purchased"];
 
 const partId = (p: AltronicPart) => p.id;
+
+// Stable empties, so a screen still loading doesn't hand the table a new
+// array every render.
+const NO_PARTS: AltronicPart[] = [];
+const NO_COMPONENTS: AltronicComponent[] = [];
 
 // -----------------------------------------------------------------------------
 // Component List (601/611/701/711/712/722)
@@ -198,27 +207,19 @@ const COMPONENT_SEARCH_FIELDS: SearchField<AltronicComponent>[] = [
 ];
 
 function ComponentListScreen({ prefix }: { prefix: string }) {
-  const query = useAltronicComponents();
-  const rows = useMemo(
-    () => (query.data ?? []).filter((c) => partPrefix(c.partNumber) === prefix),
-    [query.data, prefix],
-  );
   // A SEARCH from 701, 711 or 712 covers all three (601/611 likewise) — the
   // old app kept each category as one list (Tim, 2026-10-02). Browsing with
-  // no search still shows just this list.
-  const family = componentSearchPrefixes(prefix);
-  const familyRows = useMemo(() => {
-    if (family.length < 2) return undefined;
-    const wanted = new Set(family);
-    return (query.data ?? []).filter((c) => wanted.has(partPrefix(c.partNumber) ?? ""));
-    // `family` is derived from `prefix`; a new array each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data, prefix]);
+  // no search still shows just this list. So the category's lists are read,
+  // and nothing else.
+  const family = useMemo(() => componentSearchPrefixes(prefix), [prefix]);
+  const { rows: categoryRows = NO_COMPONENTS, state, sourceEmpty } = useAltronicComponentsInLists(family);
+  const rows = useMemo(() => categoryRows.filter((c) => partPrefix(c.partNumber) === prefix), [categoryRows, prefix]);
+  const familyRows = family.length < 2 ? undefined : categoryRows;
   return (
     <PartsTable<AltronicComponent>
       title={`${prefix} List`}
       subtitle={`Altronic Component List · ${COMPONENT_PREFIX_CATEGORY[prefix]}`}
-      queries={[query]}
+      queries={[state]}
       listNames="Altronic Component List"
       rows={rows}
       searchRows={familyRows}
@@ -229,7 +230,7 @@ function ComponentListScreen({ prefix }: { prefix: string }) {
       rowPath={(c) => partPath("component", c.id)}
       renderCell={(key, c) => (key === "signOffStatus" ? <SignOffChip status={c.signOffStatus} /> : undefined)}
       emptyText={`No components in list ${prefix}.`}
-      sourceEmpty={query.data?.length === 0}
+      sourceEmpty={sourceEmpty}
       action={<NewPartButton prefix={prefix} />}
       book={partBook(prefix)}
       cardFields={COMPONENT_CARD_FIELDS}
@@ -857,64 +858,6 @@ function PartCards<T>({
       </ul>
     </>
   );
-}
-
-/** Below this width the panel stacks above the table and the PAGE scrolls. */
-const DESKTOP_QUERY = "(min-width: 1024px)";
-/** Never squeeze the table below this on a short window — let the page scroll instead. */
-const MIN_FIT_HEIGHT = 320;
-/** Breathing room between the table's bottom edge and the footer. */
-const FOOTER_GAP = 16;
-
-/**
- * On a desktop, the height that fits an element between where it starts on
- * the page and the FIXED footer — so the search panel and the table each
- * scroll inside themselves, and the table's horizontal scrollbar sits just
- * above the footer instead of at the bottom of a long page (Tim, 2026-09-28).
- *
- * Measured, not a hard-coded calc(): the header, the update banner and the
- * footer all vary in height, and a guessed offset is wrong the day one of
- * them changes. Null on a phone (and wherever matchMedia is missing), which
- * leaves the ordinary page scroll alone.
- */
-function useFitToWindow(): [RefObject<HTMLDivElement>, number | null] {
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | null>(null);
-
-  useLayoutEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia(DESKTOP_QUERY);
-    function measure() {
-      const el = ref.current;
-      if (!el || !mq.matches) return setHeight(null);
-      const footer = document.querySelector("footer");
-      const footerHeight = footer ? footer.getBoundingClientRect().height : 0;
-      // Document position, so a measure taken while scrolled still agrees.
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      const fit = Math.floor(window.innerHeight - top - footerHeight - FOOTER_GAP);
-      setHeight((prev) => {
-        const next = Math.max(MIN_FIT_HEIGHT, fit);
-        return prev === next ? prev : next;
-      });
-    }
-    measure();
-    window.addEventListener("resize", measure);
-    mq.addEventListener?.("change", measure);
-    // The header and footer can change height (the update banner appearing,
-    // the footer wrapping) without a window resize.
-    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
-    const header = document.querySelector("header");
-    const footer = document.querySelector("footer");
-    if (header) observer?.observe(header);
-    if (footer) observer?.observe(footer);
-    return () => {
-      window.removeEventListener("resize", measure);
-      mq.removeEventListener?.("change", measure);
-      observer?.disconnect();
-    };
-  }, []);
-
-  return [ref, height];
 }
 
 /**

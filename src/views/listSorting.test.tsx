@@ -165,6 +165,14 @@ describe("every sortable list renders its sort buttons", () => {
     expect(screen.getByRole("button", { name: "Sort by Owner" })).toBeInTheDocument();
   });
 
+  it("MCNs", async () => {
+    const { McnsView } = await import("./McnsView");
+    renderWithProviders(<McnsView />, { route: "/operations/mcns?status=All" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by MCN #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Implemented" })).toBeInTheDocument();
+  });
+
   it("Insourcing Quotes", async () => {
     grantQuoteRole();
     const { QuotesView } = await import("./QuotesView");
@@ -238,7 +246,7 @@ describe("every sortable list renders its sort buttons", () => {
 describe("the Harness Production Log", () => {
   it("renders its sort buttons", async () => {
     const { HarnessProductionLogView } = await import("./HarnessProductionLogView");
-    renderWithProviders(<HarnessProductionLogView />, { route: "/operations/harness-log" });
+    renderWithProviders(<HarnessProductionLogView />, { route: "/harness/production-log" });
     await waitForTable();
     expect(screen.getByRole("button", { name: "Sort by Date" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort by Part Number" })).toBeInTheDocument();
@@ -246,7 +254,7 @@ describe("the Harness Production Log", () => {
 
   it("re-orders its rows by Work Order, then reverses", async () => {
     const { HarnessProductionLogView } = await import("./HarnessProductionLogView");
-    renderWithProviders(<HarnessProductionLogView />, { route: "/operations/harness-log" });
+    renderWithProviders(<HarnessProductionLogView />, { route: "/harness/production-log" });
     await waitForTable();
     const workOrders = () =>
       within(screen.getByRole("table"))
@@ -261,6 +269,35 @@ describe("the Harness Production Log", () => {
 
     await sortBy("Work Order");
     expect(workOrders()).toEqual([...ascending].reverse());
+  });
+});
+
+describe("Crimp Height Checks", () => {
+  it("renders its sort buttons", async () => {
+    const { CrimpChecksView } = await import("./CrimpChecksView");
+    renderWithProviders(<CrimpChecksView />, { route: "/harness/crimp-checks" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Terminal" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Result" })).toBeInTheDocument();
+  });
+
+  it("re-orders its rows by Terminal, then reverses", async () => {
+    const { CrimpChecksView } = await import("./CrimpChecksView");
+    renderWithProviders(<CrimpChecksView />, { route: "/harness/crimp-checks" });
+    await waitForTable();
+    const terminals = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.querySelectorAll("td")[2]?.textContent?.trim() ?? "");
+
+    await sortBy("Terminal");
+    const ascending = terminals();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+
+    await sortBy("Terminal");
+    expect(terminals()).toEqual([...ascending].reverse());
   });
 });
 
@@ -507,5 +544,56 @@ describe("the sort indicator says what is happening", () => {
         .find((h) => h.getAttribute("aria-sort") !== "none")
         ?.getAttribute("aria-sort"),
     ).toBe("descending");
+  });
+});
+
+describe("Conformal Coating Checks", () => {
+  it("renders its sort buttons", async () => {
+    const { CoatingChecksView } = await import("./CoatingChecksView");
+    renderWithProviders(<CoatingChecksView />, { route: "/operations/coating-checks" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Machine" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Coating (mm)" })).toBeInTheDocument();
+  });
+
+  it("re-orders its rows by coating thickness, then reverses", async () => {
+    const { CoatingChecksView } = await import("./CoatingChecksView");
+    renderWithProviders(<CoatingChecksView />, { route: "/operations/coating-checks" });
+    await waitForTable();
+    const thickness = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => Number(r.querySelectorAll("td")[5]?.textContent?.trim()));
+
+    await sortBy("Coating (mm)");
+    const ascending = thickness();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a - b));
+
+    await sortBy("Coating (mm)");
+    expect(thickness()).toEqual([...ascending].reverse());
+  });
+});
+
+describe("Panel SAP BOM Builder tables (BusinessIT#59)", () => {
+  it("Saved BOMs renders its sort buttons", async () => {
+    const { PanelBomsView } = await import("./PanelBomsView");
+    renderWithProviders(<PanelBomsView />, { route: "/panels/boms" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Panel System #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Last saved" })).toBeInTheDocument();
+  });
+
+  it("BOM parts re-order by SAP #, then reverse", async () => {
+    const { PanelBomPartsView } = await import("./PanelBomPartsView");
+    renderWithProviders(<PanelBomPartsView />, { route: "/panels/bom-parts" });
+    await waitForTable();
+    await sortBy("SAP #");
+    const ascending = firstColumnValues();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+    await sortBy("SAP #");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 });

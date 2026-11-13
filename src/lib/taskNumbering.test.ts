@@ -116,3 +116,36 @@ describe("changing a task's project or title (BusinessIT#33)", () => {
     expect(renumberedTitle(moving, "Sweep", null, tasks)).toBe("T1-0000-Sweep");
   });
 });
+
+describe("numberedTitlePrefix — the old app's numbers (2026-10-27)", () => {
+  const P328: ProjectReference = { lookupId: 328, title: "328-MT-SAVES" };
+  const P276: ProjectReference = { lookupId: 276, title: "276-SS-Cummins" };
+
+  it("reads T{n}-{project number}- under a project whose code ends in a dash", () => {
+    expect(numberedTitlePrefix({ numberedTitle: "T1-328-Next Steps", parentProject: P328 })).toBe("T1-328-");
+  });
+
+  it("still reads ARC's own double-dash form under the same kind of project", () => {
+    expect(numberedTitlePrefix({ numberedTitle: "T5-276--EIR_2025-0252 | Cummins", parentProject: P276 })).toBe("T5-276--");
+  });
+
+  it("reads a legacy number when the task's project is unknown", () => {
+    expect(numberedTitlePrefix({ numberedTitle: "T0-330-CAT Pyrometer", parentProject: null })).toBe("T0-330-");
+  });
+
+  it("still refuses text that isn't a number", () => {
+    expect(numberedTitlePrefix({ numberedTitle: "T1-Notes-on-things", parentProject: null })).toBeNull();
+  });
+});
+
+describe("retitledNumberedTitle — a row with no number", () => {
+  it("replaces the old title at the end, and invents nothing", () => {
+    expect(
+      retitledNumberedTitle({ numberedTitle: "EIR_2026-0084 | Test EIR", parentProject: null, title: "Test EIR" }, "Retest"),
+    ).toBe("EIR_2026-0084 | Retest");
+  });
+
+  it("leaves it alone when it doesn't end with the old title", () => {
+    expect(retitledNumberedTitle({ numberedTitle: "Hand typed", parentProject: null, title: "EMI sweep" }, "New")).toBeNull();
+  });
+});

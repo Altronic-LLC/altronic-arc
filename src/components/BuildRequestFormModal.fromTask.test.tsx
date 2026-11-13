@@ -145,13 +145,18 @@ describe("BuildRequestFormModal — the ordinary create is unaffected", () => {
     expect(screen.queryByText("Task Reference")).toBeNull();
   });
 
-  it("sends no task link and no pre-built discussion", async () => {
+  // BusinessIT#58 changed this case: an ordinary create must now NAME a task
+  // (see BuildRequestFormModal.taskLink.test.tsx). It still carries no
+  // discussion — linking shows the task's comments, it doesn't copy them.
+  it("links the task picked, and sends no pre-built discussion", async () => {
     renderWithProviders(<BuildRequestFormModal onClose={vi.fn()} />);
     await userEvent.type(screen.getByPlaceholderText("e.g. HUB V4"), "Standalone build");
+    await userEvent.click(screen.getByRole("button", { name: "Task" }));
+    await userEvent.click(await screen.findByRole("option", { name: (n) => n.startsWith(TASK.numberedTitle) }));
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => expect(createBr).toHaveBeenCalledTimes(1));
-    expect(submitArgs().taskReferenceLookupId).toBeNull();
+    expect(submitArgs().taskReferenceLookupId).toBe(TASK.id);
     expect(submitArgs().communication).toBeUndefined();
   });
 });

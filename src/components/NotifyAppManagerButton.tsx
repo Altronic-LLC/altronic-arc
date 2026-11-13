@@ -11,8 +11,12 @@ import {
 } from "@/lib/errorBuffer";
 import { pushToast } from "@/components/Toast";
 import { APP_MANAGER_EMAIL, SHARED_MAILBOX } from "@/api/config";
+import { parseRecipientList } from "@/lib/recipientList";
 import { isSendAsDenied } from "@/api/email";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+
+/** Every address Report issue goes to — the setting is a comma-separated list. */
+const MANAGER_ADDRESSES = parseRecipientList(APP_MANAGER_EMAIL).map((p) => p.email ?? "");
 
 // =============================================================================
 // "Notify app manager" button + modal. Lives in the Header so it's reachable
@@ -255,12 +259,12 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
             {useMailto ? (
               <>
                 You're not signed in, so we'll open a draft email to{" "}
-                <strong className="text-fg">{APP_MANAGER_EMAIL}</strong> in your
+                <strong className="text-fg">{MANAGER_ADDRESSES.join(", ")}</strong> in your
                 mail client — review it and hit Send.
               </>
             ) : (
               <>
-                Sent to <strong className="text-fg">{APP_MANAGER_EMAIL}</strong>.
+                Sent to <strong className="text-fg">{MANAGER_ADDRESSES.join(", ")}</strong>.
                 You ({user.email}) will be CC'd.
               </>
             )}
@@ -446,7 +450,7 @@ function openMailtoDraft(input: {
     );
   }
 
-  const href = `mailto:${APP_MANAGER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const href = `mailto:${MANAGER_ADDRESSES.join(",")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   if (typeof window !== "undefined") {
     window.location.href = href;
   }

@@ -16,3 +16,16 @@
 export function odataString(value: string): string {
   return `'${encodeURIComponent(value.replace(/'/g, "''"))}'`;
 }
+
+/**
+ * Encode a WHOLE filter expression for the query string without mangling
+ * OData literal syntax.
+ *
+ * `encodeURIComponent` would turn the colons in a bare datetime into `%3A`,
+ * which some OData parsers reject. Only spaces and `#` actually need escaping
+ * here; `'`, `:` and `-` are all legal in a query value. (Moved here from
+ * api/teradyneLog.ts, which re-exports it.)
+ */
+export function encodeFilter(filter: string): string {
+  return filter.replace(/ /g, "%20").replace(/#/g, "%23");
+}

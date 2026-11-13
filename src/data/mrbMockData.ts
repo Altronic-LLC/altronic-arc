@@ -14,6 +14,7 @@ import type { MrbEntry } from "@/types/task";
 //    write and `mrbChoiceOptions` exist for
 //  - an archive row whose Price Per Issue disagrees with unit x quantity
 //  - an archive row with the `(Legacy)` provenance columns populated
+//  - two live entries from the panel department (`panelDepartment`)
 // =============================================================================
 
 function day(iso: string): Date {
@@ -38,6 +39,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 30.75,
     pricePerIssue: 246,
     notes: "Raw Material# 1000-9486-00 from Cast Specialties",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -61,6 +63,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 9.65,
     pricePerIssue: 9.65,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -85,6 +88,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 7.95,
     pricePerIssue: 23.85,
     notes: "Waiting on the vendor to confirm whether they will take them back.",
+    panelDepartment: true,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -109,6 +113,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 3.1,
     pricePerIssue: 89.9,
     notes: "Form tap not specified on drawing - Crown Connectors Supplier",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -132,6 +137,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 65.32,
     pricePerIssue: 65.32,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -155,6 +161,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 4.06,
     pricePerIssue: 16.24,
     notes: "",
+    panelDepartment: true,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -178,6 +185,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 2.4,
     pricePerIssue: 28.8,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",
@@ -206,6 +214,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: null,
     pricePerIssue: null,
     notes: "[Legacy WHERE CAUSED: PRODUCTION]",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Legacy",
@@ -238,6 +247,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: 102,
     pricePerIssue: 102,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Legacy",
@@ -269,6 +279,7 @@ export const MOCK_MRB_ENTRIES: MrbEntry[] = [
     pricePerUnit: null,
     pricePerIssue: null,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Legacy",

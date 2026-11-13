@@ -71,8 +71,16 @@ function patchBodies(): Record<string, unknown>[] {
     .map(([, init]) => JSON.parse(String((init as RequestInit).body)));
 }
 
+/**
+ * Reads of the comment thread itself. The re-read after a write also comes
+ * through graphFetch now (one item, every task column), so it is left out.
+ */
 function reads(): number {
-  return graphFetch.mock.calls.filter(([, init]) => !(init as RequestInit | undefined)?.method).length;
+  return graphFetch.mock.calls.filter(
+    ([path, init]) =>
+      !(init as RequestInit | undefined)?.method &&
+      String(path).includes("fields($select=Communication)"),
+  ).length;
 }
 
 /** Run a write to completion, letting the retry pauses elapse. */
@@ -94,10 +102,11 @@ beforeEach(() => {
   vi.useFakeTimers();
   graphFetch.mockReset();
   graphFetchAll.mockReset();
-  // The reload after a write: the task itself, and no projects.
-  graphFetchAll.mockImplementation(async (path: string) =>
-    path.includes("/lists/list-1/") ? [{ id: "7", fields: { Title: "Hub V4" } }] : [],
-  );
+  // The re-read after a write is ONE item through graphFetch (wire() answers
+  // it); the whole list must never be downloaded for it.
+  graphFetchAll.mockImplementation(async () => {
+    throw new Error("a task write must not download the whole list");
+  });
 });
 
 afterEach(() => {

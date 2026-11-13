@@ -39,6 +39,8 @@ export function RichTextWarningDialog({
    */
   notifyNote,
   trailing = "Anyone you already picked before switching is still mentioned and still emailed. You can switch back at any time.",
+  confirmLabel = "Use rich text",
+  cancelLabel = "Keep plain text",
   onConfirm,
   onCancel,
 }: {
@@ -46,6 +48,9 @@ export function RichTextWarningDialog({
   detail?: string;
   notifyNote: string;
   trailing?: string;
+  /** The buttons' wording — other warnings reuse this dialog (BusinessIT#58's re-link). */
+  confirmLabel?: string;
+  cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -85,14 +90,14 @@ export function RichTextWarningDialog({
             onClick={onCancel}
             className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-muted"
           >
-            Keep plain text
+            {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className="rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent/90"
           >
-            Use rich text
+            {confirmLabel}
           </button>
         </div>
       </div>

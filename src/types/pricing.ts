@@ -15,8 +15,12 @@ import type { Comment, Person } from "./task";
 // Roles
 // -----------------------------------------------------------------------------
 
-/** Each tag implies the ones before it: admin ⊃ manager ⊃ requester. */
-export const PRICING_ROLES = ["requester", "manager", "admin"] as const;
+/**
+ * admin ⊃ manager ⊃ requester — each implies the ones before it. "new
+ * products" stands ALONE (Ray, 2026-10-22): New Product Pricing and nothing
+ * else in Pricing; managers and admins have New Products already.
+ */
+export const PRICING_ROLES = ["requester", "manager", "admin", "new products"] as const;
 export type PricingRole = (typeof PRICING_ROLES)[number];
 
 export interface PricingRoleEntry {
@@ -373,7 +377,7 @@ export interface SapPart {
 }
 
 /**
- * One material at one plant, from the Fabric view `rpt.vw_cogs_material_api`
+ * One material at one plant, from the Fabric view `tbl_cogs_material_api`
  * (Ray, 2026-10-15) — what the Calculator's SAP lookup reads. A material has a
  * row per plant, so a lookup can answer several. Deliberately just the cost:
  * the lookup is kept narrow for speed.

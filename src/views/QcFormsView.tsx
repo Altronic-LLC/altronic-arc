@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileCheck } from "lucide-react";
 import { QC_FORMS } from "@/lib/qcForms";
+import { qcFormPath } from "@/lib/qcFormEngine";
 import { matchesTokens } from "@/lib/itemSearch";
 import { SearchInput } from "@/components/SearchInput";
 
@@ -10,9 +11,8 @@ import { SearchInput } from "@/components/SearchInput";
 // digitized paper QC/test form (`lib/qcForms.ts`). Picking one navigates to
 // that form's own screen.
 //
-// This is the FIRST QC Forms screen; only QCFRM-012 (CPU-95) exists so far.
-// The grid/search shape is built to hold many more without changing this
-// file — a new form is one entry in the registry.
+// The grid/search shape holds any number of forms without changing this file
+// — a new form is one entry in the registry.
 // =============================================================================
 
 export function QcFormsView() {
@@ -56,7 +56,7 @@ export function QcFormsView() {
             <button
               key={form.id}
               type="button"
-              onClick={() => navigate(form.to)}
+              onClick={() => navigate(qcFormPath(form))}
               className="flex flex-col items-start gap-1.5 rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:border-accent hover:bg-surface-2"
             >
               <span className="font-display text-xs font-semibold uppercase tracking-wider text-fg-muted">

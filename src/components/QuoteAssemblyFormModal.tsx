@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Boxes, Loader2, Package, Plus, Trash2, X } from "lucide-react";
+import { Boxes, Loader2, Plus, Trash2, X } from "lucide-react";
 import {
+  DEFAULT_QUOTE_OVERHEAD_PCT,
   MAX_QUOTE_PRICE_BREAKS,
   type QuoteAssembly,
-  type QuoteItem,
-  type QuoteLineType,
   type QuotePriceBreak,
 } from "@/types/quote";
 import type { QuoteAssemblyPatch } from "@/lib/quoteMapper";
@@ -17,29 +16,29 @@ import {
 } from "@/lib/sapPartNumber";
 import { useCreateQuoteAssembly, useUpdateQuoteAssembly } from "@/hooks/useQuoteAssemblies";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
-import { ChoicePills } from "./ChoicePills";
 import { Field } from "./QuoteFormModal";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
-// Add / edit a quote LINE: a final assembly, or a standalone Part.
+// Add / edit a quote LINE.
 //
-// Part numbers and description PRINT on the customer's quote. The ONE target
-// gross margin for the line is set here (Ray, 2026-10-09) — components carry
-// cost only. The price is computed by lib/quotePricing.ts, the one place the
-// maths lives:
+// Part numbers and description PRINT on the customer's quote. The line's cost
+// is its FINAL cost, entered here (Ray, 2026-10-29): material, labor, and
+// overhead as a percent of material — 18% on a new line unless changed. Labor
+// can be left for whoever owns it to fill in later. The price is computed by
+// lib/quotePricing.ts, the one place the maths lives:
 //
-//   * Final assembly — Σ component cost ÷ (1 − target GM).
-//   * Part           — this line's own cost × (1 + overhead) ÷ (1 − target GM).
+//   (material × (1 + overhead%) + labor) ÷ (1 − target GM)
 //
 // A MANUAL price overrides it and is marked as such everywhere; with one set,
 // the target GM may be left blank. Otherwise it is required, 0 < GM < 100.
 //
-// Switching an assembly WITH components to a Part is refused (here and in the
-// hook) — the components would silently stop counting.
-//
 // Quantity breaks: up to three rows of quantity / % off / note, validated by
-// `priceBreakProblems`, with a live preview of each tier's unit price. Every
+// `priceBreakProblems`, with a live preview of each tier's unit price.
+//
+// The customer's TARGET PRICE and ESTIMATED EAU (Ray, 2026-10-30) are
+// internal — never printed — and feed the worksheet's Target & volume
+// summary. Both optional; EAU is a whole number of units a year. Every
 // cost / margin figure shows only when `canSeeCost` — though only editors open
 // this form, and every editor can see cost. The SAP # formats as ####-####-##.
 // =============================================================================
@@ -54,10 +53,6 @@ interface QuoteAssemblyFormModalProps {
   quoteId: number;
   /** Present = edit. */
   assembly?: QuoteAssembly;
-  /** This line's components (for the price preview); [] for a new one. */
-  items: QuoteItem[];
-  /** The type a NEW line starts as. Ignored when editing. */
-  initialLineType?: QuoteLineType;
   nextLineNo: number;
   canSeeCost: boolean;
   onClose: () => void;
@@ -88,16 +83,9 @@ export function rowsToBreaks(rows: BreakRow[]): QuotePriceBreak[] {
 const numStr = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
 const finiteOrNull = (n: number | null) => (n !== null && Number.isFinite(n) ? n : null);
 
-const LINE_TYPE_OPTIONS = [
-  { value: "Assembly", label: "Final assembly" },
-  { value: "Part", label: "Part" },
-];
-
 export function QuoteAssemblyFormModal({
   quoteId,
   assembly,
-  items,
-  initialLineType = "Assembly",
   nextLineNo,
   canSeeCost,
   onClose,
@@ -107,8 +95,6 @@ export function QuoteAssemblyFormModal({
   const update = useUpdateQuoteAssembly();
   const busy = create.isPending || update.isPending;
 
-  const [lineType, setLineType] = useState<QuoteLineType>(assembly?.lineType ?? initialLineType);
-  const isPart = lineType === "Part";
   const [lineNo, setLineNo] = useState(String(assembly?.lineNo ?? nextLineNo));
 
   // A NEW line's number follows the next free number until the user edits it.
@@ -125,10 +111,16 @@ export function QuoteAssemblyFormModal({
   const [sapPartNumber, setSapPartNumber] = useState(assembly?.sapPartNumber ?? "");
   const [customerPartNumber, setCustomerPartNumber] = useState(assembly?.customerPartNumber ?? "");
   const [description, setDescription] = useState(assembly?.description ?? "");
-  const [cost, setCost] = useState(numStr(assembly?.cost));
-  const [overhead, setOverhead] = useState(numStr(assembly?.materialOverheadPct));
+  const [material, setMaterial] = useState(numStr(assembly?.materialCost));
+  const [labor, setLabor] = useState(numStr(assembly?.laborCost));
+  // A NEW line starts at the standard overhead; an edit shows what is stored.
+  const [overhead, setOverhead] = useState(
+    assembly ? numStr(assembly.materialOverheadPct) : String(DEFAULT_QUOTE_OVERHEAD_PCT),
+  );
   const [targetGM, setTargetGM] = useState(numStr(assembly?.targetGM));
   const [manualPrice, setManualPrice] = useState(numStr(assembly?.manualPrice));
+  const [targetPrice, setTargetPrice] = useState(numStr(assembly?.targetPrice));
+  const [eau, setEau] = useState(numStr(assembly?.estimatedEau));
   const [rows, setRows] = useState<BreakRow[]>(toRows(assembly?.priceBreaks ?? []));
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -151,10 +143,13 @@ export function QuoteAssemblyFormModal({
   const breakProblems = useMemo(() => priceBreakProblems(breaks), [breaks]);
   const manual = parseNum(manualPrice);
   const gm = parseNum(targetGM);
-  const partCost = parseNum(cost);
-  const partOverhead = parseNum(overhead);
+  const materialCost = parseNum(material);
+  const laborCost = parseNum(labor);
+  const overheadPct = parseNum(overhead);
   const qty = parseNum(quotedQty);
   const qtyOk = qty !== null && Number.isInteger(qty) && qty >= 1;
+  const target = parseNum(targetPrice);
+  const eauNum = parseNum(eau);
 
   const preview = useMemo(() => {
     const draft: QuoteAssembly = {
@@ -162,9 +157,9 @@ export function QuoteAssemblyFormModal({
       quoteId,
       lineNo: Number(lineNo) || 0,
       quotedQty: qtyOk ? (qty as number) : 1,
-      lineType,
-      cost: isPart ? finiteOrNull(partCost) : null,
-      materialOverheadPct: isPart ? finiteOrNull(partOverhead) : null,
+      materialCost: finiteOrNull(materialCost),
+      laborCost: finiteOrNull(laborCost),
+      materialOverheadPct: finiteOrNull(overheadPct),
       targetGM: finiteOrNull(gm),
       altronicPartNumber,
       sapPartNumber,
@@ -172,19 +167,20 @@ export function QuoteAssemblyFormModal({
       description,
       priceBreaks: breakProblems.length === 0 ? breaks : [],
       manualPrice: manual !== null && Number.isFinite(manual) && manual > 0 ? manual : null,
+      targetPrice: null,
+      estimatedEau: null,
       customerPrice: null,
     };
-    return priceQuoteAssembly(draft, items);
+    return priceQuoteAssembly(draft);
   }, [
     assembly?.id,
     quoteId,
     lineNo,
     qtyOk,
     qty,
-    lineType,
-    isPart,
-    partCost,
-    partOverhead,
+    materialCost,
+    laborCost,
+    overheadPct,
     gm,
     altronicPartNumber,
     sapPartNumber,
@@ -193,7 +189,6 @@ export function QuoteAssemblyFormModal({
     breaks,
     breakProblems,
     manual,
-    items,
   ]);
 
   function setRow(i: number, key: keyof BreakRow, value: string) {
@@ -204,22 +199,19 @@ export function QuoteAssemblyFormModal({
     e.preventDefault();
     const line = Number(lineNo);
     if (!Number.isInteger(line) || line < 1) return setError("Line # must be a whole number, 1 or more.");
-    if (!altronicPartNumber.trim()) return setError("Altronic part # is required.");
+    if (!altronicPartNumber.trim()) return setError("Part Number is required.");
     if (!qtyOk) return setError("Quantity quoted must be a whole number, 1 or more.");
     const sapProblem = sapPartNumberProblem(sapPartNumber);
     if (sapProblem) return setError(`${sapProblem}.`);
-    if (isPart && items.length > 0) {
-      return setError(
-        `This line has ${items.length} ${items.length === 1 ? "component" : "components"}. ` +
-          "Delete them before changing it to a Part.",
-      );
-    }
-    if (canSeeCost && isPart) {
-      if (partCost !== null && (!Number.isFinite(partCost) || partCost <= 0)) {
-        return setError("The part's cost must be more than 0.");
+    if (canSeeCost) {
+      if (materialCost !== null && (!Number.isFinite(materialCost) || materialCost < 0)) {
+        return setError("The material cost can't be negative.");
       }
-      if (partOverhead !== null && (!Number.isFinite(partOverhead) || partOverhead < 0)) {
-        return setError("Material overhead can't be negative.");
+      if (laborCost !== null && (!Number.isFinite(laborCost) || laborCost < 0)) {
+        return setError("The labor cost can't be negative.");
+      }
+      if (overheadPct !== null && (!Number.isFinite(overheadPct) || overheadPct < 0)) {
+        return setError("Overhead can't be negative.");
       }
     }
     if (manual !== null && (!Number.isFinite(manual) || manual <= 0)) {
@@ -232,14 +224,20 @@ export function QuoteAssemblyFormModal({
       }
     }
     if (breakProblems.length > 0) return setError(breakProblems[0]);
+    if (target !== null && (!Number.isFinite(target) || target <= 0)) {
+      return setError("The customer's target price must be more than 0, or left blank.");
+    }
+    if (eauNum !== null && (!Number.isInteger(eauNum) || eauNum < 1)) {
+      return setError("Estimated EAU must be a whole number, 1 or more, or left blank.");
+    }
     setError(null);
 
-    // A Part keeps its own cost; an assembly never carries one. Without cost
-    // access (never the case for an editor today) the stored values are kept.
+    // Without cost access (never the case for an editor today) the stored
+    // cost values are kept rather than cleared.
     const values = {
-      lineType,
-      cost: isPart ? (canSeeCost ? partCost : (assembly?.cost ?? null)) : null,
-      materialOverheadPct: isPart ? (canSeeCost ? partOverhead : (assembly?.materialOverheadPct ?? null)) : null,
+      materialCost: canSeeCost ? materialCost : (assembly?.materialCost ?? null),
+      laborCost: canSeeCost ? laborCost : (assembly?.laborCost ?? null),
+      materialOverheadPct: canSeeCost ? overheadPct : (assembly?.materialOverheadPct ?? null),
       targetGM: canSeeCost ? gm : (assembly?.targetGM ?? null),
       quotedQty: qty as number,
       lineNo: line,
@@ -249,12 +247,14 @@ export function QuoteAssemblyFormModal({
       description,
       priceBreaks: breaks,
       manualPrice: manual,
+      targetPrice: target,
+      estimatedEau: eauNum,
     };
     try {
       if (assembly) {
         const patch: QuoteAssemblyPatch = {};
-        if (values.lineType !== assembly.lineType) patch.lineType = values.lineType;
-        if (values.cost !== assembly.cost) patch.cost = values.cost;
+        if (values.materialCost !== assembly.materialCost) patch.materialCost = values.materialCost;
+        if (values.laborCost !== assembly.laborCost) patch.laborCost = values.laborCost;
         if (values.materialOverheadPct !== assembly.materialOverheadPct) {
           patch.materialOverheadPct = values.materialOverheadPct;
         }
@@ -266,6 +266,8 @@ export function QuoteAssemblyFormModal({
         if (values.customerPartNumber !== assembly.customerPartNumber) patch.customerPartNumber = values.customerPartNumber;
         if (values.description !== assembly.description) patch.description = values.description;
         if (values.manualPrice !== assembly.manualPrice) patch.manualPrice = values.manualPrice;
+        if (values.targetPrice !== assembly.targetPrice) patch.targetPrice = values.targetPrice;
+        if (values.estimatedEau !== assembly.estimatedEau) patch.estimatedEau = values.estimatedEau;
         if (JSON.stringify(values.priceBreaks) !== JSON.stringify(assembly.priceBreaks)) {
           patch.priceBreaks = values.priceBreaks;
         }
@@ -279,9 +281,7 @@ export function QuoteAssemblyFormModal({
     }
   }
 
-  const noun = isPart ? "part" : "assembly";
-  const title = editing ? `Edit ${noun} ${assembly.altronicPartNumber}` : isPart ? "Add part" : "Add final assembly";
-  const Icon = isPart ? Package : Boxes;
+  const title = editing ? `Edit line ${assembly.altronicPartNumber}` : "Add line";
 
   return (
     <div
@@ -297,7 +297,7 @@ export function QuoteAssemblyFormModal({
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
-            <Icon className="h-4 w-4 text-accent" />
+            <Boxes className="h-4 w-4 text-accent" />
             {title}
           </h2>
           <button
@@ -316,22 +316,7 @@ export function QuoteAssemblyFormModal({
             Part numbers, description and the quantity-break prices are printed on the customer's quote.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Line type" plain className="sm:col-span-2">
-              <ChoicePills
-                label="Line type"
-                name="quote-line-type"
-                options={LINE_TYPE_OPTIONS}
-                value={lineType}
-                onChange={(v) => setLineType(v as QuoteLineType)}
-                disabled={busy}
-              />
-              <span className="mt-1 block text-[11px] text-fg-muted">
-                {isPart
-                  ? "A standalone part, quoted on its own — its cost is entered here, with no components."
-                  : "Costed from the components you add under it."}
-              </span>
-            </Field>
-            <Field label="Altronic part #" required>
+            <Field label="Part Number" required>
               <input
                 ref={firstFieldRef}
                 value={altronicPartNumber}
@@ -404,39 +389,87 @@ export function QuoteAssemblyFormModal({
                 disabled={busy}
               />
             </Field>
-            {canSeeCost && isPart && (
-              <>
-                <Field label="Unit cost ($)">
+            <fieldset className="sm:col-span-2" data-testid="line-target-inputs">
+              <legend className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                Customer target and volume — internal, not printed
+              </legend>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Customer target price ($)" hint="What the customer wants to pay for one.">
                   <input
                     type="number"
                     min={0}
                     step="any"
                     inputMode="decimal"
-                    value={cost}
-                    onChange={(e) => setCost(e.target.value)}
+                    value={targetPrice}
+                    onChange={(e) => setTargetPrice(e.target.value)}
                     className="input"
                     disabled={busy}
                   />
                 </Field>
-                <Field label="Material overhead (%)" hint="Optional — blank counts as 0.">
+                <Field label="Estimated EAU" hint="Estimated annual usage — units a year.">
                   <input
                     type="number"
-                    min={0}
-                    step="any"
-                    inputMode="decimal"
-                    value={overhead}
-                    onChange={(e) => setOverhead(e.target.value)}
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    value={eau}
+                    onChange={(e) => setEau(e.target.value)}
                     className="input"
                     disabled={busy}
                   />
                 </Field>
-              </>
+              </div>
+            </fieldset>
+            {canSeeCost && (
+              <fieldset className="sm:col-span-2" data-testid="line-cost-inputs">
+                <legend className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                  Cost of one — final figures
+                </legend>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Field label="Material ($)">
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      inputMode="decimal"
+                      value={material}
+                      onChange={(e) => setMaterial(e.target.value)}
+                      className="input"
+                      disabled={busy}
+                    />
+                  </Field>
+                  <Field label="Labor ($)" hint="Blank counts as 0 — fill in when known.">
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      inputMode="decimal"
+                      value={labor}
+                      onChange={(e) => setLabor(e.target.value)}
+                      className="input"
+                      disabled={busy}
+                    />
+                  </Field>
+                  <Field label="Overhead (% of material)" hint={`Standard is ${DEFAULT_QUOTE_OVERHEAD_PCT}%. Blank counts as 0.`}>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      inputMode="decimal"
+                      value={overhead}
+                      onChange={(e) => setOverhead(e.target.value)}
+                      className="input"
+                      disabled={busy}
+                    />
+                  </Field>
+                </div>
+              </fieldset>
             )}
             {canSeeCost && (
               <Field
                 label="Target gross margin %"
                 required={manual === null}
-                hint={`The one margin for this ${noun}. Required unless a manual price is set.`}
+                hint="The one margin for this line. Required unless a manual price is set."
               >
                 <input
                   type="number"
@@ -561,11 +594,11 @@ export function QuoteAssemblyFormModal({
               Preview
             </p>
             {canSeeCost && (
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-b border-border px-3 py-2 text-sm sm:grid-cols-3">
-                <PreviewStat
-                  label={isPart ? "Loaded unit cost" : "Total component cost"}
-                  value={formatMoney(preview.unitCost)}
-                />
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-b border-border px-3 py-2 text-sm sm:grid-cols-4">
+                <PreviewStat label="Material" value={formatMoney(preview.cost?.material ?? null)} />
+                <PreviewStat label="Overhead" value={formatMoney(preview.cost?.overhead ?? null)} />
+                <PreviewStat label="Labor" value={formatMoney(preview.cost?.labor ?? null)} />
+                <PreviewStat label="Total cost" value={formatMoney(preview.unitCost)} />
                 <PreviewStat
                   label={
                     preview.targetGM === null ? "Computed price" : `Computed price at ${formatPct(preview.targetGM)}`
@@ -621,7 +654,7 @@ export function QuoteAssemblyFormModal({
             className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {editing ? "Save" : isPart ? "Add part" : "Add final assembly"}
+            {editing ? "Save" : "Add line"}
           </button>
         </div>
       </div>

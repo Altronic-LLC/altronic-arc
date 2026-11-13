@@ -4,6 +4,7 @@ import {
   attachTaskRelationships,
   canCompleteTask,
   incompleteChildTasks,
+  mergeTaskIntoList,
   wouldCreateCycle,
 } from "./taskGraph";
 import type { BuildRequest, ProjectReference, Task } from "@/types/task";
@@ -204,6 +205,92 @@ describe("attachProjectTitles", () => {
   it("returns the same array reference (mutates in place)", () => {
     const arr = [makeTask({ id: 1 })];
     expect(attachProjectTitles(arr, [])).toBe(arr);
+  });
+});
+
+// A write's result, or the detail page's poll, is ONE row read on its own —
+// what toTask() gives for a single item: parent id with no title, no
+// children, blank project titles. Pasting it into the list as-is blanked
+// those until the next full download.
+describe("mergeTaskIntoList", () => {
+  /** A loaded list: 10 is the parent of 11, both in project 42. */
+  function loaded(): Task[] {
+    const tasks = [
+      makeTask({
+        id: 10,
+        numberedTitle: "T1-0042-Parent",
+        status: "In Progress",
+        parentProject: { lookupId: 42, title: "Engineering Apps" },
+      }),
+      makeTask({
+        id: 11,
+        numberedTitle: "T2-0042-Child",
+        parentTask: { id: 10, numberedTitle: "", status: "BACKLOG" },
+        parentProject: { lookupId: 42, title: "Engineering Apps" },
+      }),
+    ];
+    return attachTaskRelationships(tasks);
+  }
+
+  /** How a single-item read of task 10 looks after its status changed. */
+  function singleRead10(): Task {
+    return makeTask({
+      id: 10,
+      numberedTitle: "T1-0042-Parent",
+      status: "Complete",
+      parentProject: { lookupId: 42, title: "" },
+    });
+  }
+
+  it("keeps the parent's children, which a single read can't carry", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10());
+    expect(next.find((t) => t.id === 10)?.childTasks.map((c) => c.id)).toEqual([11]);
+  });
+
+  it("fills the project title from another cached row naming the same project", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10());
+    expect(next.find((t) => t.id === 10)?.parentProject?.title).toBe("Engineering Apps");
+  });
+
+  it("prefers the projects list when one is given", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10(), [
+      { lookupId: 42, title: "Engineering Apps (renamed)" },
+    ]);
+    expect(next.find((t) => t.id === 10)?.parentProject?.title).toBe("Engineering Apps (renamed)");
+  });
+
+  it("re-resolves the written task's own parent title and status", () => {
+    const child = makeTask({
+      id: 11,
+      numberedTitle: "T2-0042-Child",
+      title: "Child, renamed",
+      parentTask: { id: 10, numberedTitle: "", status: "BACKLOG" },
+    });
+    const next = mergeTaskIntoList(loaded(), child);
+    expect(next.find((t) => t.id === 11)?.parentTask).toEqual({
+      id: 10,
+      numberedTitle: "T1-0042-Parent",
+      status: "In Progress",
+    });
+  });
+
+  it("updates the children's view of a parent whose status changed", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10());
+    expect(next.find((t) => t.id === 11)?.parentTask?.status).toBe("Complete");
+  });
+
+  it("adds a task the list doesn't hold yet at the top, linked to its parent", () => {
+    const created = makeTask({ id: 12, parentTask: { id: 10, numberedTitle: "", status: "BACKLOG" } });
+    const next = mergeTaskIntoList(loaded(), created);
+    expect(next[0].id).toBe(12);
+    expect(next.find((t) => t.id === 10)?.childTasks.map((c) => c.id)).toEqual([11, 12]);
+  });
+
+  it("never mutates the cached rows it was given", () => {
+    const list = loaded();
+    const before = JSON.stringify(list);
+    mergeTaskIntoList(list, singleRead10());
+    expect(JSON.stringify(list)).toBe(before);
   });
 });
 

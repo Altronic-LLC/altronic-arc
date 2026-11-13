@@ -43,6 +43,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
 import { renumberedOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
+import { fanOutComment } from "@/hooks/useCommentMirror";
 
 // =============================================================================
 // Operations department hooks — mirrors useTasks.ts's optimistic-update
@@ -51,7 +52,7 @@ import { renumberedOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
 // generic. See src/api/operationsTasks.ts for the underlying API calls.
 // =============================================================================
 
-const OPERATIONS_TASK_LIST_KEY = ["operationsTasks", "list"] as const;
+export const OPERATIONS_TASK_LIST_KEY = ["operationsTasks", "list"] as const;
 const OPERATIONS_PROJECTS_KEY = ["operationsProjects"] as const;
 const OPERATIONS_EQUIPMENT_KEY = ["operationsEquipment"] as const;
 
@@ -539,6 +540,9 @@ export function useAddOperationsComment() {
         assignees: task.assigned ? [task.assigned] : [],
         authorEmail: comment.authorEmail,
       });
+      // A task created from a won quote shares the quote's conversation — see
+      // lib/quoteToTask.ts. Best-effort; the comment is already posted.
+      void fanOutComment({ qc, source: { kind: "operationsTask", id }, comment, alreadyNotified: recipients });
       if (recipients.length > 0) {
         void notifyMentions({
           recipients,

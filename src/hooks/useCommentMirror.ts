@@ -7,22 +7,40 @@ import {
   type CommentOriginKind,
 } from "@/lib/commentMirror";
 import { buildRequestForTask, taskLabel } from "@/lib/buildRequestFromTask";
-import { buildRequestEmailTitle } from "@/lib/buildRequestAlerts";
+import { buildRequestEmailTitle, buildRequestPartEmailTitle } from "@/lib/buildRequestAlerts";
 import { commentNotifyRecipients } from "@/lib/mentions";
+import {
+  buildRequestEmailContext,
+  eirEmailContext,
+  taskEmailContext,
+  type EmailContext,
+  type LinkedTaskRef,
+} from "@/lib/emailContext";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { notifyMentions } from "@/api/email";
 import { pushToast } from "@/components/Toast";
 import { BUILD_REQUESTS_KEY, BUILD_REQUEST_ITEMS_KEY } from "@/hooks/useBuildRequests";
 import { TASK_LIST_KEY } from "@/hooks/useTasks";
+import { EIRS_KEY, eirTargetTitle } from "@/hooks/useEirs";
+import { linkedEirForTask, linkedTaskForEir } from "@/lib/eirTaskReference";
+import { QUOTES_KEY } from "@/hooks/useQuotes";
+import { OPERATIONS_TASK_LIST_KEY } from "@/hooks/useOperationsTasks";
+import { listQuotes } from "@/api/quotes";
+import { QUOTES_CONFIGURED } from "@/api/config";
+import { linkedQuoteForTask, linkedTaskForQuote, quoteOriginOfTask } from "@/lib/quoteToTask";
+import type { Quote } from "@/types/quote";
 import type {
   BuildRequest,
   BuildRequestItem,
+  Eir,
+  OperationsTask,
   Person,
   Task,
 } from "@/types/task";
 
 // =============================================================================
-// Fanning a comment across a task ⇄ its build request ⇄ that request's parts.
+// Fanning a comment across a task ⇄ its build request ⇄ that request's parts,
+// and a task ⇄ the EIR it was promoted from.
 //
 // Ray, 2026-09-21. ONE function the three comment hooks call, for the reason
 // `api/autoWatch.ts` is shared: three copies of a fan-out is how one
@@ -43,7 +61,40 @@ import type {
 interface Linkage {
   taskId: number | null;
   buildRequestId: number | null;
+  eirId: number | null;
+  /** The quote a task was created from (latest rev) — see lib/quoteToTask.ts. */
+  quoteId?: number | null;
+  /** A quote's Operations task. */
+  operationsTaskId?: number | null;
   origin: CommentOrigin;
+}
+
+/** How an Operations task is named in a banner and an email. */
+function opsTaskLabel(t: OperationsTask): string {
+  return t.taskNumber || t.title || `Operations task #${t.id}`;
+}
+
+/**
+ * The quotes list, for a task that was CREATED from a quote. A task page
+ * doesn't load quotes, so this reads them — but only for a task whose thread
+ * carries the quote marker, so an ordinary task comment costs nothing. A
+ * refused or failed read mirrors nothing; the comment itself has posted.
+ */
+async function quotesFor(qc: QueryClient, comments: Task["comments"]): Promise<Quote[]> {
+  if (!QUOTES_CONFIGURED || !quoteOriginOfTask(comments)) return [];
+  const cached = qc.getQueryData<Quote[]>(QUOTES_KEY);
+  if (cached) return cached;
+  try {
+    return await qc.ensureQueryData({ queryKey: QUOTES_KEY, queryFn: listQuotes, staleTime: 60_000 });
+  } catch (err) {
+    console.error("Comment mirror: couldn't read the quotes list", err);
+    return [];
+  }
+}
+
+/** How an EIR is named in a banner on another record. */
+function eirLabel(eir: Eir): string {
+  return eir.eirNo || `EIR #${eir.id}`;
 }
 
 /** How a build request is named in a banner on another record. */
@@ -64,21 +115,66 @@ function itemLabel(item: BuildRequestItem): string {
  * nothing to name the banner after, and guessing would produce a comment
  * whose origin line reads "#0".
  */
-function resolveLinkage(
+async function resolveLinkage(
   qc: QueryClient,
   kind: CommentOriginKind,
   id: number,
-): Linkage | null {
+): Promise<Linkage | null> {
   const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY) ?? [];
+  const tasks = qc.getQueryData<Task[]>(TASK_LIST_KEY) ?? [];
+  const eirs = qc.getQueryData<Eir[]>(EIRS_KEY) ?? [];
+  const opsTasks = qc.getQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY) ?? [];
+
+  if (kind === "quote") {
+    const quote = qc.getQueryData<Quote[]>(QUOTES_KEY)?.find((q) => q.id === id);
+    if (!quote) return null;
+    return {
+      taskId: linkedTaskForQuote(quote, "engineering", tasks)?.id ?? null,
+      operationsTaskId: linkedTaskForQuote(quote, "operations", opsTasks)?.id ?? null,
+      buildRequestId: null,
+      eirId: null,
+      origin: { kind: "quote", id, label: quote.quoteNumber },
+    };
+  }
+
+  if (kind === "operationsTask") {
+    const task = opsTasks.find((t) => t.id === id);
+    if (!task) return null;
+    const quotes = await quotesFor(qc, task.comments);
+    return {
+      taskId: null,
+      buildRequestId: null,
+      eirId: null,
+      quoteId: linkedQuoteForTask(task, "operations", quotes)?.id ?? null,
+      origin: { kind: "operationsTask", id, label: opsTaskLabel(task) },
+    };
+  }
 
   if (kind === "task") {
-    const task = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((t) => t.id === id);
+    const task = tasks.find((t) => t.id === id);
     if (!task) return null;
     const br = buildRequestForTask(brs, id);
+    const quotes = await quotesFor(qc, task.comments);
     return {
+      quoteId: linkedQuoteForTask(task, "engineering", quotes)?.id ?? null,
       taskId: id,
       buildRequestId: br?.id ?? null,
+      // Only when the task and the EIR agree they belong together — see
+      // linkedEirForTask. Both lists are held on every page by the mention
+      // scanner, so this costs no request.
+      eirId: linkedEirForTask(task, eirs, tasks)?.id ?? null,
       origin: { kind: "task", id, label: taskLabel(task) },
+    };
+  }
+
+  if (kind === "eir") {
+    const eir = eirs.find((e) => e.id === id);
+    if (!eir) return null;
+    return {
+      taskId: linkedTaskForEir(eir, tasks, eirs)?.id ?? null,
+      buildRequestId: null,
+      eirId: id,
+      origin: { kind: "eir", id, label: eirLabel(eir) },
     };
   }
 
@@ -88,6 +184,7 @@ function resolveLinkage(
     return {
       taskId: br.taskReferenceLookupId,
       buildRequestId: id,
+      eirId: null,
       origin: { kind: "buildRequest", id, label: brLabel(br) },
     };
   }
@@ -103,6 +200,7 @@ function resolveLinkage(
   return {
     taskId: br?.taskReferenceLookupId ?? null,
     buildRequestId: item.buildRequestLookupId,
+    eirId: null,
     origin: {
       kind: "buildRequestItem",
       id,
@@ -114,12 +212,42 @@ function resolveLinkage(
   };
 }
 
+/** The task a build request is linked to, for its email card. */
+function linkedTask(qc: QueryClient, id: number | null): LinkedTaskRef | null {
+  if (!id) return null;
+  const t = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((x) => x.id === id);
+  return t ? { id: t.id, title: taskLabel(t) } : null;
+}
+
 /** Watchers + assignees of a mirror target, for its own notification. */
 function audienceFor(
   qc: QueryClient,
-  kind: "task" | "buildRequest" | "buildRequestItem",
+  kind: CommentOriginKind,
   id: number,
-): { watchers: Person[]; assignees: Person[]; title: string } | null {
+): { watchers: Person[]; assignees: Person[]; title: string; context?: EmailContext } | null {
+  if (kind === "quote") {
+    const quote = qc.getQueryData<Quote[]>(QUOTES_KEY)?.find((q) => q.id === id);
+    if (!quote) return null;
+    // No assignee column: a quote is worked by its watchers. The quote
+    // number is its emails' title (useAddQuoteComment).
+    return { watchers: quote.watchers, assignees: [], title: quote.quoteNumber };
+  }
+  if (kind === "operationsTask") {
+    const task = qc.getQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY)?.find((t) => t.id === id);
+    if (!task) return null;
+    return { watchers: task.watchers, assignees: task.assigned ? [task.assigned] : [], title: opsTaskLabel(task) };
+  }
+  if (kind === "eir") {
+    const eir = qc.getQueryData<Eir[]>(EIRS_KEY)?.find((e) => e.id === id);
+    if (!eir) return null;
+    return {
+      watchers: eir.watchers,
+      assignees: eir.assignedEngineers,
+      // The EIR's own email title, so the copy joins its conversation.
+      title: eirTargetTitle(eir),
+      context: eirEmailContext(eir),
+    };
+  }
   if (kind === "task") {
     const task = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((t) => t.id === id);
     if (!task) return null;
@@ -127,6 +255,7 @@ function audienceFor(
       watchers: task.watchers,
       assignees: task.assigned,
       title: taskLabel(task),
+      context: taskEmailContext(task),
     };
   }
   if (kind === "buildRequest") {
@@ -138,13 +267,19 @@ function audienceFor(
       // The EMAIL title, not the banner's brLabel: it is the subject, and it
       // must match the request's own emails to join their conversation.
       title: buildRequestEmailTitle(br),
+      context: buildRequestEmailContext(br, linkedTask(qc, br.taskReferenceLookupId)),
     };
   }
   const item = qc
     .getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY)
     ?.find((i) => i.id === id);
   if (!item) return null;
-  return { watchers: item.watchers, assignees: [], title: itemLabel(item) };
+  const parent = qc
+    .getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY)
+    ?.find((b) => b.id === item.buildRequestLookupId);
+  // The part's own email title, naming its request (BusinessIT#56), so the
+  // copy joins the part's conversation.
+  return { watchers: item.watchers, assignees: [], title: buildRequestPartEmailTitle(item, parent) };
 }
 
 /**
@@ -167,7 +302,7 @@ export async function fanOutComment(args: {
 }): Promise<void> {
   const { qc, source, comment, alreadyNotified } = args;
 
-  const linkage = resolveLinkage(qc, source.kind, source.id);
+  const linkage = await resolveLinkage(qc, source.kind, source.id);
   if (!linkage) return;
 
   const targets = mirrorTargetsFor({
@@ -175,6 +310,9 @@ export async function fanOutComment(args: {
     origin: linkage.origin,
     taskId: linkage.taskId,
     buildRequestId: linkage.buildRequestId,
+    eirId: linkage.eirId,
+    quoteId: linkage.quoteId ?? null,
+    operationsTaskId: linkage.operationsTaskId ?? null,
   });
   if (targets.length === 0) return;
 
@@ -210,6 +348,15 @@ export async function fanOutComment(args: {
   if (written.some((t) => t.kind === "buildRequestItem")) {
     void qc.invalidateQueries({ queryKey: BUILD_REQUEST_ITEMS_KEY });
   }
+  if (written.some((t) => t.kind === "eir")) {
+    void qc.invalidateQueries({ queryKey: EIRS_KEY });
+  }
+  if (written.some((t) => t.kind === "quote")) {
+    void qc.invalidateQueries({ queryKey: QUOTES_KEY });
+  }
+  if (written.some((t) => t.kind === "operationsTask")) {
+    void qc.invalidateQueries({ queryKey: OPERATIONS_TASK_LIST_KEY });
+  }
 
   // Notify each side's own audience, minus anyone the original already told.
   const sender: Person = {
@@ -244,6 +391,7 @@ export async function fanOutComment(args: {
         kind: target.kind,
         id: target.id,
         title: audience.title,
+        context: audience.context,
       },
       // The email describes the comment itself, so it carries the plain body
       // rather than the banner markup — the banner is a UI affordance for

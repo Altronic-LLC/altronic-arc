@@ -176,9 +176,17 @@ describe("useSaveNewProductWorksheet", () => {
     const before = pricingMockClone(pricingMockDb.subAssemblies);
     const { wrapper } = setup();
     const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
-    await act(() => expect(result.current.mutateAsync(vars())).rejects.toThrow(/managers and admins/));
+    await act(() => expect(result.current.mutateAsync(vars())).rejects.toThrow(/pricing managers, admins and the New Products role/));
     expect(pricingMockDb.subAssemblies).toEqual(before);
     expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.rev).toBe(2);
+  });
+
+  it("lets the New Products role save — it's their tool", async () => {
+    who.person = { displayName: "Demo Costing Engineer", email: "np.costing@example.com", lookupId: 9 };
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
+    const { saved } = await act(() => result.current.mutateAsync(vars()));
+    expect(saved.rev).toBe(3); // saved as a new revision
   });
 
   it("refuses when the worksheet's revision moved on since it was opened", async () => {

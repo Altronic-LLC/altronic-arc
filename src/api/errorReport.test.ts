@@ -46,6 +46,7 @@ beforeEach(() => {
   graphFetchMock.mockResolvedValue(undefined);
   configMock.USE_MOCK = false;
   configMock.SHARED_MAILBOX = "automation@altronic-llc.com";
+  configMock.APP_MANAGER_EMAIL = "ray.white@altronic-llc.com";
 });
 
 afterEach(() => {
@@ -83,6 +84,29 @@ describe("sendErrorReport", () => {
     expect(body.message.body.content).toContain("drag-and-drop blew up");
     expect(body.message.body.content).toContain("Something broke");
     expect(body.message.body.content).toContain("TestAgent/1.0");
+  });
+
+  it("sends to every address in a comma-separated list", async () => {
+    configMock.APP_MANAGER_EMAIL =
+      "Ray White <ray.white@altronic-llc.com>, tim.webster@altronic-llc.com";
+    vi.resetModules();
+    const send = await loadSubject();
+    await send({ description: "", reporter: null, captured: [], pageUrl: "/", userAgent: "T" });
+    const body = JSON.parse(graphFetchMock.mock.calls[0]![1].body as string);
+    expect(body.message.toRecipients).toEqual([
+      { emailAddress: { address: "ray.white@altronic-llc.com", name: "Ray White" } },
+      { emailAddress: { address: "tim.webster@altronic-llc.com", name: "Tim Webster" } },
+    ]);
+  });
+
+  it("refuses to send rather than mailing a blank address", async () => {
+    configMock.APP_MANAGER_EMAIL = " , ";
+    vi.resetModules();
+    const send = await loadSubject();
+    await expect(
+      send({ description: "", reporter: null, captured: [], pageUrl: "/", userAgent: "T" }),
+    ).rejects.toThrow(/VITE_APP_MANAGER_EMAIL/);
+    expect(graphFetchMock).not.toHaveBeenCalled();
   });
 
   it("omits the CC when no reporter is provided", async () => {

@@ -1,5 +1,5 @@
 import { parseSpDateOnly } from "./spDates";
-import { toLookupId, toNumberOrNull } from "./teradyneMapper";
+import { toLookupId, toNumberOrNull } from "./graphValues";
 import type {
   GraphListItem,
   HarnessLogEntry,
