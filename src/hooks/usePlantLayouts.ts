@@ -10,7 +10,16 @@ import {
   savePlantLayoutDraft,
 } from "@/api/plantLayouts";
 import { createLayoutComponent, listLayoutComponents, replaceLayoutComponent } from "@/api/layoutComponents";
-import { readWallsFile } from "@/api/plantLayoutFiles";
+import {
+  findPublishedFiles,
+  readPublishedFile,
+  readWallsFile,
+  writePublishedFile,
+  type PublishedFile,
+} from "@/api/plantLayoutFiles";
+import { listEquipment } from "@/api/operationsEquipment";
+import { EQUIPMENT_KEY } from "./useEquipment";
+import type { Equipment } from "@/types/task";
 import type {
   LayoutComponent,
   NewLayoutComponentInput,
@@ -20,6 +29,7 @@ import type {
   ReplaceLayoutComponentInput,
 } from "@/types/plant";
 import { readWallsSvg, type WallsCheck } from "@/lib/plantSvg";
+import { buildCompositeSvg, buildTagsCsv, publishedFileNames, type PublishAsset } from "@/lib/plantPublishFiles";
 import { deleteLayoutGate, editLayoutGate, manageSymbolsGate, publishLayoutGate } from "@/lib/plantMapRoles";
 import { checkLayout, shapeOfComponent } from "@/lib/plantGeometry";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
@@ -63,12 +73,139 @@ export function useLayoutComponents() {
   });
 }
 
+type QC = ReturnType<typeof useQueryClient>;
+
+/** The symbol library, read fresh — what Publish checks against and draws with. */
+function freshComponents(qc: QC): Promise<LayoutComponent[]> {
+  return qc.fetchQuery({ queryKey: LAYOUT_COMPONENTS_KEY, queryFn: listLayoutComponents });
+}
+
+/** A layout's walls drawing, read once per file id for the session (a new drawing is a new file). */
+function wallsFor(qc: QC, layout: PlantLayout): Promise<WallsCheck | null> {
+  if (!layout.wallsFileId) return Promise.resolve(null);
+  return qc.fetchQuery({
+    queryKey: wallsKey(layout.wallsFileId),
+    queryFn: async () => readWallsSvg(await readWallsFile(layout.wallsFileId)),
+    staleTime: Infinity,
+  });
+}
+
+export const publishedFilesKey = (layoutId: number, version: number) => ["plant-published-files", layoutId, version] as const;
+
+/**
+ * Build and write a published layout's files for Power BI
+ * (lib/plantPublishFiles.ts): the composite SVG and the tags CSV for its
+ * version, and — when it IS the published version — the "current" copies a
+ * report points at. Throws if the files can't be built or written; the asset
+ * names are best-effort (a refused Equipment List leaves AssetTag blank and
+ * says so in `warnings`).
+ */
+async function writeLayoutFiles(qc: QC, layout: PlantLayout): Promise<{ written: string[]; warnings: string[] }> {
+  if (layout.docCorrupt) throw new Error("The saved layout couldn't be read, so its files can't be made.");
+  const warnings: string[] = [];
+  const [components, walls] = await Promise.all([freshComponents(qc), wallsFor(qc, layout)]);
+  if (walls && !walls.ok) warnings.push(`The walls drawing couldn't be used (${walls.problem}), so the plan in the file is blank.`);
+  const assets = new Map<number, PublishAsset>();
+  if (layout.doc.items.some((i) => i.equipmentId !== null)) {
+    try {
+      const equipment = await qc.fetchQuery<Equipment[]>({ queryKey: EQUIPMENT_KEY, queryFn: listEquipment, staleTime: 5 * 60_000 });
+      for (const e of equipment) assets.set(e.lookupId, { name: e.name, assetTag: e.assetTag });
+    } catch {
+      warnings.push("The Equipment List couldn't be read, so the asset tags and names in the tags file are blank.");
+    }
+  }
+  const drawing = walls?.ok ? walls.drawing : null;
+  const byId = new Map(components.map((c) => [c.id, c]));
+  const svg = buildCompositeSvg({
+    layout,
+    wallsSvg: drawing?.svg ?? null,
+    extent: drawing?.extent ?? layout.doc.extent,
+    components: byId,
+    assets,
+    publishedAt: new Date(),
+  });
+  const csv = buildTagsCsv({ layout, components: byId, assets });
+  const names = publishedFileNames(layout);
+  const writes: [string, string, string][] = [
+    [names.svg, svg, "image/svg+xml"],
+    [names.csv, csv, "text/csv"],
+  ];
+  if (layout.status === "Published") {
+    writes.push([names.currentSvg, svg, "image/svg+xml"], [names.currentCsv, csv, "text/csv"]);
+  }
+  // One at a time: four small files, and a refusal on the first says it all.
+  for (const [name, content, type] of writes) await writePublishedFile(name, content, type);
+  void qc.invalidateQueries({ queryKey: publishedFilesKey(layout.id, layout.version) });
+  return { written: writes.map(([n]) => n), warnings };
+}
+
+/** The Power BI files a layout version has — versioned always, the current copies when it's Published. */
+export function usePublishedFiles(layout: PlantLayout | null | undefined) {
+  return useQuery<Record<string, PublishedFile>>({
+    queryKey: publishedFilesKey(layout?.id ?? 0, layout?.version ?? 0),
+    queryFn: () => {
+      const names = publishedFileNames(layout as PlantLayout);
+      return findPublishedFiles(
+        layout?.status === "Published" ? [names.svg, names.csv, names.currentSvg, names.currentCsv] : [names.svg, names.csv],
+      );
+    },
+    enabled: !!layout && layout.status !== "Draft",
+    staleTime: 60_000,
+  });
+}
+
+/** Download one published file — through its pre-authenticated link, saved from a blob URL. */
+export async function downloadPublishedFile(name: string): Promise<void> {
+  const text = await readPublishedFile(name);
+  const type = name.endsWith(".csv") ? "text/csv" : "image/svg+xml";
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Not revoked at once: some browsers start the save asynchronously.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/**
+ * (Re)make a published layout's files — a Plant Map admin, asked inside the
+ * mutationFn. The way back from a publish whose files failed, and how a layout
+ * published before this existed gets them. Never touches the layout row.
+ */
+export function useWritePublishedFiles() {
+  const qc = useQueryClient();
+  const resolve = useResolvePlantMapAccess();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      requirePlantMapGate(publishLayoutGate(await resolve()));
+      const layout = await getPlantLayout(id);
+      if (!layout) throw new Error("That layout has been deleted.");
+      if (layout.status !== "Published") throw new Error("Only the published version gets files for Power BI.");
+      return writeLayoutFiles(qc, layout);
+    },
+    onSuccess: ({ warnings }) => {
+      pushToast({ message: "The files for Power BI were saved." });
+      for (const w of warnings) pushToast({ message: w, variant: "error" });
+    },
+    onError: (err) =>
+      pushToast({
+        message: describeListWriteFailure(err, { action: "save the layout's files", site: "Altronic_PMO", permission: "editing" }),
+        variant: "error",
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["plant-published-files"] }),
+  });
+}
+
 /**
  * Publish a draft — a Plant Map admin, asked inside the mutationFn, and ONLY
  * if the placement check passes, asked again here on a fresh read of the
  * layout, the walls drawing and the symbol library (a page open for an hour
  * mustn't publish what it showed then). The API flips the old version to
- * Superseded.
+ * Superseded. Then the files for Power BI are written — AFTER the layout is
+ * published, so a failure there is a warning with a retry button, never an
+ * unpublished layout.
  */
 export function usePublishPlantLayout() {
   const qc = useQueryClient();
@@ -78,14 +215,7 @@ export function usePublishPlantLayout() {
       requirePlantMapGate(publishLayoutGate(await resolve()));
       const layout = await getPlantLayout(id);
       if (!layout) throw new Error("That layout has been deleted.");
-      const components = await qc.fetchQuery({ queryKey: LAYOUT_COMPONENTS_KEY, queryFn: listLayoutComponents });
-      const walls = layout.wallsFileId
-        ? await qc.fetchQuery({
-            queryKey: wallsKey(layout.wallsFileId),
-            queryFn: async () => readWallsSvg(await readWallsFile(layout.wallsFileId)),
-            staleTime: Infinity,
-          })
-        : null;
+      const [components, walls] = await Promise.all([freshComponents(qc), wallsFor(qc, layout)]);
       if (walls && !walls.ok) {
         throw new Error(`The walls drawing can't be read (${walls.problem}), so the layout can't be checked or published.`);
       }
@@ -96,7 +226,20 @@ export function usePublishPlantLayout() {
           `Fix the ${problems.length} placement problem${problems.length === 1 ? "" : "s"} first — a layout with problems can't be published.`,
         );
       }
-      return publishPlantLayout(id);
+      const result = await publishPlantLayout(id);
+      try {
+        const files = await writeLayoutFiles(qc, result.layout);
+        return { ...result, warnings: [...result.warnings, ...files.warnings] };
+      } catch (err) {
+        const why = err instanceof Error ? err.message : String(err);
+        return {
+          ...result,
+          warnings: [
+            ...result.warnings,
+            `Published, but the files for Power BI couldn't be saved (${why}). Press Save files for Power BI on the layout to try again.`,
+          ],
+        };
+      }
     },
     onSuccess: ({ layout, superseded, warnings }) => {
       storeLayout(qc, layout);

@@ -1,7 +1,7 @@
 import { GraphError, graphFetch } from "./graph";
 import { SITES, SP_PLANT_LAYOUT_FILES_LIST_ID, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
-import { uploadToDriveTarget } from "./projectFiles";
+import { uploadToDriveTarget, type GraphDriveChild } from "./projectFiles";
 import { MOCK_WALLS_FILES } from "@/data/plantMockData";
 
 // =============================================================================
@@ -19,12 +19,14 @@ import { MOCK_WALLS_FILES } from "@/data/plantMockData";
 // =============================================================================
 
 let mockFiles: Record<string, { name: string; svg: string }> = { ...MOCK_WALLS_FILES };
+let mockPublished: Record<string, { content: string; modifiedAt: Date }> = {};
 let nextMockFile = 1;
 let drivePromise: Promise<string> | null = null;
 
 /** For tests: put the mock library back and forget the looked-up drive. */
 export function __resetPlantLayoutFilesForTests(): void {
   mockFiles = { ...MOCK_WALLS_FILES };
+  mockPublished = {};
   nextMockFile = 1;
   drivePromise = null;
 }
@@ -122,4 +124,98 @@ export async function uploadWallsFile(name: string, cleanSvg: string): Promise<{
     conflict: "rename",
   });
   return { id: item.id, name: item.name };
+}
+
+// -----------------------------------------------------------------------------
+// published/ — the files a published layout leaves for Power BI
+// (lib/plantPublishFiles.ts builds them). ARC generates and owns these, so a
+// write REPLACES the file of that name: re-publishing the same version gives
+// the same file, and the "current" copy is meant to be overwritten.
+// -----------------------------------------------------------------------------
+
+/** A file in `published/`. */
+export interface PublishedFile {
+  name: string;
+  /** SharePoint's page for it (Open in SharePoint, and the address for Power BI); "" in the demo. */
+  webUrl: string;
+  size: number;
+  modifiedAt: Date | null;
+}
+
+const PUBLISHED_FOLDER = "published";
+
+function publishedPath(driveId: string, name: string): string {
+  return `/drives/${driveId}/root:/${PUBLISHED_FOLDER}/${encodeURIComponent(name)}:`;
+}
+
+/** Write (or overwrite) one file in `published/`. */
+export async function writePublishedFile(name: string, content: string, contentType: string): Promise<PublishedFile> {
+  if (USE_MOCK) {
+    mockPublished = { ...mockPublished, [name]: { content, modifiedAt: new Date() } };
+    return mockDelay({ name, webUrl: "", size: new Blob([content]).size, modifiedAt: new Date() });
+  }
+  const driveId = await libraryDriveId();
+  const file = new File([content], name, { type: contentType });
+  const item = await uploadToDriveTarget(publishedPath(driveId, name), file, { conflict: "replace" });
+  return toPublishedFile(item);
+}
+
+function toPublishedFile(item: GraphDriveChild): PublishedFile {
+  return {
+    name: item.name,
+    webUrl: item.webUrl ?? "",
+    size: item.size ?? 0,
+    modifiedAt: item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : null,
+  };
+}
+
+/** The named files in `published/`; a name with no file is left out. */
+export async function findPublishedFiles(names: readonly string[]): Promise<Record<string, PublishedFile>> {
+  if (USE_MOCK) {
+    const out: Record<string, PublishedFile> = {};
+    for (const n of names) {
+      const f = mockPublished[n];
+      if (f) out[n] = { name: n, webUrl: "", size: new Blob([f.content]).size, modifiedAt: f.modifiedAt };
+    }
+    return mockDelay(out);
+  }
+  const driveId = await libraryDriveId();
+  const found = await Promise.all(
+    names.map(async (n) => {
+      try {
+        const item = await graphFetch<GraphDriveChild>(
+          `${publishedPath(driveId, n)}?$select=id,name,webUrl,size,lastModifiedDateTime`,
+        );
+        return item ? toPublishedFile(item) : null;
+      } catch (err) {
+        if (err instanceof GraphError && err.status === 404) return null;
+        throw err;
+      }
+    }),
+  );
+  const out: Record<string, PublishedFile> = {};
+  found.forEach((f, i) => {
+    if (f) out[names[i]] = f;
+  });
+  return out;
+}
+
+/**
+ * A published file's text, through the item's pre-authenticated download
+ * link (the readWallsFile arrangement) — for the Download button.
+ */
+export async function readPublishedFile(name: string): Promise<string> {
+  if (USE_MOCK) {
+    const f = mockPublished[name];
+    if (!f) throw new Error(`${name} isn't in the Plant Layout Files library.`);
+    return mockDelay(f.content);
+  }
+  const driveId = await libraryDriveId();
+  type WithUrl = { "@microsoft.graph.downloadUrl"?: string };
+  const item = await graphFetch<WithUrl>(publishedPath(driveId, name));
+  const url = item?.["@microsoft.graph.downloadUrl"];
+  if (!url) throw new Error(`${name} has no download link.`);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Couldn't read ${name} (${res.status}).`);
+  return res.text();
 }

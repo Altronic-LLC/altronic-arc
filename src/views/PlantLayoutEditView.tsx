@@ -598,7 +598,7 @@ function Editor({
           <section aria-label="Placement check" className="rounded-xl border border-border bg-surface p-4">
             <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Placement check</h2>
             {problems.length === 0 ? (
-              <p className="mt-2 text-sm text-cooper-green">Nothing overlaps, and everything is inside the building.</p>
+              <p className="mt-2 text-sm text-cooper-green">Nothing overlaps.</p>
             ) : (
               <ul className="mt-2 space-y-1 text-sm">
                 {problems.map((p, i) => (

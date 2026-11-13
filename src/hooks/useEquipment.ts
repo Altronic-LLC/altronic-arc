@@ -45,7 +45,7 @@ import { pushToast } from "@/components/Toast";
 // asset on the work order in front of them.
 // =============================================================================
 
-const EQUIPMENT_KEY = ["equipment", "list"] as const;
+export const EQUIPMENT_KEY = ["equipment", "list"] as const;
 
 export function useEquipment() {
   return useQuery({

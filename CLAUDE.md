@@ -509,7 +509,7 @@ src/
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── plantLayouts.ts           Plant Layouts — one row per VERSION, the layout as JSON; never writes a Published row or over JSON it can't read
 │   ├── layoutComponents.ts       Layout Components — the Plant Map symbol library; add (key checked fresh), replace = a NEW row per version (latest checked fresh), never deleted
-│   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/, read through the download link, never overwritten; deleted only when no layout uses them
+│   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/ (never overwritten; deleted only when no layout uses them) and the Power BI files in published/ (replaced)
 │   ├── plantMapRoles.ts          Plant Map Roles CRUD (viewer / editor / admin) — only people on it see the Plant Map
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
@@ -636,7 +636,7 @@ src/
 │   ├── useRememberedView.tsx     List or Kanban remembered per browser (#51) — saved in the switcher, applied by a list route wrapper
 │   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
-│   ├── usePlantLayouts.ts        Plant layouts, the symbol library and the walls drawings (read + sanitised once) as queries; start, save, copy-to-draft (editor-gated)
+│   ├── usePlantLayouts.ts        Plant layouts, the symbol library and the walls drawings (read + sanitised once) as queries; start, save, copy-to-draft (editor-gated); publish + the Power BI files
 │   ├── usePlantMapRoles.ts       Plant Map Roles CRUD (manage-gated) + useMyPlantMapAccess / useResolvePlantMapAccess
 │   ├── usePlantLayerVisibility.ts Which Plant Map layers are shown — per viewer, never saved; starts from each layer's default
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
@@ -917,6 +917,7 @@ src/
 │   ├── plantSymbolVersions.ts    Symbol versions (pure) — latest per key, what the palette shows, an item's newer version and the swap that updates it
 │   ├── plantAlign.ts             Alignment guides (pure) — a dragged box snaps onto a neighbour's edge or centre line, and the dotted guides to draw
 │   ├── plantLayers.ts            Plant Map layers (pure) — the layout's layers, what's shown, revealing a picked item, counts, where a new copy goes
+│   ├── plantPublishFiles.ts      A published layout's files for Power BI (pure) — the composite SVG (symbols inlined, ids = TagIds) and the tags CSV, and their names
 │   ├── plantLayoutDoc.ts         The LayoutJson column — parse (corrupt is never overwritten), serialize (refuses past the column's limit); which layouts share a walls drawing
 │   ├── plantMapRoles.ts          Plant Map role tags → rights + the edit / publish / manage gates (pure)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
@@ -8638,12 +8639,12 @@ plan, the placement check, New layout, Roles, and the layout EDITOR (Tim tried
 the read-only first cut in demo mode and asked for drag and drop the same day;
 he also called it "a bit clunky", which is why the plan became a pan/zoom
 canvas and the editor works on the plan rather than through forms).
-**Publish is built** (Tim, 2026-11-06, testing on the live lists): see below.
-Still to come in Phase 3: the composite SVG to the library and Plant Tags rows
-for Power BI. Then Phase 4
+**Phase 3 is built**: Publish (Tim, 2026-11-06) and the files it leaves for
+Power BI (2026-11-13) — see "Files for Power BI" below. Then Phase 4
 overlays, Phase 5 live status (CMMS AssetStatus
-first, then Fabric), Phase 6 Power BI. **The Plant Overlays and Plant Tags
-lists don't exist yet**; the script adds them in their phase. Still open from
+first, then Fabric), Phase 6 Power BI. **The Plant Overlays list doesn't exist
+yet**; the script adds it in its phase. **There is no Plant Tags LIST** — Tim
+chose a CSV in the library instead (below). Still open from
 the design doc: where live machine state comes from, Ray's sign-off on a
 "builder" beside the code-defined Reports decision, and whether every placed
 machine must be a CMMS asset.
@@ -8658,7 +8659,7 @@ arrangement. `PLANT_MAP_CONFIGURED` needs all four:
 | Plant Map Roles | `VITE_SP_PLANT_MAP_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles` (editor / admin CSV), `Note` |
 | Layout Components | `VITE_SP_LAYOUT_COMPONENTS_LIST_ID` | the symbol library: `SvgMarkup`, `FootprintW/D` (in), `Collides`, `Clearance`, `IsActive`… seeded from `src/data/plantComponentSeed.json` only while EMPTY |
 | Plant Layouts | `VITE_SP_PLANT_LAYOUTS_LIST_ID` | one row per VERSION: `Building`, `LayoutKey`, `Status`, `Version`, `WallsFile` (drive item id), `LayoutJson` (items AND drawn areas), `SupersedesId` |
-| Plant Layout Files | `VITE_SP_PLANT_LAYOUT_FILES_LIST_ID` | the LIBRARY's list id; walls drawings in `walls/`; its drive is looked up from it once per session |
+| Plant Layout Files | `VITE_SP_PLANT_LAYOUT_FILES_LIST_ID` | the LIBRARY's list id; walls drawings in `walls/`, Power BI files in `published/`; its drive is looked up from it once per session |
 
 **Only the people on Plant Map Roles see it** (Tim, 2026-11-06) — no
 Dashboard card, no menu row, and NOT "Coming soon" for anyone else; a link
@@ -8733,6 +8734,47 @@ Eight things that are load-bearing:
   by hand — the other order could leave nothing published. The button is
   `aria-disabled` with the reason as its title, and confirms first
   (`RichTextWarningDialog`). No email.
+**Files for Power BI** (Tim, 2026-11-13) — `lib/plantPublishFiles.ts` (pure),
+the published/ half of `api/plantLayoutFiles.ts`, `writeLayoutFiles` in
+`hooks/usePlantLayouts.ts`, and the Files for Power BI card on the layout page.
+Publish writes four files to `published/` in Plant Layout Files:
+`<layoutKey>-v<n>.svg` and `-v<n>-tags.csv` (that version, as it was), and
+`<layoutKey>.svg` / `-tags.csv` (the CURRENT copies, replaced by every publish
+of that layout, so a report keeps one address). Seven rules:
+
+- **A CSV, not a Plant Tags list** (Tim's pick). Main Plant has ~950 items, so
+  a list meant ~1,000 row writes plus deleting the old version's rows on every
+  publish — minutes from the browser, and no transactions. One file is written
+  whole or not at all. Power BI reads it with the SharePoint Folder connector
+  and joins `EquipmentId` to the Equipment List.
+- **The element id of an item or area in the SVG IS its `TagId` in the CSV**
+  (`tagIdFor`: the uid, made a valid XML id the same way every time).
+- **Every symbol is INLINED** as a nested `<svg>` per item, never `<defs>` +
+  `<use>`: `sanitiseSvg` strips `<use>`, and a Power BI visual colouring an
+  element by id needs the shapes inside it. Main Plant comes to ~1.2 MB.
+- **Ids inside the walls drawing and each symbol copy are PREFIXED**
+  (`walls--`, `<tagId>--`) and their `url(#…)` references rewritten, so the
+  walls' own `walls` / `columns` groups and two copies of a gradient can't
+  clash with each other or a tag.
+- **Layers are `<g id="layer-…">`** (base items in `layer-base`, groups as
+  `layer-<key>--<group>`), and a layer that starts hidden in ARC is
+  `display="none"` in the file.
+- **Written AFTER the row is published, best-effort.** A failure is a warning
+  toast naming **Save files for Power BI**, never an unpublished layout. That
+  button (Published versions only, a Plant Map admin, gate in the mutationFn)
+  is also how a layout published before this gets its files. A refused
+  Equipment List leaves AssetTag / AssetName blank, with a warning.
+- **`conflict: "replace"`** — `DriveConflictBehavior` gained it for these
+  ARC-owned files ONLY. Never use it for a file somebody uploaded.
+
+Downloads go through the item's pre-authenticated download link; the card's
+Open link is the file's SharePoint page, which is also the address to give
+Power BI. `create-plant-map-lists.ps1` creates `published/` beside `walls/`
+(an upload by path would create it anyway). Pinned in
+`lib/plantPublishFiles.test.ts` (the id prefixing verified by removing it),
+`api/plantLayoutFiles.published.real.test.ts`, the publish cases in
+`hooks/usePlantMap.gate.test.tsx` and `views/PlantMap.views.test.tsx`.
+
 - **Delete** (`deletePlantLayout` + `useDeletePlantLayout`, Tim, 2026-11-09):
   a Plant Map admin (`deleteLayoutGate`, asked in the mutationFn), on a
   **Draft or Superseded** version only — the API refuses a Published one. The

@@ -18,6 +18,7 @@ const api = vi.hoisted(() => ({
   getLayout: vi.fn(),
   publish: vi.fn(),
   remove: vi.fn(),
+  writeFile: vi.fn(),
 }));
 
 vi.mock("@/api/config", async (importOriginal) => ({
@@ -43,6 +44,12 @@ vi.mock("@/api/layoutComponents", () => ({
   listLayoutComponents: vi.fn(async () => []),
 }));
 vi.mock("@/api/admins", () => ({ listAdmins: vi.fn(async () => admins.rows) }));
+vi.mock("@/api/plantLayoutFiles", () => ({
+  writePublishedFile: api.writeFile,
+  readWallsFile: vi.fn(async () => ""),
+  findPublishedFiles: vi.fn(async () => ({})),
+  readPublishedFile: vi.fn(async () => ""),
+}));
 vi.mock("./useCurrentUser", () => ({
   useCurrentUser: () => ({ displayName: "Me", email: "me@example.com" }),
   useCurrentUserEmails: () => ["me@example.com"],
@@ -55,7 +62,9 @@ import {
   useDeletePlantLayout,
   usePublishPlantLayout,
   useReplaceLayoutComponent,
+  useWritePublishedFiles,
 } from "./usePlantLayouts";
+import { pushToast } from "@/components/Toast";
 import { useCreatePlantMapRoleEntry } from "./usePlantMapRoles";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -76,6 +85,8 @@ beforeEach(() => {
   api.replaceSymbol.mockReset();
   api.getLayout.mockReset();
   api.publish.mockReset().mockResolvedValue({ layout: { id: 5, version: 2 }, superseded: [], warnings: [] });
+  api.writeFile.mockReset().mockImplementation(async (name: string) => ({ name, webUrl: "", size: 1, modifiedAt: null }));
+  vi.mocked(pushToast).mockClear();
   api.remove.mockReset().mockResolvedValue({ layout: { id: 5, version: 2, title: "Main", wallsFileId: "F1" }, wallsDeleted: true, wallsKeptFor: [], warnings: [] });
 });
 
@@ -232,6 +243,77 @@ describe("publishing a layout", () => {
     const { result } = renderHook(() => usePublishPlantLayout(), { wrapper });
     await act(() => result.current.mutateAsync(5));
     expect(api.publish).toHaveBeenCalledWith(5);
+  });
+
+  it("then writes the files for Power BI — this version's and the current copies", async () => {
+    roles.rows = [me(["admin"])];
+    api.getLayout.mockResolvedValue(layout(50));
+    api.publish.mockResolvedValue({
+      layout: { ...layout(50), status: "Published", version: 2, layoutKey: "main-x", building: "Main", title: "Main" },
+      superseded: [],
+      warnings: [],
+    });
+    const { result } = renderHook(() => usePublishPlantLayout(), { wrapper });
+    await act(() => result.current.mutateAsync(5));
+    expect(api.writeFile.mock.calls.map((c) => c[0])).toEqual([
+      "main-x-v2.svg",
+      "main-x-v2-tags.csv",
+      "main-x.svg",
+      "main-x-tags.csv",
+    ]);
+  });
+
+  it("still publishes when the files can't be saved, and says how to try again", async () => {
+    roles.rows = [me(["admin"])];
+    api.getLayout.mockResolvedValue(layout(50));
+    api.publish.mockResolvedValue({
+      layout: { ...layout(50), status: "Published", version: 2, layoutKey: "main-x", building: "Main", title: "Main" },
+      superseded: [],
+      warnings: [],
+    });
+    api.writeFile.mockRejectedValue(new Error("Graph 403"));
+    const { result } = renderHook(() => usePublishPlantLayout(), { wrapper });
+    const out = await act(() => result.current.mutateAsync(5));
+    expect(out.layout.status).toBe("Published");
+    expect(out.warnings).toEqual([expect.stringMatching(/files for Power BI couldn't be saved \(Graph 403\)\. Press Save files for Power BI/)]);
+    expect(pushToast).toHaveBeenCalledWith(expect.objectContaining({ variant: "error", message: out.warnings[0] }));
+  });
+});
+
+describe("saving a published layout's files again", () => {
+  const published = {
+    id: 5,
+    status: "Published",
+    version: 2,
+    layoutKey: "main-x",
+    building: "Main",
+    title: "Main",
+    wallsFileId: "",
+    doc: { extent: { w: 100, h: 50 }, items: [], areas: [] },
+  };
+
+  it("is refused to an editor, and nothing is written", async () => {
+    roles.rows = [me(["editor"])];
+    api.getLayout.mockResolvedValue(published);
+    const { result } = renderHook(() => useWritePublishedFiles(), { wrapper });
+    await act(() => expect(result.current.mutateAsync(5)).rejects.toThrow(/Only a Plant Map admin/));
+    expect(api.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("is refused on a version that isn't the published one", async () => {
+    roles.rows = [me(["admin"])];
+    api.getLayout.mockResolvedValue({ ...published, status: "Superseded" });
+    const { result } = renderHook(() => useWritePublishedFiles(), { wrapper });
+    await act(() => expect(result.current.mutateAsync(5)).rejects.toThrow(/Only the published version/));
+    expect(api.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("writes all four for a Plant Map admin", async () => {
+    roles.rows = [me(["admin"])];
+    api.getLayout.mockResolvedValue(published);
+    const { result } = renderHook(() => useWritePublishedFiles(), { wrapper });
+    await act(() => result.current.mutateAsync(5));
+    expect(api.writeFile).toHaveBeenCalledTimes(4);
   });
 });
 

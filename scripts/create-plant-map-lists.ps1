@@ -22,7 +22,10 @@
                           groups a layout's versions), Status (choice: Draft /
                           Published / Superseded), Version, WallsFile (drive
                           item id), LayoutJson (the whole layout), SupersedesId
-      Plant Layout Files  document library; walls drawings go in walls/
+      Plant Layout Files  document library; walls drawings go in walls/, and
+                          Publish writes published/<layout>-v<n>.svg and
+                          -tags.csv (plus <layout>.svg / -tags.csv, the
+                          current copies a Power BI report points at)
 
     The internal names are the contract with src/api/plantLayouts.ts,
     src/api/layoutComponents.ts and src/api/plantMapRoles.ts.
@@ -224,14 +227,16 @@ Write-Host "`n=== $FILES_NAME ===" -ForegroundColor Cyan
 $filesId = Ensure-List $FILES_NAME @() "documentLibrary"
 if ($filesId -and -not $WhatIf) {
     $drive = Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$filesId/drive?`$select=id"
-    try {
-        Invoke-MgGraphRequest -Method POST -Uri "https://graph.microsoft.com/v1.0/drives/$($drive.id)/root/children" `
-            -Body (@{ name = "walls"; folder = @{}; "@microsoft.graph.conflictBehavior" = "fail" } | ConvertTo-Json) `
-            -ContentType "application/json" | Out-Null
-        Write-Host "    folder     walls/ created" -ForegroundColor Green
-    } catch {
-        if ("$_" -match "nameAlreadyExists|409") { Write-Host "    folder     walls/ exists" -ForegroundColor Yellow }
-        else { throw }
+    foreach ($folder in @("walls", "published")) {
+        try {
+            Invoke-MgGraphRequest -Method POST -Uri "https://graph.microsoft.com/v1.0/drives/$($drive.id)/root/children" `
+                -Body (@{ name = $folder; folder = @{}; "@microsoft.graph.conflictBehavior" = "fail" } | ConvertTo-Json) `
+                -ContentType "application/json" | Out-Null
+            Write-Host "    folder     $folder/ created" -ForegroundColor Green
+        } catch {
+            if ("$_" -match "nameAlreadyExists|409") { Write-Host "    folder     $folder/ exists" -ForegroundColor Yellow }
+            else { throw }
+        }
     }
 }
 
@@ -317,4 +322,3 @@ if ($filesId)      { Write-Host "  VITE_SP_PLANT_LAYOUT_FILES_LIST_ID = $filesId
 Write-Host "  Set all four as repo variables (and in .env.local) and redeploy." -ForegroundColor Gray
 Write-Host "  Then set the list permissions by hand (see the help above), and add" -ForegroundColor Gray
 Write-Host "  yourself in ARC: Operations > Plant Map > Roles (an ARC admin can)." -ForegroundColor Gray
-Write-Host "  VITE_PLANT_MAP_LIVE=true opens it to everyone; until then it's a pilot." -ForegroundColor Gray

@@ -107,8 +107,12 @@ async function uploadToDrive(
   return uploadToDriveTarget(target, file, { conflict: "rename", onProgress });
 }
 
-/** What Graph does when the target name is already taken. */
-export type DriveConflictBehavior = "rename" | "fail";
+/**
+ * What Graph does when the target name is already taken. `replace` overwrites
+ * — used ONLY for files ARC generates and owns (the Plant Map's published
+ * composites), never for a file somebody uploaded.
+ */
+export type DriveConflictBehavior = "rename" | "fail" | "replace";
 
 /**
  * Send one file to an exact drive path, picking the transport by size: a

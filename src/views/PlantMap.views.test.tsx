@@ -5,7 +5,7 @@ import { renderWithProviders } from "@/test/render";
 import panelPlantWalls from "@/data/plantMock/walls-panel-plant.svg?raw";
 import { __resetPlantLayoutsMockStore, listPlantLayouts } from "@/api/plantLayouts";
 import { __resetPlantMapRolesMockStore } from "@/api/plantMapRoles";
-import { __resetPlantLayoutFilesForTests, readWallsFile } from "@/api/plantLayoutFiles";
+import { __resetPlantLayoutFilesForTests, findPublishedFiles, readPublishedFile, readWallsFile } from "@/api/plantLayoutFiles";
 
 // =============================================================================
 // The Plant Map screens in demo mode: the layouts list (sortable), one layout
@@ -240,7 +240,7 @@ describe("PlantLayoutsView", () => {
 describe("PlantLayoutView", () => {
   it("draws a published layout and finds nothing wrong with it", async () => {
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/1", routePattern: "/operations/plant-map/:id" });
-    expect(await screen.findByText("Nothing overlaps, and everything is inside the building.")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing overlaps.")).toBeInTheDocument();
     const map = screen.getByRole("img", { name: "Main Plant plant layout" });
     expect(map.getAttribute("data-extent")).toBe("2880 1680");
     expect(map.querySelectorAll('[data-layer="items"] > g')).toHaveLength(27);
@@ -267,7 +267,7 @@ describe("PlantLayoutView", () => {
 
   it("draws the Engineering & Sales demo, its walkway included, with nothing wrong", async () => {
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
-    expect(await screen.findByText("Nothing overlaps, and everything is inside the building.")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing overlaps.")).toBeInTheDocument();
     const map = screen.getByRole("img", { name: "Engineering & Sales plant layout" });
     expect(map.getAttribute("data-extent")).toBe("1440 960");
     expect(map.querySelectorAll('[data-layer="items"] > g')).toHaveLength(17);
@@ -277,7 +277,7 @@ describe("PlantLayoutView", () => {
   it("starts the safety layer hidden, and shows it — or one group of it — when ticked", async () => {
     const user = userEvent.setup();
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
-    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    await screen.findByText("Nothing overlaps.");
     const layers = screen.getByRole("region", { name: "Layers" });
     const map = screen.getByRole("img", { name: "Engineering & Sales plant layout" });
     const drawn = () => map.querySelectorAll('[data-layer="items"] > g').length;
@@ -291,13 +291,13 @@ describe("PlantLayoutView", () => {
     await user.click(within(layers).getByRole("checkbox", { name: /^Extinguishers/ }));
     expect(drawn()).toBe(19);
     // Hiding is display only: the check still reads every item.
-    expect(screen.getByText("Nothing overlaps, and everything is inside the building.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing overlaps.")).toBeInTheDocument();
   });
 
   it("lists layer items in the table, and picking a hidden one shows its layer", async () => {
     const user = userEvent.setup();
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
-    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    await screen.findByText("Nothing overlaps.");
     const table = screen.getByRole("region", { name: "Items on this layout" });
     const exitRow = within(table).getByRole("cell", { name: "Safety · Fire exits" }).closest("tr")!;
     const map = screen.getByRole("img", { name: "Engineering & Sales plant layout" });
@@ -311,7 +311,7 @@ describe("PlantLayoutView", () => {
 
   it("shows no Layers panel on a layout without any", async () => {
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/1", routePattern: "/operations/plant-map/:id" });
-    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    await screen.findByText("Nothing overlaps.");
     expect(screen.queryByRole("region", { name: "Layers" })).toBeNull();
   });
 
@@ -335,7 +335,7 @@ describe("publishing", () => {
   it("publishes a clean draft after asking, and it becomes Published", async () => {
     const user = userEvent.setup();
     renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
-    await screen.findByText("Nothing overlaps, and everything is inside the building.");
+    await screen.findByText("Nothing overlaps.");
     await user.click(await screen.findByRole("button", { name: "Publish" }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("Publish Engineering & Sales v1?");
@@ -345,6 +345,53 @@ describe("publishing", () => {
     // A published layout offers a new draft, not Publish.
     expect(await screen.findByRole("button", { name: "Edit as a new draft" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
+  });
+
+  it("leaves the composite SVG and the tags CSV for Power BI — this version's and the current copies", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
+    await screen.findByText("Nothing overlaps.");
+    await user.click(await screen.findByRole("button", { name: "Publish" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Publish" }));
+    const layout = await waitFor(async () => {
+      const l = (await listPlantLayouts()).find((x) => x.id === 4)!;
+      expect(l.status).toBe("Published");
+      return l;
+    });
+    const base = layout.layoutKey;
+    await waitFor(async () =>
+      expect(Object.keys(await findPublishedFiles([`${base}-v1.svg`, `${base}-v1-tags.csv`, `${base}.svg`, `${base}-tags.csv`]))).toHaveLength(4),
+    );
+    const csv = await readPublishedFile(`${base}-tags.csv`);
+    expect(csv.split("\r\n").filter(Boolean)).toHaveLength(1 + layout.doc.items.length + layout.doc.areas.length);
+    expect(await readPublishedFile(`${base}.svg`)).toContain(`id="${layout.doc.items[0].uid}"`);
+
+    const card = await screen.findByRole("region", { name: "Files for Power BI" });
+    await waitFor(() => expect(within(card).getAllByRole("button", { name: /^Download / })).toHaveLength(4));
+    expect(within(card).getByRole("button", { name: "Save them again" })).toBeInTheDocument();
+  });
+
+  it("lets a Plant Map admin save the files for a layout published before they existed", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/1", routePattern: "/operations/plant-map/:id" });
+    const card = await screen.findByRole("region", { name: "Files for Power BI" });
+    await waitFor(() => expect(within(card).getAllByText("Not saved yet")).toHaveLength(4));
+    await user.click(within(card).getByRole("button", { name: "Save files for Power BI" }));
+    await waitFor(() => expect(within(card).queryAllByText("Not saved yet")).toHaveLength(0));
+  });
+
+  it("shows the files to a viewer, without the button to save them", async () => {
+    who.email = "sam.viewer@example.com";
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/1", routePattern: "/operations/plant-map/:id" });
+    const card = await screen.findByRole("region", { name: "Files for Power BI" });
+    await waitFor(() => expect(within(card).getAllByText("Not saved yet")).toHaveLength(4));
+    expect(within(card).queryByRole("button", { name: /save/i })).toBeNull();
+  });
+
+  it("has no files card on a draft", async () => {
+    renderWithProviders(<PlantLayoutView />, { route: "/operations/plant-map/4", routePattern: "/operations/plant-map/:id" });
+    await screen.findByText("Nothing overlaps.");
+    expect(screen.queryByRole("region", { name: "Files for Power BI" })).toBeNull();
   });
 
   it("isn't offered to an editor", async () => {

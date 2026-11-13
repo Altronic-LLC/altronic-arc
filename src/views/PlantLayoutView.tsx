@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, Map as MapIcon, Pencil, Send, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, ExternalLink, Map as MapIcon, Pencil, Send, Trash2 } from "lucide-react";
 import {
   useCopyLayoutToDraft,
   useDeletePlantLayout,
   useLayoutComponentMap,
   usePlantLayout,
   usePlantLayouts,
+  downloadPublishedFile,
+  usePublishedFiles,
   usePublishPlantLayout,
   useWallsDrawing,
+  useWritePublishedFiles,
 } from "@/hooks/usePlantLayouts";
+import { publishedFileNames } from "@/lib/plantPublishFiles";
+import type { PublishedFile } from "@/api/plantLayoutFiles";
 import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { deleteLayoutGate, editLayoutGate, publishLayoutGate } from "@/lib/plantMapRoles";
 import { outdatedItems } from "@/lib/plantSymbolVersions";
@@ -235,6 +240,7 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
         <aside className="flex flex-col gap-4">
           <ProblemsCard problems={problems} labelOf={labelOf} status={layout.status} onPick={pick} />
           <SelectedCard item={selectedItem} layers={layers} componentTitle={(cid) => byId.get(cid)?.title} />
+          {layout.status !== "Draft" && <PowerBiFilesCard layout={layout} />}
           <PlantLayersPanel
             layers={layers}
             items={items}
@@ -421,7 +427,7 @@ function ProblemsCard({
       ) : problems.length === 0 ? (
         <p className="mt-2 flex items-center gap-1.5 text-sm text-cooper-green">
           <CheckCircle2 className="h-4 w-4" />
-          Nothing overlaps, and everything is inside the building.
+          Nothing overlaps.
         </p>
       ) : (
         <>
@@ -444,6 +450,126 @@ function ProblemsCard({
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * The files a published layout leaves in Plant Layout Files for Power BI — the
+ * composite SVG and the tags CSV (lib/plantPublishFiles.ts). Published: this
+ * version's files and the "current" copies a report should point at, which
+ * every publish overwrites. Superseded: just its own. A Plant Map admin can
+ * (re)make them on the published version — the way back from a publish whose
+ * files failed, or a layout published before they existed.
+ */
+function PowerBiFilesCard({ layout }: { layout: PlantLayout }) {
+  const files = usePublishedFiles(layout);
+  const write = useWritePublishedFiles();
+  const canWrite = publishLayoutGate(useMyPlantMapAccess()).allowed && layout.status === "Published";
+  const names = publishedFileNames(layout);
+  const found = files.data ?? {};
+  const rows: { label: string; name: string }[] =
+    layout.status === "Published"
+      ? [
+          { label: "Current plan (SVG)", name: names.currentSvg },
+          { label: "Current tags (CSV)", name: names.currentCsv },
+          { label: `v${layout.version} plan (SVG)`, name: names.svg },
+          { label: `v${layout.version} tags (CSV)`, name: names.csv },
+        ]
+      : [
+          { label: `v${layout.version} plan (SVG)`, name: names.svg },
+          { label: `v${layout.version} tags (CSV)`, name: names.csv },
+        ];
+  const missing = rows.filter((r) => !found[r.name]).length;
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4" aria-label="Files for Power BI">
+      <PlantCardTitle>Files for Power BI</PlantCardTitle>
+      {files.isLoading ? (
+        <p className="mt-2 text-sm text-fg-muted">Checking Plant Layout Files…</p>
+      ) : files.error ? (
+        <p role="alert" className="mt-2 text-sm text-fg">
+          Couldn't check the library: {files.error instanceof Error ? files.error.message : "unknown error"}
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 text-xs text-fg-muted">
+            {layout.status === "Published"
+              ? "Point a report at the current files — every publish of this layout replaces them."
+              : "This version's files, as they were when it was published."}
+          </p>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {rows.map((r) => (
+              <FileRow key={r.name} label={r.label} name={r.name} file={found[r.name]} />
+            ))}
+          </ul>
+        </>
+      )}
+      {canWrite && !files.isLoading && (
+        <button
+          type="button"
+          onClick={() => !write.isPending && write.mutate(layout.id)}
+          aria-disabled={write.isPending}
+          className={cn(
+            "mt-3 rounded-md border border-border px-3 py-1.5 text-sm text-fg hover:bg-surface-2",
+            write.isPending && "cursor-not-allowed opacity-50",
+          )}
+        >
+          {write.isPending ? "Saving…" : missing > 0 ? "Save files for Power BI" : "Save them again"}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function FileRow({ label, name, file }: { label: string; name: string; file: PublishedFile | undefined }) {
+  const [busy, setBusy] = useState(false);
+  if (!file) {
+    return (
+      <li className="flex items-center justify-between gap-2">
+        <span className="text-fg">{label}</span>
+        <span className="text-xs text-fg-muted">Not saved yet</span>
+      </li>
+    );
+  }
+  const download = async () => {
+    setBusy(true);
+    try {
+      await downloadPublishedFile(name);
+    } catch (err) {
+      pushToast({ message: `Couldn't download ${name}: ${err instanceof Error ? err.message : "unknown error"}`, variant: "error" });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <li className="flex items-center justify-between gap-2">
+      <span className="min-w-0 truncate text-fg" title={name}>
+        {label}
+      </span>
+      <span className="flex shrink-0 items-center gap-1">
+        {file.webUrl && (
+          <a
+            href={file.webUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+            aria-label={`Open ${name} in SharePoint`}
+            title="Open in SharePoint"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={() => !busy && void download()}
+          aria-disabled={busy}
+          className="rounded p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+          aria-label={`Download ${name}`}
+          title="Download"
+        >
+          <Download className="h-4 w-4" />
+        </button>
+      </span>
+    </li>
   );
 }
 
