@@ -2632,7 +2632,7 @@ const SECTIONS: ManualSection[] = [
       "alert recipients",
     ],
     searchText:
-      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the terminal (each spec is a terminal, wire gauge and applicator), pick Start, In process or End, enter your clock number and the three readings in inches. The micrometer's Bluetooth transmitter types each reading and presses Enter, which moves to the next box. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with how many checks used it; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
+      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the machine (the crimp press you're on, remembered for next time on that computer), then the terminal (each spec is a terminal, wire gauge and applicator; only that press's specs are offered, plus any with no machine set yet), pick Start, In process or End, enter your clock number and the three readings in inches. Press the orange button on the micrometer's U-WAVE Bluetooth adaptor and it types the reading and presses Enter, which moves to the next box; readings show to 5 decimals when the micrometer gives them. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused, and the form says so instead of calling the check out of spec: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with the presses it runs on and how many checks used it; a spec can run on several presses, picked from the crimp machines in the asset list; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
     render: () => (
       <>
         <P>
@@ -2647,18 +2647,27 @@ const SECTIONS: ManualSection[] = [
         <H3>Recording a check</H3>
         <UL>
           <LI>
-            Click <strong>New check</strong> and pick the <strong>terminal</strong>.
-            Each choice is a terminal, wire gauge and applicator, with its crimp
-            height and tolerance shown beside it.
+            Click <strong>New check</strong> and pick the{" "}
+            <strong>machine</strong>: the crimp press you're working on. ARC
+            remembers it for the next check on that computer.
+          </LI>
+          <LI>
+            Pick the <strong>terminal</strong>. Each choice is a terminal, wire
+            gauge and applicator, with its crimp height and tolerance shown
+            beside it. Only the specs for that press are offered, followed by
+            any spec that hasn't had a machine set yet (marked{" "}
+            <em>no machine set</em>).
           </LI>
           <LI>
             Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
             <strong>End</strong>, and enter your <strong>clock number</strong>.
           </LI>
           <LI>
-            Enter the <strong>three readings in inches</strong>. The micrometer's
-            Bluetooth transmitter types each reading and presses Enter, and Enter
-            moves to the next box.
+            Enter the <strong>three readings in inches</strong>. Close the
+            micrometer on the crimp and press the <strong>orange button</strong>{" "}
+            on its U-WAVE Bluetooth adaptor: the reading is typed in and Enter
+            moves to the next box. Readings show to 5 decimals (0.03875) when the
+            micrometer gives them.
           </LI>
           <LI>
             Each reading shows <strong>In spec</strong>, <strong>Low</strong> or{" "}
@@ -2707,14 +2716,21 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Crimp specs</H3>
         <P>
-          The <strong>Specs</strong> button lists every spec with how many checks
-          used it. Anyone can see it; <strong>ARC admins</strong> add, edit,
-          retire or delete specs.
+          The <strong>Specs</strong> button lists every spec with the presses it
+          runs on and how many checks used it. Anyone can see it;{" "}
+          <strong>ARC admins</strong> add, edit, retire or delete specs.
         </P>
         <UL>
           <LI>
             There's one spec per terminal, applicator and wire gauge, because one
             applicator can crimp several gauges, each to its own height.
+          </LI>
+          <LI>
+            A spec lists the <strong>machines</strong> it runs on, picked from
+            the crimp machines in the asset list (presses in a Harness location,
+            and the Schleuniger crimp center).
+            One spec can name several presses. A spec with no machine is offered
+            on every press until one is set.
           </LI>
           <LI>
             <strong>Every check keeps the figures it was measured against</strong>,
@@ -3260,7 +3276,7 @@ const SECTIONS: ManualSection[] = [
       "panel team",
     ],
     searchText:
-      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
+      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. The list opens on active orders; finished orders moved from the old Panel Job Dashboard list are Archived, and the Active / Archived / All switch shows them. An archived order's page says it was moved and shows the date it was created on the old list. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
     render: () => (
       <>
         <P>
@@ -3282,6 +3298,17 @@ const SECTIONS: ManualSection[] = [
           <em>mine</em> scope as a visible, dismissible chip — "your" panel
           orders are the ones where you're the assigned engineer or a
           watcher.
+        </P>
+        <P>
+          The list opens on <strong>Active</strong> orders. Finished orders
+          moved over from the old <em>Panel Job Dashboard</em> list are{" "}
+          <strong>Archived</strong> and stay out of the way until you pick{" "}
+          <strong>Archived</strong> or <strong>All</strong> above the status
+          pills. An archived order's page says it came from the old list and
+          shows the date it was created there. Archived orders don't count
+          on the Dashboard card, aren't offered when linking a BOM to an
+          order, and don't offer to create standard tasks. The list shows
+          the first 150 orders; <strong>Show all</strong> brings in the rest.
         </P>
         <H3>Creating an order</H3>
         <P>

@@ -1,4 +1,4 @@
-import { graphFetch, graphFetchAll } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import {
   SITES,
   SP_PANEL_ORDERS_LIST_ID,
@@ -49,6 +49,44 @@ const PANEL_FIELD_SELECT = [
   "EditorLookupId",
 ].join(",");
 
+/**
+ * Columns added by scripts/move-panel-orders-to-arc.ps1 when the old Panel
+ * Job Dashboard orders are moved in. Selecting a column a list hasn't got
+ * 400s the WHOLE read, and that script runs separately from any deploy — so
+ * a read asks for them, retries once without on a 400, and remembers (the
+ * MRB Watchers arrangement). Without them every order reads as not archived.
+ */
+const ARCHIVE_FIELD_SELECT = "Archived,LegacySource,LegacyCreated";
+
+let archiveColumnsAvailable: boolean | null = null;
+
+function panelOrderSelect(withArchive: boolean): string {
+  return withArchive ? `${PANEL_FIELD_SELECT},${ARCHIVE_FIELD_SELECT}` : PANEL_FIELD_SELECT;
+}
+
+/** Test seam — forget what the last read learned about the archive columns. */
+export function __resetPanelOrderArchiveColumns(): void {
+  archiveColumnsAvailable = null;
+}
+
+async function withArchiveFallback<T>(read: (select: string) => Promise<T>): Promise<T> {
+  if (archiveColumnsAvailable === false) return read(panelOrderSelect(false));
+  try {
+    const result = await read(panelOrderSelect(true));
+    archiveColumnsAvailable = true;
+    return result;
+  } catch (err) {
+    // Only a 400 (a column the list hasn't got) is worth retrying, and only
+    // before we know. A throttle or an outage must propagate.
+    if (archiveColumnsAvailable !== null || !(err instanceof GraphError) || err.status !== 400) {
+      throw err;
+    }
+    const result = await read(panelOrderSelect(false));
+    archiveColumnsAvailable = false;
+    return result;
+  }
+}
+
 const MOCK_STORAGE_KEY = "aets:mock-panel-orders-store-v1";
 
 function loadMockStoreFromStorage(): PanelOrder[] | null {
@@ -63,6 +101,10 @@ function loadMockStoreFromStorage(): PanelOrder[] | null {
       modifiedAt: new Date(o.modifiedAt),
       // Stores written before SAP# (2026-10-30) have none.
       sapNumber: o.sapNumber ?? "",
+      // …and before the archive (2026-11-13).
+      archived: o.archived ?? false,
+      legacySource: o.legacySource ?? "",
+      legacyCreatedAt: o.legacyCreatedAt ? new Date(o.legacyCreatedAt) : null,
       comments: o.comments.map((c) => ({
         ...c,
         timestamp: new Date(c.timestamp),
@@ -165,11 +207,13 @@ export async function listPanelOrders(): Promise<PanelOrder[]> {
     return mockDelay(copy);
   }
 
-  const path =
-    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_ORDERS_LIST_ID}/items` +
-    `?$expand=fields($select=${PANEL_FIELD_SELECT})&$top=200`;
   const [items, projects, users] = await Promise.all([
-    graphFetchAll<GraphListItem>(path),
+    withArchiveFallback((select) =>
+      graphFetchAll<GraphListItem>(
+        `/sites/${SITES.panelTeam}/lists/${SP_PANEL_ORDERS_LIST_ID}/items` +
+          `?$expand=fields($select=${select})&$top=999`,
+      ),
+    ),
     listPanelProjects(),
     listPanelSiteUsers(),
   ]);
@@ -178,9 +222,34 @@ export async function listPanelOrders(): Promise<PanelOrder[]> {
   return orders;
 }
 
+/**
+ * One order, read on its own — every write re-reads through here, and the
+ * list holds ~1,400 orders once the old Panel Job Dashboard is moved in, so
+ * reading the whole list to find one was a full download per edit. A 404 is
+ * null; anything else propagates.
+ */
 export async function getPanelOrder(id: number): Promise<PanelOrder | null> {
-  const all = await listPanelOrders();
-  return all.find((o) => o.id === id) ?? null;
+  if (USE_MOCK) {
+    const found = mockStore.find((o) => o.id === id);
+    return mockDelay(found ? { ...found } : null);
+  }
+  try {
+    const [item, projects, users] = await Promise.all([
+      withArchiveFallback((select) =>
+        graphFetch<GraphListItem>(
+          `/sites/${SITES.panelTeam}/lists/${SP_PANEL_ORDERS_LIST_ID}/items/${id}` +
+            `?$expand=fields($select=${select})`,
+        ),
+      ),
+      listPanelProjects(),
+      listPanelSiteUsers(),
+    ]);
+    const [order] = attachPanelReferences([toPanelOrder(item)], projects, users);
+    return order;
+  } catch (err) {
+    if (err instanceof GraphError && err.status === 404) return null;
+    throw err;
+  }
 }
 
 /** Update arbitrary fields on a panel order. Returns the updated order. */
@@ -425,6 +494,9 @@ export async function createPanelOrder(input: {
       createdAt: now,
       modifiedAt: now,
       author: null,
+      archived: false,
+      legacySource: "",
+      legacyCreatedAt: null,
     };
     mockStore = [order, ...mockStore];
     saveMockStoreToStorage();

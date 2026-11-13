@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.221.0",
+    version: "0.223.0",
     date: "2026-11-13",
     changes: [
       "Operations: new Plant Map — the plant's layouts drawn to scale over each building's walls, with every machine, bench, rack and desk where it stands. Only the people on its roles list see it",
@@ -39,6 +39,35 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Plant Map: layouts can have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters). Show or hide each layer, or one of its groups, beside the plan; Safety starts hidden, and hidden items are still checked for problems",
       "Plant Map: in the editor, set an item's layer and group in the panel on the right; a new copy of a symbol joins the layer its other copies are on, and the item list has a Layer column",
       "Plant Map: Plant Map admins choose who is a viewer, editor or admin under Roles; ARC admins reach Roles from the Admin page",
+    ],
+  },
+  {
+    version: "0.221.0",
+    date: "2026-11-13",
+    changes: [
+      "Panel Orders can hold the old Panel Job Dashboard orders: finished ones are marked Archived and hidden from the list until you pick Archived or All",
+      "An order moved from the old list says so on its page, and shows the date it was created there",
+      "The Panel Orders list shows the first 150 orders with a Show all button, so a long list stays quick",
+      "Archived orders aren't offered when linking a BOM to an order, don't count on the Dashboard card, and don't offer to create standard tasks",
+    ],
+  },
+  {
+    version: "0.220.1",
+    date: "2026-11-12",
+    changes: [
+      "Crimp height readings and averages now show to 5 decimals when the micrometer gives them (0.03875), so a reading just over a limit no longer looks in spec",
+      "A crimp reading taken in millimetres now says to switch the micrometer to inches, instead of calling the check out of spec",
+      "The user manual describes sending each reading with the orange button on the micrometer's U-WAVE Bluetooth adaptor",
+    ],
+  },
+  {
+    version: "0.220.0",
+    date: "2026-11-12",
+    changes: [
+      "Crimp specs now list the machines they run on, picked from the crimp presses in the asset list; one spec can name several presses",
+      "A new crimp height check starts by picking the press, and then offers only that press's specs, plus any spec with no machine set yet",
+      "ARC remembers the press you last recorded a check on, on that computer",
+      "The crimp log and the out-of-spec email show the press a check was taken on, and the log's Machine column sorts and filters",
     ],
   },
   {

@@ -36,9 +36,28 @@ describe("buildCrimpSpecFields", () => {
       crimpHeight: null,
       tolerance: null,
       notes: "",
+      machines: [],
       active: true,
     });
     expect(fields).toMatchObject({ Title: "09G0465", Applicator: "L93538", CrimpHeight: null, Active: true });
+  });
+});
+
+describe("Machines on a spec", () => {
+  it("reads the multi lookup's ids and names", () => {
+    const spec = toCrimpSpec({
+      id: "7",
+      fields: { Title: "900101", Machines: [{ LookupId: 71, LookupValue: "AMP-STYLE PRESS #1" }, { LookupId: "72", LookupValue: "AMP-STYLE PRESS #2" }] },
+      ...meta,
+    });
+    expect(spec.machines).toEqual([
+      { id: 71, name: "AMP-STYLE PRESS #1" },
+      { id: 72, name: "AMP-STYLE PRESS #2" },
+    ]);
+  });
+
+  it("reads a missing Machines as none — every spec before the column existed", () => {
+    expect(toCrimpSpec({ id: "7", fields: { Title: "900101" }, ...meta }).machines).toEqual([]);
   });
 });
 
@@ -71,6 +90,12 @@ describe("toCrimpCheck", () => {
     expect(check.checkedAt?.toISOString()).toBe("2026-10-27T13:00:00.000Z");
   });
 
+  it("reads the press: the lookup id with its copied name; none on an older check", () => {
+    const check = toCrimpCheck({ id: "1", fields: { MachineRefLookupId: "71", Machine: "DEMO PRESS #1" }, ...meta });
+    expect(check.machine).toEqual({ id: 71, name: "DEMO PRESS #1" });
+    expect(toCrimpCheck({ id: "2", fields: {}, ...meta }).machine).toBeNull();
+  });
+
   it("reads a missing WorkOrder as blank — checks saved before the column existed", () => {
     expect(toCrimpCheck({ id: "1", fields: {}, ...meta }).workOrder).toBe("");
   });
@@ -91,8 +116,20 @@ describe("buildCrimpCheckFields", () => {
     verifierClock: "",
     harnessOrAssembly: "",
     workOrder: " 1000209528 ",
+    machine: null,
     notes: "",
   };
+
+  it("writes the press as a BARE MachineRef integer with its name copied", () => {
+    const fields = buildCrimpCheckFields({ ...input, machine: { id: 71, name: "DEMO PRESS #1" } });
+    expect(fields.MachineRefLookupId).toBe(71);
+    expect(fields.Machine).toBe("DEMO PRESS #1");
+    expect(Object.keys(fields).some((k) => k.includes("@odata.type"))).toBe(false);
+  });
+
+  it("clears the press when the check has none", () => {
+    expect(buildCrimpCheckFields(input)).toMatchObject({ MachineRefLookupId: null, Machine: "" });
+  });
 
   it("writes SpecRef as a BARE integer — a single lookup, never Collection(Edm.Int32)", () => {
     const fields = buildCrimpCheckFields(input);

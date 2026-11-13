@@ -1,4 +1,4 @@
-import type { CrimpCheck, CrimpSpec } from "@/types/crimp";
+import type { CrimpCheck, CrimpMachine, CrimpMachineRef, CrimpSpec } from "@/types/crimp";
 import { buildCrimpCheckTitle, crimpAverage, crimpLimits, isOutOfSpec } from "@/lib/crimpCheck";
 
 // =============================================================================
@@ -9,15 +9,38 @@ import { buildCrimpCheckTitle, crimpAverage, crimpLimits, isOutOfSpec } from "@/
 // a serial, and one spec still waiting for its crimp height.
 // =============================================================================
 
+/**
+ * Invented asset-register rows. Three crimp presses in Harness locations (two
+ * spellings of Harness, as the real register has), plus the rows the filter
+ * must leave out: an applicator, a press on another floor, a retired press.
+ */
+export const MOCK_CRIMP_MACHINES: CrimpMachine[] = [
+  machine(901, "DEMO PRESS #1", "PRESS", "HARNESS DEPARTMENT"),
+  machine(902, "DEMO PRESS #2", "PRESS", "HARNESS DEPARTMENT"),
+  machine(903, "DEMO COLOUR PRESS", "PRESS", "HARNESS"),
+  machine(904, "DEMO APPLICATOR #1", "APPLI", "HARNESS DEPARTMENT"),
+  machine(905, "DEMO FLOOR PRESS", "PRESS", "DEMO PRODUCTION FLOOR"),
+  machine(906, "DEMO OLD PRESS", "PRESS", "HARNESS DEPARTMENT", true),
+];
+
+function machine(id: number, name: string, equipmentType: string, location: string, retired = false): CrimpMachine {
+  return { id, name, equipmentType, serialNo: "", location, retired };
+}
+
+const PRESS_1: CrimpMachineRef = { id: 901, name: "DEMO PRESS #1" };
+const PRESS_2: CrimpMachineRef = { id: 902, name: "DEMO PRESS #2" };
+const COLOUR_PRESS: CrimpMachineRef = { id: 903, name: "DEMO COLOUR PRESS" };
+
+// Spec 7 names no machine yet — the check form offers it under every press.
 export const MOCK_CRIMP_SPECS: CrimpSpec[] = [
-  spec(1, "900101", "DEMO-10-1", "A1001", "14", "0.10", "1.90", "", 0.09, 0.002),
-  spec(2, "900101", "DEMO-10-1", "A1001", "16", "", "2.10", "", 0.082, 0.002),
-  spec(3, "900101", "DEMO-10-1", "A1001", "20", "", "2.35", "", 0.074, 0.002),
-  spec(4, "900215", "DEMO-22-4", "A1002", "18", "", "2.00", "1.20", 0.042, 0.002),
-  spec(5, "900330", "DEMO-31-7", "BLUE", "18", "", "E-1", "", 0.04, 0.002),
-  spec(6, "900442", "DEMO-44-2", "A1003", "22", "", "2.50", "1.70", 0.031, 0.002),
+  spec(1, "900101", "DEMO-10-1", "A1001", "14", "0.10", "1.90", "", 0.09, 0.002, "", true, [PRESS_1, PRESS_2]),
+  spec(2, "900101", "DEMO-10-1", "A1001", "16", "", "2.10", "", 0.082, 0.002, "", true, [PRESS_1, PRESS_2]),
+  spec(3, "900101", "DEMO-10-1", "A1001", "20", "", "2.35", "", 0.074, 0.002, "", true, [PRESS_1, PRESS_2]),
+  spec(4, "900215", "DEMO-22-4", "A1002", "18", "", "2.00", "1.20", 0.042, 0.002, "", true, [PRESS_2]),
+  spec(5, "900330", "DEMO-31-7", "BLUE", "18", "", "E-1", "", 0.04, 0.002, "", true, [COLOUR_PRESS]),
+  spec(6, "900442", "DEMO-44-2", "A1003", "22", "", "2.50", "1.70", 0.031, 0.002, "", true, [PRESS_1]),
   spec(7, "900550", "DEMO-55-0", "A1004", "16", "", "", "", null, null, "Crimp height still to be measured."),
-  spec(8, "900660", "DEMO-66-6", "A1005", "20", "", "2.40", "1.50", 0.047, 0.002, "", false),
+  spec(8, "900660", "DEMO-66-6", "A1005", "20", "", "2.40", "1.50", 0.047, 0.002, "", false, [PRESS_1]),
 ];
 
 function spec(
@@ -33,6 +56,7 @@ function spec(
   tolerance: number | null,
   notes = "",
   active = true,
+  machines: CrimpMachineRef[] = [],
 ): CrimpSpec {
   return {
     id,
@@ -46,6 +70,7 @@ function spec(
     crimpHeight,
     tolerance,
     notes,
+    machines,
     active,
   };
 }
@@ -85,6 +110,7 @@ function check(
     verifierClock: "",
     harnessOrAssembly: "",
     workOrder: "",
+    machine: s.machines[0] ?? null,
     notes: "",
     createdAt: at,
     modifiedAt: at,

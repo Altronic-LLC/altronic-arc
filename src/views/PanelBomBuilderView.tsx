@@ -24,6 +24,7 @@ import {
   useSavePanelBom,
 } from "@/hooks/usePanelBom";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
+import { pickableOrders } from "@/lib/panelOrderArchive";
 import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import { PANEL_BOM_PARTS_CONFIGURED } from "@/api/panelBomParts";
 import { PANEL_BOMS_CONFIGURED } from "@/api/panelBoms";
@@ -396,7 +397,8 @@ function BomBuilder() {
   const units = result.lines.reduce((a, l) => a + l.qty, 0) + result.manual.reduce((a, m) => a + m.qty, 0);
   const snapshotDiffers =
     bom !== null && !dirty && !bom.picksCorrupt && bom.savedLines.length > 0 && !sameBomLines(bom.savedLines, result.lines);
-  const orderOptions = orders.map((o) => ({ value: String(o.id), label: o.projectRef?.title ? `${o.title} · ${o.projectRef.title}` : o.title }));
+  // Archived orders (finished, moved from the old list) aren't offered — except the one already linked.
+  const orderOptions = pickableOrders(orders, draft.orderId).map((o) => ({ value: String(o.id), label: o.projectRef?.title ? `${o.title} · ${o.projectRef.title}` : o.title }));
 
   return (
     <div className="mx-auto flex max-w-[1800px] flex-col gap-3 px-4 py-4 sm:px-6">

@@ -588,6 +588,7 @@ export function DashboardView() {
     const active = panelOrders.filter(
       (o: PanelOrder) =>
         o.status !== "Shipped" &&
+        !o.archived &&
         (!mine ||
           personMatchesSingle(o.engineerAssigned, myEmail) ||
           personMatches(o.watchers, myEmail)),

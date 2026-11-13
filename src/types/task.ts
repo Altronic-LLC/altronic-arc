@@ -932,6 +932,16 @@ export interface PanelOrder {
   modifiedAt: Date;
   author: Person | null;
   editor?: Person | null;
+  /**
+   * `Archived` (yes/no) — a finished order brought over from the old Panel
+   * Job Dashboard list by scripts/move-panel-orders-to-arc.ps1. Hidden from
+   * the Panel Orders list unless asked for (lib/panelOrderArchive.ts).
+   */
+  archived: boolean;
+  /** `LegacySource` — "PanelJobDashboard#<old item id>" on a moved order, else "". */
+  legacySource: string;
+  /** `LegacyCreated` — when the order was created on the OLD list (Graph can't set Created). */
+  legacyCreatedAt: Date | null;
   rawFields?: Record<string, unknown>;
 }
 

@@ -17,6 +17,7 @@ import {
   setCrimpSpecActive,
   updateCrimpSpec,
 } from "@/api/crimpSpecs";
+import { listCrimpMachines } from "@/api/crimpMachines";
 import { SP_CRIMP_CHECKS_LIST_ID, SP_CRIMP_SPECS_LIST_ID, USE_MOCK } from "@/api/config";
 import { sendCrimpOutOfSpecAlert } from "@/api/email";
 import type { CrimpCheck, CrimpCheckInput, CrimpSpecInput } from "@/types/crimp";
@@ -84,6 +85,21 @@ export function useCrimpSpecs() {
     queryKey: CRIMP_SPECS_KEY,
     queryFn: listCrimpSpecs,
     staleTime: 5 * 60_000,
+    enabled: CRIMP_CONFIGURED,
+  });
+}
+
+export const CRIMP_MACHINES_KEY = ["crimpMachines"] as const;
+
+/**
+ * The Altronic Equipment List, for the crimp machine pickers. Long-cached —
+ * presses are bought and retired, not changed hourly. Everybody can read it.
+ */
+export function useCrimpMachines() {
+  return useQuery({
+    queryKey: CRIMP_MACHINES_KEY,
+    queryFn: listCrimpMachines,
+    staleTime: 10 * 60_000,
     enabled: CRIMP_CONFIGURED,
   });
 }

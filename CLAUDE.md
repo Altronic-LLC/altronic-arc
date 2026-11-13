@@ -501,6 +501,7 @@ src/
 │   ├── harnessPartNumbers.ts     Harness Part Numbers — the log's part lookup; add/rename/retire, NO delete
 │   ├── crimpSpecs.ts             Crimp Specs (Harness, PMO site) — per terminal + applicator + gauge; admin writes, delete only when unused
 │   ├── crimpChecks.ts            Crimp Height Checks CRUD, year-scoped on the indexed CheckedAt — spec figures copied on, admin-gated delete
+│   ├── crimpMachines.ts          The asset register's rows for the crimp machine pickers — its own 5-column read of the Altronic Equipment List, READ-ONLY
 │   ├── harnessAlertRecipients.ts Harness Alert Recipients — who each Harness email goes to; admin-managed list, read fresh at send
 │   ├── coatingSpecs.ts           Coating Specs (Operations, PMO site) — min / max stored in mm + the unit entered in + coated sides; admin writes, delete only when unused
 │   ├── coatingChecks.ts          Conformal Coating Checks CRUD, year-scoped on the indexed MeasuredAt — spec figures copied on, admin-gated delete
@@ -807,6 +808,7 @@ src/
 │   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
+│   ├── panelOrderArchive.ts      Archived panel orders (moved from Panel Job Dashboard) — ?archived= scope, real created date, pickers skip them (pure)
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays, BOM parts + kits) + capacityPeople (who gets a Capacity row) (pure)
 │   ├── panelOrderTasks.ts        A Panel Order's standard tasks (pure) — defaults, titles, who's assigned, what's missing, the one email
@@ -897,6 +899,7 @@ src/
 │   ├── harnessLogMapper.ts       Graph item ⇄ harness log entry / part number; the derived Title
 │   ├── harnessLegacyClean.ts     Cleaning the Access export for the load (pure; run by scripts/clean-harness-production-log.mjs, not imported by the app)
 │   ├── crimpCheck.ts             Crimp height rules (pure) — limits inclusive, any reading out = out of spec, mm detection, when to email, labels
+│   ├── crimpMachines.ts          Crimp machines (pure) — a press in a Harness location, picker options that keep a picked one, which specs run on a press
 │   ├── crimpMapper.ts            Graph item ⇄ Crimp Spec / Crimp Check; Average, OutOfSpec and Title derived on write
 │   ├── crimpAlerts.ts            The out-of-spec crimp email (pure)
 │   ├── coatingCheck.ts           Conformal coating rules (pure) — averages, thickness ÷ coated sides, judged in the SPEC'S unit (mm or in), limits inclusive, labels
@@ -6480,6 +6483,40 @@ flipping direction reverses both the group order and the within-group date
 order together — accepted, since compressing two sort keys into one numeric
 value is the standard trade-off here).
 
+### Panel Orders — moving in the old Panel Job Dashboard (2026-11-13)
+
+The panel team's orders lived on **Panel Job Dashboard** (`7c74061d-…`, same
+ALTRONICPANELTEAM site, ~1,380 rows, 55 columns). ARC's **Panel Order
+Headers** had one test row, so the old orders are MOVED in by
+`scripts/move-panel-orders-to-arc.ps1` (Tim: "we don't need all the info").
+Dry run by default; `-ColumnsOnly`, `-Apply`, `-SkipShipped`, `-Limit`.
+
+- **Only the columns ARC has come across** — the script's `$FieldMap` /
+  `$StatusMap` are the mapping (Part Number → SAP #, Unit No. → Customer
+  Reference, Notes and Quote Ref appended to Order Notes; old statuses
+  folded into ARC's six). The old list is never changed.
+- **Three columns it adds**: `Archived` (yes/no — set when the old Status is
+  Shipped), `LegacySource` (`PanelJobDashboard#<id>`, indexed; a re-run skips
+  what's already moved and never rewrites it) and `LegacyCreated` (Graph
+  can't set Created, so ARC shows and sorts by this). ARC selects them and,
+  on a 400, retries without and remembers (the MRB Watchers arrangement), so
+  the deploy doesn't depend on the script having run.
+- **Archived is hidden by default** (`lib/panelOrderArchive.ts`): the list's
+  Active / Archived / All switch is `?archived=only|all`; status counts are
+  within the scope. Archived orders don't count on the Dashboard card, aren't
+  offered when linking a BOM (`pickableOrders` keeps the linked one), and
+  don't offer "Create standard tasks". Nothing stops editing one. There is
+  no un-archive control yet — edit the column in SharePoint.
+- **Engineer Assigned ids carry over as-is** — same site collection, so the
+  lookupIds mean the same people.
+- **The Status and Customer columns held "Choice 1/2/3" placeholders**; with
+  `-Apply` the script sets ARC's six statuses and the moved customers (needs
+  Manage Lists), which the New Order form then offers.
+- **The plan CSVs hold customer data**: `-OutDir` is required and refused
+  inside the repo.
+- **`getPanelOrder` reads ONE item** now (it read the whole list, which every
+  write re-reads through), and the list renders 150 rows with Show all.
+
 ### Panel Engineering Capacity + Panel Time Off (Panels, panelTeam site)
 
 **Panel Tasks' `Communication` column was SINGLE-LINE, max 255 characters**
@@ -8337,7 +8374,12 @@ Seven things that are load-bearing:
   moves to the next field (the CPU-95 `handleEnterAsTab`, with
   `data-enter-group` on every plain field so a SuggestInput's chevron is
   skipped). A reading **10× the nominal or more** (half an inch with no
-  nominal) is refused as millimetres — the 342-271-30 is switchable.
+  nominal) is refused as millimetres — the 342-371-32 is switchable. The
+  form then says so, not "out of spec", and shows no average. The
+  micrometer sends readings through a Mitutoyo U-WAVE Bluetooth adaptor
+  when its orange button is pressed. Readings show to 5 decimals
+  (`formatCrimp`): it reads to 0.00005", and 4 decimals printed 0.04205
+  (High) as "0.042".
 - **A spec with no crimp height (or no tolerance) can't judge a check** —
   five rows on the sheet have no height, one no tolerance. The check is still saved, as **Not judged**, never "In
   spec"; the specs screen counts them.
@@ -8368,6 +8410,53 @@ the column existed reads blank. **Re-run `create-crimp-lists.ps1` BEFORE the
 deploy that selects it** — it adds only what's missing and reads every column
 back — or `CRIMP_CHECK_SELECT` asks for a column the list hasn't got and the
 whole log 400s blank.
+
+**Machines — which press a spec runs on** (Tim and the Harness manager,
+2026-11-12). One terminal can run on different applicators on different
+presses, so a spec names its presses and the check form asks for the press
+first. Pieces: `lib/crimpMachines.ts` (pure), `api/crimpMachines.ts`,
+`useCrimpMachines`. Seven things that are load-bearing:
+
+- **The presses are rows of the Altronic Equipment List** (the CMMS asset
+  register), not a list of ARC's: maintenance already keeps them there.
+  `api/crimpMachines.ts` is Harness's OWN five-column read of that list (plus
+  Maintenance Locations for the names), deliberately NOT
+  `api/operationsEquipment.ts` — no cross-department import. Read-only.
+- **The picker filter is `isCrimpMachine`: Equipment Type PRESS, in a Harness
+  location, not retired.** The register has two Harness locations ("HARNESS
+  DEPARTMENT", "HARNESS"), so it matches the word. Live (2026-11-12) that is
+  AMP PRESS #1/#2, MECAL APPLICATOR PRESS #1/#2 and PACKARD APPLICATOR PRESS
+  (Tim retyped it from APPLI that day). **The Schleuniger crimp center
+  SCHCC36S stays typed CUT/STRP and is offered by NAME** —
+  `CRIMP_MACHINE_EXCEPTIONS`, the one place a machine joins the list without
+  the type rule (still not when retired). Applicators are assets too
+  (their serials match the specs' Applicator values), but Applicator stays
+  text for now (Tim).
+- **Specs: `Machines`, a MULTI lookup** — written with
+  `multiLookupField` (the `Collection(Edm.Int32)` annotation; `[]` clears),
+  read as `[{ LookupId, LookupValue }]` (`parseMachineRefs`). A bare id is
+  named from the register (`withMachineNames`), never shown blank.
+- **Machine is NOT in the unique key.** Several presses per spec (Tim), so a
+  spec is still one per terminal + applicator + gauge.
+- **Checks: `MachineRef` (SINGLE lookup, bare integer) + `Machine` (the name
+  COPIED)**, the SpecRef + copied-figures rule: a renamed asset doesn't change
+  what an old check says.
+- **The check form: press first, then that press's specs, then the specs with
+  NO machine yet** (marked "no machine set"), so the floor isn't stopped while
+  the specs are assigned. A spec for another press is left out; an edit keeps
+  its own spec. Changing the press drops a spec that doesn't run on it. The
+  press is required on a new check and on an edit of a check that has one —
+  **unless the asset list can't be read or offers no press**, when the form
+  still records (a form that can't record is worse). Remembered per browser
+  (`arc-crimp-machine`, try/catch). A picker keeps a picked machine that no
+  longer passes the filter, saying why (`crimpMachineOptions`).
+- **`create-crimp-lists.ps1` adds the three columns and must run BEFORE the
+  deploy**: they are `$select`ed, and a missing column 400s the whole read.
+  `check-crimp-specs-against-wi.ps1 -MachinesByTable @{ "3-1" = …; "3-2" = … }`
+  sets machines on the WI's specs (new ones, and existing ones with none —
+  never overwriting). Pinned in `crimpChecks.real.test.ts` (request shapes,
+  real mode; the annotation verified by removing it) and
+  `CrimpCheckFormModal.test.tsx`.
 
 Not built: insulation crimp height (only wire crimp height is checked), and
 any chart of readings over time.
@@ -8634,7 +8723,7 @@ OUTSIDE the repo: `C:\Working_Dir\ProcessImprovement\Arc\plant manager\`
 data came from, with the Python that generated them). Tim's decisions: under
 **Operations**, its own **Plant Map Roles** list, **inches**, the **PMO site**.
 
-**Phases 1 and 2 are built (v0.221.0)**: the lists, the data layer, the
+**Phases 1 and 2 are built (v0.223.0)**: the lists, the data layer, the
 plan, the placement check, New layout, Roles, and the layout EDITOR (Tim tried
 the read-only first cut in demo mode and asked for drag and drop the same day;
 he also called it "a bit clunky", which is why the plan became a pan/zoom

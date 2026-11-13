@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Pencil, Plus, Ruler, X } from "lucide-react";
-import { useCreateCrimpCheck, useCrimpSpecs, useUpdateCrimpCheck } from "@/hooks/useCrimpChecks";
+import { useCreateCrimpCheck, useCrimpMachines, useCrimpSpecs, useUpdateCrimpCheck } from "@/hooks/useCrimpChecks";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
 import {
   CRIMP_CHECK_POINTS,
   type CrimpCheck,
   type CrimpCheckPoint,
+  type CrimpMachineRef,
   type CrimpReadings,
   type CrimpSpec,
   type CrimpSpecSnapshot,
@@ -24,6 +25,7 @@ import {
   snapshotOf,
   specText,
 } from "@/lib/crimpCheck";
+import { crimpMachineOptions, crimpMachines, machineNames, specRunsOn } from "@/lib/crimpMachines";
 import { cn } from "@/lib/cn";
 import { SingleSelect } from "./SearchableSelect";
 import { SuggestInput } from "./SuggestInput";
@@ -43,17 +45,28 @@ interface CrimpCheckFormModalProps {
  * already points at even if it has been retired since — a picker that dropped
  * the current value would clear it on the next save (the CMMS reference-list
  * rule). A spec that has gone entirely keeps a stand-in.
+ *
+ * With a machine picked: that press's specs first, then the specs no machine
+ * has been set on yet (marked), so the floor isn't stopped while the specs are
+ * being assigned. A spec for another press is left out.
  */
 export function crimpSpecOptions(
   specs: CrimpSpec[],
   current: CrimpSpecSnapshot | null,
+  machineId: number | null = null,
 ): Array<{ value: string; label: string }> {
-  const options = specs
-    .filter((s) => s.active || s.id === current?.specId)
-    .map((s) => ({
-      value: String(s.id),
-      label: `${crimpSpecLabel(s)} — ${specText(s.crimpHeight, s.tolerance)}${s.active ? "" : " (retired)"}`,
-    }));
+  const label = (s: CrimpSpec, unassigned: boolean) =>
+    `${crimpSpecLabel(s)} — ${specText(s.crimpHeight, s.tolerance)}${s.active ? "" : " (retired)"}${
+      unassigned && machineId !== null ? " · no machine set" : ""
+    }`;
+  const usable = specs.filter((s) => s.active || s.id === current?.specId);
+  const fit = (s: CrimpSpec) => specRunsOn(s, machineId);
+  const options = [
+    // This press's specs (and the check's own spec, wherever it runs)…
+    ...usable.filter((s) => fit(s) === "yes" || (fit(s) === "no" && s.id === current?.specId)),
+    // …then the ones no machine has been set on yet.
+    ...usable.filter((s) => fit(s) === "unassigned"),
+  ].map((s) => ({ value: String(s.id), label: label(s, fit(s) === "unassigned") }));
   if (current?.specId != null && !options.some((o) => o.value === String(current.specId))) {
     options.unshift({ value: String(current.specId), label: `${crimpSpecLabel(current)} (no longer on the list)` });
   }
@@ -64,7 +77,8 @@ export function crimpSpecOptions(
  * Record or correct a crimp height check — three micrometer readings against
  * the spec for one terminal, applicator and gauge (BusinessIT#55).
  *
- * Built for the micrometer: its Bluetooth transmitter types the reading and
+ * Built for the micrometer (Mitutoyo 342-371-32): its U-WAVE Bluetooth
+ * adaptor types the reading when the orange button is pressed, and
  * presses Enter, so Enter moves to the NEXT field (never submits), the
  * CPU-95 scanner's arrangement. Each reading is judged as it lands, and one
  * that looks like millimetres is refused rather than saved as a giant crimp.
@@ -75,10 +89,15 @@ export function crimpSpecOptions(
 export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: CrimpCheckFormModalProps) {
   const isEdit = check != null;
   const { data: specs = [], isLoading: specsLoading } = useCrimpSpecs();
+  const { data: allMachines = [], isLoading: machinesLoading, error: machinesError } = useCrimpMachines();
   const { isAdmin } = useAdminAccess();
   const create = useCreateCrimpCheck();
   const update = useUpdateCrimpCheck();
 
+  const [machineId, setMachineId] = useState<string | null>(() => {
+    if (check) return check.machine && check.machine.id > 0 ? String(check.machine.id) : null;
+    return readRememberedMachine();
+  });
   const [specId, setSpecId] = useState<string | null>(check?.specId != null ? String(check.specId) : null);
   const [checkPoint, setCheckPoint] = useState<string>(check?.checkPoint ?? "");
   const [clockNumber, setClockNumber] = useState(check?.clockNumber ?? "");
@@ -95,6 +114,30 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
   const [notes, setNotes] = useState(check?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // The press comes first (Tim and the Harness manager, 2026-11-12). It's
+  // required on a new check, and on an edit of a check that has one, unless
+  // the asset list can't be read or holds no press: a form that can't record
+  // a check at all would be worse than a check with no machine on it.
+  const offeredMachines = crimpMachines(allMachines);
+  const machinesUnavailable = !!machinesError || (!machinesLoading && offeredMachines.length === 0);
+  const machineRequired = !machinesUnavailable && (!check || check.machine !== null);
+  const machineOptions = useMemo(
+    () => crimpMachineOptions(allMachines, check?.machine ? [check.machine] : []),
+    [allMachines, check],
+  );
+  // A remembered press that has left the list is no longer a choice.
+  const effectiveMachineId =
+    machineId !== null && machineOptions.some((o) => o.value === machineId) ? machineId : null;
+  const pickedMachine: CrimpMachineRef | null = effectiveMachineId
+    ? {
+        id: Number(effectiveMachineId),
+        name:
+          allMachines.find((m) => String(m.id) === effectiveMachineId)?.name ??
+          (check?.machine && String(check.machine.id) === effectiveMachineId ? check.machine.name : ""),
+      }
+    : null;
+  const specLocked = machineRequired && !effectiveMachineId && !isEdit;
 
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -117,13 +160,26 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
     return spec ? snapshotOf(spec) : null;
   }, [specId, specs, check]);
   const spec = specs.find((s) => String(s.id) === specId) ?? null;
-  const options = useMemo(() => crimpSpecOptions(specs, check ?? null), [specs, check]);
+  const options = useMemo(
+    () => crimpSpecOptions(specs, check ?? null, effectiveMachineId ? Number(effectiveMachineId) : null),
+    [specs, check, effectiveMachineId],
+  );
+
+  function chooseMachine(next: string | null) {
+    setMachineId(next);
+    // A spec that doesn't run on the new press can't stay picked.
+    const fitting = crimpSpecOptions(specs, check ?? null, next ? Number(next) : null);
+    if (specId && !fitting.some((o) => o.value === specId)) setSpecId(null);
+  }
 
   const limits = snapshot ? crimpLimits(snapshot.crimpHeight, snapshot.tolerance) : null;
   const readings = raw.map((r) => (r.trim() ? parseCrimpReading(r) : null)) as CrimpReadings;
   const average = crimpAverage(readings);
-  const out = isOutOfSpec(readings, limits);
-  const allIn = readings.every((v) => v !== null) && limits !== null && !out;
+  // A reading in millimetres isn't a crimp height: say THAT, not "out of
+  // spec", and don't average it in (the save refuses it anyway).
+  const inMillimetres = readings.some((v) => looksLikeMillimetres(v, snapshot?.crimpHeight ?? null));
+  const out = !inMillimetres && isOutOfSpec(readings, limits);
+  const allIn = !inMillimetres && readings.every((v) => v !== null) && limits !== null && !out;
 
   function handleEnterAsTab(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "Enter") return;
@@ -148,6 +204,7 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (machineRequired && !pickedMachine) return setError("Pick the machine this check was taken on.");
     if (!snapshot) return setError("Pick the terminal, gauge and applicator this check is for.");
     if (!checkPoint) return setError("Pick when in the run this check was taken.");
     if (!clockNumber.trim()) return setError("Enter the clock number of whoever measured.");
@@ -180,11 +237,16 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
       verifierClock,
       harnessOrAssembly,
       workOrder,
+      // When the asset list can't be read, an edit keeps the press it had.
+      machine: pickedMachine ?? (machinesUnavailable ? (check?.machine ?? null) : null),
       notes,
     };
     try {
       if (isEdit) await update.mutateAsync({ before: check, input });
-      else await create.mutateAsync(input);
+      else {
+        await create.mutateAsync(input);
+        if (pickedMachine) rememberMachine(pickedMachine.id);
+      }
       onClose();
     } catch {
       // The hook toasted the reason; keep everything typed.
@@ -227,16 +289,37 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label="Terminal · gauge · applicator *" plain>
-            <div data-autofocus data-enter-group>
+          <Field label={machineRequired ? "Machine *" : "Machine"} plain>
+            <div data-autofocus={effectiveMachineId ? undefined : ""} data-enter-group>
               <SingleSelect
-                allLabel={specsLoading ? "Loading specs…" : "Pick the terminal"}
+                allLabel={machinesLoading ? "Loading machines…" : machinesUnavailable ? "No machine" : "Pick the press"}
+                searchPlaceholder="Search presses…"
+                ariaLabel="Machine"
+                options={machineOptions}
+                selected={effectiveMachineId}
+                onChange={chooseMachine}
+                disabled={busy || machineOptions.length === 0}
+              />
+            </div>
+            {machinesUnavailable && !machinesLoading && (
+              <span className="text-[11px] text-fg-muted">
+                {machinesError
+                  ? "Couldn't read the asset list, so the machine can't be recorded on this check. Every spec is offered."
+                  : "No crimp press is set up in the asset list yet, so every spec is offered."}
+              </span>
+            )}
+          </Field>
+
+          <Field label="Terminal · gauge · applicator *" plain>
+            <div data-autofocus={effectiveMachineId ? "" : undefined} data-enter-group>
+              <SingleSelect
+                allLabel={specsLoading ? "Loading specs…" : specLocked ? "Pick the machine first" : "Pick the terminal"}
                 searchPlaceholder="Search terminal, gauge or applicator…"
                 ariaLabel="Terminal"
                 options={options}
                 selected={specId}
                 onChange={setSpecId}
-                disabled={busy}
+                disabled={busy || specLocked}
               />
             </div>
             <span className="text-[11px] text-fg-muted">
@@ -303,13 +386,15 @@ export function CrimpCheckFormModal({ check, clockSuggestions = [], onClose }: C
               role="status"
               className={cn(
                 "flex flex-wrap items-baseline gap-x-3 text-sm",
-                out ? "font-semibold text-cooper-red" : allIn ? "text-cooper-green" : "text-fg-muted",
+                out || inMillimetres ? "font-semibold text-cooper-red" : allIn ? "text-cooper-green" : "text-fg-muted",
               )}
             >
-              <span>Average {formatCrimp(average)}</span>
+              <span>Average {inMillimetres ? "—" : formatCrimp(average)}</span>
               <span>
                 {!snapshot
                   ? "Pick the terminal to judge the readings."
+                  : inMillimetres
+                    ? "A reading looks like millimetres. Switch the micrometer to inches and measure again."
                   : !limits
                     ? "This spec has no crimp height yet, so the check can't be judged. Ask an ARC admin to fill it in."
                     : out
@@ -447,6 +532,11 @@ function SpecPanel({
         </span>
       </div>
       {settings.length > 0 && <span className="text-fg-muted">Settings: {settings.join(" · ")}</span>}
+      {spec && (
+        <span className="text-fg-muted">
+          {spec.machines.length > 0 ? `Runs on: ${machineNames(spec.machines)}` : "No machine set on this spec yet."}
+        </span>
+      )}
       {spec?.notes && <span className="text-fg-muted">{spec.notes}</span>}
       {changedSinceCheck && (
         <span className="text-fg-muted">
@@ -522,4 +612,28 @@ function Field({ label, children, plain }: { label: string; children: React.Reac
       {children}
     </Tag>
   );
+}
+
+/**
+ * The press this browser last recorded a check on — a floor PC usually sits
+ * at one press. Per browser, never required, and every access wrapped: the
+ * accessor throws in a private window or with site data blocked.
+ */
+const MACHINE_KEY = "arc-crimp-machine";
+
+function readRememberedMachine(): string | null {
+  try {
+    const v = window.localStorage.getItem(MACHINE_KEY);
+    return v && /^\d+$/.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberMachine(id: number): void {
+  try {
+    window.localStorage.setItem(MACHINE_KEY, String(id));
+  } catch {
+    /* a lost convenience, nothing more */
+  }
 }

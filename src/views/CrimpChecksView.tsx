@@ -74,6 +74,7 @@ const CRIMP_COLUMNS: SortColumn<CrimpCheck>[] = [
   { key: "terminal", label: "Terminal", value: (c) => c.terminal },
   { key: "wireGauge", label: "Gauge", value: (c) => gaugeLabel(c.wireGauge) },
   { key: "applicator", label: "Applicator", value: (c) => c.applicator },
+  { key: "machine", label: "Machine", value: (c) => c.machine?.name ?? "" },
   { key: "spec", label: "Spec", value: (c) => specText(c.crimpHeight, c.tolerance) },
   ...[0, 1, 2].map(
     (i): SortColumn<CrimpCheck> => ({
@@ -146,7 +147,7 @@ export function CrimpChecksView() {
       if (terminals.length && !terminals.includes(c.terminal)) return false;
       if (outOnly && !c.outOfSpec) return false;
       if (tokens.length) {
-        const hay = [c.terminal, c.applicator, c.wireGauge, c.clockNumber, c.verifierClock, c.harnessOrAssembly, c.workOrder, c.applicatorChange, c.notes]
+        const hay = [c.terminal, c.applicator, c.machine?.name ?? "", c.wireGauge, c.clockNumber, c.verifierClock, c.harnessOrAssembly, c.workOrder, c.applicatorChange, c.notes]
           .join(" ")
           .toLowerCase();
         if (!tokens.every((t) => hay.includes(t))) return false;
@@ -348,13 +349,14 @@ export function CrimpChecksView() {
                     </div>
                     <div className="mt-1 text-[11px] text-fg-muted">
                       {c.checkPoint ?? "—"} · {checkedAtText(c.checkedAt)} · Clock {c.clockNumber || "—"}
+                      {c.machine && ` · ${c.machine.name}`}
                     </div>
                   </button>
                 ))}
               </div>
 
               <div className="scroll-elegant hidden overflow-x-auto rounded-lg border border-border sm:block">
-                <table className="w-full min-w-[1200px] border-collapse text-sm">
+                <table className="w-full min-w-[1320px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border bg-surface-2 text-left">
                       {CRIMP_COLUMNS.map((column) => (
@@ -375,6 +377,7 @@ export function CrimpChecksView() {
                           <Td className="whitespace-nowrap font-mono text-[12px] font-medium">{c.terminal || "—"}</Td>
                           <Td className="whitespace-nowrap">{gaugeLabel(c.wireGauge) || "—"}</Td>
                           <Td className="whitespace-nowrap font-mono text-[12px] text-fg-muted">{c.applicator || "—"}</Td>
+                          <Td className="whitespace-nowrap text-[12px] text-fg-muted">{c.machine?.name || "—"}</Td>
                           <Td className="whitespace-nowrap font-mono text-[12px]">{specText(c.crimpHeight, c.tolerance)}</Td>
                           {c.readings.map((v, i) => {
                             const s = readingStatus(v, limits);

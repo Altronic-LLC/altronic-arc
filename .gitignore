@@ -42,3 +42,5 @@ harness-clean/
 # — regenerate rather than commit; they carry environment-specific ids.
 ARC-GuestNotify-*.zip
 ARC-GuestNotify-*.definition.json
+# move-panel-orders-to-arc.ps1 plans hold customer data (the script refuses an -OutDir in the repo too)
+panel-orders-*.csv

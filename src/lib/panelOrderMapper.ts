@@ -49,6 +49,9 @@ export function toPanelOrder(item: GraphListItem): PanelOrder {
     modifiedAt: new Date(item.lastModifiedDateTime),
     author: parseIdentity(item.createdBy),
     editor: parseIdentity(item.lastModifiedBy),
+    archived: f.Archived === true || f.Archived === "true" || f.Archived === "Yes",
+    legacySource: typeof f.LegacySource === "string" ? f.LegacySource.trim() : "",
+    legacyCreatedAt: parseDate(f.LegacyCreated),
     rawFields: f as Record<string, unknown>,
   };
 }
@@ -96,6 +99,12 @@ function parseIdentity(
   const user = identity?.user;
   if (!user || !user.displayName) return null;
   return { displayName: user.displayName, email: user.email };
+}
+
+function parseDate(raw: unknown): Date | null {
+  if (typeof raw !== "string" || !raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function toInt(raw: unknown, fallback: number): number {
