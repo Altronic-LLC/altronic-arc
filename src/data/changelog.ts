@@ -21,7 +21,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.222.0",
-    date: "2026-11-13",
+    date: "2026-11-17",
     changes: [
       "New under Harness: Pull Tests, a log of pulls on the Mark-10 WT3-200 tester at the start of a run, in process and at the end, judged against each terminal's minimum pull force",
       "In Chrome or Edge, connect the tester over USB and each pull's peak fills the next box by itself; pulls can still be typed, and each test records whether they were read or typed",
