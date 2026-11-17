@@ -43,7 +43,7 @@ const input: PullTestInput = {
   clockNumber: "342",
   terminal: "910101",
   applicator: "",
-  snapshot: { specId: 2, specTerminal: "910101", wireGauge: "18", minimumForce: 18, specUnit: "lbF", reference: "DS" },
+  snapshot: { specId: 2, specTerminal: "910101", wireGauge: "18", minimumForce: 18, specUnit: "lbF", reference: "DS", pullsRequired: 3 },
   readings: [20.1, 17.9, 19.5],
   unit: "lbF",
   readingSource: "Tester",
@@ -65,6 +65,7 @@ describe("createPullTest (real mode)", () => {
     const fields = JSON.parse(post[1].body as string).fields;
     expect(fields.SpecRefLookupId).toBe(2);
     expect(fields).toMatchObject({ LowestPull: 17.9, Failed: true, Pull4: null, Title: "910101 / 18 AWG / Start", HowFailed: "Wire broke" });
+    expect(fields.PullsRequired).toBe(3);
     expect(created).toMatchObject({ id: 44, specId: 2, failed: true });
   });
 });
@@ -99,6 +100,7 @@ describe("createPullTestSpec (real mode)", () => {
     unit: "lbF",
     source: "Manufacturer",
     reference: "",
+    pullsRequired: { Start: null, "In process": null, End: null },
     notes: "",
     active: true,
   };
@@ -106,6 +108,26 @@ describe("createPullTestSpec (real mode)", () => {
   it("refuses a second spec for the same terminal and gauge", async () => {
     graphFetchAll.mockResolvedValue([{ id: "9", fields: { Title: "910101", WireGauge: "18" }, ...meta }]);
     await expect(createPullTestSpec({ ...spec, terminal: " 910101 " })).rejects.toThrow(/already has a spec/);
+    expect(graphFetch).not.toHaveBeenCalled();
+  });
+
+  it("writes the pulls for Start, In process and End, and refuses a count the test can't hold", async () => {
+    graphFetchAll.mockResolvedValue([]);
+    graphFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? { id: "12" }
+        : { id: "12", fields: { Title: "910101", PullsStart: 5, PullsInProcess: 2 }, ...meta },
+    );
+    const created = await createPullTestSpec({ ...spec, pullsRequired: { Start: 5, "In process": 2, End: null } });
+    const post = graphFetch.mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(JSON.parse(post[1].body as string).fields).toMatchObject({ PullsStart: 5, PullsInProcess: 2, PullsEnd: null });
+    expect(created.pullsRequired).toEqual({ Start: 5, "In process": 2, End: null });
+    const select = decodeURIComponent(graphFetchAll.mock.calls[0][0] as string);
+    for (const c of ["PullsStart", "PullsInProcess", "PullsEnd"]) expect(select).toContain(c);
+
+    graphFetch.mockClear();
+    await expect(createPullTestSpec({ ...spec, pullsRequired: { Start: 6, "In process": null, End: null } })).rejects.toThrow(/Start.*1 to 5/);
+    await expect(createPullTestSpec({ ...spec, pullsRequired: { Start: null, "In process": null, End: 0 } })).rejects.toThrow(/End.*1 to 5/);
     expect(graphFetch).not.toHaveBeenCalled();
   });
 

@@ -7,9 +7,9 @@ import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { USE_MOCK } from "@/api/config";
 import {
   FORCE_UNITS,
+  DEFAULT_PULLS_REQUIRED,
   MAX_PULLS,
   PULL_TEST_POINTS,
-  PULLS_REQUIRED,
   type ForceUnit,
   type PullSpecSnapshot,
   type PullTest,
@@ -25,6 +25,9 @@ import {
   lowestPull,
   minimumText,
   parseForceInput,
+  pullCountText,
+  pullCountsText,
+  pullsRequiredFor,
   pullSnapshotOf,
   pullSpecLabel,
   pullStatus,
@@ -109,16 +112,28 @@ export function nextPullSlot(boxes: PullBox[]): { index: number; grow: boolean }
 
 function initialBoxes(test?: PullTest): PullBox[] {
   const filled = test ? test.readings.map((v) => (v === null ? "" : String(v))) : [];
-  const lastFilled = filled.reduce((last, v, i) => (v ? i + 1 : last), 0);
-  const count = Math.max(PULLS_REQUIRED, lastFilled);
-  return Array.from({ length: count }, (_, i) => ({
-    raw: filled[i] ?? "",
-    fromTester: !!filled[i] && test?.readingSource === "Tester",
-  }));
+  return fitPullBoxes(
+    filled.map((raw) => ({ raw, fromTester: !!raw && test?.readingSource === "Tester" })),
+    test?.pullsRequired ?? DEFAULT_PULLS_REQUIRED,
+  );
 }
 
 /**
- * Record or correct a pull test — the pulls taken on the Mark-10 WT-205 for
+ * The pull boxes for a spec that needs `required` pulls: every box up to the
+ * last one holding a pull is kept, then empty ones are added up to `required`
+ * — so picking a spec that needs five grows the form to five, and switching
+ * to one that needs three drops only EMPTY boxes, never a pull already taken.
+ * Hands back the same array when nothing changes.
+ */
+export function fitPullBoxes(boxes: PullBox[], required: number): PullBox[] {
+  const lastFilled = boxes.reduce((last, b, i) => (b.raw.trim() ? i + 1 : last), 0);
+  const count = Math.min(MAX_PULLS, Math.max(required, lastFilled));
+  if (count === boxes.length) return boxes;
+  return Array.from({ length: count }, (_, i) => boxes[i] ?? { raw: "", fromTester: false });
+}
+
+/**
+ * Record or correct a pull test — the pulls taken on the Mark-10 WT3-200 for
  * one terminal and gauge, judged against that spec's minimum (BusinessIT#64).
  *
  * The tester can fill the pulls itself: Connect once (the browser asks which
@@ -223,15 +238,31 @@ export function PullTestFormModal({
     return () => document.removeEventListener("keydown", handleKey);
   }, [busy, onClose]);
 
-  /** The minimum this test is judged by — its own on an edit, unless re-pointed. */
+  /**
+   * What this test is judged by — its own copy on an edit, unless re-pointed.
+   * The pull count depends on Start / In process / End, so it is the spec's
+   * count for the point picked; an edit keeps its own count unless the point
+   * in the run is corrected.
+   */
+  const point = (checkPoint || null) as PullTestPoint | null;
   const snapshot: PullSpecSnapshot | null = useMemo(() => {
     if (!specId) return null;
-    if (test && String(test.specId) === specId) return test;
-    const spec = specs.find((s) => String(s.id) === specId);
-    return spec ? pullSnapshotOf(spec) : null;
-  }, [specId, specs, test]);
+    const found = specs.find((s) => String(s.id) === specId);
+    if (test && String(test.specId) === specId) {
+      if (point === test.checkPoint || !found) return test;
+      return { ...test, pullsRequired: pullsRequiredFor(found, point) };
+    }
+    return found ? pullSnapshotOf(found, point) : null;
+  }, [specId, specs, test, point]);
   const spec = specs.find((s) => String(s.id) === specId) ?? null;
   const options = useMemo(() => pullSpecOptions(specs, test ?? null), [specs, test]);
+
+  // How many pulls this test needs — the spec's count (or the test's own copy
+  // on an edit). The boxes follow it when the spec changes.
+  const required = snapshot?.pullsRequired ?? test?.pullsRequired ?? DEFAULT_PULLS_REQUIRED;
+  useEffect(() => {
+    setBoxes((prev) => fitPullBoxes(prev, required));
+  }, [required]);
 
   // A spec that names its terminal decides it; an any-terminal spec asks.
   const terminalFromSpec = snapshot?.specTerminal.trim() ?? "";
@@ -240,8 +271,8 @@ export function PullTestFormModal({
   const readings = boxes.map((b) => (b.raw.trim() ? parseForceInput(b.raw) : null));
   const judge = snapshot ? { minimumForce: snapshot.minimumForce, specUnit: snapshot.specUnit } : null;
   const failed = judge ? isPullTestFailed(readings, unit, judge) : false;
-  const required = readings.slice(0, PULLS_REQUIRED);
-  const allPass = judge !== null && judge.minimumForce !== null && required.every((v) => v !== null) && !failed;
+  const allPass =
+    judge !== null && judge.minimumForce !== null && readings.slice(0, required).every((v) => v !== null) && !failed;
   const anyFromTester = boxes.some((b) => b.raw.trim() && b.fromTester);
 
   function setBox(i: number, raw: string) {
@@ -272,7 +303,7 @@ export function PullTestFormModal({
     if (!clockNumber.trim()) return setError("Enter the clock number of whoever pulled.");
     for (let i = 0; i < boxes.length; i++) {
       const raw = boxes[i].raw.trim();
-      if (!raw && i < PULLS_REQUIRED) return setError(`Enter pull ${i + 1}.`);
+      if (!raw && i < required) return setError(`Enter pull ${i + 1} — this spec needs ${pullCountText(required)}.`);
       if (raw && readings[i] === null) return setError(`Pull ${i + 1} isn't a number ARC can read.`);
     }
     if (!workOrder.trim()) return setError("Enter the work order this run is for.");
@@ -292,6 +323,7 @@ export function PullTestFormModal({
         minimumForce: snapshot.minimumForce,
         specUnit: snapshot.specUnit,
         reference: snapshot.reference,
+        pullsRequired: required,
       },
       readings,
       unit,
@@ -324,7 +356,7 @@ export function PullTestFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
+      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
       {...overlayDismiss}
     >
       <div
@@ -334,7 +366,7 @@ export function PullTestFormModal({
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleEnterAsTab}
-        className="my-4 w-full max-w-2xl rounded-lg border border-border bg-surface p-5 shadow-xl"
+        className="my-auto flex max-h-full w-full max-w-2xl flex-col rounded-lg border border-border bg-surface p-5 shadow-xl lg:max-w-6xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
@@ -352,242 +384,267 @@ export function PullTestFormModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label="Spec — terminal · gauge · source *" plain>
-            <div data-autofocus data-enter-group>
-              <SingleSelect
-                allLabel={specsLoading ? "Loading specs…" : "Pick the spec"}
-                searchPlaceholder="Search terminal, gauge or reference…"
-                ariaLabel="Spec"
-                options={options}
-                selected={specId}
-                onChange={setSpecId}
-                disabled={busy}
-              />
-            </div>
-            <span className="text-[11px] text-fg-muted">
-              {isAdmin ? (
-                <>
-                  Not listed?{" "}
-                  <Link to="/harness/pull-tests/specs" className="font-medium text-accent underline-offset-2 hover:underline">
-                    Add it to the pull test specs
-                  </Link>
-                  .
-                </>
-              ) : (
-                "Not listed? Ask an ARC admin to add it to the pull test specs."
-              )}
-            </span>
-          </Field>
-
-          {snapshot && (
-            <SpecPanel snapshot={snapshot} spec={spec} changedSinceTest={!!test && !!spec && specDiffers(test, spec)} />
-          )}
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Terminal or pin pulled *" plain>
-              {terminalFromSpec ? (
-                <div className="select flex items-center font-mono text-fg-muted" aria-label="Terminal pulled">
-                  {terminalFromSpec}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          {/* The fields scroll INSIDE the dialog, which never grows past the window —
+              a centred dialog taller than the screen loses its top, the spec picker
+              with it. On a wide screen: what the run is on the left, the pulls on
+              the right, so it mostly fits without scrolling. */}
+          <div className="scroll-elegant -mx-1 grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-1 pb-1 lg:grid-cols-2 lg:gap-x-6">
+            <div className="flex min-w-0 flex-col gap-4">
+              <Field label="Spec — terminal · gauge · source *" plain>
+                <div data-autofocus data-enter-group>
+                  <SingleSelect
+                    allLabel={specsLoading ? "Loading specs…" : "Pick the spec"}
+                    searchPlaceholder="Search terminal, gauge or reference…"
+                    ariaLabel="Spec"
+                    options={options}
+                    selected={specId}
+                    onChange={setSpecId}
+                    disabled={busy}
+                  />
                 </div>
-              ) : (
-                <SuggestInput
-                  value={typedTerminal}
-                  onChange={setTypedTerminal}
-                  options={terminalSuggestions}
-                  placeholder={snapshot ? "This spec covers any terminal — which one?" : "Pick the spec first"}
-                  ariaLabel="Terminal pulled"
-                  disabled={busy || !snapshot}
+                <span className="text-[11px] text-fg-muted">
+                  {isAdmin ? (
+                    <>
+                      Not listed?{" "}
+                      <Link to="/harness/pull-tests/specs" className="font-medium text-accent underline-offset-2 hover:underline">
+                        Add it to the pull test specs
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    "Not listed? Ask an ARC admin to add it to the pull test specs."
+                  )}
+                </span>
+              </Field>
+
+              {snapshot && (
+                <SpecPanel
+                  snapshot={snapshot}
+                  spec={spec}
+                  point={point}
+                  changedSinceTest={!!test && !!spec && specDiffers(test, spec)}
                 />
               )}
-            </Field>
-            <Field label="Applicator or crimp tool">
-              <input
-                type="text"
-                value={applicator}
-                onChange={(e) => setApplicator(e.target.value)}
-                placeholder="What made the crimp"
-                className="select font-mono"
-                disabled={busy}
-              />
-            </Field>
-          </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Test *" plain>
-              <ChoicePills
-                label="Test"
-                name="pull-test-point"
-                options={PULL_TEST_POINTS}
-                value={checkPoint}
-                onChange={setCheckPoint}
-                disabled={busy}
-              />
-            </Field>
-            <Field label="Clock # *" plain>
-              <SuggestInput
-                value={clockNumber}
-                onChange={setClockNumber}
-                options={clockSuggestions}
-                placeholder="Who pulled"
-                ariaLabel="Clock number"
-                disabled={busy}
-              />
-            </Field>
-          </div>
-
-          <TesterPanel
-            tester={tester}
-            note={testerNote}
-            busy={busy}
-            onSimulate={USE_MOCK ? simulatePull : undefined}
-          />
-
-          <fieldset className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-fg-muted">
-              Pulls — peak force *
-            </legend>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-fg-muted" data-enter-group>
-              <span>Unit</span>
-              <div className="w-24">
-                <ChoiceSelect
-                  ariaLabel="Unit"
-                  emptyLabel="Unit"
-                  options={FORCE_UNITS}
-                  value={unit}
-                  clearable={false}
-                  onChange={(v) => {
-                    if (!v) return;
-                    setUnit(v as ForceUnit);
-                    rememberUnit(v as ForceUnit);
-                  }}
-                  disabled={busy || anyFromTester}
-                />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Terminal or pin pulled *" plain>
+                  {terminalFromSpec ? (
+                    <div className="select flex items-center font-mono text-fg-muted" aria-label="Terminal pulled">
+                      {terminalFromSpec}
+                    </div>
+                  ) : (
+                    <SuggestInput
+                      value={typedTerminal}
+                      onChange={setTypedTerminal}
+                      options={terminalSuggestions}
+                      placeholder={snapshot ? "This spec covers any terminal — which one?" : "Pick the spec first"}
+                      ariaLabel="Terminal pulled"
+                      disabled={busy || !snapshot}
+                    />
+                  )}
+                </Field>
+                <Field label="Applicator or crimp tool">
+                  <input
+                    type="text"
+                    value={applicator}
+                    onChange={(e) => setApplicator(e.target.value)}
+                    placeholder="What made the crimp"
+                    className="select font-mono"
+                    disabled={busy}
+                  />
+                </Field>
               </div>
-              {anyFromTester && <span>Set by the tester.</span>}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Test *" plain>
+                  <ChoicePills
+                    label="Test"
+                    name="pull-test-point"
+                    options={PULL_TEST_POINTS}
+                    value={checkPoint}
+                    onChange={setCheckPoint}
+                    disabled={busy}
+                  />
+                </Field>
+                <Field label="Clock # *" plain>
+                  <SuggestInput
+                    value={clockNumber}
+                    onChange={setClockNumber}
+                    options={clockSuggestions}
+                    placeholder="Who pulled"
+                    ariaLabel="Clock number"
+                    disabled={busy}
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Harness or assembly">
+                  <input
+                    type="text"
+                    value={harnessOrAssembly}
+                    onChange={(e) => setHarnessOrAssembly(e.target.value)}
+                    placeholder="e.g. 693008-50"
+                    className="select"
+                    disabled={busy}
+                  />
+                </Field>
+                <Field label="Work order *">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={workOrder}
+                    onChange={(e) => setWorkOrder(e.target.value)}
+                    placeholder="e.g. 1000209528"
+                    className="select"
+                    disabled={busy}
+                  />
+                </Field>
+              </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {boxes.map((b, i) => (
-                <PullInput
-                  key={i}
-                  position={i + 1}
-                  box={b}
-                  parsed={readings[i]}
-                  unit={unit}
-                  snapshot={snapshot}
-                  optional={i >= PULLS_REQUIRED}
+            <div className="flex min-w-0 flex-col gap-4">
+              <TesterPanel
+                tester={tester}
+                note={testerNote}
+                busy={busy}
+                onSimulate={USE_MOCK ? simulatePull : undefined}
+              />
+
+              <fieldset className="flex flex-col gap-2 rounded-lg border border-border p-3">
+                <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                  Pulls — peak force *
+                </legend>
+                <p className="text-xs text-fg-muted">
+                  {!snapshot
+                    ? `Pick the spec to see how many pulls it needs (${pullCountText(DEFAULT_PULLS_REQUIRED)} until then).`
+                    : point
+                      ? `This spec needs ${pullCountText(required)} at ${point}.`
+                      : spec && !sameCountEverywhere(spec)
+                        ? `This spec needs ${pullCountsText(spec)} pulls at Start / In process / End. Pick which test this is.`
+                        : `This spec needs ${pullCountText(required)}.`}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-fg-muted" data-enter-group>
+                  <span>Unit</span>
+                  <div className="w-24">
+                    <ChoiceSelect
+                      ariaLabel="Unit"
+                      emptyLabel="Unit"
+                      options={FORCE_UNITS}
+                      value={unit}
+                      clearable={false}
+                      onChange={(v) => {
+                        if (!v) return;
+                        setUnit(v as ForceUnit);
+                        rememberUnit(v as ForceUnit);
+                      }}
+                      disabled={busy || anyFromTester}
+                    />
+                  </div>
+                  {anyFromTester && <span>Set by the tester.</span>}
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {boxes.map((b, i) => (
+                    <PullInput
+                      key={i}
+                      position={i + 1}
+                      box={b}
+                      parsed={readings[i]}
+                      unit={unit}
+                      snapshot={snapshot}
+                      optional={i >= required}
+                      disabled={busy}
+                      onChange={(v) => setBox(i, v)}
+                      onRemove={
+                        i >= required ? () => setBoxes((prev) => prev.filter((_, j) => j !== i)) : undefined
+                      }
+                    />
+                  ))}
+                </div>
+                {boxes.length < MAX_PULLS && (
+                  <button
+                    type="button"
+                    onClick={() => setBoxes((prev) => [...prev, { raw: "", fromTester: false }])}
+                    disabled={busy}
+                    className="self-start text-xs font-semibold text-accent underline-offset-2 hover:underline disabled:opacity-50"
+                  >
+                    Add a pull
+                  </button>
+                )}
+                <div
+                  role="status"
+                  className={cn(
+                    "flex flex-wrap items-baseline gap-x-3 text-sm",
+                    failed ? "font-semibold text-cooper-red" : allPass ? "text-cooper-green" : "text-fg-muted",
+                  )}
+                >
+                  <span>Lowest {forceText(lowestPull(readings), unit)}</span>
+                  <span>
+                    {!snapshot
+                      ? "Pick the spec to judge the pulls."
+                      : snapshot.minimumForce === null
+                        ? "This spec has no minimum yet, so the test can't be judged. Ask an ARC admin to fill it in."
+                        : failed
+                          ? "Failed — saving emails the people set up to hear about it."
+                          : allPass
+                            ? "Every pull holds the minimum."
+                            : ""}
+                  </span>
+                </div>
+              </fieldset>
+
+              <Field label="How it failed" plain>
+                <SuggestInput
+                  value={howFailed}
+                  onChange={setHowFailed}
+                  options={howFailedSuggestions?.options ?? suggestionsFallback.options}
+                  searchOptions={howFailedSuggestions?.search ?? suggestionsFallback.search}
+                  placeholder="Pick one, or type what happened"
+                  ariaLabel={HOW_FAILED_LABEL}
                   disabled={busy}
-                  onChange={(v) => setBox(i, v)}
-                  onRemove={
-                    i >= PULLS_REQUIRED ? () => setBoxes((prev) => prev.filter((_, j) => j !== i)) : undefined
-                  }
                 />
-              ))}
+                <span className="text-[11px] text-fg-muted">
+                  How the pulls let go — the wire broke, it pulled out of the crimp… A new answer is offered next time.
+                </span>
+              </Field>
+
+              <Field label="Notes">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="What was changed, anything else worth knowing…"
+                  className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                  disabled={busy}
+                />
+              </Field>
             </div>
-            {boxes.length < MAX_PULLS && (
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+            {error && (
+              <div className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
+                {error}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setBoxes((prev) => [...prev, { raw: "", fromTester: false }])}
+                onClick={onClose}
                 disabled={busy}
-                className="self-start text-xs font-semibold text-accent underline-offset-2 hover:underline disabled:opacity-50"
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-fg disabled:opacity-50"
               >
-                Add a pull
+                Cancel
               </button>
-            )}
-            <div
-              role="status"
-              className={cn(
-                "flex flex-wrap items-baseline gap-x-3 text-sm",
-                failed ? "font-semibold text-cooper-red" : allPass ? "text-cooper-green" : "text-fg-muted",
-              )}
-            >
-              <span>Lowest {forceText(lowestPull(readings), unit)}</span>
-              <span>
-                {!snapshot
-                  ? "Pick the spec to judge the pulls."
-                  : snapshot.minimumForce === null
-                    ? "This spec has no minimum yet, so the test can't be judged. Ask an ARC admin to fill it in."
-                    : failed
-                      ? "Failed — saving emails the people set up to hear about it."
-                      : allPass
-                        ? "Every pull holds the minimum."
-                        : ""}
-              </span>
-            </div>
-          </fieldset>
-
-          <Field label="How it failed" plain>
-            <SuggestInput
-              value={howFailed}
-              onChange={setHowFailed}
-              options={howFailedSuggestions?.options ?? suggestionsFallback.options}
-              searchOptions={howFailedSuggestions?.search ?? suggestionsFallback.search}
-              placeholder="Pick one, or type what happened"
-              ariaLabel={HOW_FAILED_LABEL}
-              disabled={busy}
-            />
-            <span className="text-[11px] text-fg-muted">
-              How the pulls let go — the wire broke, it pulled out of the crimp… A new answer is offered next time.
-            </span>
-          </Field>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Harness or assembly">
-              <input
-                type="text"
-                value={harnessOrAssembly}
-                onChange={(e) => setHarnessOrAssembly(e.target.value)}
-                placeholder="e.g. 693008-50"
-                className="select"
+              <button
+                type="submit"
                 disabled={busy}
-              />
-            </Field>
-            <Field label="Work order *">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={workOrder}
-                onChange={(e) => setWorkOrder(e.target.value)}
-                placeholder="e.g. 1000209528"
-                className="select"
-                disabled={busy}
-              />
-            </Field>
-          </div>
-
-          <Field label="Notes">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              placeholder="What was changed, anything else worth knowing…"
-              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
-              disabled={busy}
-            />
-          </Field>
-
-          {error && (
-            <div className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
-              {error}
+                className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy ? "Saving…" : isEdit ? "Save changes" : "Record test"}
+              </button>
             </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={busy}
-              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-fg disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {busy ? "Saving…" : isEdit ? "Save changes" : "Record test"}
-            </button>
           </div>
         </form>
       </div>
@@ -597,16 +654,27 @@ export function PullTestFormModal({
 
 /** Has the spec been changed since this test copied its minimum? */
 function specDiffers(test: PullTest, spec: PullTestSpec): boolean {
-  return test.minimumForce !== spec.minimumForce || test.specUnit !== spec.unit;
+  return (
+    test.minimumForce !== spec.minimumForce ||
+    test.specUnit !== spec.unit ||
+    test.pullsRequired !== pullsRequiredFor(spec, test.checkPoint)
+  );
+}
+
+/** Does the spec ask for the same number of pulls at Start, In process and End? */
+function sameCountEverywhere(spec: PullTestSpec): boolean {
+  return new Set(PULL_TEST_POINTS.map((p) => pullsRequiredFor(spec, p))).size === 1;
 }
 
 function SpecPanel({
   snapshot,
   spec,
+  point,
   changedSinceTest,
 }: {
   snapshot: PullSpecSnapshot;
   spec: PullTestSpec | null;
+  point: PullTestPoint | null;
   changedSinceTest: boolean;
 }) {
   return (
@@ -619,6 +687,11 @@ function SpecPanel({
         <span className="text-fg">
           <strong>{minimumText(snapshot.minimumForce, snapshot.specUnit)}</strong>
         </span>
+        <span className="text-fg">
+          {point || !spec || sameCountEverywhere(spec)
+            ? `${pullCountText(snapshot.pullsRequired)} per test${point ? ` at ${point}` : ""}`
+            : `${pullCountsText(spec)} pulls at Start / In process / End`}
+        </span>
       </div>
       {(snapshot.reference || spec?.source) && (
         <span className="text-fg-muted">
@@ -628,7 +701,7 @@ function SpecPanel({
       {spec?.notes && <span className="text-fg-muted">{spec.notes}</span>}
       {changedSinceTest && (
         <span className="text-fg-muted">
-          The spec has changed since this test. It's still judged by the minimum above, the one it was tested against.
+          The spec has changed since this test. It's still judged by the minimum and pull count above, the ones it was tested against.
         </span>
       )}
     </div>

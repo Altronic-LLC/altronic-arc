@@ -5,11 +5,11 @@ import { renderWithProviders } from "@/test/render";
 import { listPullTests, resetPullTestMockStore } from "@/api/pullTests";
 import { resetPullTestSpecMockStore } from "@/api/pullTestSpecs";
 import { MOCK_PULL_SPECS, MOCK_PULL_TESTS } from "@/data/pullTestMockData";
-import { nextPullSlot, PullTestFormModal, pullSpecOptions } from "./PullTestFormModal";
+import { fitPullBoxes, nextPullSlot, PullTestFormModal, pullSpecOptions } from "./PullTestFormModal";
 
 // =============================================================================
 // The pull test form. The tester is a fake standing in for api/mark10Serial
-// (jsdom has no serial port): the test hands it lines exactly as the WT-205
+// (jsdom has no serial port): the test hands it lines exactly as the WT3-200
 // sends them, and asserts what lands in the boxes and what is saved.
 // =============================================================================
 
@@ -72,7 +72,7 @@ describe("pullSpecOptions / nextPullSlot", () => {
     const labels = pullSpecOptions(MOCK_PULL_SPECS, null).map((o) => o.label);
     expect(labels.some((l) => l.startsWith("910550"))).toBe(false);
     expect(labels).toContain("Any terminal · 18 AWG · DEMO-STD Table 1 — At least 15.0 lbF");
-    const retired = { specId: 7, specTerminal: "910550", wireGauge: "16", minimumForce: 22, specUnit: "lbF" as const, reference: "" };
+    const retired = { specId: 7, specTerminal: "910550", wireGauge: "16", minimumForce: 22, specUnit: "lbF" as const, reference: "", pullsRequired: 3 };
     expect(pullSpecOptions(MOCK_PULL_SPECS, retired).some((o) => o.label.endsWith("(retired)"))).toBe(true);
   });
 
@@ -81,6 +81,15 @@ describe("pullSpecOptions / nextPullSlot", () => {
     expect(nextPullSlot([box("1"), box(""), box("")])).toEqual({ index: 1, grow: false });
     expect(nextPullSlot([box("1"), box("2"), box("3")])).toEqual({ index: 3, grow: true });
     expect(nextPullSlot([box("1"), box("2"), box("3"), box("4"), box("5")])).toBeNull();
+  });
+
+  it("fits the boxes to the spec's pull count without dropping a pull", () => {
+    const box = (raw: string) => ({ raw, fromTester: false });
+    expect(fitPullBoxes([box("1"), box(""), box("")], 5).map((b) => b.raw)).toEqual(["1", "", "", "", ""]);
+    expect(fitPullBoxes([box("1"), box(""), box(""), box(""), box("")], 3)).toHaveLength(3);
+    expect(fitPullBoxes([box("1"), box(""), box(""), box("4"), box("")], 2).map((b) => b.raw)).toEqual(["1", "", "", "4"]);
+    const same = [box("1"), box("2"), box("3")];
+    expect(fitPullBoxes(same, 3)).toBe(same);
   });
 });
 
@@ -128,6 +137,56 @@ describe("PullTestFormModal — typed", () => {
       howFailed: "Wire pulled out of crimp",
     });
     expect(saved.readings).toEqual([20.4, 18, 17.9, null, null]);
+  });
+
+  it("asks for as many pulls as the spec says, and saves that count on the test", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<PullTestFormModal onClose={onClose} />);
+    const dialog = screen.getByRole("dialog", { name: "New pull test" });
+    expect(within(dialog).getAllByRole("textbox", { name: /^Pull \d$/ })).toHaveLength(3);
+
+    // 910330 · 22 AWG asks for five at Start and End, three in process —
+    // the largest until the test's point in the run is picked.
+    await pickSpec(/^910330 · 22 AWG/);
+    expect(within(dialog).getByText(/This spec needs 5 \/ 3 \/ 5 pulls at Start \/ In process \/ End/)).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("textbox", { name: /^Pull \d$/ })).toHaveLength(5);
+
+    await userEvent.click(within(dialog).getByRole("radio", { name: "In process" }));
+    expect(within(dialog).getByText("This spec needs 3 pulls at In process.")).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("textbox", { name: /^Pull \d$/ })).toHaveLength(3);
+
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Start" }));
+    expect(within(dialog).getByText("This spec needs 5 pulls at Start.")).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("textbox", { name: /^Pull \d$/ })).toHaveLength(5);
+    expect(within(dialog).queryByRole("button", { name: /Remove pull/ })).not.toBeInTheDocument();
+
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Clock number" }), "342");
+    for (const [i, v] of ["60", "61", "62"].entries()) {
+      await userEvent.type(within(dialog).getByRole("textbox", { name: `Pull ${i + 1}` }), v);
+    }
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Work order *" }), "1000209528");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record test" }));
+    expect(within(dialog).getByText("Enter pull 4 — this spec needs 5 pulls.")).toBeInTheDocument();
+
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Pull 4" }), "63");
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Pull 5" }), "64");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record test" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const saved = (await listPullTests()).find((t) => t.id > MOCK_PULL_TESTS.length)!;
+    expect(saved.pullsRequired).toBe(5);
+    expect(saved.readings).toEqual([60, 61, 62, 63, 64]);
+  });
+
+  it("drops only empty boxes when switching to a spec that needs fewer pulls", async () => {
+    renderWithProviders(<PullTestFormModal onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog", { name: "New pull test" });
+    await pickSpec(/^910330 · 22 AWG/);
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Pull 4" }), "40");
+    await pickSpec(/^910101 · 18 AWG/);
+    const boxes = within(dialog).getAllByRole("textbox", { name: /^Pull \d$/ });
+    expect(boxes).toHaveLength(4);
+    expect(boxes[3]).toHaveValue("40");
+    expect(within(dialog).getByText("This spec needs 3 pulls.")).toBeInTheDocument();
   });
 
   it("asks which terminal was pulled on an any-terminal spec", async () => {

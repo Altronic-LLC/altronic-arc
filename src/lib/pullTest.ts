@@ -1,11 +1,15 @@
-import type {
-  ForceUnit,
-  PullReadings,
-  PullSpecSnapshot,
-  PullTest,
-  PullTestPoint,
-  PullTestSpec,
-  ReadingSource,
+import {
+  DEFAULT_PULLS_REQUIRED,
+  MAX_PULLS,
+  PULL_TEST_POINTS,
+  type ForceUnit,
+  type PullsByCheckPoint,
+  type PullReadings,
+  type PullSpecSnapshot,
+  type PullTest,
+  type PullTestPoint,
+  type PullTestSpec,
+  type ReadingSource,
 } from "@/types/pullTest";
 import { gaugeLabel } from "./crimpCheck";
 
@@ -106,8 +110,52 @@ export function shouldAlertPullFailed(before: PullTest | null, after: PullTest):
   return before === null || !before.failed;
 }
 
-/** What a test copies from the spec it's judged by. */
-export function pullSnapshotOf(spec: PullTestSpec): PullSpecSnapshot {
+/**
+ * A pull count as stored → a usable one: a whole number from 1 to MAX_PULLS,
+ * else null. Null means "use the default"; a stored 0, 7 or 2.5 is read as
+ * blank rather than trusted, since a test can't hold more than MAX_PULLS.
+ */
+export function readPullsRequired(raw: number | null | undefined): number | null {
+  if (raw === null || raw === undefined || !Number.isInteger(raw)) return null;
+  return raw >= 1 && raw <= MAX_PULLS ? raw : null;
+}
+
+/** A stored count (a spec's, or a test's copy) → the pulls needed, the default when blank. */
+export function pullsRequiredOf(count: number | null | undefined): number {
+  return readPullsRequired(count) ?? DEFAULT_PULLS_REQUIRED;
+}
+
+/** No count set at any point in the run — every one the default. */
+export function defaultPullCounts(): PullsByCheckPoint {
+  return { Start: null, "In process": null, End: null };
+}
+
+/**
+ * How many pulls a test against this spec needs at `checkPoint`. Before the
+ * point in the run is picked it's the LARGEST of the three, so the form never
+ * shows fewer boxes than the test may need; picking the point then drops only
+ * empty ones.
+ */
+export function pullsRequiredFor(
+  spec: Pick<PullTestSpec, "pullsRequired">,
+  checkPoint: PullTestPoint | null,
+): number {
+  if (checkPoint) return pullsRequiredOf(spec.pullsRequired[checkPoint]);
+  return Math.max(...PULL_TEST_POINTS.map((p) => pullsRequiredOf(spec.pullsRequired[p])));
+}
+
+/** "3 / 5 / 3" — Start / In process / End, defaults filled in. */
+export function pullCountsText(spec: Pick<PullTestSpec, "pullsRequired">): string {
+  return PULL_TEST_POINTS.map((p) => pullsRequiredOf(spec.pullsRequired[p])).join(" / ");
+}
+
+/** "3 pulls" / "1 pull". */
+export function pullCountText(n: number): string {
+  return `${n} pull${n === 1 ? "" : "s"}`;
+}
+
+/** What a test taken at `checkPoint` copies from the spec it's judged by. */
+export function pullSnapshotOf(spec: PullTestSpec, checkPoint: PullTestPoint | null): PullSpecSnapshot {
   return {
     specId: spec.id,
     specTerminal: spec.terminal,
@@ -115,6 +163,7 @@ export function pullSnapshotOf(spec: PullTestSpec): PullSpecSnapshot {
     minimumForce: spec.minimumForce,
     specUnit: spec.unit,
     reference: spec.reference,
+    pullsRequired: pullsRequiredFor(spec, checkPoint),
   };
 }
 

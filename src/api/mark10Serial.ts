@@ -1,10 +1,10 @@
 import { MARK10_READ_COMMAND, takeLines } from "@/lib/mark10";
 
 // =============================================================================
-// The Mark-10 WT-205 pull tester over USB, from the browser (BusinessIT#64).
+// The Mark-10 WT3-200 pull tester over USB, from the browser (BusinessIT#64).
 //
 // The tester's USB port is a serial port once Mark-10's USB driver is
-// installed (WT-205 User's Guide §3.2), and Chrome and Edge can open a serial
+// installed (WT3-200 User's Guide §3.2), and Chrome and Edge can open a serial
 // port from a web page — the Web Serial API. So ARC reads the tester directly,
 // with no helper program and no server: the bench PC's browser IS the reader.
 //
@@ -85,7 +85,7 @@ export interface TesterConnection {
 
 /**
  * Open the port at the tester's settings (8 data bits, 1 stop bit, no parity —
- * fixed on the WT-205; the baud rate is set on the tester) and hand each line
+ * fixed on the WT3-200; the baud rate is set on the tester) and hand each line
  * to `onLine` until closed.
  */
 export async function openTester(port: SerialPortLike, baudRate: number, handlers: TesterHandlers): Promise<TesterConnection> {

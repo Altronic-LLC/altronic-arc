@@ -6,7 +6,7 @@
     reports only.
 
 .DESCRIPTION
-    Pull tests on the Mark-10 WT-205 wire crimp pull tester - for the machined
+    Pull tests on the Mark-10 WT3-200 wire crimp pull tester - for the machined
     pins (DriveCOM) that crimp height can't judge, and stamped terminals too.
 
       Pull Test Specs   Title (shown "Terminal", may be blank for an
@@ -14,11 +14,14 @@
                         ManufacturerPartNumber, WireGauge, MinimumForce,
                         ForceUnit (lbF/N/kgF/ozF/kN), SpecSource
                         (Manufacturer / Industry standard), SpecReference,
+                        PullsStart / PullsInProcess / PullsEnd (pulls a
+                        test needs at each point in the run, 1-5, blank = 3),
                         Notes, Active
       Pull Tests        Title (app-derived), TestedAt, CheckPoint, ClockNumber,
                         SpecRef (LOOKUP -> Pull Test Specs), SpecTerminal,
                         Terminal, WireGauge, Applicator, MinimumForce,
-                        SpecUnit, SpecReference (copied from the spec),
+                        SpecUnit, SpecReference, PullsRequired (copied from
+                        the spec - the count for the test's own point),
                         ForceUnit (the readings' unit), Pull1-Pull5,
                         LowestPull, Failed, ReadingSource (Tester / Typed /
                         Mixed), HowFailed, HarnessOrAssembly, WorkOrder, Notes
@@ -34,9 +37,14 @@
       5,000 rows SharePoint refuses a $filter on an unindexed column.
     - SpecRef is a SINGLE lookup: Graph returns a bare SpecRefLookupId and ARC
       writes a bare integer.
-    - Five pull columns, though a test needs three today: how many pulls per
-      setup is still being decided, and raising it is then a constant in ARC,
-      not a list change.
+    - Five pull columns. Each spec says how many pulls a test needs at Start,
+      In process and End (PullsStart / PullsInProcess / PullsEnd, 1 to 5;
+      blank means 3), and the test copies the one for its point as
+      PullsRequired. More than five needs Pull6... columns here and MAX_PULLS
+      raised in src/types/pullTest.ts.
+    - Those four columns were added 2026-11-17, after the lists were live.
+      Re-run this script BEFORE the deploy that reads them: ARC selects them,
+      and a missing column fails the whole read.
     - The Harness Alert Recipients Alert column is a strict choice, so "Pull
       test failed" must be ADDED to it before anyone can be picked for it.
     - Every column is then WRITTEN AND READ BACK with a throwaway row (and the
@@ -81,6 +89,12 @@ $specColumns = @(
     @{ name = "SpecSource"; displayName = "Source"; choice = (& $strict @("Manufacturer", "Industry standard")) },
     @{ name = "SpecReference"; displayName = "Reference"; text = @{}
        description = "Where the minimum comes from - e.g. IPC/WHMA-A-620 Table 19-1, or a datasheet number." },
+    @{ name = "PullsStart"; displayName = "Pulls at Start"; number = @{ decimalPlaces = "none"; minimum = 1; maximum = 5 }
+       description = "How many pulls a Start test against this spec needs, 1 to 5. Blank = 3." },
+    @{ name = "PullsInProcess"; displayName = "Pulls In Process"; number = @{ decimalPlaces = "none"; minimum = 1; maximum = 5 }
+       description = "How many pulls an In process test needs, 1 to 5. Blank = 3." },
+    @{ name = "PullsEnd"; displayName = "Pulls at End"; number = @{ decimalPlaces = "none"; minimum = 1; maximum = 5 }
+       description = "How many pulls an End test needs, 1 to 5. Blank = 3." },
     @{ name = "Notes"; displayName = "Notes"; text = $plainNote },
     @{ name = "Active"; displayName = "Active"; boolean = @{}
        description = "Untick to retire a spec. It stops being offered for new tests; tests already using it keep it." }
@@ -101,6 +115,8 @@ function Get-TestColumns($specsListId) {
         @{ name = "MinimumForce"; displayName = "Spec Minimum"; number = $force },
         @{ name = "SpecUnit"; displayName = "Spec Unit"; choice = (& $strict $FORCE_UNITS) },
         @{ name = "SpecReference"; displayName = "Spec Reference"; text = @{} },
+        @{ name = "PullsRequired"; displayName = "Pulls Required"; number = @{ decimalPlaces = "none" }
+           description = "Copied from the spec when the test is saved - the pulls this test needed." },
         @{ name = "ForceUnit"; displayName = "Pull Unit"; choice = (& $strict $FORCE_UNITS)
            description = "The unit the pulls are in - what the tester sent, or was picked when typing." }
     )
@@ -231,14 +247,14 @@ if (-not $WhatIf -and $specsId -and $testsId) {
     Write-Host "`n=== Write/read-back check ===" -ForegroundColor Cyan
     $specFields = @{
         Title = "ARC-VERIFY"; ManufacturerPartNumber = "verify"; WireGauge = "0.5 mm2 or 20"; MinimumForce = 12.5
-        ForceUnit = "N"; SpecSource = "Industry standard"; SpecReference = "verify ref"; Notes = "verify"; Active = $false
+        ForceUnit = "N"; SpecSource = "Industry standard"; SpecReference = "verify ref"; PullsStart = 5; PullsInProcess = 2; PullsEnd = 4; Notes = "verify"; Active = $false
     }
     $spec = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$specsId/items" -ContentType "application/json" `
         -Body (@{ fields = $specFields } | ConvertTo-Json -Depth 4)
     $testFields = @{
         Title = "ARC-VERIFY"; TestedAt = "2026-01-15T14:30:00Z"; CheckPoint = "In process"; ClockNumber = "999"
         SpecRefLookupId = [int]$spec.id; SpecTerminal = ""; Terminal = "ARC-VERIFY"; WireGauge = "18"
-        Applicator = "VERIFY"; MinimumForce = 12.5; SpecUnit = "N"; SpecReference = "verify ref"; ForceUnit = "lbF"
+        Applicator = "VERIFY"; MinimumForce = 12.5; SpecUnit = "N"; SpecReference = "verify ref"; PullsRequired = 4; ForceUnit = "lbF"
         Pull1 = 24.8; Pull2 = 2.4; Pull3 = 30.15; Pull4 = 22; Pull5 = 19.9; LowestPull = 2.4; Failed = $true
         ReadingSource = "Mixed"; HowFailed = "verify"; HarnessOrAssembly = "verify"; WorkOrder = "1000209528"; Notes = "verify"
     }

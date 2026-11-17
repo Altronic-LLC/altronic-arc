@@ -3,7 +3,7 @@
 //
 // David Bulkley via Feature Request #38: crimp height and crimp force can't
 // judge the MACHINED pins (DriveCOM), so those are pull tested on the Mark-10
-// WT-205 wire crimp pull tester — and stamped terminals can be too. The Crimp
+// WT3-200 wire crimp pull tester — and stamped terminals can be too. The Crimp
 // Height Checks arrangement, with readings that can come straight off the
 // tester over USB (lib/mark10.ts, api/mark10Serial.ts).
 //
@@ -18,7 +18,7 @@
 //                     crimp, until the floor decides how many per setup).
 // =============================================================================
 
-/** What the WT-205 can display and send, lbF first (its default). */
+/** What the WT3-200 can display and send, lbF first (its default). */
 export const FORCE_UNITS = ["lbF", "N", "kgF", "ozF", "kN"] as const;
 export type ForceUnit = (typeof FORCE_UNITS)[number];
 
@@ -45,6 +45,13 @@ export interface PullTestSpec {
   /** The document it comes from: "IPC/WHMA-A-620 Table 19-1", a datasheet number. */
   reference: string;
   notes: string;
+  /**
+   * How many pulls a test against this spec needs, for each point in the run
+   * (Tim, 2026-11-17: a Start test may need more than In process). Each is 1
+   * to MAX_PULLS; null (blank in SharePoint) means DEFAULT_PULLS_REQUIRED, so
+   * specs made before the columns existed keep asking for three.
+   */
+  pullsRequired: PullsByCheckPoint;
   /** A missing `Active` reads as active — a row created outside ARC must not vanish. */
   active: boolean;
 }
@@ -55,13 +62,16 @@ export type PullTestSpecInput = Omit<PullTestSpec, "id">;
 export const PULL_TEST_POINTS = ["Start", "In process", "End"] as const;
 export type PullTestPoint = (typeof PULL_TEST_POINTS)[number];
 
+/** A spec's pull count per point in the run; null = the default. */
+export type PullsByCheckPoint = Record<PullTestPoint, number | null>;
+
 /**
- * Pulls per test. REQUIRED is what every test must have; the list has columns
- * for MAX, so raising the number once the floor decides is a constant, not a
- * SharePoint change (Tim, 2026-11-09: "I have to ask about how many tests we
- * want to do per setup").
+ * Pulls per test. Each spec says how many it needs at Start, In process and
+ * End (`PullsStart` / `PullsInProcess` / `PullsEnd`, Tim, 2026-11-17:
+ * "adjustable based on spec"); a blank one needs DEFAULT_PULLS_REQUIRED. The Pull Tests list has columns for MAX_PULLS, so a
+ * spec can ask for at most that many — more needs Pull6… columns first.
  */
-export const PULLS_REQUIRED = 3;
+export const DEFAULT_PULLS_REQUIRED = 3;
 export const MAX_PULLS = 5;
 
 /** A test's pulls in order; always MAX_PULLS long, blanks as null. */
@@ -84,6 +94,8 @@ export interface PullSpecSnapshot {
   minimumForce: number | null;
   specUnit: ForceUnit;
   reference: string;
+  /** Pulls the test needed AT ITS POINT IN THE RUN — always a number, the default filled in. */
+  pullsRequired: number;
 }
 
 export interface PullTest extends PullSpecSnapshot {

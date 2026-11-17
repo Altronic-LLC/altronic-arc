@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { describeSerialError, parseMark10Line, takeLines } from "./mark10";
 
-// The line shapes are the WT-205 User's Guide §12: "124.8 lbF<CR><LF>" with
+// The line shapes are the WT3-200 User's Guide §12: "124.8 lbF<CR><LF>" with
 // Numeric + Units, "124.8<CR><LF>" with Numeric Only, "*10" for a bad command,
 // and the peak + date/time stamp the Auto Settings output sends after a break.
 

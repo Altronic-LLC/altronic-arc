@@ -1,5 +1,5 @@
 import type { PullReadings, PullTest, PullTestSpec, ReadingSource } from "@/types/pullTest";
-import { buildPullTestTitle, isPullTestFailed, lowestPull } from "@/lib/pullTest";
+import { buildPullTestTitle, defaultPullCounts, isPullTestFailed, lowestPull, pullsRequiredFor } from "@/lib/pullTest";
 import { padReadings } from "@/lib/pullTestMapper";
 
 // =============================================================================
@@ -7,7 +7,8 @@ import { padReadings } from "@/lib/pullTestMapper";
 // are made up, never copied from a real spec or a standard's table (the repo
 // is public; see CLAUDE.md rule 8). Shaped like the real thing: a machined
 // pin with a manufacturer minimum, an any-terminal row "from an industry
-// standard", a spec in newtons, one with no minimum yet, and one retired.
+// standard", a spec in newtons that asks for five pulls at Start and End and
+// three in process, one with no minimum yet, and one retired.
 // =============================================================================
 
 export const MOCK_PULL_SPECS: PullTestSpec[] = [
@@ -15,7 +16,11 @@ export const MOCK_PULL_SPECS: PullTestSpec[] = [
   spec(2, "910101", "DEMO-PIN-1", "18", 18, "lbF", "Manufacturer", "DEMO-DS-100"),
   spec(3, "", "", "18", 15, "lbF", "Industry standard", "DEMO-STD Table 1"),
   spec(4, "", "", "20", 10, "lbF", "Industry standard", "DEMO-STD Table 1"),
-  spec(5, "910330", "DEMO-TERM-3", "22", 35, "N", "Manufacturer", "DEMO-DS-330"),
+  spec(5, "910330", "DEMO-TERM-3", "22", 35, "N", "Manufacturer", "DEMO-DS-330", "", true, {
+    Start: 5,
+    "In process": 3,
+    End: 5,
+  }),
   spec(6, "910440", "DEMO-PIN-4", "14", null, "lbF", "Manufacturer", "", "Minimum still to come from the supplier."),
   spec(7, "910550", "DEMO-PIN-5", "16", 22, "lbF", "Manufacturer", "DEMO-DS-550", "", false),
 ];
@@ -31,8 +36,9 @@ function spec(
   reference: string,
   notes = "",
   active = true,
+  pullsRequired: PullTestSpec["pullsRequired"] = defaultPullCounts(),
 ): PullTestSpec {
-  return { id, terminal, manufacturerPartNumber, wireGauge, minimumForce, unit, source, reference, notes, active };
+  return { id, terminal, manufacturerPartNumber, wireGauge, minimumForce, unit, source, reference, pullsRequired, notes, active };
 }
 
 /** Hours before now — keeps the demo inside the current year's log most of the year. */
@@ -70,6 +76,7 @@ function test(
     minimumForce: s.minimumForce,
     specUnit: s.unit,
     reference: s.reference,
+    pullsRequired: pullsRequiredFor(s, checkPoint),
     readings,
     unit,
     lowest: lowestPull(readings),
@@ -108,7 +115,7 @@ export const MOCK_PULL_TESTS: PullTest[] = [
     harnessOrAssembly: "DEMO-H610-3",
     workOrder: "9000000202",
   }),
-  test(5, 5, "910330", 20, "In process", "303", [61.5, 59.0, 63.5], "N", "Tester", {
+  test(5, 5, "910330", 20, "Start", "303", [61.5, 59.0, 63.5, 60.5, 62.0], "N", "Tester", {
     howFailed: "Wire broke",
     harnessOrAssembly: "DEMO-H720-2",
     workOrder: "9000000203",

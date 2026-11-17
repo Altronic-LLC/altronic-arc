@@ -505,7 +505,7 @@ src/
 │   ├── harnessAlertRecipients.ts Harness Alert Recipients — who each Harness email goes to; admin-managed list, read fresh at send
 │   ├── pullTestSpecs.ts          Pull Test Specs (Harness, PMO site) — minimum pull force per terminal + gauge (blank terminal = any); admin writes, delete only when unused
 │   ├── pullTests.ts              Pull Tests CRUD, year-scoped on the indexed TestedAt — spec minimum copied on, admin-gated delete
-│   ├── mark10Serial.ts           The Mark-10 WT-205 pull tester over Web Serial — choose/reopen the port, read lines, send "?"; no helper program
+│   ├── mark10Serial.ts           The Mark-10 WT3-200 pull tester over Web Serial — choose/reopen the port, read lines, send "?"; no helper program
 │   ├── coatingSpecs.ts           Coating Specs (Operations, PMO site) — min / max stored in mm + the unit entered in + coated sides; admin writes, delete only when unused
 │   ├── coatingChecks.ts          Conformal Coating Checks CRUD, year-scoped on the indexed MeasuredAt — spec figures copied on, admin-gated delete
 │   ├── operationsAlertRecipients.ts Operations Alert Recipients — who each Operations email goes to; admin-managed list, read fresh at send
@@ -901,7 +901,7 @@ src/
 │   ├── pullTest.ts               Pull test rules (pure) — a pull AT the minimum passes, judged in the spec's unit, any pull low = failed, labels
 │   ├── pullTestMapper.ts         Graph item ⇄ Pull Test Spec / Pull Test; LowestPull, Failed and Title derived on write; five pull columns
 │   ├── pullTestAlerts.ts         The failed pull test email (pure)
-│   ├── mark10.ts                 The WT-205's serial output as text (pure) — "124.8 lbF" lines, units, baud rates, errors in words
+│   ├── mark10.ts                 The WT3-200's serial output as text (pure) — "124.8 lbF" lines, units, baud rates, errors in words
 │   ├── coatingCheck.ts           Conformal coating rules (pure) — averages, thickness ÷ coated sides, judged in the SPEC'S unit (mm or in), limits inclusive, labels
 │   ├── coatingMapper.ts          Graph item ⇄ Coating Spec / Coating Check; averages, both thicknesses, OutOfSpec and Title derived on write
 │   ├── coatingAlerts.ts          The out-of-spec conformal coating email (pure)
@@ -940,7 +940,7 @@ src/
 │   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
 │   ├── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
 │   ├── crimp.ts                  Crimp Height Checks types + constants (CrimpSpec, CrimpCheck, check points)
-│   ├── pullTest.ts               Pull Tests types + constants (force units, spec sources, PULLS_REQUIRED / MAX_PULLS)
+│   ├── pullTest.ts               Pull Tests types + constants (force units, spec sources, DEFAULT_PULLS_REQUIRED / MAX_PULLS)
 │   ├── coating.ts                Conformal Coating Checks types + constants (units — mm first, coated sides, spec, check)
 │   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
@@ -8488,7 +8488,7 @@ entry form ignores Escape while it's open — pinned, verified by removing it.
 
 BusinessIT#64 (David Bulkley via Feature Request #38; built with Tim,
 2026-11-09). Crimp height and crimp force can't judge the MACHINED pins
-(DriveCOM), so those are pull tested on a **Mark-10 WT-205** wire crimp pull
+(DriveCOM), so those are pull tested on a **Mark-10 WT3-200** wire crimp pull
 tester, and stamped terminals can be too. The Crimp Height Checks
 arrangement, copied on purpose (Tim: "yes copy that") — anyone records and
 corrects a test, ARC admins delete tests and manage specs, a failed test
@@ -8507,8 +8507,8 @@ set up yet":
 
 | List | env | Holds |
 |---|---|---|
-| Pull Test Specs | `VITE_SP_PULL_TEST_SPECS_LIST_ID` | Title = terminal (blank = any), WireGauge, MinimumForce + ForceUnit, SpecSource, SpecReference |
-| Pull Tests | `VITE_SP_PULL_TESTS_LIST_ID` | one row per test; `TestedAt` indexed; Pull1–Pull5; the spec's minimum copied on |
+| Pull Test Specs | `VITE_SP_PULL_TEST_SPECS_LIST_ID` | Title = terminal (blank = any), WireGauge, MinimumForce + ForceUnit, SpecSource, SpecReference, PullsStart / PullsInProcess / PullsEnd (1–5, blank = 3) |
+| Pull Tests | `VITE_SP_PULL_TESTS_LIST_ID` | one row per test; `TestedAt` indexed; Pull1–Pull5; the spec's minimum and PullsRequired copied on |
 
 The same script ADDS "Pull test failed" to Harness Alert Recipients' strict
 `Alert` choice (keeping any choice added by hand) — **run it before the
@@ -8534,10 +8534,47 @@ Tim's decisions, 2026-11-09:
   ADD-ONLY, keyed like `pullSpecKey`; `-ParseOnly` needs no sign-in. Gauges
   are stored as the label reads: "20" (shown "20 AWG"), "1/0 AWG",
   "250 kcmil".
-- **Start / In process / End, three pulls**, like crimp, until the floor
-  decides how many per setup. `PULLS_REQUIRED` (3) is what a test needs and
-  `MAX_PULLS` (5) is how many columns exist, so changing the count is a
-  constant, not a list change. "Add a pull" adds boxes up to five.
+- **Start / In process / End**, like crimp. **How many pulls is PER SPEC
+  AND PER POINT IN THE RUN** (Tim, 2026-11-17: "adjustable based on spec",
+  then "based on if its a start, In Process, finish test") —
+  `PullsStart` / `PullsInProcess` / `PullsEnd` on Pull Test Specs
+  (`PullTestSpec.pullsRequired`, a `PullsByCheckPoint`), each a whole number
+  1 to `MAX_PULLS` (5); blank means `DEFAULT_PULLS_REQUIRED` (3), so specs
+  made before the columns keep asking for three. Rules (`readPullsRequired`
+  / `pullsRequiredFor` in `lib/pullTest.ts`):
+  - **A test COPIES the count for its own point** (`PullsRequired` on Pull
+    Tests, one number, part of the snapshot), like the minimum, so raising a
+    spec to five never makes last month's three-pull tests incomplete. A test
+    saved before the column reads as 3. Correcting an old test's point in the
+    run re-reads the spec's count for the new point; otherwise an edit keeps
+    its own.
+  - **Before Start / In process / End is picked, the form uses the LARGEST
+    of the three** (`pullsRequiredFor(spec, null)`), so it never shows fewer
+    boxes than the test may need.
+  - **The form's boxes follow the spec** (`fitPullBoxes`): picking a spec
+    that needs five grows to five; switching to one that needs three drops
+    only EMPTY boxes, never a pull taken. "Add a pull" still adds extras up
+    to five, and only boxes past the count can be removed.
+  - **A stored 0, 6 or 2.5 reads as blank** (the default), and the API
+    refuses to write one. More than five needs Pull6… columns on Pull Tests
+    and `MAX_PULLS` raised — a list change, not just a number.
+  - **`create-pull-test-lists.ps1` adds the four columns and must run BEFORE
+    the deploy** that ships this: they are `$select`ed, and a missing column
+    400s the whole read. The lists were live before the columns existed.
+- **The test form never grows past the window** (Tim, 2026-11-17: after
+  picking a spec the top, spec picker included, was cut off and couldn't be
+  scrolled back to). A dialog centred with `items-center` that is taller than
+  the screen loses its top; the form is `max-h-full` with `my-auto`, its
+  fields scroll INSIDE it while the title and buttons stay, and from `lg` it
+  is two columns (`lg:max-w-6xl`): the run on the left, tester + pulls on the
+  right. The spec form uses `my-auto` without `items-center` for the same
+  reason. Reuse the pattern for any tall form.
+- **A spec can be DUPLICATED** (Tim, 2026-11-17) — a Duplicate button on
+  each Specs row, and "Start from an existing spec" on the Add form, both
+  filling `PullTestSpecFormModal` from that spec (`copyFrom`). It is an ADD:
+  the copy starts active, and `pullSpecKey`'s uniqueness check makes the
+  terminal, gauge or reference change before it saves. Admins only, like
+  every spec write.
 - **Read the tester straight into ARC** (option a), typing as the fallback.
 
 Rules that are load-bearing (all in `lib/pullTest.ts`, pinned in
@@ -8559,7 +8596,14 @@ Rules that are load-bearing (all in `lib/pullTest.ts`, pinned in
 
 #### The tester — Web Serial, no helper program
 
-The WT-205's USB port is a serial port once Mark-10's USB driver is installed
+**The tester is a WT3-200** — that's the model on its label (Tim,
+2026-11-17). Its manual is the **WT-205 User's Guide**, which covers the
+WT3-200 too (the section numbers below are that guide's), and everything
+taken from it — the settings, the serial format — was confirmed on the
+WT3-200 itself on 2026-11-10, where the break threshold's floor turned out
+to be 5%, not the guide's 1%.
+
+The WT3-200's USB port is a serial port once Mark-10's USB driver is installed
 (User's Guide §3.2), and Chrome and Edge can open one from a web page. So the
 bench PC's browser reads it directly; ARC needs no server and no install.
 From the User's Guide §12 (`lib/mark10.ts`): 8 data bits, 1 stop bit, no
@@ -8631,7 +8675,7 @@ rule:
   broke") is the healthy case worth comparing against. It is in the failed
   email, the list (a column with a value filter, and search) and the phone card.
 
-Open question (David / Tim): how many pulls per setup.
+How many pulls per setup is now set per spec (above), not an open question.
 
 ### Conformal Coating Checks (Operations, PMO site)
 
@@ -10816,6 +10860,8 @@ looked at. Three things it had to learn:
   fixed port collides with the previous run's Chrome still shutting down.
 - **The theme is `localStorage["aets-theme"]`**, set before the app renders.
   Check light AND dark — native controls and tinted panels differ between them.
+- **`SHOT_HEIGHT=900`** sets the window height (default 1600, which hides a
+  dialog too tall for a laptop screen — the Pull Test form's was, 2026-11-17).
 - **`SHOT_WIDTH=768 node scripts/…`** checks another width — EMULATED through
   the DevTools protocol, because headless Chrome won't open a window narrower
   than ~500px, so phone widths (360, 390) are real. Every run reports when the

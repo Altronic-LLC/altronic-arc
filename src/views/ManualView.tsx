@@ -2775,12 +2775,12 @@ const SECTIONS: ManualSection[] = [
       "who's notified",
     ],
     searchText:
-      "Pull Tests log the pulls taken on the Mark-10 WT-205 wire crimp pull tester, for the machined pins crimp height can't judge and for stamped terminals too. Reach it from the Pull Tests card on the Dashboard or the Departments menu under Harness. Click New test, pick the spec (a terminal and wire gauge with its minimum pull force, from the manufacturer or an industry standard such as IPC/WHMA-A-620), pick Start, In process or End, enter your clock number, and take three pulls. An industry-standard spec can cover any terminal on its gauge; then type the terminal you pulled. A standard can give several minimums for one gauge, such as machined contacts, crimp splices, or stamped and formed terminals; the spec's name says which, so pick the one for what you crimped. To read the tester straight into ARC, use Chrome or Edge on the computer the tester is plugged into by USB, with Mark-10's USB driver installed. Press Connect tester and pick the tester's port the first time; after that ARC reconnects by itself whenever the form opens. On the tester, use Peak mode, turn on Break Detection, and under Auto Settings tick Enabled, RS232/USB Output and Auto Zero, so it sends the peak each time a crimp lets go and zeroes itself for the next pull. A pull that never reaches 10 lbF doesn't count as a break, so nothing is sent: press DATA on the tester or Read now in ARC, then ZERO. Set the tester's Data Format to Numeric + Units. After each reading the cursor moves to the next empty pull box, then to How it failed. The baud rate in ARC must match the tester's. Each reading fills the next empty pull box and is marked from tester; a fourth or fifth pull adds a box. The unit comes from the tester; a reading in a different unit from the pulls already taken is refused. You can always type pulls instead, and ARC records whether they were read by the tester, typed, or mixed. Each pull shows Holds or Below minimum; a pull exactly at the minimum passes, and readings in another unit are converted to the spec's unit first. Say how it failed, such as the wire broke or it pulled out of the crimp: pick an answer already used, most used first, or type a new one. Enter the work order the run is for, which is required. If any single pull is below the minimum, saving emails the people chosen for failed pull tests and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. ARC admins choose who is emailed on Who's notified. Every test keeps the minimum it was judged by, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show failed tests only, or search; columns sort and filter from their headers; on a phone the log is cards. Anyone signed in can record and correct a test; only ARC admins can delete one. The Specs screen lists every spec with how many tests used it; ARC admins add, edit, retire or delete specs, and a spec that has been used can't be deleted: retire it instead.",
+      "Pull Tests log the pulls taken on the Mark-10 WT3-200 wire crimp pull tester, for the machined pins crimp height can't judge and for stamped terminals too. Reach it from the Pull Tests card on the Dashboard or the Departments menu under Harness. Click New test, pick the spec (a terminal and wire gauge with its minimum pull force, from the manufacturer or an industry standard such as IPC/WHMA-A-620), pick Start, In process or End, enter your clock number, and take the pulls the spec asks for at that point in the run: three unless the spec says otherwise, up to five. An industry-standard spec can cover any terminal on its gauge; then type the terminal you pulled. A standard can give several minimums for one gauge, such as machined contacts, crimp splices, or stamped and formed terminals; the spec's name says which, so pick the one for what you crimped. To read the tester straight into ARC, use Chrome or Edge on the computer the tester is plugged into by USB, with Mark-10's USB driver installed. Press Connect tester and pick the tester's port the first time; after that ARC reconnects by itself whenever the form opens. On the tester, use Peak mode, turn on Break Detection, and under Auto Settings tick Enabled, RS232/USB Output and Auto Zero, so it sends the peak each time a crimp lets go and zeroes itself for the next pull. A pull that never reaches 10 lbF doesn't count as a break, so nothing is sent: press DATA on the tester or Read now in ARC, then ZERO. Set the tester's Data Format to Numeric + Units. After each reading the cursor moves to the next empty pull box, then to How it failed. The baud rate in ARC must match the tester's. Each reading fills the next empty pull box and is marked from tester; an extra pull adds a box, up to five. The unit comes from the tester; a reading in a different unit from the pulls already taken is refused. You can always type pulls instead, and ARC records whether they were read by the tester, typed, or mixed. Each pull shows Holds or Below minimum; a pull exactly at the minimum passes, and readings in another unit are converted to the spec's unit first. Say how it failed, such as the wire broke or it pulled out of the crimp: pick an answer already used, most used first, or type a new one. Enter the work order the run is for, which is required. If any single pull is below the minimum, saving emails the people chosen for failed pull tests and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. ARC admins choose who is emailed on Who's notified. Every test keeps the minimum and the number of pulls it was judged by, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show failed tests only, or search; columns sort and filter from their headers; on a phone the log is cards. Anyone signed in can record and correct a test; only ARC admins can delete one. The Specs screen lists every spec with how many pulls a test needs at Start, In process and End (1 to 5 each; blank means three) and how many tests used it; ARC admins add, edit, duplicate, retire or delete specs (Duplicate, or Start from an existing spec when adding, fills the form from that spec so you only change the terminal, gauge or reference and anything else that differs), and a spec that has been used can't be deleted: retire it instead.",
     render: () => (
       <>
         <P>
           <strong>Pull Tests</strong> log the pulls taken on the{" "}
-          <strong>Mark-10 WT-205</strong> wire crimp pull tester: for the
+          <strong>Mark-10 WT3-200</strong> wire crimp pull tester: for the
           machined pins that crimp height can't judge, and for stamped terminals
           too. Reach it from the <strong>Pull Tests</strong> card on the
           Dashboard, or the Departments menu under Harness.
@@ -2804,8 +2804,10 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
             <strong>End</strong>, enter your <strong>clock number</strong>, and
-            take <strong>three pulls</strong>. Add a fourth or fifth with{" "}
-            <em>Add a pull</em>.
+            take the <strong>pulls the spec asks for</strong> at that point in
+            the run: three unless the spec says otherwise, and the form shows
+            how many once you pick Start, In process or End. Add more, up to
+            five, with <em>Add a pull</em>.
           </LI>
           <LI>
             Each pull shows <strong>Holds</strong> or{" "}
@@ -2893,9 +2895,15 @@ const SECTIONS: ManualSection[] = [
           test</strong>; only <strong>ARC admins can delete</strong> one.
         </P>
         <P>
-          The <strong>Specs</strong> button lists every spec with how many tests
-          used it. <strong>ARC admins</strong> add, edit, retire or delete specs.{" "}
-          <strong>Every test keeps the minimum it was judged by</strong>, so
+          The <strong>Specs</strong> button lists every spec with how many
+          pulls a test needs at Start, In process and End, and how many tests
+          used it. <strong>ARC admins</strong> add, edit, retire or delete
+          specs, and set the <strong>pulls per test</strong> for each point
+          (1 to 5; blank means three). <strong>Duplicate</strong> (or{" "}
+          <em>Start from an existing spec</em> when adding) fills the form from
+          another spec, so you only change the terminal, gauge or reference and
+          anything else that differs.{" "}
+          <strong>Every test keeps the minimum and the pull count it was judged by</strong>, so
           changing a spec never changes an old result, and a spec that has been
           used can't be deleted: <strong>retire</strong> it instead.
         </P>

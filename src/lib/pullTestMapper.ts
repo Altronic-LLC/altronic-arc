@@ -1,5 +1,5 @@
 import { toLookupId, toNumberOrNull } from "./graphValues";
-import { buildPullTestTitle, isPullTestFailed, lowestPull } from "./pullTest";
+import { buildPullTestTitle, isPullTestFailed, lowestPull, pullsRequiredOf, readPullsRequired } from "./pullTest";
 import type { GraphListItem } from "@/types/task";
 import {
   FORCE_UNITS,
@@ -29,11 +29,12 @@ import {
 const PULL_COLUMNS = Array.from({ length: MAX_PULLS }, (_, i) => `Pull${i + 1}`);
 
 export const PULL_SPEC_SELECT =
-  "Title,ManufacturerPartNumber,WireGauge,MinimumForce,ForceUnit,SpecSource,SpecReference,Notes,Active";
+  "Title,ManufacturerPartNumber,WireGauge,MinimumForce,ForceUnit,SpecSource,SpecReference," +
+  "PullsStart,PullsInProcess,PullsEnd,Notes,Active";
 
 export const PULL_TEST_SELECT =
   "Title,TestedAt,CheckPoint,ClockNumber,SpecRefLookupId,SpecTerminal,Terminal,WireGauge,Applicator," +
-  `MinimumForce,SpecUnit,SpecReference,ForceUnit,${PULL_COLUMNS.join(",")},LowestPull,Failed,ReadingSource,` +
+  `MinimumForce,SpecUnit,SpecReference,PullsRequired,ForceUnit,${PULL_COLUMNS.join(",")},LowestPull,Failed,ReadingSource,` +
   "HowFailed,HarnessOrAssembly,WorkOrder,Notes";
 
 function text(raw: unknown): string {
@@ -71,6 +72,11 @@ export function toPullTestSpec(item: GraphListItem): PullTestSpec {
     unit: unitOf(f.ForceUnit),
     source: oneOf<PullSpecSource>(f.SpecSource, PULL_SPEC_SOURCES),
     reference: text(f.SpecReference),
+    pullsRequired: {
+      Start: readPullsRequired(toNumberOrNull(f.PullsStart)),
+      "In process": readPullsRequired(toNumberOrNull(f.PullsInProcess)),
+      End: readPullsRequired(toNumberOrNull(f.PullsEnd)),
+    },
     notes: text(f.Notes),
     active: bool(f.Active, true),
   };
@@ -86,6 +92,10 @@ export function buildPullTestSpecFields(input: PullTestSpecInput): Record<string
     ForceUnit: input.unit,
     SpecSource: input.source,
     SpecReference: input.reference.trim(),
+    // Blank = the default; null clears a count set before.
+    PullsStart: readPullsRequired(input.pullsRequired.Start),
+    PullsInProcess: readPullsRequired(input.pullsRequired["In process"]),
+    PullsEnd: readPullsRequired(input.pullsRequired.End),
     Notes: input.notes,
     Active: input.active,
   };
@@ -134,6 +144,8 @@ export function toPullTest(item: GraphListItem): PullTest {
     minimumForce: toNumberOrNull(f.MinimumForce),
     specUnit: unitOf(f.SpecUnit),
     reference: text(f.SpecReference),
+    // A test saved before the column existed was taken under the default.
+    pullsRequired: pullsRequiredOf(toNumberOrNull(f.PullsRequired)),
     readings: PULL_COLUMNS.map((c) => toNumberOrNull(f[c])),
     unit: unitOf(f.ForceUnit),
     lowest: toNumberOrNull(f.LowestPull),
@@ -170,6 +182,7 @@ export function buildPullTestFields(input: PullTestInput): Record<string, unknow
     MinimumForce: s.minimumForce,
     SpecUnit: s.specUnit,
     SpecReference: s.reference,
+    PullsRequired: pullsRequiredOf(s.pullsRequired),
     ForceUnit: input.unit,
     LowestPull: lowestPull(readings),
     Failed: isPullTestFailed(readings, input.unit, s),

@@ -2,14 +2,14 @@ import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PULL_TEST_SPECS_LIST_ID, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem } from "@/types/task";
-import type { PullTestSpec, PullTestSpecInput } from "@/types/pullTest";
+import { MAX_PULLS, PULL_TEST_POINTS, type PullTestSpec, type PullTestSpecInput } from "@/types/pullTest";
 import {
   buildPullTestSpecFields,
   comparePullTestSpecs,
   PULL_SPEC_SELECT,
   toPullTestSpec,
 } from "@/lib/pullTestMapper";
-import { pullSpecKey, pullSpecLabel } from "@/lib/pullTest";
+import { pullSpecKey, pullSpecLabel, readPullsRequired } from "@/lib/pullTest";
 import { MOCK_PULL_SPECS } from "@/data/pullTestMockData";
 
 // =============================================================================
@@ -68,6 +68,12 @@ function validate(input: PullTestSpecInput) {
     throw new Error("Only an industry-standard spec can leave the terminal blank.");
   }
   if (input.minimumForce !== null && !(input.minimumForce > 0)) throw new Error("The minimum must be more than zero.");
+  for (const point of PULL_TEST_POINTS) {
+    const n = input.pullsRequired[point];
+    if (n !== null && readPullsRequired(n) === null) {
+      throw new Error(`Pulls at ${point} must be a whole number from 1 to ${MAX_PULLS}.`);
+    }
+  }
 }
 
 export async function createPullTestSpec(input: PullTestSpecInput): Promise<PullTestSpec> {

@@ -22,7 +22,7 @@ import type { PullTest } from "@/types/pullTest";
 
 // =============================================================================
 // Pull Tests (BusinessIT#64) — the harness area's log of pulls on the Mark-10
-// WT-205, judged against each terminal's minimum. For the machined DriveCOM
+// WT3-200, judged against each terminal's minimum. For the machined DriveCOM
 // pins that crimp height can't judge, and for stamped terminals too.
 //
 // The Crimp Height Checks screen, copied: a log-style table with no detail

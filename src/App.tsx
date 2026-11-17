@@ -235,7 +235,7 @@ const CrimpChecksView = lazy(() =>
 const CrimpSpecsView = lazy(() =>
   import("@/views/CrimpSpecsView").then((m) => ({ default: m.CrimpSpecsView })),
 );
-// Pull Tests (BusinessIT#64) — the Mark-10 WT-205 pull tester, the crimp
+// Pull Tests (BusinessIT#64) — the Mark-10 WT3-200 pull tester, the crimp
 // checks' arrangement. Its specs have their own admin-managed screen.
 const PullTestsView = lazy(() => import("@/views/PullTestsView").then((m) => ({ default: m.PullTestsView })));
 const PullTestSpecsView = lazy(() =>

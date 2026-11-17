@@ -33,8 +33,9 @@ const chrome = spawn(CHROME, [
   // Port 0: Chrome picks a free one and writes it to DevToolsActivePort, so
   // two runs back to back never collide on a port the last Chrome still holds.
   "--remote-debugging-port=0",
-  // SHOT_WIDTH checks a layout at another width (default 1300).
-  `--window-size=${process.env.SHOT_WIDTH ?? "1300"},1600`,
+  // SHOT_WIDTH / SHOT_HEIGHT check a layout at another size (default 1300 x 1600).
+  // A short height shows what happens to a tall dialog on a laptop screen.
+  `--window-size=${process.env.SHOT_WIDTH ?? "1300"},${process.env.SHOT_HEIGHT ?? "1600"}`,
   `--user-data-dir=${profile}`,
   "about:blank",
 ]);
@@ -93,7 +94,8 @@ const evalJs = async (expression) =>
 // window narrower than ~500px, so a phone width needs the DevTools override.
 await send("Runtime.enable");
 const width = Number(process.env.SHOT_WIDTH ?? "1300");
-await send("Emulation.setDeviceMetricsOverride", { width, height: 1600, deviceScaleFactor: 1, mobile: width < 640 });
+const height = Number(process.env.SHOT_HEIGHT ?? "1600");
+await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 640 });
 
 const target = new URL(url);
 await send("Page.navigate", { url: `${target.origin}/` });

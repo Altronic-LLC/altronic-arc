@@ -15,7 +15,7 @@ import { buildPullTestTitle, isPullTestFailed, lowestPull } from "@/lib/pullTest
 import { MOCK_PULL_TESTS } from "@/data/pullTestMockData";
 
 // =============================================================================
-// Pull Tests — one row per test of up to five pulls on the Mark-10 WT-205, on
+// Pull Tests — one row per test of up to five pulls on the Mark-10 WT3-200, on
 // the PMO site (BusinessIT#64).
 //
 // Read ONE YEAR AT A TIME on the INDEXED TestedAt, the crimp checks'

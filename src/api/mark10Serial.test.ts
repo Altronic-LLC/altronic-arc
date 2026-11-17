@@ -4,7 +4,7 @@ import { openTester, type SerialPortLike } from "./mark10Serial";
 // =============================================================================
 // The Web Serial read loop, against a fake port (jsdom has no serial port):
 //  - lines split across chunks come out whole;
-//  - "Read now" writes "?" + CR, the WT-205's "request the displayed reading";
+//  - "Read now" writes "?" + CR, the WT3-200's "request the displayed reading";
 //  - the port opens at the tester's fixed 8N1 and the chosen baud;
 //  - a read that fails (cable pulled) is reported, a close() is not.
 // =============================================================================

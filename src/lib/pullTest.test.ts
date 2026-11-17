@@ -12,7 +12,9 @@ import {
   minimumShort,
   minimumText,
   parseForceInput,
+  pullCountsText,
   pullResult,
+  pullsRequiredFor,
   pullSpecKey,
   pullSpecLabel,
   pullStatus,
@@ -189,5 +191,27 @@ describe("failureModeSuggestions", () => {
     expect(options).toHaveLength(FAILURE_MODE_SHORT_LIST);
     expect(search).toHaveLength(used.length + STANDARD_FAILURE_MODES.length);
     expect(search).toContain("Terminal broke");
+  });
+});
+
+describe("pullsRequiredFor / pullCountsText", () => {
+  const spec = { pullsRequired: { Start: 5, "In process": null, End: 2 } };
+
+  it("gives the count for the point in the run, the default where blank", () => {
+    expect(pullsRequiredFor(spec, "Start")).toBe(5);
+    expect(pullsRequiredFor(spec, "In process")).toBe(3);
+    expect(pullsRequiredFor(spec, "End")).toBe(2);
+  });
+
+  it("gives the largest before the point is picked, so the form never shows too few boxes", () => {
+    expect(pullsRequiredFor(spec, null)).toBe(5);
+  });
+
+  it("reads an impossible stored count as the default", () => {
+    expect(pullsRequiredFor({ pullsRequired: { Start: 9, "In process": 0, End: 2.5 } }, "Start")).toBe(3);
+  });
+
+  it("writes Start / In process / End", () => {
+    expect(pullCountsText(spec)).toBe("5 / 3 / 2");
   });
 });

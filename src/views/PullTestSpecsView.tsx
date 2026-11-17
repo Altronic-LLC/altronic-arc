@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Lock, Pencil, Plus, Trash2, Weight } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Lock, Pencil, Plus, Trash2, Weight } from "lucide-react";
 import {
   PULL_TESTS_CONFIGURED,
   useCreatePullTestSpec,
@@ -20,7 +20,7 @@ import { PullTestSpecFormModal } from "@/components/PullTestSpecFormModal";
 import type { SortColumn } from "@/lib/tableSort";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
 import { gaugeLabel } from "@/lib/crimpCheck";
-import { minimumShort, pullSpecLabel } from "@/lib/pullTest";
+import { minimumShort, pullCountsText, pullSpecLabel, pullsRequiredFor } from "@/lib/pullTest";
 import { cn } from "@/lib/cn";
 import type { PullTestSpec } from "@/types/pullTest";
 
@@ -41,6 +41,13 @@ const SPEC_COLUMNS = (usage: Map<number, number>): SortColumn<PullTestSpec>[] =>
     kind: "number",
     value: (s) => minimumShort(s.minimumForce, s.unit),
     sortValue: (s) => s.minimumForce,
+  },
+  {
+    key: "pulls",
+    label: "Pulls (S / IP / E)",
+    kind: "number",
+    value: (s) => pullCountsText(s),
+    sortValue: (s) => pullsRequiredFor(s, null),
   },
   { key: "source", label: "Source", value: (s) => s.source ?? "" },
   { key: "reference", label: "Reference", value: (s) => s.reference, noFilter: true },
@@ -69,6 +76,9 @@ export function PullTestSpecsView() {
   const [showRetired, setShowRetired] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<PullTestSpec | null>(null);
+  // Duplicate = the add form, filled from this spec; the terminal, gauge or
+  // reference must then change, since two specs can't share all three.
+  const [duplicating, setDuplicating] = useState<PullTestSpec | null>(null);
 
   const retiredCount = specs.filter((s) => !s.active).length;
   const noMinimumCount = specs.filter((s) => s.active && s.minimumForce === null).length;
@@ -196,6 +206,12 @@ export function PullTestSpecsView() {
                     <td className={cn("whitespace-nowrap px-3 py-2 font-mono text-[12px]", s.minimumForce === null && "text-ajax-yellow")}>
                       {minimumShort(s.minimumForce, s.unit)}
                     </td>
+                    <td
+                      className="whitespace-nowrap px-3 py-2 text-right tabular-nums"
+                      title="Pulls a test needs at Start / In process / End (blank on the spec = 3)"
+                    >
+                      {pullCountsText(s)}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2 text-[12px]">{s.source ?? "—"}</td>
                     <td className="px-3 py-2 text-[12px] text-fg-muted">
                       {s.reference || "—"}
@@ -224,6 +240,15 @@ export function PullTestSpecsView() {
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
+                        onClick={() => setDuplicating(s)}
+                        disabled={!isAdmin}
+                        title={isAdmin ? "Duplicate — a new spec starting from this one" : lockHint}
+                        aria-label={`Duplicate ${name}`}
+                        className="rounded-sm p-1 text-fg-muted hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                      <button
                         onClick={() => setActive.mutate({ id: s.id, active: !s.active })}
                         disabled={!isAdmin || setActive.isPending}
                         title={isAdmin ? (s.active ? "Retire" : "Restore") : lockHint}
@@ -250,19 +275,23 @@ export function PullTestSpecsView() {
         </div>
       )}
 
-      {(adding || editing) && (
+      {(adding || editing || duplicating) && (
         <PullTestSpecFormModal
           spec={editing}
+          copyFrom={duplicating}
+          specs={specs}
           busy={create.isPending || update.isPending}
           onClose={() => {
             setAdding(false);
             setEditing(null);
+            setDuplicating(null);
           }}
           onSave={async (input) => {
             if (editing) await update.mutateAsync({ id: editing.id, input });
             else await create.mutateAsync(input);
             setAdding(false);
             setEditing(null);
+            setDuplicating(null);
           }}
         />
       )}

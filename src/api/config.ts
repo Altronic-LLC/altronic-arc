@@ -902,7 +902,7 @@ export const SP_CRIMP_CHECKS_LIST_ID = import.meta.env.VITE_SP_CRIMP_CHECKS_LIST
 
 // =============================================================================
 // Pull Tests (BusinessIT#64) — TWO lists on the PMO site, Harness department:
-// pull tests off the Mark-10 WT-205 for the machined pins crimp height can't
+// pull tests off the Mark-10 WT3-200 for the machined pins crimp height can't
 // judge. Created by scripts/create-pull-test-lists.ps1. No defaults, the crimp
 // checks' reasoning; an unset id shows "not set up yet".
 // =============================================================================

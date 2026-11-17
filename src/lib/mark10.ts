@@ -1,10 +1,10 @@
 import type { ForceUnit } from "@/types/pullTest";
 
 // =============================================================================
-// The Mark-10 WT-205 wire crimp pull tester, as text (BusinessIT#64). Pure —
+// The Mark-10 WT3-200 wire crimp pull tester, as text (BusinessIT#64). Pure —
 // the port itself is api/mark10Serial.ts.
 //
-// From the WT-205 User's Guide, §12 Communications and Outputs:
+// From the WT3-200 User's Guide, §12 Communications and Outputs:
 //  - USB and RS-232 send the SAME data; 8 data bits, 1 stop bit, no parity,
 //    baud set on the tester (Serial/USB Settings → Baud Rate) up to 115,200.
 //  - A reading is "124.8 lbF" + CR LF ("Numeric + Units"), or "124.8" + CR LF
@@ -21,7 +21,7 @@ import type { ForceUnit } from "@/types/pullTest";
 // the unit, and anything after that (a date/time stamp) is ignored.
 // =============================================================================
 
-/** The rates the WT-205 offers; the tester and ARC must match. */
+/** The rates the WT3-200 offers; the tester and ARC must match. */
 export const MARK10_BAUD_RATES = [9600, 19200, 38400, 57600, 115200] as const;
 export const DEFAULT_MARK10_BAUD = 9600;
 
@@ -47,7 +47,7 @@ export type Mark10Line =
 /**
  * One line from the tester → a force, or why it isn't one.
  *
- * A NEGATIVE reading is refused, not made positive: the WT-205 measures
+ * A NEGATIVE reading is refused, not made positive: the WT3-200 measures
  * tension only, so a sign means something is set up differently from what ARC
  * expects, and guessing would put a number on a test nobody read. An unknown
  * unit (gF, mN from another Mark-10 gauge) is refused for the same reason.
