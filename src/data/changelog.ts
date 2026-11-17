@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.224.0",
+    date: "2026-11-17",
+    changes: [
+      "New Human Resources department, shown only to people HR gives access to",
+      "New Hires: HR submits somebody starting, and the people who add them to SAP and raise the IT ticket, and their manager, are emailed",
+      "A new hire's page has a kick-off checklist — Added to SAP, IT ticket raised, IT account created, Computer set up — and tells the submitter and the manager when everything is ready",
+      "HR Access lets HR choose who sees each HR app",
+    ],
+  },
+  {
     version: "0.221.0",
     date: "2026-11-13",
     changes: [

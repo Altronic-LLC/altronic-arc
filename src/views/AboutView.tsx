@@ -97,6 +97,11 @@ const SYSTEM_TIERS: Tier[] = [
         palette: "ui",
       },
       {
+        label: "Human Resources (lazy-loaded)",
+        hint: "NewHiresView · NewHireDetailView · HrAccessView — useNewHires · useHrRoles — api/newHires · hrRoles — lib/newHire (display name and email from the names, the four kick-off steps, status derived from them) · newHireMapper · newHireAlerts (SAP, IT and the manager on submit; submitter and manager when ready; SAP, IT and the manager on cancel — no personal identifiers in any email) · hrRoles (one tag per app; no role = HR hidden from the menu and the Dashboard; an ARC admin manages the list but can't read new hires). Mock data only until HR has a SharePoint site. Own code-split chunk.",
+        palette: "ui",
+      },
+      {
         label: "Harness department (lazy-loaded)",
         hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · crimpMachines (its own read of the asset register's presses — no Operations import) · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpMachines (presses in a Harness location, plus SCHCC36S by name; a spec with no machine is offered on every press) · crimpAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
         palette: "ui",
@@ -209,6 +214,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge, and the presses it runs on (a multi lookup into the Altronic Equipment List); ARC admins manage, delete only when unused", palette: "list" },
       { label: "Crimp Height Checks", hint: "Altronic_PMO site — three micrometer readings per check, the spec's figures copied on; read a year at a time on the indexed CheckedAt", palette: "list" },
       { label: "Harness Alert Recipients", hint: "Altronic_PMO site — who each Harness email goes to (out-of-spec crimp checks, part number requests); ARC admins pick people in ARC, no redeploy", palette: "list" },
+      { label: "HR Roles / New Hires", hint: "The HR site — not created yet, so the department runs on mock data. HR Roles decides who sees each HR app (no role = HR hidden); New Hires is the new hire form that kicks off SAP and the IT ticket, with four stamped steps. Both need UNIQUE permissions — they hold personal data", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
       { label: "Coil-PottingLimit", hint: "Altronic_PMO site — two rows (Lower/Upper Spec Limit), editable by any signed-in user", palette: "list" },
       { label: "Coil PSR Notification List", hint: "Altronic_PMO site — email list for out-of-limit alerts, editable by any signed-in user", palette: "list" },
@@ -292,6 +298,7 @@ export const ER_GROUPS: ErGroup[] = [
   { id: "supplyChain", label: "Supply Chain" },
   { id: "quotes", label: "Insourcing Quotes" },
   { id: "pricing", label: "Pricing" },
+  { id: "hr", label: "Human Resources" },
 ];
 
 /**
@@ -2043,6 +2050,44 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
     ],
   },
+
+  // ---- Human Resources (HR site — not created yet; mock data until it is) ----
+  // The manager and every "who ticked it" are TEXT ("Name <email>"), not person
+  // columns, so there is no FK to Person from New Hires.
+  {
+    name: "HrRole",
+    source: "HR Roles (HR site)",
+    palette: "entity",
+    group: "hr", width: 290,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (new hire / sap / it / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "NewHire",
+    source: "New Hires (HR site)",
+    palette: "entity",
+    group: "hr", width: 290,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "displayName (Title)", type: "text", kind: "field" },
+      { name: "startDate", type: "date", kind: "field" },
+      { name: "legal / preferred first, last name", type: "text", kind: "field" },
+      { name: "email (WorkEmail)", type: "text", kind: "field" },
+      { name: "jobTitle · department", type: "text", kind: "field" },
+      { name: "employmentType", type: "choice", kind: "field" },
+      { name: "manager (Name <email>)", type: "text", kind: "field" },
+      { name: "fab # · personal # · emp #", type: "text", kind: "field" },
+      { name: "needsComputer · deskLocation", type: "text", kind: "field" },
+      { name: "itTicketNumber · itTicketLink", type: "text", kind: "field" },
+      { name: "4 steps (…At + …By)", type: "text", kind: "field" },
+      { name: "status (derived)", type: "choice", kind: "field" },
+      { name: "cancelledAt / By / Reason", type: "text", kind: "field" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -2181,6 +2226,8 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "MCN", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "MCN", fromColumn: "operationsTask (OperationsTaskRef)", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "McnRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  // HR Roles — matched to the signed-in person by address.
+  { fromTable: "HrRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Harness Production Log — one single lookup into the admin-managed part list.
   { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
   // Crimp Height Checks — one single lookup into the admin-managed specs.

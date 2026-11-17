@@ -6268,6 +6268,63 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "new-hires",
+    title: "New Hires (Human Resources)",
+    group: "Human Resources",
+    keywords: [
+      "hr",
+      "human resources",
+      "new hire",
+      "new hires",
+      "onboarding",
+      "start date",
+      "sap",
+      "it ticket",
+      "computer",
+      "hr access",
+      "hr roles",
+    ],
+    searchText:
+      "New Hires is HR's form for somebody starting at Altronic. It kicks off adding them to SAP and the IT ticket for their account and computer. Human Resources is shown only to people HR has given access to in HR Access; everybody else doesn't see it in the Departments menu or on the Dashboard. New hire asks for the start date, legal and preferred first name, last name, email, job title, department, manager (picked from the staff directory), permanent, intern or contractor, whether a computer is needed, desk location, FAB number, Personal number, EMP number, the Cooper IT ticket number and link, and notes. The display name and email are worked out from the names; the email follows the name until you type in it. Submitting emails the people who add new hires to SAP, the people who raise IT tickets, and the manager. The kick-off checklist on the new hire's page has four steps: Added to SAP, IT ticket raised, IT account created and Computer set up (not needed when no computer is). Each tick records who and when; the status follows the ticks — Submitted, In progress, Complete. The last tick emails whoever submitted it and the manager that everything is ready. Cancel hire needs a reason and emails SAP, IT and the manager to stop; Reopen undoes it. New hires are never deleted. Anyone with access can edit every field. The list opens on open new hires, soonest start first; columns sort and filter. HR Access lists who can see each HR app: New Hire; New Hire — SAP (also emailed to add each hire to SAP); New Hire — IT (also emailed to raise the IT ticket); HR admin (manages HR Access). ARC admins can manage HR Access but can't see new hires. Emails never include the Personal, FAB or EMP number. Human Resources is running on demo data until HR has its own SharePoint site.",
+    render: () => (
+      <>
+        <P>
+          <strong>New Hires</strong> is HR's form for somebody starting at Altronic. It kicks off
+          adding them to SAP and the IT ticket for their account and computer, and shows when
+          everything is ready for their first day.
+        </P>
+        <P>
+          <strong>Human Resources is only shown to people HR has given access to.</strong> If
+          you don't hold an HR role, you won't see it in the Departments menu or on the Dashboard.
+          Until HR has its own SharePoint site, it runs on demo data.
+        </P>
+        <H3>Submitting a new hire</H3>
+        <UL>
+          <LI>Fill in the start date, names, job title, department, manager, permanent / intern / contractor, and whether a computer is needed. FAB, Personal and EMP numbers, the desk and the IT ticket can be added now or later.</LI>
+          <LI>The <strong>display name</strong> and <strong>email</strong> are worked out from the names (the preferred first name if there is one). The email follows the name until you type in it — change it if two people share a name.</LI>
+          <LI>The <strong>manager</strong> is picked from the staff directory, so their email is always right.</LI>
+          <LI><strong>Submit new hire</strong> emails the people who add new hires to SAP, the people who raise IT tickets, and the manager. If nobody is set up for SAP or IT, ARC says so.</LI>
+        </UL>
+        <H3>The kick-off checklist</H3>
+        <UL>
+          <LI>Four steps: <strong>Added to SAP</strong>, <strong>IT ticket raised</strong>, <strong>IT account created</strong> and <strong>Computer set up</strong> (left out when no computer is needed).</LI>
+          <LI>Each tick records who did it and when. The status follows the ticks: Submitted, In progress, Complete.</LI>
+          <LI>The last tick emails whoever submitted the hire, and the manager, that everything is ready.</LI>
+          <LI><strong>Cancel hire</strong> needs a reason and emails SAP, IT and the manager to stop. <strong>Reopen</strong> undoes it. New hires are never deleted.</LI>
+          <LI>Anyone with access can edit every field with <strong>Edit</strong>.</LI>
+        </UL>
+        <H3>HR Access</H3>
+        <P>
+          HR admins (and ARC admins) manage who sees each HR app. <strong>New Hire</strong> opens
+          and edits new hires; <strong>New Hire — SAP</strong> and <strong>New Hire — IT</strong> do
+          the same and are also emailed for every new hire; <strong>HR admin</strong> manages this
+          list. ARC admins can manage the list but can't see new hires.
+        </P>
+        <P>Emails never include the Personal, FAB or EMP number — those stay on the record.</P>
+      </>
+    ),
+  },
+  {
     id: "eirs",
     title: "EIRs (Engineering Information Requests)",
     group: "Engineering requests",

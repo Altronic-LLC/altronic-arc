@@ -41,7 +41,8 @@ export type AppItemKind =
   | "crimpCheck"
   | "coatingCheck"
   | "harnessPartNumber"
-  | "scheduledMaintenance";
+  | "scheduledMaintenance"
+  | "newHire";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -99,6 +100,8 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // A PM schedule has no detail page: /operations/maintenance/schedules/:id is
   // the PM library showing just that schedule (PmLibraryView reads the id).
   scheduledMaintenance: "operations/maintenance/schedules",
+  // Human Resources — a new hire's page (/hr/new-hires/:id).
+  newHire: "hr/new-hires",
 };
 
 /** Absolute URL to an item's detail page in this app. */

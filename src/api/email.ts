@@ -148,7 +148,8 @@ export interface MentionTarget {
     | "crimpCheck"
     | "coatingCheck"
     | "harnessPartNumber"
-    | "scheduledMaintenance";
+    | "scheduledMaintenance"
+    | "newHire";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
@@ -300,6 +301,11 @@ const KIND_COPY: Record<
     phrase: "a PM schedule",
     calloutLabel: "PM Schedule",
     buttonText: "Open this PM schedule",
+  },
+  newHire: {
+    phrase: "a new hire",
+    calloutLabel: "New Hire",
+    buttonText: "Open this new hire",
   },
 };
 

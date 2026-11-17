@@ -257,6 +257,11 @@ const McnsView = lazy(() => import("@/views/McnsView").then((m) => ({ default: m
 const McnDetailView = lazy(() => import("@/views/McnDetailView").then((m) => ({ default: m.McnDetailView })));
 const McnSettingsView = lazy(() => import("@/views/McnSettingsView").then((m) => ({ default: m.McnSettingsView })));
 
+// Human Resources (Tim, 2026-11-17) — its own bundle; nothing else imports it.
+const NewHiresView = lazy(() => import("@/views/NewHiresView").then((m) => ({ default: m.NewHiresView })));
+const NewHireDetailView = lazy(() => import("@/views/NewHireDetailView").then((m) => ({ default: m.NewHireDetailView })));
+const HrAccessView = lazy(() => import("@/views/HrAccessView").then((m) => ({ default: m.HrAccessView })));
+
 // Reports — fixed KPI dashboards (a step up from Power BI for the numbers
 // people want live inside ARC). Its own small bundle, not part of any one
 // department's.
@@ -1214,6 +1219,34 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the MCN" />}>
                   <McnDetailView />
+                </Suspense>
+              }
+            />
+            {/* Human Resources — its own lazy bundle. Every screen sits behind
+                HrAccessGate; the menu and Dashboard hide HR from anyone
+                without an HR role. */}
+            <Route path="/hr" element={<Navigate to="/hr/new-hires" replace />} />
+            <Route
+              path="/hr/new-hires"
+              element={
+                <Suspense fallback={<LoadingTasks noun="new hires" />}>
+                  <NewHiresView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/hr/new-hires/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the new hire" />}>
+                  <NewHireDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/hr/access"
+              element={
+                <Suspense fallback={<LoadingTasks noun="HR access" />}>
+                  <HrAccessView />
                 </Suspense>
               }
             />

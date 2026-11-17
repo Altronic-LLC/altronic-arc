@@ -83,7 +83,8 @@ export interface ChangeTarget {
     | "crimpCheck"
     | "coatingCheck"
     | "harnessPartNumber"
-    | "scheduledMaintenance";
+    | "scheduledMaintenance"
+    | "newHire";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
@@ -115,6 +116,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   coatingCheck: "conformal coating check",
   harnessPartNumber: "harness part number",
   scheduledMaintenance: "PM schedule",
+  newHire: "new hire",
 };
 
 function nounFor(target: ChangeTarget): string {

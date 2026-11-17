@@ -115,6 +115,9 @@ export const DASHBOARD_DEPARTMENTS = [
   "Quality Control",
   "Supply Chain",
   "Customer Service / Sales",
+  // Shown only to HR Roles holders. Needs scripts/add-department-choice.ps1
+  // run before deploying — Quick Links' Department column is a strict choice.
+  "Human Resources",
 ] as const;
 
 export type DashboardDepartment = (typeof DASHBOARD_DEPARTMENTS)[number];
@@ -3523,6 +3526,7 @@ export const FEATURE_REQUEST_DEPARTMENTS = [
   "Quality Control",
   "Supply Chain",
   "Customer Service / Sales",
+  "Human Resources",
 ] as const;
 
 export type FeatureRequestDepartment = (typeof FEATURE_REQUEST_DEPARTMENTS)[number];

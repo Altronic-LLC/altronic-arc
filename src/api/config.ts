@@ -1418,6 +1418,33 @@ export const MCNS_CONFIGURED =
  */
 export const MCN_LIVE = USE_MOCK || import.meta.env.VITE_MCN_LIVE === "true";
 
+// =============================================================================
+// Human Resources (Tim, 2026-11-17) — built on MOCK DATA ONLY for now.
+//
+// HR has no SharePoint site yet. When IT creates one: grant ARC
+// `Sites.Selected` on it (write), run scripts/create-hr-lists.ps1, set the
+// three variables below, then give each HR list UNIQUE permissions (HR + the
+// SAP and IT people, nobody else) — the lists hold personal data, and ARC
+// hiding the department is navigation, not security.
+//
+// The site is deliberately NOT in `SITES` yet: an empty site id there would be
+// probed for access on every sign-in. Move it in (with a SITE_LABELS entry and
+// APPS entries in appAccess.ts) once the site exists.
+//
+// **No defaults.** Unset means the HR department is hidden from everybody in
+// real mode — nobody used HR in ARC before, so there is nobody to lock out.
+// =============================================================================
+
+export const HR_SITE_ID: string | undefined = import.meta.env.VITE_SP_HR_SITE_ID || undefined;
+export const SP_HR_ROLES_LIST_ID: string | undefined = import.meta.env.VITE_SP_HR_ROLES_LIST_ID || undefined;
+export const SP_NEW_HIRES_LIST_ID: string | undefined = import.meta.env.VITE_SP_NEW_HIRES_LIST_ID || undefined;
+
+/** The site and the roles list exist — HR access can be decided. Mock mode always is. */
+export const HR_CONFIGURED = USE_MOCK || (!!HR_SITE_ID && !!SP_HR_ROLES_LIST_ID);
+
+/** The New Hires list exists too. */
+export const NEW_HIRES_CONFIGURED = HR_CONFIGURED && (USE_MOCK || !!SP_NEW_HIRES_LIST_ID);
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // =============================================================================

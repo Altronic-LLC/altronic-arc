@@ -50,6 +50,8 @@ import {
   CalendarOff,
   Package,
   Gauge,
+  ShieldCheck,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
@@ -57,6 +59,7 @@ import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { canSeeHr, useMyHrAccess } from "@/hooks/useHrRoles";
 import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -120,6 +123,12 @@ interface DepartmentItem {
   panelBomAccess?: "with" | "without";
   /** Panel planning tools (BusinessIT#42): shown only to the panel team and ARC admins. */
   requiresPanelTeam?: boolean;
+  /**
+   * Human Resources: shown only to someone holding that app's HR Roles tag
+   * (`manage` = HR admins and ARC admins). Hidden, never "Soon" — what HR
+   * runs isn't advertised. Navigation only; each screen asks its own gate.
+   */
+  hrApp?: "newHire" | "manage";
 }
 
 interface DepartmentGroup {
@@ -483,6 +492,27 @@ const DEPARTMENTS: DepartmentGroup[] = [
       { ...soon("Pricing", <Calculator className="h-4 w-4" />), pricingAccess: "without" },
     ],
   },
+  {
+    // Human Resources (Tim, 2026-11-17) — every entry is gated by its own HR
+    // Roles tag, and a person with none sees no HR group at all.
+    name: "Human Resources",
+    items: [
+      {
+        to: "/hr/new-hires",
+        label: "New Hires",
+        icon: <UserPlus className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/hr/new-hires"),
+        hrApp: "newHire",
+      },
+      {
+        to: "/hr/access",
+        label: "HR Access",
+        icon: <ShieldCheck className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/hr/access"),
+        hrApp: "manage",
+      },
+    ],
+  },
 ];
 
 export function Header() {
@@ -843,6 +873,8 @@ function DepartmentsMenu({
   const mcnAccess = useMyMcnAccess();
   const canSeeMcns = MCNS_CONFIGURED && mcnAccess.rights.canOpen;
   const panelTeam = usePanelTeamAccess();
+  const hrAccess = useMyHrAccess();
+  const hrVisible = canSeeHr(hrAccess);
 
   useEffect(() => {
     if (!open) return;
@@ -885,15 +917,20 @@ function DepartmentsMenu({
           role="menu"
           className="absolute left-1/2 top-full z-30 mt-1 max-h-[70vh] w-[320px] -translate-x-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-lg sm:left-0 sm:translate-x-0"
         >
-          {DEPARTMENTS.map((group) => (
+          {DEPARTMENTS.map((group) => {
+            // A group with nothing this person may see isn't shown at all.
+            const visible = group.items
+              .filter((item) => !item.hrApp || (hrVisible && (item.hrApp === "manage" ? hrAccess.rights.canManage : hrAccess.rights.canNewHire)))
+              .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
+              .filter((item) => !item.requiresPanelTeam || panelTeam.canOpen);
+            if (visible.length === 0) return null;
+            return (
             <div key={group.name} className="border-b border-border last:border-b-0 px-1 py-2">
               <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                 {group.name}
               </div>
               <div className="space-y-1">
-                {group.items
-                  .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
-                  .filter((item) => !item.requiresPanelTeam || panelTeam.canOpen)
+                {visible
                   .filter(
                     (item) =>
                       !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
@@ -975,7 +1012,8 @@ function DepartmentsMenu({
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

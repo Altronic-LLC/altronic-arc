@@ -42,6 +42,8 @@ import {
   TestTubes,
   Timer,
   Users,
+  UserPlus,
+  ShieldCheck,
   Loader2,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
@@ -64,6 +66,7 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { canSeeHr, useMyHrAccess } from "@/hooks/useHrRoles";
 import { MCNS_CONFIGURED, PANEL_BOM_LIVE } from "@/api/config";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
@@ -1295,6 +1298,12 @@ export function DashboardView() {
         <SalesPricingPlaceholder />
       </DeptSection>
 
+      <HumanResourcesSection
+        collapsed={collapsedSections.has("Human Resources")}
+        onToggle={() => toggleSection("Human Resources")}
+        navigate={navigate}
+      />
+
       <p className="text-center text-xs text-fg-muted">
         Cards marked <span className="font-semibold">Coming soon</span> are
         placeholders — their SharePoint lists aren't wired up yet. Each will
@@ -1695,6 +1704,49 @@ function McnCard({ onOpen }: { onOpen: () => void }) {
       to={"/operations/mcns"}
       onClick={onOpen}
     />
+  );
+}
+
+/**
+ * Human Resources (Tim, 2026-11-17) — the whole section is HIDDEN from anyone
+ * without an HR role, and each card from anyone without that app's tag. Not
+ * "Coming soon": what HR runs isn't advertised. Description cards, no counts —
+ * the Dashboard reads no HR list.
+ */
+function HumanResourcesSection({
+  collapsed,
+  onToggle,
+  navigate,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  navigate: (to: string) => void;
+}) {
+  const access = useMyHrAccess();
+  if (!canSeeHr(access)) return null;
+  return (
+    <DeptSection title="Human Resources" collapsed={collapsed} onToggle={onToggle}>
+      {access.rights.canNewHire && (
+        <TypeCard
+          name="New Hires"
+          icon={<UserPlus className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Kick off SAP and the IT ticket for somebody starting, and see when they're ready."
+          to={"/hr/new-hires"}
+          onClick={() => navigate("/hr/new-hires")}
+        />
+      )}
+      {access.rights.canManage && (
+        <TypeCard
+          name="HR Access"
+          icon={<ShieldCheck className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Who can see each HR app, and who is emailed about new hires."
+          to={"/hr/access"}
+          onClick={() => navigate("/hr/access")}
+        />
+      )}
+    </DeptSection>
   );
 }
 

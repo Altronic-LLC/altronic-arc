@@ -508,6 +508,8 @@ src/
 │   ├── operationsAlertRecipients.ts Operations Alert Recipients — who each Operations email goes to; admin-managed list, read fresh at send
 │   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
+│   ├── hrRoles.ts                HR Roles CRUD (HR site) — one tag per HR app; unset = HR hidden
+│   ├── newHires.ts               New Hires CRUD (HR site) — steps and cancel after a fresh read, no delete; mock only until HR has a site
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
@@ -581,6 +583,7 @@ src/
 │   ├── crimpMockData.ts          Sample crimp specs + checks — INVENTED terminals/applicators, one out of spec, one spec with no height
 │   ├── coatingMockData.ts        Sample coating specs + checks — INVENTED machines, mm and inch checks, one out of spec, one retired spec
 │   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
+│   ├── hrMockData.ts             Sample new hires (one per state) + HR roles — all INVENTED
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
@@ -630,6 +633,8 @@ src/
 │   ├── useRememberedView.tsx     List or Kanban remembered per browser (#51) — saved in the switcher, applied by a list route wrapper
 │   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
+│   ├── useHrRoles.ts             HR Roles CRUD (HR admin / ARC admin) + useMyHrAccess / useResolveHrAccess / canSeeHr / readHrPeopleWithRole
+│   ├── useNewHires.ts            New Hire queries + gated writes (create, edit, tick a step, cancel/reopen) + their emails
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -902,6 +907,10 @@ src/
 │   ├── mcnRoles.ts               MCN role tags → rights + the raise / approve / manage gates (pure)
 │   ├── mcnWorkflow.ts            The MCN workflow — actions per status, submit rules, which card is editable when (pure)
 │   ├── mcnAlerts.ts              MCN emails — submitted, approved, rejected, implemented; distribution prefill (pure)
+│   ├── hrRoles.ts                HR role tags → rights + the New Hire / manage gates (pure) — no role = HR hidden
+│   ├── newHire.ts                New Hire rules (pure) — display name + email from the names, the four steps, derived status, what a submission needs
+│   ├── newHireMapper.ts          Graph item ⇄ NewHire; manager and step 'who' as Name <email> TEXT, ticket link as text
+│   ├── newHireAlerts.ts          New Hire emails (pure) — submitted / ready / cancelled; no personal identifiers
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
 │   ├── monthTrend.ts             Reports' this-month-vs-last-month rule — rates not counts, good ≠ up, too-early threshold (pure)
@@ -934,6 +943,7 @@ src/
 │   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
 │   ├── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
+│   ├── hr.ts                     Human Resources types + constants (HR roles, employment types, new hire statuses + steps)
 │   └── panelBom.ts               Panel SAP BOM Builder types + PANEL_BOM_CLUSTERS (the ten clusters, which drive item numbers)
 │
 ├── components/
@@ -1081,6 +1091,8 @@ src/
 │   ├── McnFields.tsx             MCN dialog shell, scope-line editor, single-person picker, distribution ticks
 │   ├── McnFormModal.tsx          New MCN — saved as a Draft, number previewed; staged attachments upload after the create
 │   ├── McnDialogs.tsx            MCN card editors (description, scope, items, distribution) + approve / reject-reopen / implement
+│   ├── hrAtoms.tsx               HR dialog / field / person picker, status chip, HR sub-nav, HrAccessGate
+│   ├── NewHireFormModal.tsx      New hire / edit — the HR spreadsheet's columns, email follows the name, NO browser draft
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
@@ -1161,6 +1173,9 @@ src/
 │   ├── McnsView.tsx              MCN register (/operations/mcns) — opens on open MCNs, sortable, cards on a phone
 │   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
 │   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
+│   ├── NewHiresView.tsx          New Hires (/hr/new-hires) — opens on open ones, soonest start first, sortable, cards on a phone
+│   ├── NewHireDetailView.tsx     One new hire (/hr/new-hires/:id) — read-only cards, Edit, the stamped kick-off checklist, cancel/reopen
+│   ├── HrAccessView.tsx          HR Access (/hr/access) — who sees each HR app; HR admins and ARC admins
 │   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
 │   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
 │   ├── TeradyneDefectBreakdownReportView.tsx  Teradyne Defect Breakdown — latest month's donut, grouped by remark
@@ -6448,6 +6463,65 @@ rather than a bespoke multi-key sort, so it still plugs into the shared
 flipping direction reverses both the group order and the within-group date
 order together — accepted, since compressing two sort keys into one numeric
 value is the standard trade-off here).
+
+### Human Resources — New Hires (mock data only, 2026-11-17)
+
+Tim's decisions, 2026-11-17: HR has **no SharePoint site yet**, so the
+department is built on mock data; access is an **HR Roles** list with one tag
+per app; a submitted hire emails SAP, IT and the manager, and a stamped
+checklist is the workflow; **anyone with access edits every field** (no
+field-level split). The first app replaces HR's New Hire spreadsheet. Pieces:
+`types/hr.ts`, `lib/hrRoles.ts`, `lib/newHire.ts`, `lib/newHireMapper.ts`,
+`lib/newHireAlerts.ts`, `api/hrRoles.ts`, `api/newHires.ts`,
+`hooks/useHrRoles.ts`, `hooks/useNewHires.ts`, `components/hrAtoms.tsx`,
+`components/NewHireFormModal.tsx`, three views (`/hr/new-hires`, `/:id`,
+`/hr/access`), `scripts/create-hr-lists.ps1`.
+
+- **Going live**: IT creates the HR site, an admin grants ARC `Sites.Selected`
+  (write) on it, `create-hr-lists.ps1 -SiteId … [-AdminEmail …]` creates both
+  lists (writing and reading back every New Hires column on a throwaway row),
+  set `VITE_SP_HR_SITE_ID`, `VITE_SP_HR_ROLES_LIST_ID`,
+  `VITE_SP_NEW_HIRES_LIST_ID`, give BOTH lists unique permissions (they hold
+  personal data), redeploy. **The site is NOT in `SITES`** — an empty id there
+  would be access-probed at every sign-in; move it in (with `SITE_LABELS` and
+  `APPS` entries) once it exists. No defaults: unset = HR hidden in real mode.
+- **Hidden, not "Coming soon".** No HR role = no HR group in the Departments
+  menu (`hrApp` on a `DepartmentItem`; a group with no visible items is now
+  skipped entirely) and no Dashboard section (`HumanResourcesSection`). Each
+  card/entry needs its own app's right. `canSeeHr` waits for the roles list,
+  so HR never flashes up and vanishes.
+- **Tags** (`HR_ROLES`): `new hire`, `new hire sap` and `new hire it` all open
+  and edit New Hires; the two queue tags are also who is EMAILED, read FRESH
+  from HR Roles at send time (`readHrPeopleWithRole`) — no separate
+  recipients list. `admin` manages HR Access. **An ARC admin gets only the
+  manage right**, never the new hires. A new HR app adds its own tag.
+- **Every write asks the gate inside its mutationFn** (`useResolveHrAccess`,
+  awaited), pinned in `hooks/useNewHires.test.tsx`, verified by removing it.
+- **Status is DERIVED** (`newHireStatus`): Cancelled, else Complete when every
+  applicable step is ticked (Computer set up drops out only for a definite No),
+  else In progress / Submitted. Written to `Status` on every write so
+  SharePoint's views show it, but never read back as truth.
+- **A step is ticked after a FRESH read and never re-stamped** — whoever
+  ticked it first keeps the stamp. Pinned in `api/newHires.real.test.ts`.
+- **Manager and every "who" are TEXT** (`Name <email>`, `lib/peopleLines.ts`),
+  not person columns — no lookupId to resolve on a site that doesn't exist, and
+  a person column drops anyone it can't resolve. The ticket link is TEXT (Graph
+  can't write a Hyperlink column). The email column is `WorkEmail`.
+- **Emails carry no Personal #, FAB # or EMP #** (`newHireSummaryRows`) — mail
+  is forwarded. Somebody on both queues gets ONE email naming both jobs. Queue
+  actor rule: dropped only if somebody is left; manager/submitter: strictly.
+- **No browser draft on the New Hire form**, unlike every other create form —
+  a half-typed hire is personal data, and a shared PC keeps a draft a week.
+- **No delete** — Cancel (with a reason, emails SAP, IT and the manager) and
+  Reopen.
+- **"Human Resources" is in `DASHBOARD_DEPARTMENTS` and
+  `FEATURE_REQUEST_DEPARTMENTS`**, so `scripts/add-department-choice.ps1
+  -Department "Human Resources"` (the general form of the Harness script) must
+  run BEFORE the deploy — both lists' Department columns are strict choices.
+- **Open: who the emails come FROM.** Today the shared mailbox like the rest of
+  ARC; Tim asked whether HR's should come from the HR person. Options and the
+  recommendation (shared mailbox + Reply-To the person) are in the
+  conversation of 2026-11-17 — record the decision here when made.
 
 ### Panel Orders — moving in the old Panel Job Dashboard (2026-11-13)
 
