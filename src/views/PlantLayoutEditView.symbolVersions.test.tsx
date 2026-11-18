@@ -54,7 +54,7 @@ describe("a replaced symbol in the editor", () => {
     await replaceMill();
     openEditor(3);
     const palette = await screen.findByRole("region", { name: "Symbols" });
-    expect(within(palette).getAllByRole("button", { name: /^Add / })).toHaveLength(15);
+    expect(within(palette).getAllByRole("button", { name: /^Add / })).toHaveLength(16);
     expect(within(palette).getByRole("button", { name: "Add Mill, new drawing" })).toBeInTheDocument();
     expect(within(palette).queryByRole("button", { name: "Add CNC Vertical Mill (generic)" })).toBeNull();
   });

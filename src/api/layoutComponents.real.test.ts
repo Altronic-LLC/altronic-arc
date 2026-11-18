@@ -54,7 +54,7 @@ describe("listLayoutComponents and CollisionPolygon", () => {
       row("5", { Title: "Desk", ComponentKey: "desk", FootprintW: 60, FootprintD: 30 }),
     ]);
     const [shaped, plain] = await listLayoutComponents();
-    expect(graphFetchAll.mock.calls[0][0]).toMatch(/\$select=[^)]*,CollisionPolygon\)/);
+    expect(graphFetchAll.mock.calls[0][0]).toMatch(/\$select=[^)]*,CollisionPolygon,IsLabel,TextBox\)/);
     expect(shaped.collisionPolygon).toEqual(L_SHAPE);
     expect(plain.collisionPolygon).toBeNull();
   });
@@ -65,16 +65,38 @@ describe("listLayoutComponents and CollisionPolygon", () => {
     expect(c.collisionPolygon).toBeNull();
   });
 
-  it("retries without the column on a 400, and doesn't ask for it again", async () => {
+  it("steps down a tier at a time on a 400 — the label columns, then the outline — and doesn't ask again", async () => {
     graphFetchAll
+      .mockRejectedValueOnce(new GraphError(400, "Bad Request", "invalidRequest", "u"))
       .mockRejectedValueOnce(new GraphError(400, "Bad Request", "invalidRequest", "u"))
       .mockResolvedValue([row("5", { Title: "Desk", ComponentKey: "desk", FootprintW: 60, FootprintD: 30 })]);
     const [c] = await listLayoutComponents();
     expect(c.key).toBe("desk");
-    expect(graphFetchAll.mock.calls[1][0]).not.toMatch(/CollisionPolygon/);
-    await listLayoutComponents();
-    expect(graphFetchAll).toHaveBeenCalledTimes(3);
+    expect(graphFetchAll.mock.calls[1][0]).toMatch(/,CollisionPolygon\)/);
+    expect(graphFetchAll.mock.calls[1][0]).not.toMatch(/IsLabel/);
     expect(graphFetchAll.mock.calls[2][0]).not.toMatch(/CollisionPolygon/);
+    await listLayoutComponents();
+    expect(graphFetchAll).toHaveBeenCalledTimes(4);
+    expect(graphFetchAll.mock.calls[3][0]).not.toMatch(/CollisionPolygon/);
+  });
+
+  it("keeps the outline when only the label columns are missing", async () => {
+    graphFetchAll
+      .mockRejectedValueOnce(new GraphError(400, "Bad Request", "invalidRequest", "u"))
+      .mockResolvedValue([row("4", { Title: "L", ComponentKey: "l", FootprintW: 72, FootprintD: 72, CollisionPolygon: JSON.stringify(L_SHAPE) })]);
+    const [c] = await listLayoutComponents();
+    expect(c.collisionPolygon).toEqual(L_SHAPE);
+    expect(c.isLabel).toBe(false);
+    await listLayoutComponents();
+    expect(graphFetchAll.mock.calls[2][0]).toMatch(/,CollisionPolygon\)/);
+  });
+
+  it("reads IsLabel and a TextBox", async () => {
+    graphFetchAll.mockResolvedValue([
+      row("9", { Title: "Area label", ComponentKey: "area-label", FootprintW: 96, FootprintD: 24, IsLabel: true, TextBox: '{"x":8,"y":4,"w":80,"h":16}' }),
+    ]);
+    const [c] = await listLayoutComponents();
+    expect(c).toMatchObject({ isLabel: true, textBox: { x: 8, y: 4, w: 80, h: 16 } });
   });
 
   it("reports the original fault when the read without the column fails too", async () => {
@@ -123,6 +145,18 @@ describe("createLayoutComponent and CollisionPolygon", () => {
     const created = await createLayoutComponent({ ...input, collisionPolygon: L_SHAPE as [number, number][] });
     expect(JSON.parse(JSON.parse(String(graphFetch.mock.calls[0][1].body)).fields.CollisionPolygon)).toEqual(L_SHAPE);
     expect(created.collisionPolygon).toEqual(L_SHAPE);
+  });
+
+  it("leaves the label columns out of an ordinary symbol, and writes them for a label", async () => {
+    await createLayoutComponent(input);
+    const plain = JSON.parse(String(graphFetch.mock.calls[0][1].body)).fields;
+    expect(plain).not.toHaveProperty("IsLabel");
+    expect(plain).not.toHaveProperty("TextBox");
+    const created = await createLayoutComponent({ ...input, isLabel: true, textBox: { x: 2, y: 2, w: 56, h: 26 } });
+    const fields = JSON.parse(String(graphFetch.mock.calls[1][1].body)).fields;
+    expect(fields.IsLabel).toBe(true);
+    expect(JSON.parse(fields.TextBox)).toEqual({ x: 2, y: 2, w: 56, h: 26 });
+    expect(created).toMatchObject({ isLabel: true, textBox: { x: 2, y: 2, w: 56, h: 26 } });
   });
 });
 

@@ -235,3 +235,39 @@ describe("buildTagsCsv", () => {
     expect(lines[4]).toBe("a_1,Area,Main Plant,Machining,machining-abc,3,12,,,Main walkway,,,Aisle,,,,50,150,300,40,0,in");
   });
 });
+
+describe("buildCompositeSvg — label symbols", () => {
+  it("writes a label symbol's item label inside it, and nothing extra on other items", () => {
+    const pill: LayoutComponent = {
+      ...BENCH,
+      id: 8,
+      key: "area-label",
+      svgMarkup: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 24"><rect width="96" height="24" rx="12"/></svg>',
+      footprintW: 96,
+      footprintD: 24,
+      isLabel: true,
+      textBox: { x: 8, y: 4, w: 80, h: 16 },
+    };
+    const layout: PlantLayout = {
+      ...LAYOUT,
+      doc: { ...LAYOUT.doc, items: [item({ uid: "i_1" }), item({ uid: "i_l", componentId: 8, w: 96, d: 24, rot: 180, label: "Tool crib" })] },
+    };
+    const svg = buildCompositeSvg({
+      layout,
+      wallsSvg: WALLS,
+      extent: { w: 400, h: 200 },
+      components: new Map([
+        [7, BENCH],
+        [8, pill],
+      ]),
+      assets: ASSETS,
+      publishedAt: new Date("2026-11-13T15:00:00Z"),
+    });
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    const text = doc.getElementById("i_l")!.getElementsByTagName("text")[0];
+    expect(text.textContent).toBe("Tool crib");
+    expect(text.getAttribute("font-size")).toBe("12");
+    expect(text.getAttribute("transform")).toBe("rotate(180 0 0)");
+    expect(doc.getElementById("i_1")!.getElementsByTagName("text")).toHaveLength(0);
+  });
+});

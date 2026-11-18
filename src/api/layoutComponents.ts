@@ -7,6 +7,7 @@ import { MAX_SYMBOL_MARKUP_CHARS } from "@/lib/plantSymbolImport";
 import { toNumberOrNull } from "@/lib/graphValues";
 import { parseCollisionPolygon } from "@/lib/plantGeometry";
 import { latestByKey, symbolKey } from "@/lib/plantSymbolVersions";
+import { parseTextBox } from "@/lib/plantLabels";
 import { MOCK_LAYOUT_COMPONENTS } from "@/data/plantMockData";
 
 // =============================================================================
@@ -28,6 +29,11 @@ import { MOCK_LAYOUT_COMPONENTS } from "@/data/plantMockData";
 // WHOLE read, and the column is added by a script run separately from any
 // deploy — so a 400 retries once without it and remembers (the MRB Watchers
 // arrangement). Every symbol is then checked as its rectangle.
+//
+// `IsLabel` and `TextBox` (2026-11-18, the CAD extract's area-label pill) were
+// added later still, so the read steps down in TIERS: all three optional
+// columns, then CollisionPolygon alone, then none — a list that has the outline
+// column but not the label ones keeps its outlines.
 // =============================================================================
 
 export const LAYOUT_COMPONENT_SELECT = [
@@ -48,11 +54,19 @@ export const LAYOUT_COMPONENT_SELECT = [
 ].join(",");
 
 const COLLISION_POLYGON_COLUMN = "CollisionPolygon";
-let collisionPolygonMissing = false;
+const IS_LABEL_COLUMN = "IsLabel";
+const TEXT_BOX_COLUMN = "TextBox";
+/** The optional columns asked for, most first; a 400 steps down a tier and is remembered. */
+const OPTIONAL_TIERS: readonly (readonly string[])[] = [
+  [COLLISION_POLYGON_COLUMN, IS_LABEL_COLUMN, TEXT_BOX_COLUMN],
+  [COLLISION_POLYGON_COLUMN],
+  [],
+];
+let optionalTier = 0;
 
 /** Tests only. */
 export function __resetCollisionPolygonFallback(): void {
-  collisionPolygonMissing = false;
+  optionalTier = 0;
 }
 
 function text(v: unknown): string {
@@ -86,6 +100,8 @@ export function toLayoutComponent(item: GraphListItem): LayoutComponent {
     clearance: toNumberOrNull(f.Clearance) ?? 0,
     // Unreadable = no shape: the symbol is checked as its rectangle.
     collisionPolygon: parseCollisionPolygon(f.CollisionPolygon),
+    isLabel: yesNo(f.IsLabel, false),
+    textBox: parseTextBox(f.TextBox),
     version: toNumberOrNull(f.Version) ?? 1,
     // A missing IsActive reads as ACTIVE, or adding the column would hide them all.
     active: yesNo(f.IsActive, true),
@@ -103,27 +119,31 @@ export function __resetLayoutComponentsMockStore(): void {
 export async function listLayoutComponents(): Promise<LayoutComponent[]> {
   if (USE_MOCK) return mockDelay(mockComponents.map((c) => ({ ...c })));
   if (!SP_LAYOUT_COMPONENTS_LIST_ID) return [];
-  const read = (withPolygon: boolean) =>
+  const read = (tier: number) =>
     graphFetchAll<GraphListItem>(
-      `/sites/${SITES.pmo}/lists/${SP_LAYOUT_COMPONENTS_LIST_ID}/items?$expand=fields($select=${LAYOUT_COMPONENT_SELECT}${
-        withPolygon ? `,${COLLISION_POLYGON_COLUMN}` : ""
-      })&$top=500`,
+      `/sites/${SITES.pmo}/lists/${SP_LAYOUT_COMPONENTS_LIST_ID}/items?$expand=fields($select=${[
+        LAYOUT_COMPONENT_SELECT,
+        ...OPTIONAL_TIERS[tier],
+      ].join(",")})&$top=500`,
     );
-  if (collisionPolygonMissing) return (await read(false)).map(toLayoutComponent);
+  const start = optionalTier;
   try {
-    return (await read(true)).map(toLayoutComponent);
+    return (await read(start)).map(toLayoutComponent);
   } catch (err) {
     if (!(err instanceof GraphError && err.status === 400)) throw err;
-    // Only conclude the column is missing once the read WITHOUT it works;
-    // both failing is something else, and the original fault is reported.
-    let items: GraphListItem[];
-    try {
-      items = await read(false);
-    } catch {
-      throw err;
+    // Step down a tier at a time. Only conclude a column is missing once a
+    // read WITHOUT it works; anything else failing is something else, and the
+    // original fault is reported.
+    for (let tier = start + 1; tier < OPTIONAL_TIERS.length; tier++) {
+      try {
+        const items = await read(tier);
+        optionalTier = tier;
+        return items.map(toLayoutComponent);
+      } catch (next) {
+        if (!(next instanceof GraphError && next.status === 400)) throw err;
+      }
     }
-    collisionPolygonMissing = true;
-    return items.map(toLayoutComponent);
+    throw err;
   }
 }
 
@@ -150,6 +170,8 @@ function rowFor(input: ReplaceLayoutComponentInput, key: string, version: number
     collides: input.collides,
     clearance: Math.max(0, input.clearance),
     collisionPolygon: input.collisionPolygon ?? null,
+    isLabel: input.isLabel ?? false,
+    textBox: input.isLabel ? (input.textBox ?? null) : null,
     version,
     active: true,
   };
@@ -183,6 +205,9 @@ async function addRow(row: Omit<LayoutComponent, "id">): Promise<LayoutComponent
         IsActive: row.active,
         // Only written when there is one, so a list without the column can still take a plain symbol.
         ...(row.collisionPolygon ? { [COLLISION_POLYGON_COLUMN]: JSON.stringify(row.collisionPolygon) } : {}),
+        // The same for a label symbol's two columns.
+        ...(row.isLabel ? { [IS_LABEL_COLUMN]: true } : {}),
+        ...(row.isLabel && row.textBox ? { [TEXT_BOX_COLUMN]: JSON.stringify(row.textBox) } : {}),
       },
     }),
   });

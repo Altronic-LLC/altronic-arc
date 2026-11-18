@@ -1221,6 +1221,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "footprintW / footprintD (in)", type: "number", kind: "field" },
       { name: "collides / clearance", type: "bool", kind: "field" },
       { name: "collisionPolygon (JSON points)", type: "text", kind: "field" },
+      { name: "isLabel / textBox (JSON)", type: "text", kind: "field" },
       { name: "isActive", type: "bool", kind: "field" },
     ],
   },

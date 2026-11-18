@@ -927,7 +927,8 @@ src/
 │   ├── plantEditor.ts            The layout editor's state (pure) — one action per edit with undo / redo, snap, size limits, placing a symbol
 │   ├── plantDrawingReview.ts     Reviewing an uploaded walls drawing (pure) — size / no-walls / unreadable-shape warnings, keep-outs offered as editable areas
 │   ├── plantSymbolImport.ts      A new symbol from an SVG, a DXF (read here, units from $INSUNITS) or a traced picture → the library's SVG (pure)
-│   ├── plantSymbolVersions.ts    Symbol versions (pure) — latest per key, what the palette shows, an item's newer version and the swap that updates it
+│   ├── plantSymbolVersions.ts    Symbol versions (pure) — latest per key, what the palette shows, an item's newer version and the swap that updates it, the layouts that use a symbol
+│   ├── plantLabels.ts            Label symbols (pure) — where an item's label is written inside an IsLabel symbol's TextBox, and how big
 │   ├── plantAlign.ts             Alignment guides (pure) — a dragged box snaps onto a neighbour's edge or centre line, and the dotted guides to draw
 │   ├── plantLayers.ts            Plant Map layers (pure) — the layout's layers, what's shown, revealing a picked item, counts, where a new copy goes
 │   ├── plantPublishFiles.ts      A published layout's files for Power BI (pure) — the composite SVG (symbols inlined, ids = TagIds) and the tags CSV, and their names
@@ -1119,6 +1120,7 @@ src/
 │   ├── plantMapAtoms.tsx         Plant Map status chip, the Layouts / Symbols / Roles nav, PlantMapAccessGate (configured? on the roles list?)
 │   ├── PlantCanvas.tsx           THE plan, viewing and editing — a viewBox window (wheel zoom, drag to pan), walls + symbols as sanitised <image>s; editing adds move / rotate / resize drags and the palette ghost
 │   ├── PlantEditorPanels.tsx     The editor's symbol palette (drag or click) and the selected item's inspector (commit on Enter / blur; Layer / Group)
+│   ├── PlantOutlineEditor.tsx    A symbol's collision outline on the Add / Replace form — corners clicked on the preview (snapped to the inch) or typed
 │   ├── PlantLayersPanel.tsx      Show / hide a layout's layers and their groups, with counts — the viewer and the editor
 │   ├── NewPlantLayoutModal.tsx   Start a layout — name, area, building; an existing building reuses its drawing, a new one uploads it, reviewed BEFORE anything is written
 │   ├── NewPlantSymbolModal.tsx   Add a symbol, or replace one with its next version — SVG, DXF or a traced picture + name, category, footprint, solid / turn / resize; the preview IS what's saved
@@ -9338,8 +9340,32 @@ live list.
 - Otherwise it fills only an EMPTY Draft of the extract's exact size, keeps
   any areas on it, re-reads the row just before the write and compares the
   read-back character for character.
-- `CollisionPolygon` is loaded and used (above). `IsLabel` / `TextBox` aren't
-  read by ARC yet, so area labels draw as the pill with ARC's text.
+- `CollisionPolygon` is loaded and used (above), and so are `IsLabel` /
+  `TextBox` (below). New label symbols get both columns; **`-FillLabels`**
+  sets them on label symbols loaded before ARC read them (the live
+  `area-label` row) — only those two columns, only where IsLabel isn't Yes,
+  each read back — and touches no layout. Reports only until `-Apply`.
+
+**Label symbols** (Tim, 2026-11-18) — `lib/plantLabels.ts` (pure). A symbol
+with **`IsLabel`** (Yes/No) has each item's OWN label written inside it,
+fitted to its **`TextBox`** (JSON `{x, y, w, h}` in the symbol's inches; blank
+= the footprint inset 8%). Rules:
+
+- **`labelTextLayout` is the one rule**, used by the canvas AND the Power BI
+  SVG, so they place it the same. The box stretches with a resized item; the
+  font is the largest that fits its height (×0.75) and width; text on an item
+  turned 90°–269° is flipped to read the right way up.
+- **It is part of the drawing**: plan inches, scaled with the zoom, shown
+  with the Labels toggle on or off. A label item gets no floating name too.
+- **The two columns came after CollisionPolygon**, so the read steps down in
+  TIERS on a 400 — all three optional columns, then CollisionPolygon alone,
+  then none — and remembers. A list with outlines but no label columns keeps
+  its outlines. A create writes the columns only for a label symbol.
+- **`create-plant-map-lists.ps1 -NoSeed` adds them**, and must run before a
+  `-FillLabels` load. The Add / Replace symbol form has an "A label" box; a
+  replacement that keeps its drawing keeps its TextBox, a new drawing drops it.
+- The demo has an invented `area-label` symbol (id 16) and three room labels
+  on the Engineering & Sales draft.
 
 **Layers** (Tim, 2026-11-10) — `lib/plantLayers.ts` (pure),
 `hooks/usePlantLayerVisibility.ts`, `components/PlantLayersPanel.tsx`. An

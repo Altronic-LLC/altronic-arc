@@ -98,4 +98,15 @@ describe("the collision outline on the symbol form", () => {
     const v2 = (await listLayoutComponents()).find((c) => c.key === "desk-l-72x72" && c.version === 2)!;
     expect(v2.collisionPolygon).toEqual([[0, 0], [72, 0], [72, 36], [36, 36], [36, 72], [0, 72]]);
   });
+
+  it("marks a new symbol as a label, so each item's name is written inside it", async () => {
+    const user = userEvent.setup();
+    const dialog = await startAdding(user);
+    await user.click(within(dialog).getByRole("radio", { name: "A floor marking" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /A label — each item's name is written inside it/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Add symbol" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const added = (await listLayoutComponents()).find((c) => c.key === "bench-120x60")!;
+    expect(added).toMatchObject({ isLabel: true, textBox: null, collides: false, collisionPolygon: null });
+  });
 });

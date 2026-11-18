@@ -111,6 +111,8 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
   const [maxPct, setMaxPct] = useState(r?.allowResize ? String(Math.round(r.maxScale * 100)) : "150");
   const [fit, setFit] = useState<"contain" | "stretch">("contain");
   const [frontMark, setFrontMark] = useState(true);
+  /** A label symbol: the item's label is written inside it (lib/plantLabels.ts). */
+  const [isLabel, setIsLabel] = useState(!!r?.isLabel);
   /**
    * How the placement check sees it: its whole footprint, or an outline drawn
    * here. Replacing keeps the current outline while the drawing is kept.
@@ -241,7 +243,8 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
       (rotate === "Yes") === r.allowRotate &&
       allowResize === r.allowResize &&
       (!allowResize || (min === r.minScale && max === r.maxScale)) &&
-      JSON.stringify(polygon ?? null) === JSON.stringify(r.collisionPolygon ?? null)
+      JSON.stringify(polygon ?? null) === JSON.stringify(r.collisionPolygon ?? null) &&
+      isLabel === !!r.isLabel
     ) {
       return setError("Nothing has changed. Pick a new drawing, or change a detail.");
     }
@@ -262,6 +265,9 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
         clearance: clear,
         // Drawn on this form (a new drawing starts without one); a floor marking has none.
         collisionPolygon: polygon,
+        isLabel,
+        // Its text area belongs to its drawing: kept with the drawing, the footprint inset otherwise.
+        textBox: isLabel && r && !art ? (r.textBox ?? null) : null,
       });
     } catch (err) {
       setError(
@@ -469,6 +475,19 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
                 ]}
               />
             </div>
+            <label className="flex items-start gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                checked={isLabel}
+                onChange={(e) => setIsLabel(e.target.checked)}
+                disabled={busy}
+                className="mt-0.5"
+              />
+              <span>
+                A label — each item's name is written inside it
+                <span className="block text-[11px] text-fg-muted">For an area or room label, such as a pill with the name in it.</span>
+              </span>
+            </label>
             <label className="flex flex-col gap-1.5">
               <span className={label}>Clearance (in)</span>
               <input type="number" min={0} step="any" value={clearance} onChange={(e) => setClearance(e.target.value)} className="select" disabled={busy} />

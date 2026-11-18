@@ -49,6 +49,11 @@
       A layered placement already there (same uid) is skipped, so a re-run
       adds nothing. Needs PowerShell 7.5+, which reads the existing layout
       without turning label text into dates.
+    - LABEL symbols (the area-label pill): IsLabel and TextBox go in the
+      columns of those names, which create-plant-map-lists.ps1 adds, so ARC
+      writes each item's label inside the pill. -FillLabels sets them on label
+      symbols ALREADY on the list (loaded before ARC read them) - only those
+      two columns, only where IsLabel isn't Yes yet - and touches no layout.
     - The row is read FRESH just before the write, the write is read back and
       compared character for character. Nothing is deleted. No email is sent.
 
@@ -69,11 +74,16 @@
 .PARAMETER AddLayers
     Add only the layered placements to a Draft that already has the others.
 
+.PARAMETER FillLabels
+    Set IsLabel and TextBox on label symbols already on the list, and nothing
+    else. Reports only, until -Apply.
+
 .EXAMPLE
     .\load-plant-cad-extract.ps1
     .\load-plant-cad-extract.ps1 -Apply
     .\load-plant-cad-extract.ps1 -Building eng-sales -Apply
     .\load-plant-cad-extract.ps1 -AddLayers -Apply
+    .\load-plant-cad-extract.ps1 -FillLabels -Apply
     .\load-plant-cad-extract.ps1 -LayoutId 12 -Apply
 #>
 
@@ -84,6 +94,7 @@ param(
     [int]$LayoutId,
     [string]$BuildingName,
     [switch]$AddLayers,
+    [switch]$FillLabels,
     [switch]$Apply,
     [switch]$DeviceCode
 )
@@ -225,6 +236,16 @@ $shaped = @($symbols | Where-Object { $_.CollisionPolygon })
 if ($shaped.Count -gt 0 -and $componentColumns -notcontains "CollisionPolygon") {
     Fail "$($shaped.Count) symbols have a CollisionPolygon but '$COMPONENTS_NAME' has no CollisionPolygon column. Run create-plant-map-lists.ps1 -NoSeed, then this again."
 }
+$labelSymbols = @($symbols | Where-Object { $_.IsLabel -eq $true })
+$hasLabelColumns = ($componentColumns -contains "IsLabel") -and ($componentColumns -contains "TextBox")
+if (($labelSymbols.Count -gt 0 -or $FillLabels) -and -not $hasLabelColumns) {
+    Fail "the extract has $($labelSymbols.Count) label symbols but '$COMPONENTS_NAME' has no IsLabel / TextBox columns. Run create-plant-map-lists.ps1 -NoSeed, then this again."
+}
+function TextBoxJson($s) {
+    $b = $s.TextBox
+    if (-not $b) { return $null }
+    return (ConvertTo-Json -InputObject ([ordered]@{ x = [double]$b.x; y = [double]$b.y; w = [double]$b.w; h = [double]$b.h }) -Compress)
+}
 foreach ($s in $shaped) {
     $pts = @($s.CollisionPolygon)
     if ($pts.Count -lt 3 -or @($pts | Where-Object { @($_).Count -lt 2 }).Count -gt 0) { Fail "symbol $($s.key)'s CollisionPolygon isn't a list of [x, y] points." }
@@ -245,10 +266,11 @@ if ($missingChoices.Count -gt 0) {
 # A symbol replaced in ARC has a row per VERSION, all with one key: placements
 # use the newest (highest Version; a tie goes to the higher id), as ARC's palette does.
 $existing = @{}
-foreach ($row in (Get-AllItems $componentsId "ComponentKey,Version")) {
+$scanColumns = $(if ($hasLabelColumns) { "ComponentKey,Version,IsLabel" } else { "ComponentKey,Version" })
+foreach ($row in (Get-AllItems $componentsId $scanColumns)) {
     $k = "$($row.fields.ComponentKey)".Trim().ToLower()
     if (-not $k) { continue }
-    $candidate = @{ id = [int]$row.id; version = [int]($(if ($row.fields.Version) { $row.fields.Version } else { 1 })) }
+    $candidate = @{ id = [int]$row.id; version = [int]($(if ($row.fields.Version) { $row.fields.Version } else { 1 })); isLabel = ($row.fields.IsLabel -eq $true) }
     $seen = $existing[$k]
     if (-not $seen -or $candidate.version -gt $seen.version -or ($candidate.version -eq $seen.version -and $candidate.id -gt $seen.id)) {
         $existing[$k] = $candidate
@@ -257,6 +279,28 @@ foreach ($row in (Get-AllItems $componentsId "ComponentKey,Version")) {
 $toAdd = @($symbols | Where-Object { -not $existing.ContainsKey($_.key.ToLower()) })
 Write-Host "`nSymbols: $($symbols.Count - $toAdd.Count) already on '$COMPONENTS_NAME', $($toAdd.Count) to add ($(@($toAdd | Where-Object { $_.CollisionPolygon }).Count) with a collision outline)"
 foreach ($g in ($toAdd | Group-Object { $categoryFor[$_.key.ToLower()] } | Sort-Object Name)) { Write-Host ("    {0,-8} {1}" -f $g.Name, $g.Count) -ForegroundColor DarkGray }
+
+# --- -FillLabels: label columns on symbols already loaded, and nothing else -------------
+if ($FillLabels) {
+    $notLoaded = @($labelSymbols | Where-Object { -not $existing.ContainsKey($_.key.ToLower()) })
+    $toFill = @($labelSymbols | Where-Object { $existing.ContainsKey($_.key.ToLower()) -and -not $existing[$_.key.ToLower()].isLabel })
+    Write-Host "`nLabel symbols in the extract: $($labelSymbols.Count); not on the list yet: $($notLoaded.Count); to mark: $($toFill.Count)"
+    foreach ($s in $toFill) { Write-Host "    $($s.key) (row $($existing[$s.key.ToLower()].id)) text box $(TextBoxJson $s)" -ForegroundColor DarkGray }
+    if (-not $Apply) { Write-Host "`nReport only. Run again with -Apply to write." -ForegroundColor Yellow; exit 0 }
+    foreach ($s in $toFill) {
+        $id = $existing[$s.key.ToLower()].id
+        $fields = [ordered]@{ IsLabel = $true }
+        $box = TextBoxJson $s
+        if ($box) { $fields.TextBox = $box }
+        Invoke-MgGraphRequest -Method PATCH -Uri "$graph/lists/$componentsId/items/$id/fields" -ContentType "application/json; charset=utf-8" `
+            -Body (ConvertTo-Json -InputObject $fields -Compress) | Out-Null
+        $back = (Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$componentsId/items/$id?`$expand=fields(`$select=IsLabel,TextBox)").fields
+        if ($back.IsLabel -ne $true -or ($box -and "$($back.TextBox)" -ne $box)) { Fail "row $id ($($s.key)) didn't read back as written." }
+        Write-Host "    marked $($s.key)" -ForegroundColor Green
+    }
+    Write-Host "`nDone. Reload the Plant Map: those items now show their names inside the pill." -ForegroundColor Green
+    exit 0
+}
 
 # --- the target layout ----------------------------------------------------------------
 function Read-Layout($id) {
@@ -339,6 +383,11 @@ foreach ($s in $toAdd) {
         DefaultStroke = "$($s.DefaultStroke)"; DefaultFill = "$($s.DefaultFill)"; Version = 1; IsActive = $true
     }
     if ($s.CollisionPolygon) { $fields.CollisionPolygon = (ConvertTo-Json -InputObject @($s.CollisionPolygon) -Compress -Depth 3) }
+    if ($s.IsLabel -eq $true) {
+        $fields.IsLabel = $true
+        $box = TextBoxJson $s
+        if ($box) { $fields.TextBox = $box }
+    }
     $created = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$componentsId/items" -ContentType "application/json; charset=utf-8" `
         -Body (@{ fields = $fields } | ConvertTo-Json -Depth 4 -Compress)
     $existing[$s.key.ToLower()] = @{ id = [int]$created.id; version = 1 }

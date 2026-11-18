@@ -3,6 +3,7 @@ import { Maximize2, Minus, Plus } from "lucide-react";
 import type { LayoutComponent, PlantAreaKind, PlantLayoutArea, PlantLayoutItem } from "@/types/plant";
 import { sanitiseSvg, svgDataUrl } from "@/lib/plantSvg";
 import { labelAngle, type Obstacle } from "@/lib/plantGeometry";
+import { labelTextLayout } from "@/lib/plantLabels";
 import { clampAreaSize, clampSize, normaliseRotation, snap, type ItemPatch } from "@/lib/plantEditor";
 import { ALIGN_SNAP_PX, alignToNeighbours, type AlignGuide } from "@/lib/plantAlign";
 import { cn } from "@/lib/cn";
@@ -527,6 +528,27 @@ export const PlantCanvas = forwardRef<PlantCanvasHandle, PlantCanvasProps>(funct
                   ) : (
                     <rect x={-hx} y={-hy} width={it.w} height={it.d} fill="#f3f4f6" stroke="#6b7280" strokeWidth={px(1.5)} strokeDasharray={`${px(6)} ${px(4)}`} />
                   )}
+                  {(() => {
+                    // A label symbol (an area-label pill) has the item's label written inside
+                    // it, part of the drawing — scaled with the plan, shown with labels on or off.
+                    const t = labelTextLayout(it, component);
+                    return t ? (
+                      <text
+                        data-label-text-for={it.uid}
+                        x={t.x}
+                        y={t.y}
+                        transform={t.flip ? `rotate(180 ${t.x} ${t.y})` : undefined}
+                        fontSize={t.fontSize}
+                        fontFamily="Arial, sans-serif"
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill="#111827"
+                        pointerEvents="none"
+                      >
+                        {t.text}
+                      </text>
+                    ) : null;
+                  })()}
                   {/* An invisible hit area, so the whole footprint grabs — not just the symbol's lines. */}
                   <rect x={-hx} y={-hy} width={it.w} height={it.d} fill="transparent" />
                   {(problem || selected) && (
@@ -649,7 +671,8 @@ export const PlantCanvas = forwardRef<PlantCanvasHandle, PlantCanvasProps>(funct
               )}
               {shown.map((it) =>
                 // Only where it fits — a crowd of overlapping names reads as noise. Zoom in for more.
-                it.label && (it.uid === selectedUid || Math.max(it.w, it.d) * v.scale >= it.label.length * 6.5) ? (
+                // A label symbol writes its own (above), so it isn't named twice.
+                it.label && !components.get(it.componentId)?.isLabel && (it.uid === selectedUid || Math.max(it.w, it.d) * v.scale >= it.label.length * 6.5) ? (
                   <text
                     key={it.uid}
                     data-label-for={it.uid}

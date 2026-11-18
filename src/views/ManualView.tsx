@@ -3273,6 +3273,11 @@ const SECTIONS: ManualSection[] = [
             gap isn't counted as overlapping it. A new drawing or a new size clears the outline.
           </LI>
           <LI>
+            A <strong>label</strong> symbol, such as an area-label pill, has each item's own label
+            written inside it, sized to fit and turned the right way up — tick <strong>A label</strong>{" "}
+            on the form. Change an item's label in the editor to change what it says.
+          </LI>
+          <LI>
             A Plant Map admin changes a symbol with <strong>Replace</strong> on its card. This saves a
             new version (v2, v3 …): change its name, category or settings, or pick a new drawing — the
             footprint can only change with a new drawing. The library and the palette show only the

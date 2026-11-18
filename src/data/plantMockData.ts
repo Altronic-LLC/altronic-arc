@@ -94,6 +94,33 @@ MOCK_LAYOUT_COMPONENTS.push(
   safetySymbol(15, "first-aid", "First aid cabinet", 24, 12, '<rect x="1" y="1" width="22" height="10" fill="#ffffff" stroke="#16a34a" stroke-width="1"/><path d="M10.5 3h3v2.5h2.5v3h-2.5v1.5h-3v-1.5H8v-3h2.5Z" fill="#16a34a"/>'),
 );
 
+/**
+ * A demo-only LABEL symbol (id 16), shaped like the CAD extract's area-label
+ * pill: each item's label is written inside its text box (lib/plantLabels.ts).
+ * Invented; never collides.
+ */
+MOCK_LAYOUT_COMPONENTS.push({
+  id: 16,
+  key: "area-label",
+  title: "Area label",
+  category: "Other",
+  svgMarkup:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 24" data-component="area-label" data-units="in"><title>Area label</title><g id="body"><rect x="0.75" y="0.75" width="94.5" height="22.5" rx="11.25" fill="#ffffff" fill-opacity="0.85" stroke="#2563eb" stroke-width="1.5"/></g></svg>',
+  footprintW: 96,
+  footprintD: 24,
+  allowResize: true,
+  allowRotate: true,
+  minScale: 0.5,
+  maxScale: 4,
+  collides: false,
+  clearance: 0,
+  collisionPolygon: null,
+  isLabel: true,
+  textBox: { x: 8, y: 4, w: 80, h: 16 },
+  version: 1,
+  active: true,
+});
+
 const ID_BY_KEY = new Map(MOCK_LAYOUT_COMPONENTS.map((c) => [c.key, c.id]));
 
 /** The demo's safety layer — starts hidden, like the real one from the CAD extract. */
@@ -239,6 +266,10 @@ function engSalesItems(): PlantLayoutItem[] {
     place("e_0015", "desk-l-72x72", 72, 130, 0, "Office 201 desk"),
     place("e_0016", "desk-60x30", 216, 100, 0, "Office 202 desk"),
     place("e_0017", "desk-60x30", 1260, 660, 0, "Reception"),
+    // Room names, on area-label pills.
+    place("e_0018", "area-label", 150, 830, 0, "Prototype area"),
+    place("e_0019", "area-label", 1050, 400, 0, "Test bay"),
+    place("e_0020", "area-label", 1255, 610, 0, "Front desk"),
   ];
 }
 

@@ -270,8 +270,11 @@ describe("PlantLayoutView", () => {
     expect(await screen.findByText("Nothing overlaps.")).toBeInTheDocument();
     const map = screen.getByRole("img", { name: "Engineering & Sales plant layout" });
     expect(map.getAttribute("data-extent")).toBe("1440 960");
-    expect(map.querySelectorAll('[data-layer="items"] > g')).toHaveLength(17);
+    expect(map.querySelectorAll('[data-layer="items"] > g')).toHaveLength(20);
     expect(map.querySelector('[data-layer="areas"] [data-kind="aisle"] title')).toHaveTextContent("Main walkway");
+    // Room names are written inside their area-label pills, not floated over them.
+    expect(map.querySelector('[data-label-text-for="e_0019"]')).toHaveTextContent("Test bay");
+    expect(map.querySelector('[data-label-for="e_0019"]')).toBeNull();
   });
 
   it("starts the safety layer hidden, and shows it — or one group of it — when ticked", async () => {
@@ -281,15 +284,15 @@ describe("PlantLayoutView", () => {
     const layers = screen.getByRole("region", { name: "Layers" });
     const map = screen.getByRole("img", { name: "Engineering & Sales plant layout" });
     const drawn = () => map.querySelectorAll('[data-layer="items"] > g').length;
-    expect(drawn()).toBe(17);
+    expect(drawn()).toBe(20);
 
     const safety = within(layers).getByRole("checkbox", { name: /^Safety/ });
     expect(safety).not.toBeChecked();
     await user.click(safety);
-    expect(drawn()).toBe(21);
+    expect(drawn()).toBe(24);
 
     await user.click(within(layers).getByRole("checkbox", { name: /^Extinguishers/ }));
-    expect(drawn()).toBe(19);
+    expect(drawn()).toBe(22);
     // Hiding is display only: the check still reads every item.
     expect(screen.getByText("Nothing overlaps.")).toBeInTheDocument();
   });

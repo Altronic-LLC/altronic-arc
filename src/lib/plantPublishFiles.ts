@@ -1,6 +1,7 @@
 import { sanitiseSvg } from "./plantSvg";
 import { layoutLayers } from "./plantLayers";
 import { labelAngle } from "./plantGeometry";
+import { labelTextLayout } from "./plantLabels";
 import { PLANT_AREA_KIND_LABELS, type LayoutComponent, type PlantLayout, type PlantLayoutItem } from "@/types/plant";
 
 // =============================================================================
@@ -254,6 +255,22 @@ export function buildCompositeSvg(input: CompositeInput): string {
           "stroke-dasharray": "6 4",
         }),
       );
+    }
+    // A label symbol carries the item's label inside it, as on screen.
+    const label = labelTextLayout(it, component);
+    if (label) {
+      const t = el("text", {
+        x: round(label.x),
+        y: round(label.y),
+        "font-size": label.fontSize,
+        "font-family": "Arial, sans-serif",
+        "text-anchor": "middle",
+        "dominant-baseline": "central",
+        fill: "#111827",
+      });
+      if (label.flip) t.setAttribute("transform", `rotate(180 ${round(label.x)} ${round(label.y)})`);
+      t.textContent = label.text;
+      g.appendChild(t);
     }
     return g;
   };

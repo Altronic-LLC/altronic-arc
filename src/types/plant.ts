@@ -89,8 +89,24 @@ export interface LayoutComponent {
    * Null = the rectangle.
    */
   collisionPolygon: (readonly [number, number])[] | null;
+  /**
+   * A LABEL symbol (an area-label pill): the item's own label is written
+   * inside it, fitted to `textBox`, as part of the drawing (lib/plantLabels.ts).
+   * Optional — a list without the column, and every older fixture, reads as no.
+   */
+  isLabel?: boolean;
+  /** Where a label symbol's text goes, in the symbol's inches. Null = the footprint, inset. */
+  textBox?: SymbolTextBox | null;
   version: number;
   active: boolean;
+}
+
+/** A label symbol's text area, in the symbol's own inches (its viewBox). */
+export interface SymbolTextBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -223,8 +239,11 @@ export interface NewLayoutComponentInput {
   maxScale: number;
   collides: boolean;
   clearance: number;
-  /** Optional real shape; the Add symbol form doesn't set one (a CAD load does). */
+  /** Optional real shape — drawn on the form, or from a CAD load. */
   collisionPolygon?: (readonly [number, number])[] | null;
+  /** A label symbol: the item's label is written inside it. */
+  isLabel?: boolean;
+  textBox?: SymbolTextBox | null;
 }
 
 /** A symbol's next version — everything but its key, which never changes. */

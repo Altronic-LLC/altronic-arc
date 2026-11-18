@@ -44,7 +44,8 @@ describe("PlantSymbolsView", () => {
     expect(within(machines).getByText("CNC Vertical Mill (generic)")).toBeInTheDocument();
     expect(within(machines).getByText("10 ft × 8 ft · v1")).toBeInTheDocument();
     expect(screen.getAllByRole("img").filter((i) => i.tagName === "IMG").length).toBeGreaterThanOrEqual(12);
-    expect(within(screen.getByRole("region", { name: "Other" })).getByText("Floor marking")).toBeInTheDocument();
+    // The seed's floor marking and the demo's area label.
+    expect(within(screen.getByRole("region", { name: "Other" })).getAllByText("Floor marking")).toHaveLength(2);
     // The demo's safety symbols never collide either.
     expect(within(screen.getByRole("region", { name: "Safety" })).getAllByText("Floor marking")).toHaveLength(3);
   });

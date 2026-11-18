@@ -14,7 +14,8 @@
                           SvgMarkup (the symbol, viewBox in inches), FootprintW,
                           FootprintD, AllowResize, AllowRotate, MinScale,
                           MaxScale, Collides, Clearance, DefaultStroke,
-                          DefaultFill, Version, IsActive, CollisionPolygon
+                          DefaultFill, Version, IsActive, CollisionPolygon,
+                          IsLabel, TextBox
                           (JSON [[x, y], ...] in the symbol's inches - its
                           real shape when it isn't a rectangle)
       Plant Layouts       Title (shown "Layout"), Building (indexed; the
@@ -118,7 +119,11 @@ $componentColumns = @(
     @{ name = "IsActive"; displayName = "Active"; boolean = @{}
        description = "Untick to retire a symbol. Layouts already using it keep it." },
     @{ name = "CollisionPolygon"; displayName = "Collision Outline"; text = $plainNote
-       description = "The symbol's real shape when it isn't a rectangle: JSON [[x, y], ...] in the symbol's inches. Blank = the footprint rectangle." }
+       description = "The symbol's real shape when it isn't a rectangle: JSON [[x, y], ...] in the symbol's inches. Blank = the footprint rectangle." },
+    @{ name = "IsLabel"; displayName = "Is Label"; boolean = @{}
+       description = "Yes for a label symbol (an area-label pill): each item's label is written inside it." },
+    @{ name = "TextBox"; displayName = "Text Box"; text = @{}
+       description = "Where a label symbol's text goes: JSON {x, y, w, h} in the symbol's inches. Blank = the footprint, inset." }
 )
 
 $layoutColumns = @(
@@ -300,6 +305,7 @@ if (-not $WhatIf -and $rolesId -and $componentsId -and $layoutsId) {
         FootprintW = 10; FootprintD = 5; AllowResize = $true; AllowRotate = $true; MinScale = 0.5; MaxScale = 2; Collides = $false
         Clearance = 6; DefaultStroke = "#374151"; DefaultFill = "#f3f4f6"; Version = 1; IsActive = $false
         CollisionPolygon = "[[0,0],[10,0],[10,2],[4,2],[4,5],[0,5]]"
+        IsLabel = $true; TextBox = '{"x":1,"y":1,"w":8,"h":3}'
     }
     $results += Test-ReadBack $layoutsId "layouts" @{
         Title = "ARC-VERIFY"; Building = "ARC-VERIFY"; Area = "verify"; LayoutKey = "arc-verify"; Status = "Superseded"; Version = 2
