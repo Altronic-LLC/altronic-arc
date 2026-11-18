@@ -8938,6 +8938,9 @@ plan, the placement check, New layout, Roles, and the layout EDITOR (Tim tried
 the read-only first cut in demo mode and asked for drag and drop the same day;
 he also called it "a bit clunky", which is why the plan became a pan/zoom
 canvas and the editor works on the plan rather than through forms).
+**`docs/PLANT-MAP-ROADMAP.md` is the roadmap** — what's built, the open
+decisions and the next steps; update it in the same commit as a Plant Map
+change that moves any of them.
 **Phase 3 is built**: Publish (Tim, 2026-11-06) and the files it leaves for
 Power BI (2026-11-13) — see "Files for Power BI" below. Then Phase 4
 overlays, Phase 5 live status (CMMS AssetStatus
