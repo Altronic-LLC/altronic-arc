@@ -3266,6 +3266,13 @@ const SECTIONS: ManualSection[] = [
             notch marks the front (the bottom edge), so you can see which way it faces once turned.
           </LI>
           <LI>
+            A solid symbol that isn't a rectangle — an L-shaped bench, a machine with an open bay — can
+            have an <strong>outline</strong>: under <strong>Placement check</strong> choose{" "}
+            <strong>Only an outline I draw</strong> and click its corners in order around the solid
+            part on the preview (or type them as x,y pairs in inches). Then something standing in the
+            gap isn't counted as overlapping it. A new drawing or a new size clears the outline.
+          </LI>
+          <LI>
             A Plant Map admin changes a symbol with <strong>Replace</strong> on its card. This saves a
             new version (v2, v3 …): change its name, category or settings, or pick a new drawing — the
             footprint can only change with a new drawing. The library and the palette show only the

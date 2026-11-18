@@ -36,6 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Plant Map: a Plant Map admin can retire a symbol, taking it off the palette — the confirmation names the layouts that use it, and they keep it — and restore it later",
       "Plant Map: symbols can also be Safety (extinguishers, exits, first aid, severe-weather shelters), Utility or Zone",
       "Plant Map: a symbol that isn't a rectangle, such as an L-shaped bench, is checked by its real outline, so something tucked into its corner no longer counts as an overlap",
+      "Plant Map: when adding or replacing a symbol, draw that outline by clicking its corners on the preview, or type them",
       "Plant Map: an item's label runs along its long side and turns with it, and is never upside down",
       "Plant Map: layouts can have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters). Show or hide each layer, or one of its groups, beside the plan; Safety starts hidden, and hidden items are still checked for problems",
       "Plant Map: in the editor, set an item's layer and group in the panel on the right; a new copy of a symbol joins the layer its other copies are on, and the item list has a Layer column",

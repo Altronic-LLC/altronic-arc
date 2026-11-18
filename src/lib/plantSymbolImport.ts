@@ -1,4 +1,5 @@
 import { sanitiseSvg } from "./plantSvg";
+import { convexPieces, type Point } from "./plantGeometry";
 
 // =============================================================================
 // Importing a symbol into the Plant Map library (Tim, 2026-11-06: "take a
@@ -571,4 +572,51 @@ export function retitleSymbolSvg(svg: string, title: string): string {
   // Function replacers: a "$" in a name is text, not a replacement pattern.
   if (/<title>[\s\S]*?<\/title>/.test(svg)) return svg.replace(/<title>[\s\S]*?<\/title>/, () => tag);
   return svg.replace(/<svg\b[^>]*>/, (open) => open + tag);
+}
+
+// -----------------------------------------------------------------------------
+// A collision OUTLINE drawn on the Add symbol form (2026-11-18). The placement
+// check uses it instead of the rectangle (lib/plantGeometry.ts itemPieces), so
+// something tucked into an L-shaped bench's corner isn't an overlap. Corners
+// are in the symbol's own inches (its viewBox), clicked on the preview.
+// -----------------------------------------------------------------------------
+
+/** A clicked point, held inside the footprint and snapped to `step` inches. */
+export function snapOutlinePoint(x: number, y: number, w: number, d: number, step = 1): [number, number] {
+  const s = (v: number, max: number) => {
+    const snapped = Math.round(v / step) * step;
+    return Math.min(max, Math.max(0, Math.round(snapped * 100) / 100));
+  };
+  return [s(x, w), s(y, d)];
+}
+
+function segmentsCross(a: Point, b: Point, c: Point, e: Point): boolean {
+  const cross = (o: Point, p: Point, q: Point) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
+  const d1 = cross(c, e, a);
+  const d2 = cross(c, e, b);
+  const d3 = cross(a, b, c);
+  const d4 = cross(a, b, e);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+/**
+ * Why an outline can't be used, or null. At least three corners, no edge
+ * crossing another (a bow-tie has no inside), and a shape the check can cut
+ * into pieces. A corner on another corner counts once.
+ */
+export function outlineProblem(points: readonly Point[]): string | null {
+  const pts = points.filter((p, i) => i === 0 || p[0] !== points[i - 1][0] || p[1] !== points[i - 1][1]);
+  if (pts.length < 3) return "Click at least three corners.";
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      // Edges that share a corner always meet there.
+      if (j === i + 1 || (i === 0 && j === n - 1)) continue;
+      if (segmentsCross(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])) {
+        return "The outline crosses itself. Click the corners in order around the edge.";
+      }
+    }
+  }
+  if (!convexPieces(pts)) return "ARC can't use that outline — it has no area. Click the corners in order around the edge.";
+  return null;
 }

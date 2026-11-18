@@ -12,6 +12,7 @@ import {
   buildSymbolSvg,
   dxfToArt,
   inkFromRgba,
+  outlineProblem,
   proportionsDiffer,
   retitleSymbolSvg,
   svgToArt,
@@ -21,11 +22,12 @@ import {
   type SymbolArt,
 } from "@/lib/plantSymbolImport";
 import { sanitiseSvg, svgDataUrl } from "@/lib/plantSvg";
-import { feetLabel } from "@/lib/plantGeometry";
+import { feetLabel, type Point } from "@/lib/plantGeometry";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { cn } from "@/lib/cn";
 import { ChoiceSelect } from "./SearchableSelect";
 import { ChoicePills } from "./ChoicePills";
+import { PlantOutlineEditor } from "./PlantOutlineEditor";
 
 // =============================================================================
 // Plant Map → Symbols → Add symbol (a Plant Map admin). Pick a drawing — an
@@ -109,6 +111,15 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
   const [maxPct, setMaxPct] = useState(r?.allowResize ? String(Math.round(r.maxScale * 100)) : "150");
   const [fit, setFit] = useState<"contain" | "stretch">("contain");
   const [frontMark, setFrontMark] = useState(true);
+  /**
+   * How the placement check sees it: its whole footprint, or an outline drawn
+   * here. Replacing keeps the current outline while the drawing is kept.
+   */
+  const [outlineMode, setOutlineMode] = useState<"rect" | "outline">(r?.collisionPolygon ? "outline" : "rect");
+  const [outline, setOutline] = useState<Point[]>(() => (r?.collisionPolygon ?? []).map(([x, y]) => [x, y] as Point));
+  /** The footprint the outline was drawn at — a new size clears it. */
+  const [outlineAt, setOutlineAt] = useState<string>(r ? `${r.footprintW}x${r.footprintD}` : "");
+  const [outlineCleared, setOutlineCleared] = useState<string | null>(null);
 
   // A picture is re-traced as the threshold moves.
   useEffect(() => {
@@ -138,6 +149,9 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
   async function pick(file: File | undefined) {
     setArt(null);
     setRaster(null);
+    // An outline belongs to the drawing it was traced round.
+    setOutline([]);
+    setOutlineCleared(null);
     setProblem(null);
     setFileName(file?.name ?? "");
     if (!file) return;
@@ -181,6 +195,19 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
   /** What the preview draws — a stored drawing is raw until sanitised. */
   const previewSvg = useMemo(() => (art ? svg : svg ? sanitiseSvg(svg) : ""), [art, svg]);
   const nextVersion = r ? r.version + 1 : 1;
+  // The outline is in the symbol's inches: a new footprint means drawing it again.
+  const sizeKey = sized ? `${w}x${d}` : "";
+  useEffect(() => {
+    if (!sizeKey) return;
+    if (outline.length > 0 && outlineAt && outlineAt !== sizeKey) {
+      setOutline([]);
+      setOutlineCleared("The footprint changed, so the outline was cleared — draw it again.");
+    }
+    setOutlineAt(sizeKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the footprint changes
+  }, [sizeKey]);
+  const usesOutline = collides === "yes" && outlineMode === "outline";
+  const outlinePoints = usesOutline ? outline : null;
   const tooBig = svg.length > MAX_SYMBOL_MARKUP_CHARS;
   const misfit = art && sized && proportionsDiffer(art, w, d);
 
@@ -198,6 +225,11 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
       return setError("Smallest must be 100% or less and largest 100% or more.");
     }
     if (tooBig) return setError("That symbol is too detailed to store. Simplify the drawing, or lower the threshold.");
+    if (outlinePoints) {
+      const p = outlineProblem(outlinePoints);
+      if (p) return setError(`The outline isn't finished: ${p}`);
+    }
+    const polygon = outlinePoints && outlinePoints.length > 0 ? outlinePoints : null;
     const allowResize = resize === "Yes";
     if (
       r &&
@@ -208,7 +240,8 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
       clear === r.clearance &&
       (rotate === "Yes") === r.allowRotate &&
       allowResize === r.allowResize &&
-      (!allowResize || (min === r.minScale && max === r.maxScale))
+      (!allowResize || (min === r.minScale && max === r.maxScale)) &&
+      JSON.stringify(polygon ?? null) === JSON.stringify(r.collisionPolygon ?? null)
     ) {
       return setError("Nothing has changed. Pick a new drawing, or change a detail.");
     }
@@ -227,9 +260,8 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
         maxScale: max,
         collides: collides === "yes",
         clearance: clear,
-        // A new drawing drops the old outline (it was traced round the old art);
-        // keeping the drawing keeps it.
-        collisionPolygon: r && !art ? r.collisionPolygon : null,
+        // Drawn on this form (a new drawing starts without one); a floor marking has none.
+        collisionPolygon: polygon,
       });
     } catch (err) {
       setError(
@@ -299,8 +331,8 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
           {r && !art && <p className="text-[11px] text-fg-muted">No new drawing picked — the current one is kept.</p>}
           {r?.collisionPolygon && art && (
             <p className="text-[11px] text-fg" data-testid="outline-dropped">
-              The current version has a traced outline the placement check uses. It belongs to the old drawing, so
-              the new version is checked as its rectangle.
+              The current version has an outline the placement check uses. It belongs to the old drawing, so it was
+              cleared — draw a new one under Placement check, or leave it checked as its rectangle.
             </p>
           )}
         </div>
@@ -488,6 +520,41 @@ export function NewPlantSymbolModal({ takenKeys, replacing, busy, onClose, onCre
             )}
           </div>
         </div>
+
+        {collides === "yes" && sized && (
+          <div className="flex flex-col gap-2 border-t border-border pt-3">
+            <span className={label}>Placement check</span>
+            <ChoicePills
+              label="Placement check"
+              name="symbol-outline"
+              value={outlineMode}
+              onChange={(v) => setOutlineMode(v as "rect" | "outline")}
+              disabled={busy}
+              options={[
+                { value: "rect", label: "The whole footprint is solid" },
+                { value: "outline", label: "Only an outline I draw" },
+              ]}
+            />
+            <p className="text-[11px] text-fg-muted">
+              For a symbol that isn't a rectangle — an L-shaped bench, a machine with an open bay — so something
+              standing in the gap isn't counted as overlapping it.
+            </p>
+            {outlineCleared && <p className="text-xs text-fg">{outlineCleared}</p>}
+            {outlineMode === "outline" && (
+              <PlantOutlineEditor
+                w={w}
+                d={d}
+                previewSrc={previewSvg ? svgDataUrl(previewSvg) : null}
+                points={outline}
+                onChange={(pts) => {
+                  setOutline(pts);
+                  setOutlineCleared(null);
+                }}
+                disabled={busy}
+              />
+            )}
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="text-sm text-cooper-red">

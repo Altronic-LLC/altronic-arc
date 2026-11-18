@@ -9005,8 +9005,15 @@ Eight things that are load-bearing:
   first: the Main Plant extract (948 items) checks in ~6 ms. Outlines reach
   the check through `shapeOfComponent` (`checkLayout`'s second argument), the
   same way on the layout page, in the editor and in Publish. On that extract
-  outlines took the problems from 18 to 2. The Add symbol form doesn't set
-  one yet; the CAD loader and the seed (the L-desk) do. The column was added
+  outlines took the problems from 18 to 2. The CAD loader and the seed (the
+  L-desk) set one, and so does the Add / Replace symbol form (2026-11-18):
+  "Only an outline I draw" under Placement check, corners CLICKED on the
+  preview (`PlantOutlineEditor`, snapped to the inch inside the footprint —
+  `snapOutlinePoint`) or TYPED as x,y pairs. `outlineProblem` refuses fewer
+  than three corners, crossing edges and a shape with no area. A new drawing
+  or a new footprint clears the outline (it's in the symbol's inches); a
+  replacement that keeps its drawing opens with the current outline, and a
+  changed outline alone is a new version. A floor marking has none. The column was added
   after the list, so a read that 400s retries without it and remembers (the
   MRB Watchers arrangement), and a plain symbol's create leaves it out.
 - **The whole layout is ONE JSON column**, so a save is one write (no
