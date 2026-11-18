@@ -9240,9 +9240,19 @@ and the front-edge notch. Sources:
 The key is `symbolKeyFor` (slug + `WxD`, not doubled, `-2…` on a clash) and
 `createLayoutComponent` re-checks it against a FRESH read; `SvgMarkup` over
 `MAX_SYMBOL_MARKUP_CHARS` (60,000) is refused. The name follows the picked file
-until it's typed over (`autoTitle`). Not built yet: retiring a symbol from
-ARC, or a drawing tool to edit one in place (Tim parked it, 2026-11-11 —
-replace the file instead).
+until it's typed over (`autoTitle`). Not built yet: a drawing tool to edit
+one in place (Tim parked it, 2026-11-11 — replace the file instead).
+
+**Retiring a symbol** (Tim, 2026-11-18) — Retire / Restore on a Symbols card
+(a Plant Map admin; `useSetLayoutComponentActive`, gate in the mutationFn).
+`setLayoutComponentActive` PATCHes `IsActive` on the symbol's LATEST
+version only — the palette and the Symbols page go by the latest, so that
+retires the whole symbol — after a FRESH read that refuses a version replaced
+meanwhile. Layouts that use it keep it (they point at row ids); the
+confirmation names them (`layoutsUsingSymbol`, any version, Superseded
+included), and the editor's inspector says when a picked item's symbol is
+retired. Replacing a retired symbol makes an active new version, which brings
+it back too. Nothing is ever deleted.
 
 **Replacing a symbol makes a NEW VERSION** (Tim, 2026-11-11) —
 `lib/plantSymbolVersions.ts` (pure), `replaceLayoutComponent`,

@@ -1,19 +1,26 @@
 import { useMemo, useState } from "react";
-import { Plus, Replace, Shapes } from "lucide-react";
-import { useCreateLayoutComponent, useLayoutComponents, useReplaceLayoutComponent } from "@/hooks/usePlantLayouts";
+import { Archive, ArchiveRestore, Plus, Replace, Shapes } from "lucide-react";
+import {
+  useCreateLayoutComponent,
+  useLayoutComponents,
+  usePlantLayouts,
+  useReplaceLayoutComponent,
+  useSetLayoutComponentActive,
+} from "@/hooks/usePlantLayouts";
 import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { manageSymbolsGate } from "@/lib/plantMapRoles";
 import { sanitiseSvg, svgDataUrl } from "@/lib/plantSvg";
 import { feetLabel } from "@/lib/plantGeometry";
-import { latestSymbols } from "@/lib/plantSymbolVersions";
+import { latestSymbols, layoutsUsingSymbol } from "@/lib/plantSymbolVersions";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
-import type { LayoutComponent } from "@/types/plant";
+import type { LayoutComponent, PlantLayout } from "@/types/plant";
 import { LAYOUT_COMPONENT_CATEGORIES } from "@/types/plant";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { SearchInput } from "@/components/SearchInput";
 import { NewPlantSymbolModal } from "@/components/NewPlantSymbolModal";
 import { PlantMapAccessGate, PlantMapNav } from "@/components/plantMapAtoms";
+import { RichTextWarningDialog } from "@/components/RichTextWarningDialog";
 
 // =============================================================================
 // Plant Map → Symbols (/operations/plant-map/symbols): the library a layout is
@@ -21,8 +28,9 @@ import { PlantMapAccessGate, PlantMapNav } from "@/components/plantMapAtoms";
 // Map admin adds symbols (NewPlantSymbolModal — SVG, DXF or a traced picture)
 // and REPLACES one with its next version (the same form; a new row, so layouts
 // keep the version they use — lib/plantSymbolVersions.ts). Only each symbol's
-// latest version is shown. Retired symbols are hidden unless asked for;
-// nothing is deleted.
+// latest version is shown. A Plant Map admin RETIRES a symbol (off the
+// palette; layouts that use it keep it) and restores one; retired symbols are
+// hidden unless asked for. Nothing is deleted.
 // =============================================================================
 
 export function PlantSymbolsView() {
@@ -39,6 +47,9 @@ function PlantSymbols() {
   const gate = manageSymbolsGate(useMyPlantMapAccess());
   const create = useCreateLayoutComponent();
   const replace = useReplaceLayoutComponent();
+  const setActive = useSetLayoutComponentActive();
+  const { data: layouts = [] } = usePlantLayouts();
+  const [retiring, setRetiring] = useState<LayoutComponent | null>(null);
   const [adding, setAdding] = useState(false);
   const [replacing, setReplacing] = useState<LayoutComponent | null>(null);
   const [query, setQuery] = useState("");
@@ -129,11 +140,36 @@ function PlantSymbols() {
             </h2>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {list.map((c) => (
-                <SymbolCard key={c.id} component={c} onReplace={gate.allowed ? () => setReplacing(c) : undefined} />
+                <SymbolCard
+                  key={c.id}
+                  component={c}
+                  onReplace={gate.allowed ? () => setReplacing(c) : undefined}
+                  onRetire={gate.allowed && c.active ? () => setRetiring(c) : undefined}
+                  onRestore={
+                    gate.allowed && !c.active ? () => setActive.mutate({ component: c, active: true }) : undefined
+                  }
+                  busy={setActive.isPending}
+                />
               ))}
             </ul>
           </section>
         ))
+      )}
+
+      {retiring && (
+        <RichTextWarningDialog
+          title={`Retire ${retiring.title}?`}
+          detail="It comes off the palette, so it can't be added to a layout. Nothing is deleted, and you can restore it from Show retired."
+          notifyNote={retireUsage(retiring, everyVersion, layouts)}
+          trailing=""
+          confirmLabel="Retire"
+          cancelLabel="Keep it"
+          onCancel={() => setRetiring(null)}
+          onConfirm={() => {
+            setActive.mutate({ component: retiring, active: false });
+            setRetiring(null);
+          }}
+        />
       )}
 
       {replacing && (
@@ -164,7 +200,34 @@ function PlantSymbols() {
   );
 }
 
-function SymbolCard({ component: c, onReplace }: { component: LayoutComponent; onReplace?: () => void }) {
+/** "Used on 2 layouts (Main Plant v3, Panel Plant v1) — they keep it." */
+function retireUsage(
+  component: LayoutComponent,
+  components: readonly LayoutComponent[],
+  layouts: readonly PlantLayout[],
+): string {
+  const used = layoutsUsingSymbol(component, components, layouts);
+  if (used.length === 0) return "No layout uses it.";
+  const names = used.map((u) => `${u.layout.title} v${u.layout.version}`).join(", ");
+  const items = used.reduce((n, u) => n + u.items, 0);
+  return `It's on ${used.length} ${used.length === 1 ? "layout" : "layouts"} (${names}), ${items} ${
+    items === 1 ? "item" : "items"
+  } in all. They keep it, drawn as it is.`;
+}
+
+function SymbolCard({
+  component: c,
+  onReplace,
+  onRetire,
+  onRestore,
+  busy,
+}: {
+  component: LayoutComponent;
+  onReplace?: () => void;
+  onRetire?: () => void;
+  onRestore?: () => void;
+  busy?: boolean;
+}) {
   const src = useMemo(() => {
     const clean = sanitiseSvg(c.svgMarkup);
     return clean ? svgDataUrl(clean) : null;
@@ -191,16 +254,44 @@ function SymbolCard({ component: c, onReplace }: { component: LayoutComponent; o
           {!c.active && <span className="rounded-sm bg-cooper-red/10 px-1.5 py-0.5 text-cooper-red">Retired</span>}
         </p>
       </div>
-      {onReplace && (
-        <button
-          type="button"
-          onClick={onReplace}
-          aria-label={`Replace ${c.title}`}
-          className="mt-auto inline-flex items-center justify-center gap-1 self-start rounded-md border border-border px-2 py-1 text-xs font-medium text-fg hover:bg-surface-2"
-        >
-          <Replace className="h-3.5 w-3.5" />
-          Replace
-        </button>
+      {(onReplace || onRetire || onRestore) && (
+        <div className="mt-auto flex flex-wrap gap-1.5">
+          {onReplace && (
+            <button
+              type="button"
+              onClick={onReplace}
+              aria-label={`Replace ${c.title}`}
+              className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-fg hover:bg-surface-2"
+            >
+              <Replace className="h-3.5 w-3.5" />
+              Replace
+            </button>
+          )}
+          {onRetire && (
+            <button
+              type="button"
+              onClick={onRetire}
+              disabled={busy}
+              aria-label={`Retire ${c.title}`}
+              className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Retire
+            </button>
+          )}
+          {onRestore && (
+            <button
+              type="button"
+              onClick={onRestore}
+              disabled={busy}
+              aria-label={`Restore ${c.title}`}
+              className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              Restore
+            </button>
+          )}
+        </div>
       )}
     </li>
   );

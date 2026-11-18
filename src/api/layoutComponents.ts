@@ -221,3 +221,32 @@ export async function replaceLayoutComponent(
   }
   return addRow(rowFor(input, previous.key, previous.version + 1));
 }
+
+/**
+ * Retire a symbol (IsActive = No), or bring it back. Only its LATEST version
+ * is written — the palette and the Symbols page go by the latest
+ * (lib/plantSymbolVersions.ts), so retiring it takes the whole symbol off the
+ * palette. Layouts that use it keep it: they point at row ids, and nothing is
+ * deleted. Checked on a FRESH read, so a symbol replaced meanwhile isn't
+ * retired through its old version.
+ */
+export async function setLayoutComponentActive(component: LayoutComponent, active: boolean): Promise<LayoutComponent> {
+  const fresh = await listLayoutComponents();
+  const latest = latestByKey(fresh).get(symbolKey(component));
+  if (latest && latest.id !== component.id) {
+    throw new Error(`${component.title} was replaced meanwhile (it's now v${latest.version}). Reload the symbols and try again.`);
+  }
+  const current = fresh.find((c) => c.id === component.id);
+  if (!current) throw new Error(`${component.title} is no longer in the symbol library.`);
+  if (current.active === active) return current;
+  if (USE_MOCK) {
+    mockComponents = mockComponents.map((c) => (c.id === component.id ? { ...c, active } : c));
+    return mockDelay({ ...current, active });
+  }
+  if (!SP_LAYOUT_COMPONENTS_LIST_ID) throw new Error("The Layout Components list isn't set up yet.");
+  await graphFetch(`/sites/${SITES.pmo}/lists/${SP_LAYOUT_COMPONENTS_LIST_ID}/items/${component.id}/fields`, {
+    method: "PATCH",
+    body: JSON.stringify({ IsActive: active }),
+  });
+  return { ...current, active };
+}

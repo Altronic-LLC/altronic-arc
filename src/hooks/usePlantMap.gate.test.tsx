@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   createRole: vi.fn(),
   createSymbol: vi.fn(),
   replaceSymbol: vi.fn(),
+  setSymbolActive: vi.fn(),
   getLayout: vi.fn(),
   publish: vi.fn(),
   remove: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock("@/api/plantLayouts", () => ({
 vi.mock("@/api/layoutComponents", () => ({
   createLayoutComponent: api.createSymbol,
   replaceLayoutComponent: api.replaceSymbol,
+  setLayoutComponentActive: api.setSymbolActive,
   listLayoutComponents: vi.fn(async () => []),
 }));
 vi.mock("@/api/admins", () => ({ listAdmins: vi.fn(async () => admins.rows) }));
@@ -62,6 +64,7 @@ import {
   useDeletePlantLayout,
   usePublishPlantLayout,
   useReplaceLayoutComponent,
+  useSetLayoutComponentActive,
   useWritePublishedFiles,
 } from "./usePlantLayouts";
 import { pushToast } from "@/components/Toast";
@@ -201,6 +204,26 @@ describe("replacing a symbol", () => {
     const { result } = renderHook(() => useReplaceLayoutComponent(), { wrapper });
     await act(() => result.current.mutateAsync({ previous, input: INPUT }));
     expect(api.replaceSymbol).toHaveBeenCalledWith(previous, INPUT);
+  });
+});
+
+describe("retiring a symbol", () => {
+  const component = { ...SYMBOL_BASE, id: 4, svgMarkup: "<svg/>", collisionPolygon: null, version: 1, active: true };
+
+  it("is refused to an editor and to an ARC admin, and nothing is written", async () => {
+    roles.rows = [me(["editor"])];
+    admins.rows = [{ id: 1, email: "me@example.com", displayName: "Me" }];
+    const { result } = renderHook(() => useSetLayoutComponentActive(), { wrapper });
+    await act(() => expect(result.current.mutateAsync({ component, active: false })).rejects.toThrow(/Only a Plant Map admin/));
+    expect(api.setSymbolActive).not.toHaveBeenCalled();
+  });
+
+  it("is allowed to a Plant Map admin", async () => {
+    roles.rows = [me(["admin"])];
+    api.setSymbolActive.mockResolvedValue({ ...component, active: false });
+    const { result } = renderHook(() => useSetLayoutComponentActive(), { wrapper });
+    await act(() => result.current.mutateAsync({ component, active: false }));
+    expect(api.setSymbolActive).toHaveBeenCalledWith(component, false);
   });
 });
 

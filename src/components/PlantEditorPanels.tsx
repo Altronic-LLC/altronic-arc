@@ -162,11 +162,14 @@ export function PlantInspector({
   layers = [],
   newerVersion,
   onUpdateSymbol,
+  symbolRetired = false,
   onPatch,
   onDuplicate,
   onDelete,
 }: {
   item: PlantLayoutItem | null;
+  /** The item's symbol has been retired — it stays, but can't be added again. */
+  symbolRetired?: boolean;
   component: LayoutComponent | undefined;
   /** A newer version of the item's symbol, when there is one (lib/plantSymbolVersions.ts). */
   newerVersion?: LayoutComponent;
@@ -246,6 +249,11 @@ export function PlantInspector({
             Use v{newerVersion.version}
           </button>
         </div>
+      )}
+      {symbolRetired && (
+        <p className="rounded-md border border-border bg-surface-2 p-2 text-xs text-fg-muted" data-testid="symbol-retired">
+          This symbol is retired: it's no longer in the palette. This item keeps it.
+        </p>
       )}
       <CommitField label="Label" type="text" value={item.label} onCommit={(raw) => onPatch({ label: raw.trim() })} />
       <div className="flex flex-col gap-1">

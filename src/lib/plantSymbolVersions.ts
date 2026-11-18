@@ -94,3 +94,19 @@ export function outdatedItems(
   }
   return out;
 }
+
+/**
+ * The layouts with at least one item drawn from this symbol (any version), and
+ * how many items each — what the Retire confirmation names. Superseded
+ * versions count: they still draw it.
+ */
+export function layoutsUsingSymbol<L extends { id: number; doc: { items: readonly PlantLayoutItem[] } }>(
+  component: LayoutComponent,
+  components: readonly LayoutComponent[],
+  layouts: readonly L[],
+): { layout: L; items: number }[] {
+  const ids = symbolVersionIds(component, components);
+  return layouts
+    .map((layout) => ({ layout, items: layout.doc.items.filter((i) => ids.has(i.componentId)).length }))
+    .filter((u) => u.items > 0);
+}

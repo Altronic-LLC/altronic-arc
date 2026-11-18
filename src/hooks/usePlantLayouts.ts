@@ -9,7 +9,12 @@ import {
   publishPlantLayout,
   savePlantLayoutDraft,
 } from "@/api/plantLayouts";
-import { createLayoutComponent, listLayoutComponents, replaceLayoutComponent } from "@/api/layoutComponents";
+import {
+  createLayoutComponent,
+  listLayoutComponents,
+  replaceLayoutComponent,
+  setLayoutComponentActive,
+} from "@/api/layoutComponents";
 import {
   findPublishedFiles,
   readPublishedFile,
@@ -295,6 +300,37 @@ export function useReplaceLayoutComponent() {
       });
     },
     // No error toast: the form stays open and says what went wrong.
+    onSettled: () => qc.invalidateQueries({ queryKey: LAYOUT_COMPONENTS_KEY }),
+  });
+}
+
+/**
+ * Retire a symbol, or bring it back — a Plant Map admin, asked inside the
+ * mutationFn. Its latest version is written; layouts that use it keep it.
+ */
+export function useSetLayoutComponentActive() {
+  const qc = useQueryClient();
+  const resolve = useResolvePlantMapAccess();
+  return useMutation({
+    mutationFn: async ({ component, active }: { component: LayoutComponent; active: boolean }) => {
+      requirePlantMapGate(manageSymbolsGate(await resolve()));
+      return setLayoutComponentActive(component, active);
+    },
+    onSuccess: (updated) => {
+      qc.setQueryData<LayoutComponent[]>(LAYOUT_COMPONENTS_KEY, (old) =>
+        old?.map((c) => (c.id === updated.id ? updated : c)),
+      );
+      pushToast({
+        message: updated.active
+          ? `${updated.title} is back in the palette.`
+          : `${updated.title} is retired — it's off the palette, and layouts that use it keep it.`,
+      });
+    },
+    onError: (err) =>
+      pushToast({
+        message: describeListWriteFailure(err, { action: "change that symbol", site: "Altronic_PMO", permission: "editing" }),
+        variant: "error",
+      }),
     onSettled: () => qc.invalidateQueries({ queryKey: LAYOUT_COMPONENTS_KEY }),
   });
 }

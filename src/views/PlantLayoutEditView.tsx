@@ -44,7 +44,7 @@ import { cn } from "@/lib/cn";
 import { useFitToWindow } from "@/hooks/useFitToWindow";
 import { layoutLayers, newGroup, newLayer, placementLayerFor } from "@/lib/plantLayers";
 import { usePlantLayerVisibility } from "@/hooks/usePlantLayerVisibility";
-import { latestSymbols, outdatedItems, symbolVersionIds } from "@/lib/plantSymbolVersions";
+import { latestByKey, latestSymbols, outdatedItems, symbolKey, symbolVersionIds } from "@/lib/plantSymbolVersions";
 import { PlantLayersPanel } from "@/components/PlantLayersPanel";
 
 // =============================================================================
@@ -414,6 +414,8 @@ function Editor({
   const selectedItem = items.find((i) => i.uid === selected) ?? null;
   const selectedArea = areas.find((a) => a.uid === selected) ?? null;
   const selectedUpdate = selectedItem ? outdated.find((o) => o.item.uid === selectedItem.uid) : undefined;
+  const selectedComponent = selectedItem ? componentMap.get(selectedItem.componentId) : undefined;
+  const selectedRetired = !!selectedComponent && latestByKey(components).get(symbolKey(selectedComponent))?.active === false;
   // Hiding the selected item's layer lets go of it — no nudging what you can't see.
   useEffect(() => {
     if (selectedItem && !isVisible(selectedItem)) setSelected(null);
@@ -578,6 +580,7 @@ function Editor({
               item={selectedItem}
               component={selectedItem ? componentMap.get(selectedItem.componentId) : undefined}
               newerVersion={selectedUpdate?.to}
+              symbolRetired={selectedRetired}
               onUpdateSymbol={() => selectedUpdate && dispatch({ type: "swapSymbols", swaps: [selectedUpdate.swap] })}
               equipment={equipment}
               layers={layers}
