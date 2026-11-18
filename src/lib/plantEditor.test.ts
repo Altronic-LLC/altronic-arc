@@ -11,6 +11,7 @@ import {
   clientToPlan,
   editorReducer,
   initialEditorState,
+  editorDocFrom,
   newItemUid,
   nextItemLabel,
   normaliseRotation,
@@ -231,5 +232,61 @@ describe("helpers", () => {
   it("compares item lists by value", () => {
     expect(sameItems([item("a")], [item("a")])).toBe(true);
     expect(sameItems([item("a")], [item("a", { x: 1 })])).toBe(false);
+  });
+});
+
+describe("editing layers", () => {
+  const SAFETY = { key: "safety", title: "Safety", hiddenByDefault: true, groups: [{ key: "exits", title: "Exits" }] };
+
+  it("declares, when it opens, a layer an item names but the layout doesn't", () => {
+    const s = initialEditorState({ items: [item("a", { layer: "air-lines" })], areas: [], layers: [SAFETY] });
+    expect(s.layers.map((l) => l.key)).toEqual(["safety", "air-lines"]);
+    expect(editorDocFrom({ items: [] }).layers).toEqual([]);
+  });
+
+  it("adds, renames and removes a layer as undoable steps, and keeps its key through a rename", () => {
+    let s = initialEditorState({ items: [], areas: [], layers: [] });
+    s = editorReducer(s, { type: "addLayer", layer: { key: "utilities", title: "Utilities", hiddenByDefault: false, groups: [] } });
+    s = editorReducer(s, { type: "updateLayer", key: "utilities", patch: { title: " Services ", hiddenByDefault: true } });
+    expect(s.layers).toEqual([{ key: "utilities", title: "Services", hiddenByDefault: true, groups: [] }]);
+    s = editorReducer(s, { type: "removeLayer", key: "utilities" });
+    expect(s.layers).toEqual([]);
+    s = editorReducer(s, { type: "undo" });
+    expect(s.layers[0].title).toBe("Services");
+    s = editorReducer(s, { type: "undo" });
+    s = editorReducer(s, { type: "undo" });
+    expect(s.layers).toEqual([]);
+  });
+
+  it("changes nothing for a blank rename, an unchanged one, or a duplicate key", () => {
+    const s = initialEditorState({ items: [], layers: [SAFETY] });
+    expect(editorReducer(s, { type: "updateLayer", key: "safety", patch: { title: "  " } })).toBe(s);
+    expect(editorReducer(s, { type: "updateLayer", key: "safety", patch: { title: "Safety" } })).toBe(s);
+    expect(editorReducer(s, { type: "addLayer", layer: { ...SAFETY } })).toBe(s);
+  });
+
+  it("won't remove a layer or a group while an item is on it", () => {
+    const s = initialEditorState({ items: [item("a", { layer: "safety", group: "exits" })], layers: [SAFETY] });
+    expect(editorReducer(s, { type: "removeLayer", key: "safety" })).toBe(s);
+    expect(editorReducer(s, { type: "removeGroup", layer: "safety", group: "exits" })).toBe(s);
+    const moved = editorReducer(s, { type: "update", uid: "a", patch: { group: null } });
+    const without = editorReducer(moved, { type: "removeGroup", layer: "safety", group: "exits" });
+    expect(without.layers[0].groups).toEqual([]);
+  });
+
+  it("adds and renames a group", () => {
+    let s = initialEditorState({ items: [], layers: [SAFETY] });
+    s = editorReducer(s, { type: "addGroup", layer: "safety", group: { key: "medical", title: "Medical" } });
+    s = editorReducer(s, { type: "renameGroup", layer: "safety", group: "medical", title: "First aid" });
+    expect(s.layers[0].groups).toEqual([
+      { key: "exits", title: "Exits" },
+      { key: "medical", title: "First aid" },
+    ]);
+  });
+
+  it("counts a layer change as an unsaved change", () => {
+    const saved = editorDocFrom({ items: [], layers: [SAFETY] });
+    expect(sameDoc(saved, { ...saved, layers: [{ ...SAFETY, hiddenByDefault: false }] })).toBe(false);
+    expect(sameDoc(saved, editorDocFrom({ items: [], layers: [SAFETY] }))).toBe(true);
   });
 });

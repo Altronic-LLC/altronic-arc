@@ -9346,8 +9346,27 @@ No item layer = the BASE PLAN, always shown. Six rules:
   editor (`tidyLayer`), so "base plan and back" isn't an unsaved change.
 - **A new copy of a symbol joins the layer its other copies are ALL on**
   (`placementLayerFor`), never a guess between two. The inspector's Layer /
-  Group pickers offer only existing layers; adding a new layer from the UI
-  isn't built yet. A locked item can still change layer.
+  Group pickers offer only existing layers. A locked item can still change
+  layer.
+
+**Making layers in the editor** (Tim, 2026-11-18) — the editor's Layers
+panel (`PlantLayersPanel` with `edit`) adds, renames and removes layers
+and groups and sets "starts hidden". The layers are part of `EditorDoc`
+(`layers`), so every change is ONE undo step and is saved with the draft.
+Rules:
+
+- **A key is made once from the first title** (`uniqueLayerKey`: slug,
+  `-2` on a clash) and never changes; a rename changes the title only,
+  because items store the key.
+- **`editorDocFrom` declares, on opening, a layer an item names but the
+  layout doesn't**, so it can be renamed like any other. `saved` is built
+  the same way, so opening is never an unsaved change.
+- **A layer or group is removed only once NO item is on it** — the reducer
+  refuses, and the bin is `aria-disabled` with the count. Moving items
+  off is the inspector's Layer picker; there is deliberately no "remove and
+  move everything to the base plan".
+- **Two layers (or two groups in a layer) can't share a title**, ignoring
+  case (`layerTitleProblem`).
 
 **The demo data is invented** (`src/data/plantMock/`, safe for the public
 repo); the real plant's CAD drawing goes in the library, never in `src/`.

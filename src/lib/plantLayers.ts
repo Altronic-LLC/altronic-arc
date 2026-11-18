@@ -130,3 +130,57 @@ export function placementLayerFor(
   if (!agree) return null;
   return first.group ? { layer: first.layer, group: first.group } : { layer: first.layer };
 }
+
+// -----------------------------------------------------------------------------
+// Making and naming layers in the editor (2026-11-18). A layer's KEY is what
+// items store, so it is made once from the first title and never changes; a
+// rename changes the title only. Both are saved with the draft.
+// -----------------------------------------------------------------------------
+
+/** "Fire exits" → "fire-exits": lower case, words joined by dashes. */
+export function slugForLayer(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** A key from the title that none of `taken` uses ("safety", then "safety-2"). */
+export function uniqueLayerKey(title: string, taken: readonly string[]): string {
+  const base = slugForLayer(title) || "layer";
+  const used = new Set(taken.map((k) => k.toLowerCase()));
+  if (!used.has(base)) return base;
+  for (let n = 2; ; n++) if (!used.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
+/**
+ * Why a layer or group title can't be used, or null. Blank, over 60
+ * characters, or the same as another one there (ignoring case) — two layers
+ * both called "Safety" can't be told apart in the panel or the picker.
+ */
+export function layerTitleProblem(
+  title: string,
+  siblings: readonly { key: string; title: string }[],
+  self?: string,
+): string | null {
+  const t = title.trim();
+  if (!t) return "Give it a name.";
+  if (t.length > 60) return "Keep the name to 60 characters.";
+  const clash = siblings.find((s) => s.key !== self && s.title.trim().toLowerCase() === t.toLowerCase());
+  return clash ? `There's already one called ${clash.title}.` : null;
+}
+
+/** A new, empty layer — shown by default. */
+export function newLayer(title: string, layers: readonly PlantLayer[]): PlantLayer {
+  return {
+    key: uniqueLayerKey(title, layers.map((l) => l.key)),
+    title: title.trim(),
+    hiddenByDefault: false,
+    groups: [],
+  };
+}
+
+/** A new group for a layer. */
+export function newGroup(title: string, layer: PlantLayer): { key: string; title: string } {
+  return { key: uniqueLayerKey(title, layer.groups.map((g) => g.key)), title: title.trim() };
+}

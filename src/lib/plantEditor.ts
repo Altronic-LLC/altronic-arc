@@ -1,4 +1,13 @@
-import { PLANT_AREA_KIND_LABELS, type LayoutComponent, type PlantAreaKind, type PlantLayoutArea, type PlantLayoutItem } from "@/types/plant";
+import {
+  PLANT_AREA_KIND_LABELS,
+  type LayoutComponent,
+  type PlantAreaKind,
+  type PlantLayer,
+  type PlantLayerGroup,
+  type PlantLayoutArea,
+  type PlantLayoutItem,
+} from "@/types/plant";
+import { layoutLayers } from "./plantLayers";
 
 // =============================================================================
 // The layout editor's state — pure, so every edit and its undo is testable
@@ -18,15 +27,35 @@ export const HISTORY_LIMIT = 100;
 /** A duplicate lands this far right and down of the original. */
 export const DUPLICATE_OFFSET = 24;
 
-/** What the editor edits — the layout's items and its drawn areas. */
+/** What the editor edits — the layout's items, its drawn areas and its layers. */
 export interface EditorDoc {
   items: PlantLayoutItem[];
   areas: PlantLayoutArea[];
+  /**
+   * The DECLARED layers. Optional so older callers can pass items and areas
+   * only; the editor always holds a list. A layer an item names but the
+   * layout didn't declare is declared when the editor opens (editorDocFrom),
+   * so it can be renamed like any other.
+   */
+  layers?: PlantLayer[];
 }
 
-export interface EditorState extends EditorDoc {
-  past: EditorDoc[];
-  future: EditorDoc[];
+/** The editor's starting doc for a layout — layers declared, every list a copy. */
+export function editorDocFrom(doc: {
+  items: readonly PlantLayoutItem[];
+  areas?: readonly PlantLayoutArea[];
+  layers?: readonly PlantLayer[];
+}): Required<EditorDoc> {
+  return {
+    items: doc.items.map((i) => ({ ...i })),
+    areas: (doc.areas ?? []).map((a) => ({ ...a })),
+    layers: layoutLayers({ items: doc.items, layers: doc.layers }),
+  };
+}
+
+export interface EditorState extends Required<EditorDoc> {
+  past: Required<EditorDoc>[];
+  future: Required<EditorDoc>[];
 }
 
 /** A change to an item or an area. Keys one doesn't have are ignored for it. */
@@ -57,24 +86,52 @@ export type EditorAction =
   | { type: "update"; uid: string; patch: ItemPatch }
   | { type: "delete"; uid: string }
   | { type: "duplicate"; uid: string; newUid: string }
+  /** A new, empty layer (lib/plantLayers.ts newLayer). */
+  | { type: "addLayer"; layer: PlantLayer }
+  /** A layer's title, or whether it starts hidden. Its key never changes — items store it. */
+  | { type: "updateLayer"; key: string; patch: Partial<Pick<PlantLayer, "title" | "hiddenByDefault">> }
+  /** Refused while any item is on the layer — move them off first. */
+  | { type: "removeLayer"; key: string }
+  | { type: "addGroup"; layer: string; group: PlantLayerGroup }
+  | { type: "renameGroup"; layer: string; group: string; title: string }
+  /** Refused while any item is in the group. */
+  | { type: "removeGroup"; layer: string; group: string }
   | { type: "undo" }
   | { type: "redo" }
   /** After a save: what was saved, with the history kept. */
   | { type: "saved"; doc: EditorDoc };
 
 /** Takes the doc, or (older callers) just its items. */
-export function initialEditorState(doc: EditorDoc | PlantLayoutItem[]): EditorState {
-  const d = Array.isArray(doc) ? { items: doc, areas: [] } : doc;
-  return { items: d.items.map((i) => ({ ...i })), areas: (d.areas ?? []).map((a) => ({ ...a })), past: [], future: [] };
+export function initialEditorState(doc: Parameters<typeof editorDocFrom>[0] | PlantLayoutItem[]): EditorState {
+  const d = Array.isArray(doc) ? { items: doc } : doc;
+  return { ...editorDocFrom(d), past: [], future: [] };
 }
 
-function snapshot(state: EditorState): EditorDoc {
-  return { items: state.items, areas: state.areas };
+function snapshot(state: EditorState): Required<EditorDoc> {
+  return { items: state.items, areas: state.areas, layers: state.layers };
 }
 
 function commit(state: EditorState, next: Partial<EditorDoc>): EditorState {
   const past = [...state.past, snapshot(state)].slice(-HISTORY_LIMIT);
-  return { items: next.items ?? state.items, areas: next.areas ?? state.areas, past, future: [] };
+  return {
+    items: next.items ?? state.items,
+    areas: next.areas ?? state.areas,
+    layers: next.layers ?? state.layers,
+    past,
+    future: [],
+  };
+}
+
+/** The layers with one of them changed; null when nothing changed. */
+function withLayer(state: EditorState, key: string, change: (l: PlantLayer) => PlantLayer): PlantLayer[] | null {
+  let changed = false;
+  const layers = state.layers.map((l) => {
+    if (l.key !== key) return l;
+    const next = change(l);
+    if (JSON.stringify(next) !== JSON.stringify(l)) changed = true;
+    return next;
+  });
+  return changed ? layers : null;
 }
 
 const ITEM_KEYS = ["x", "y", "w", "d", "rot", "label", "locked", "equipmentId", "layer", "group"] as const;
@@ -180,6 +237,39 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       };
       return commit(state, { areas: [...state.areas, copy] });
     }
+    case "addLayer":
+      if (state.layers.some((l) => l.key === action.layer.key)) return state;
+      return commit(state, { layers: [...state.layers, { ...action.layer, groups: [...action.layer.groups] }] });
+    case "updateLayer": {
+      const patch = { ...action.patch, ...(action.patch.title !== undefined ? { title: action.patch.title.trim() } : {}) };
+      if (patch.title === "") return state;
+      const layers = withLayer(state, action.key, (l) => ({ ...l, ...patch }));
+      return layers ? commit(state, { layers }) : state;
+    }
+    case "removeLayer":
+      if (!state.layers.some((l) => l.key === action.key)) return state;
+      if (state.items.some((i) => i.layer === action.key)) return state;
+      return commit(state, { layers: state.layers.filter((l) => l.key !== action.key) });
+    case "addGroup": {
+      const layers = withLayer(state, action.layer, (l) =>
+        l.groups.some((g) => g.key === action.group.key) ? l : { ...l, groups: [...l.groups, { ...action.group }] },
+      );
+      return layers ? commit(state, { layers }) : state;
+    }
+    case "renameGroup": {
+      const title = action.title.trim();
+      if (!title) return state;
+      const layers = withLayer(state, action.layer, (l) => ({
+        ...l,
+        groups: l.groups.map((g) => (g.key === action.group ? { ...g, title } : g)),
+      }));
+      return layers ? commit(state, { layers }) : state;
+    }
+    case "removeGroup": {
+      if (state.items.some((i) => i.layer === action.layer && i.group === action.group)) return state;
+      const layers = withLayer(state, action.layer, (l) => ({ ...l, groups: l.groups.filter((g) => g.key !== action.group) }));
+      return layers ? commit(state, { layers }) : state;
+    }
     case "undo": {
       const previous = state.past[state.past.length - 1];
       if (!previous) return state;
@@ -191,11 +281,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return { ...next, past: [...state.past, snapshot(state)], future: rest };
     }
     case "saved":
-      return {
-        ...state,
-        items: action.doc.items.map((i) => ({ ...i })),
-        areas: (action.doc.areas ?? []).map((a) => ({ ...a })),
-      };
+      return { ...state, ...editorDocFrom(action.doc) };
   }
 }
 
@@ -308,9 +394,13 @@ export function sameItems(a: readonly PlantLayoutItem[], b: readonly PlantLayout
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Same items AND areas — for "are there unsaved changes". */
+/** Same items, areas AND layers — for "are there unsaved changes". */
 export function sameDoc(a: EditorDoc, b: EditorDoc): boolean {
-  return sameItems(a.items, b.items) && JSON.stringify(a.areas) === JSON.stringify(b.areas);
+  return (
+    sameItems(a.items, b.items) &&
+    JSON.stringify(a.areas ?? []) === JSON.stringify(b.areas ?? []) &&
+    JSON.stringify(a.layers ?? []) === JSON.stringify(b.layers ?? [])
+  );
 }
 
 /** An area smaller than this either way is a stray click, not a drawing. */

@@ -17,6 +17,7 @@ import {
   DEFAULT_GRID_INCHES,
   editorReducer,
   initialEditorState,
+  editorDocFrom,
   newItemUid,
   placeComponent,
   areaFromCorners,
@@ -41,7 +42,7 @@ import { PlantAreaInspector, PlantInspector, PlantPalette } from "@/components/P
 import { PlantLayoutStatusChip, PlantMapAccessGate } from "@/components/plantMapAtoms";
 import { cn } from "@/lib/cn";
 import { useFitToWindow } from "@/hooks/useFitToWindow";
-import { layoutLayers, placementLayerFor } from "@/lib/plantLayers";
+import { layoutLayers, newGroup, newLayer, placementLayerFor } from "@/lib/plantLayers";
 import { usePlantLayerVisibility } from "@/hooks/usePlantLayerVisibility";
 import { latestSymbols, outdatedItems, symbolVersionIds } from "@/lib/plantSymbolVersions";
 import { PlantLayersPanel } from "@/components/PlantLayersPanel";
@@ -159,12 +160,8 @@ function Editor({
   const [fitRef, fitHeight] = useFitToWindow();
   const columnHeight = fitHeight ? `${fitHeight}px` : undefined;
 
-  const [state, dispatch] = useReducer(
-    editorReducer,
-    { items: layout.doc.items, areas: layout.doc.areas ?? [] },
-    initialEditorState,
-  );
-  const [saved, setSaved] = useState<EditorDoc>({ items: layout.doc.items, areas: layout.doc.areas ?? [] });
+  const [state, dispatch] = useReducer(editorReducer, layout.doc, initialEditorState);
+  const [saved, setSaved] = useState<EditorDoc>(() => editorDocFrom(layout.doc));
   /** "select", or the kind of area a drag on the plan draws. */
   const [tool, setTool] = useState<"select" | PlantAreaKind>("select");
   const [selected, setSelected] = useState<string | null>(null);
@@ -183,7 +180,8 @@ function Editor({
 
   const items = state.items;
   const areas = state.areas;
-  const dirty = !sameDoc({ items, areas }, saved);
+  const declaredLayers = state.layers;
+  const dirty = !sameDoc({ items, areas, layers: declaredLayers }, saved);
   const componentMap = byId.size > 0 ? byId : new Map(components.map((c) => [c.id, c]));
   const paletteSymbols = useMemo(() => latestSymbols(components), [components]);
   /** Items with a newer version of their symbol waiting. */
@@ -192,7 +190,7 @@ function Editor({
   // ---- layers: what's drawn, and what can be picked ------------------------
   // Hiding a layer is display only: hidden items aren't drawn, picked, nudged
   // or lined up with, but the placement check below still reads every item.
-  const layers = useMemo(() => layoutLayers({ items, layers: layout.doc.layers }), [items, layout.doc.layers]);
+  const layers = useMemo(() => layoutLayers({ items, layers: declaredLayers }), [items, declaredLayers]);
   const visibility = usePlantLayerVisibility(layers);
   const { isVisible, reveal } = visibility;
   const shownItems = useMemo(() => items.filter(isVisible), [items, isVisible]);
@@ -307,14 +305,14 @@ function Editor({
 
   const saveNow = useCallback(async () => {
     if (!dirty || save.isPending) return;
-    const doc = { ...layout.doc, extent, items, areas };
+    const doc = { ...layout.doc, extent, items, areas, layers: declaredLayers };
     const result = await save.mutateAsync({ id: layout.id, doc }).catch(() => null);
     if (result) {
-      const next = { items: result.doc.items, areas: result.doc.areas ?? [] };
+      const next = editorDocFrom(result.doc);
       setSaved(next);
       dispatch({ type: "saved", doc: next });
     }
-  }, [dirty, save, layout, extent, items, areas]);
+  }, [dirty, save, layout, extent, items, areas, declaredLayers]);
 
   // ---- dragging a symbol in from the palette ---------------------------------
   const paletteRef = useRef(palette);
@@ -594,6 +592,20 @@ function Editor({
             hidden={visibility.hidden}
             onLayer={visibility.setLayer}
             onGroup={visibility.setGroup}
+            edit={{
+              onAddLayer: (title) => {
+                const layer = newLayer(title, layers);
+                dispatch({ type: "addLayer", layer });
+              },
+              onUpdateLayer: (key, patch) => dispatch({ type: "updateLayer", key, patch }),
+              onRemoveLayer: (key) => dispatch({ type: "removeLayer", key }),
+              onAddGroup: (layerKey, title) => {
+                const layer = layers.find((l) => l.key === layerKey);
+                if (layer) dispatch({ type: "addGroup", layer: layerKey, group: newGroup(title, layer) });
+              },
+              onRenameGroup: (layer, group, title) => dispatch({ type: "renameGroup", layer, group, title }),
+              onRemoveGroup: (layer, group) => dispatch({ type: "removeGroup", layer, group }),
+            }}
           />
           <section aria-label="Placement check" className="rounded-xl border border-border bg-surface p-4">
             <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Placement check</h2>

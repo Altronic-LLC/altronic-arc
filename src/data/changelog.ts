@@ -1,6 +1,4 @@
-// ======================================================================    ],
-  },
-  {
+// =============================================================================
 // Application changelog.
 //
 // HOW TO UPDATE: When making a meaningful user-visible change, add a new
@@ -23,7 +21,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.223.0",
-    date: "2026-11-13",
+    date: "2026-11-18",
     changes: [
       "Operations: new Plant Map — the plant's layouts drawn to scale over each building's walls, with every machine, bench, rack and desk where it stands. Only the people on its roles list see it",
       "Plant Map: open a layout to see it to scale — scroll to zoom, drag to pan, click an item for its details; each layout is checked for anything that overlaps, or sits on a wall, aisle or no-go area, and problems are outlined in red. Items may sit outside the building, such as fire extinguishers and emergency exits on an outside wall",
@@ -40,8 +38,11 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Plant Map: an item's label runs along its long side and turns with it, and is never upside down",
       "Plant Map: layouts can have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters). Show or hide each layer, or one of its groups, beside the plan; Safety starts hidden, and hidden items are still checked for problems",
       "Plant Map: in the editor, set an item's layer and group in the panel on the right; a new copy of a symbol joins the layer its other copies are on, and the item list has a Layer column",
+      "Plant Map: in the editor, make a new layer under Layers, give it groups, rename either, choose whether it starts hidden, and remove one once nothing is on it — saved with the draft, and undoable",
       "Plant Map: Plant Map admins choose who is a viewer, editor or admin under Roles; ARC admins reach Roles from the Admin page",
-=======
+    ],
+  },
+  {
     version: "0.222.0",
     date: "2026-11-17",
     changes: [

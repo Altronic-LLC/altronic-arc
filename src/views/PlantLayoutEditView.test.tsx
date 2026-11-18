@@ -96,6 +96,65 @@ describe("PlantLayoutEditView", () => {
     expect(saved?.doc.layers?.map((l) => l.key)).toEqual(["safety"]);
   });
 
+  it("makes a new layer with a group, puts an item on it, and saves both with the draft", async () => {
+    const user = userEvent.setup();
+    openEditor(3);
+    const layers = await screen.findByRole("region", { name: "Layers" });
+    expect(within(layers).getByText(/No layers yet/)).toBeInTheDocument();
+
+    await user.click(within(layers).getByRole("button", { name: "New layer" }));
+    await user.type(within(layers).getByRole("textbox", { name: "New layer name" }), "Utilities{Enter}");
+    expect(within(layers).getByRole("checkbox", { name: /^Utilities/ })).toBeChecked();
+    await user.click(within(layers).getByRole("button", { name: "Add a group to Utilities" }));
+    await user.type(within(layers).getByRole("textbox", { name: "New group in Utilities" }), "Air drops{Enter}");
+    await user.click(within(layers).getByRole("checkbox", { name: "Start Utilities hidden" }));
+
+    const add = await screen.findByRole("button", { name: "Add Workbench 72x30" });
+    fireEvent.pointerDown(add, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 10 });
+    const inspector = await screen.findByRole("region", { name: "Selected item" });
+    await user.click(within(inspector).getByRole("button", { name: /^Layer/ }));
+    await user.click(await screen.findByRole("option", { name: "Utilities" }));
+    await user.click(within(inspector).getByRole("button", { name: /^Group/ }));
+    await user.click(await screen.findByRole("option", { name: "Air drops" }));
+
+    // Something is on it now, so it can't be removed.
+    expect(within(layers).getByRole("button", { name: "Remove Utilities" })).toHaveAttribute("aria-disabled", "true");
+
+    await user.click(screen.getByRole("button", { name: /save draft/i }));
+    await waitFor(() => expect(screen.getByText("All changes saved")).toBeInTheDocument());
+    const saved = await getPlantLayout(3);
+    expect(saved?.doc.layers).toEqual([
+      { key: "utilities", title: "Utilities", hiddenByDefault: true, groups: [{ key: "air-drops", title: "Air drops" }] },
+    ]);
+    expect(saved?.doc.items[0]).toMatchObject({ layer: "utilities", group: "air-drops" });
+  });
+
+  it("renames a layer without moving its items, refuses a name already used, and removes an empty group", async () => {
+    const user = userEvent.setup();
+    openEditor(4);
+    const layers = await screen.findByRole("region", { name: "Layers" });
+    await user.click(within(layers).getByRole("button", { name: "Rename Safety" }));
+    const box = within(layers).getByRole("textbox", { name: "Rename Safety" });
+    await user.clear(box);
+    await user.type(box, "Life safety{Enter}");
+    expect(within(layers).getByRole("checkbox", { name: /^Life safety/ })).toBeInTheDocument();
+
+    await user.click(within(layers).getByRole("button", { name: "Add a group to Life safety" }));
+    await user.type(within(layers).getByRole("textbox", { name: "New group in Life safety" }), "extinguishers{Enter}");
+    expect(within(layers).getByRole("alert")).toHaveTextContent("There's already one called Extinguishers.");
+    await user.clear(within(layers).getByRole("textbox", { name: "New group in Life safety" }));
+    await user.type(within(layers).getByRole("textbox", { name: "New group in Life safety" }), "Eyewash{Enter}");
+    await user.click(within(layers).getByRole("button", { name: "Remove Eyewash" }));
+    expect(within(layers).queryByText("Eyewash")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /save draft/i }));
+    await waitFor(() => expect(screen.getByText("All changes saved")).toBeInTheDocument());
+    const saved = await getPlantLayout(4);
+    expect(saved?.doc.layers?.[0]).toMatchObject({ key: "safety", title: "Life safety" });
+    expect(saved?.doc.items.some((i) => i.layer === "safety")).toBe(true);
+  });
+
   it("nudges, turns and duplicates the selected item from the keyboard", async () => {
     openEditor(3);
     const add = await screen.findByRole("button", { name: "Add Press (generic)" });
