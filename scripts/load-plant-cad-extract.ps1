@@ -294,7 +294,7 @@ if ($FillLabels) {
         if ($box) { $fields.TextBox = $box }
         Invoke-MgGraphRequest -Method PATCH -Uri "$graph/lists/$componentsId/items/$id/fields" -ContentType "application/json; charset=utf-8" `
             -Body (ConvertTo-Json -InputObject $fields -Compress) | Out-Null
-        $back = (Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$componentsId/items/$id?`$expand=fields(`$select=IsLabel,TextBox)").fields
+        $back = (Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$componentsId/items/${id}?`$expand=fields(`$select=IsLabel,TextBox)").fields
         if ($back.IsLabel -ne $true -or ($box -and "$($back.TextBox)" -ne $box)) { Fail "row $id ($($s.key)) didn't read back as written." }
         Write-Host "    marked $($s.key)" -ForegroundColor Green
     }
