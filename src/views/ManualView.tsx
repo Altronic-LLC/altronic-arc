@@ -3116,6 +3116,201 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "plant-map",
+    title: "Plant Map",
+    group: "Operations",
+    keywords: [
+      "plant map",
+      "plant layout",
+      "floor plan",
+      "layout",
+      "walls drawing",
+      "svg",
+      "machine layout",
+      "overlap",
+      "keep-out",
+      "aisle",
+      "plant map roles",
+    ],
+    searchText:
+      "The Plant Map shows the plant's layouts drawn to scale over each building's walls drawing, with every machine, bench and rack where it stands. Reach it from the Plant Map card in the Operations part of the Dashboard or the Departments menu. Each layout version is a row on the Layouts list: Draft, Published or Superseded. Columns sort and filter. Open one to see it drawn; scroll to zoom, drag the floor to pan, turn labels on or off, and click an item on the plan or in the list below it to see its symbol, size, rotation and where it stands. Editors choose Edit layout on a draft; on a published layout Edit starts a new draft version or opens the existing one. Each building has a tab on the Layouts list. In the editor draw aisles and no-go areas with the Aisle and No-go tools (A, N), label, move, resize and turn them; anything standing in one is flagged by name. Drag symbols from the palette onto the plan, drag items to move them (snapping to the grid, or lining up with a nearby item or area's edge or centre with a dotted guide line; Alt to place freely), drag the round handle to turn and a corner to resize, set exact values, lock, duplicate, remove and link an item to its equipment-register asset. Arrows nudge, R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z undoes, Ctrl+S saves. Save draft saves; leaving with unsaved changes asks first. The placement check lists anything that overlaps another item, sits on a wall, column, aisle, dock, door swing, electrical clearance or other keep-out area, and outlines it in red (an item outside the building, such as an extinguisher or an exit, is fine); a symbol that isn't a rectangle, such as an L-shaped bench, is checked by its real outline. A draft can have problems; a Plant Map admin publishes it with Publish once there are none, and the version it replaces becomes Superseded. Publishing also saves a drawing of the whole plan and a table of every item and area for Power BI, listed under Files for Power BI on the layout's page. Some layouts have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters): tick a layer, or one of its groups, under Layers to show it; a layer can start hidden, hidden items are still checked for problems, and picking a hidden item from a list shows its layer. In the editor an item's Layer and Group are set in the panel on the right, and a new copy of a symbol joins the layer its other copies are on. New layer under Layers makes a layer; each layer can be renamed, given groups, set to start hidden, and removed once nothing is on it. A Plant Map admin can delete a draft or superseded version (never the published one); its walls drawing is deleted too only when no other layout uses it, and both go to the SharePoint recycle bin. Editors start a new layout with New layout: a name, an area, and the building. An existing building reuses its walls drawing and can start with its aisles and no-go areas; a new building needs its walls drawing as an SVG in inches, which is reviewed before it's saved: confirm the building's size, see what ARC can and can't check, and choose which of its keep-outs become editable aisles and no-go areas. A drawing ARC can't use is refused with the reason. Floor markings and zones never count as overlapping. The Symbols tab shows the symbol library; a Plant Map admin adds a symbol from an SVG, a DXF saved from CAD (its size is read from it) or a picture ARC traces to an outline, with its name, category, real footprint, and whether it is solid, can be turned and can be resized. Replace on a symbol saves a new version; layouts keep the version they were drawn with until Update symbols (or Use v2 on one item) in a draft moves them to the latest. Retire takes a symbol off the palette (layouts that use it keep it); Restore brings it back. Only the people on the Plant Map Roles list see the Plant Map at all — viewers look, editors also build layouts, and Plant Map admins also publish, manage symbols and the list; ARC admins manage the list from the Admin page.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Plant Map</strong> shows the plant's layouts drawn to scale over each
+          building's walls drawing, with every machine, bench and rack where it stands. Reach
+          it from the <strong>Plant Map</strong> card in the Operations part of the Dashboard,
+          or the <strong>Departments</strong> menu.
+        </P>
+        <H3>Layouts</H3>
+        <UL>
+          <LI>Each version of a layout is its own row: <strong>Draft</strong>, <strong>Published</strong> or <strong>Superseded</strong>. Every column sorts and filters from its header.</LI>
+          <LI>A tab across the top for each building narrows the list to that building's layouts.</LI>
+          <LI>Open one to see it drawn. Scroll the mouse wheel (or use the + button) to zoom where the pointer is, and click and drag the floor to pan; names appear as items get big enough on screen. Turn them off with <strong>Show labels</strong>, and click an item — on the plan or in the list below it — to see its symbol, size, rotation and where it stands.</LI>
+        </UL>
+        <H3>Layers</H3>
+        <P>
+          Some layouts carry <strong>layers</strong> — sets of items shown and hidden together,
+          such as <strong>Safety</strong>: fire extinguishers, fire exits, medical (first aid,
+          AEDs, eye wash) and severe-weather shelters. Tick a layer under <strong>Layers</strong>{" "}
+          beside the plan to show it, or tick and untick its groups one at a time; the number
+          beside each is how many items it holds. A layer can start hidden, as Safety does. What
+          you show and hide is yours alone and isn't saved. Everything else on the plan is the
+          base plan and is always shown.
+        </P>
+        <UL>
+          <LI>Hidden items are still checked: a problem on a hidden layer is still listed, and picking it shows its layer.</LI>
+          <LI>The list of items has a <strong>Layer</strong> column, and picking a hidden item from it shows that layer.</LI>
+          <LI>In the editor, the panel on the right sets an item's <strong>Layer</strong> and <strong>Group</strong> (<strong>Base plan</strong> for none). A symbol whose other copies are all on one layer and group goes there when you add it — a new extinguisher joins the others. Hidden items can't be picked or moved on the plan, and nothing lines up with them.</LI>
+          <LI>In the editor, <strong>New layer</strong> under <strong>Layers</strong> makes a layer. Beside each layer and group: the pencil renames it, + adds a group, and the bin removes it — only once nothing is on it, so move its items off first. <strong>Starts hidden</strong> decides how it opens for everyone. All of it is saved with the draft, and Ctrl+Z undoes it.</LI>
+        </UL>
+        <H3>The placement check</H3>
+        <P>
+          Every layout is checked against its walls drawing. Anything that overlaps another
+          item, sits on a wall, a column or a keep-out area (an aisle, a dock, a door swing,
+          electrical clearance, an exit route) is outlined in red and listed beside the
+          plan. Floor markings and zones never count as overlapping. An item may sit outside
+          the building, such as a fire extinguisher or an emergency exit on an outside wall;
+          it is still checked against walls and other items there. A symbol that isn't a rectangle, such as an L-shaped bench, is checked
+          by its real outline, so something tucked into its corner doesn't count as an
+          overlap. A draft can have problems; it can't be published until they're fixed.
+        </P>
+        <H3>Publishing</H3>
+        <P>
+          A Plant Map admin publishes a draft with <strong>Publish</strong> on its page. The button
+          stays greyed out, saying why, until the placement check finds nothing wrong — and the
+          check runs again as it publishes. Publishing asks first: the draft becomes the{" "}
+          <strong>Published</strong> layout, and the version that was published before becomes{" "}
+          <strong>Superseded</strong>. A published layout can't be changed; <strong>Edit as a new
+          draft</strong> starts the next version. Nobody is emailed.
+        </P>
+        <H3>Files for Power BI</H3>
+        <P>
+          Publishing also saves two files in the Plant Layout Files library, under{" "}
+          <strong>published</strong>: a drawing of the whole plan (an SVG with the walls, the aisles
+          and no-go areas, and every item with its symbol), and a table of every item and area (a
+          CSV with its position and size in inches, its layer, its symbol and the equipment-register
+          asset it's linked to). Each item has the same id in both, so a report can colour the
+          drawing from the table. There are two copies of each: one for the version, kept as it
+          was, and a <strong>current</strong> one that every publish of that layout replaces —
+          point a Power BI report at the current files. They're listed under{" "}
+          <strong>Files for Power BI</strong> on the layout's page, to open in SharePoint or
+          download. If they couldn't be saved when the layout was published, or the layout was
+          published before they existed, a Plant Map admin presses{" "}
+          <strong>Save files for Power BI</strong> there.
+        </P>
+        <H3>Deleting a layout</H3>
+        <P>
+          A Plant Map admin can delete a <strong>Draft</strong> or <strong>Superseded</strong> version
+          with <strong>Delete</strong> on its page; the published version can't be deleted. Several
+          layouts often share one walls drawing — every version of a layout, and every layout in the
+          same building — so the drawing is deleted too only when no other layout uses it, and the
+          confirmation says which. Both go to the SharePoint recycle bin, where they can be restored
+          for 93 days.
+        </P>
+        <H3>Editing a layout</H3>
+        <P>
+          Editors see <strong>Edit layout</strong> on a draft. On a published layout the
+          button starts a new draft version (or opens the draft that already exists) — a
+          published layout itself is never changed.
+        </P>
+        <UL>
+          <LI>Drag a symbol from the palette on the left onto the plan. A preview follows the pointer and turns red where the item won't fit. Clicking a symbol drops one in the middle of the view.</LI>
+          <LI>Drag an item to move it; it snaps to the grid chosen under <strong>Snap</strong> (hold Alt to place it freely). When its edge or centre comes close to another item's or area's, across or down, it snaps into line and a dotted guide shows what it lined up with — handy for rows of desks and machines. Symbols dragged in from the palette line up the same way. Drag the round handle to turn it in 15° steps (Shift for single degrees). Drag a corner to resize it, where the symbol allows.</LI>
+          <LI>The panel on the right sets the label, the exact position, size and rotation, and links the item to its asset in the equipment register. <strong>Lock</strong> stops an item being moved by accident.</LI>
+          <LI>Keys: arrows nudge (Shift for one inch), R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctrl+Shift+Z undo and redo, Ctrl+S saves. Scroll to zoom where the pointer is; click and drag empty floor (or drag with the middle button) to pan.</LI>
+          <LI><strong>Aisle</strong> and <strong>No-go</strong> in the toolbar (or A and N) draw an area: drag a rectangle on the plan. Give it a label, and move, resize or turn it like equipment. Machines and benches can't stand in one — anything that does is flagged by the area's name; floor zones can. The walls drawing's own keep-outs can't be changed here.</LI>
+          <LI>The placement check updates as you drag. Nothing is saved until <strong>Save draft</strong>; leaving with unsaved changes asks first.</LI>
+        </UL>
+        <H3>Starting a layout</H3>
+        <P>
+          Editors see <strong>New layout</strong>: pick the building — or type a new name, which
+          starts a new building with its own tab — and give it a name and an area. A building
+          that already has layouts uses the walls drawing it already has, so there is nothing
+          to upload, and the new layout starts with that building's aisles and no-go areas
+          (untick the box to leave them out). Choose <strong>Upload a different drawing</strong>{" "}
+          if the building has changed. A new building needs its walls drawing — an SVG exported
+          from CAD, in inches, with a viewBox of the building's size. A drawing ARC can't use is
+          refused with the reason. A drawing it can use is shown for review before anything is
+          saved: the walls and columns ARC will check against are highlighted, anything it can't
+          check is listed, and you tick to confirm the building's size (every symbol is drawn to
+          scale against it). Its keep-out areas are listed too — ticked ones come off the drawing
+          and start as aisles and no-go areas on the layout, which you can label, move and resize
+          later; unticked ones stay part of the drawing. Door swings stay by default. The new layout starts with no equipment on it.
+        </P>
+        <Tip>
+          The check can only see walls, columns and keep-outs drawn as rectangles in groups
+          named walls, columns and keepout. A drawing without them still shows; the check
+          then only finds items overlapping each other or the layout's own areas.
+        </Tip>
+        <H3>Symbols</H3>
+        <P>
+          The <strong>Symbols</strong> tab shows the library a layout is built from — every machine,
+          bench, rack and desk, by category, at its real size. Search it by name or category.
+        </P>
+        <UL>
+          <LI>
+            A Plant Map admin adds one with <strong>Add symbol</strong>: pick the drawing, give it a
+            name, a category and its real width and depth in inches, and say whether it is solid or a
+            floor marking, can be turned and can be resized. The preview shows the symbol exactly as it
+            will be saved.
+          </LI>
+          <LI>
+            The drawing can be an SVG; a DXF saved from CAD — its real size is read from it, and text,
+            dimensions and hatching are left out; or a picture (PNG or JPG) of the machine seen from
+            above, which ARC traces to an outline — move the threshold until it looks right. A DWG has
+            to be saved as a DXF first, and a PDF exported as SVG or DXF, or saved as a picture.
+          </LI>
+          <LI>
+            The drawing is fitted into the footprint, keeping its proportions or stretched, and a small
+            notch marks the front (the bottom edge), so you can see which way it faces once turned.
+          </LI>
+          <LI>
+            A solid symbol that isn't a rectangle — an L-shaped bench, a machine with an open bay — can
+            have an <strong>outline</strong>: under <strong>Placement check</strong> choose{" "}
+            <strong>Only an outline I draw</strong> and click its corners in order around the solid
+            part on the preview (or type them as x,y pairs in inches). Then something standing in the
+            gap isn't counted as overlapping it. A new drawing or a new size clears the outline.
+          </LI>
+          <LI>
+            A <strong>label</strong> symbol, such as an area-label pill, has each item's own label
+            written inside it, sized to fit and turned the right way up — tick <strong>A label</strong>{" "}
+            on the form. Change an item's label in the editor to change what it says.
+          </LI>
+          <LI>
+            A Plant Map admin changes a symbol with <strong>Replace</strong> on its card. This saves a
+            new version (v2, v3 …): change its name, category or settings, or pick a new drawing — the
+            footprint can only change with a new drawing. The library and the palette show only the
+            latest version.
+          </LI>
+          <LI>
+            Layouts keep the version they were drawn with, so a published layout never changes when a
+            symbol is replaced. In a draft, the editor says how many items use an older version:
+            <strong> Update symbols</strong> moves them all to the latest, or <strong>Use v2</strong> in
+            the panel on the right moves one. Each keeps where it stands; one still at the old size takes
+            the new size, and one you resized keeps its size. It's an ordinary change — undo it, or save
+            the draft and publish it.
+          </LI>
+          <LI>
+            <strong>Retire</strong> on a symbol's card takes it off the palette, after a confirmation
+            that says which layouts use it. Those layouts keep it, drawn as it is, and the editor says
+            so when one of its items is picked. Nothing is deleted: tick <strong>Show retired</strong>{" "}
+            and press <strong>Restore</strong> to bring it back.
+          </LI>
+        </UL>
+        <H3>Roles</H3>
+        <P>
+          Only the people on the Plant Map Roles list see the Plant Map at all — anyone else
+          has no card on the Dashboard and no menu entry. <strong>Viewers</strong> look;{" "}
+          <strong>editors</strong> also start layouts and edit drafts; <strong>Plant Map
+          admins</strong> also publish layouts, manage the symbol library and choose who is on
+          the list, from the <strong>Roles</strong> tab. ARC admins manage the list too, from the
+          Admin page, without being on it themselves.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "reports",
     title: "Reports",
     group: "Reports",
