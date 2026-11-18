@@ -73,6 +73,8 @@ import { buildCrimpOutOfSpecEmails } from "@/lib/crimpAlerts";
 import type { CrimpCheck } from "@/types/crimp";
 import { buildCoatingOutOfSpecEmails } from "@/lib/coatingAlerts";
 import type { CoatingCheck } from "@/types/coating";
+import { buildPullTestFailedEmails } from "@/lib/pullTestAlerts";
+import type { PullTest } from "@/types/pullTest";
 import {
   buildBrCompleteEmails,
   buildBrPartProductionCompleteEmails,
@@ -147,6 +149,7 @@ export interface MentionTarget {
     | "mcn"
     | "crimpCheck"
     | "coatingCheck"
+    | "pullTest"
     | "harnessPartNumber"
     | "scheduledMaintenance";
   id: number;
@@ -286,6 +289,11 @@ const KIND_COPY: Record<
     phrase: "a conformal coating check",
     calloutLabel: "Coating Check",
     buttonText: "Open this check",
+  },
+  pullTest: {
+    phrase: "a pull test",
+    calloutLabel: "Pull Test",
+    buttonText: "Open this test",
   },
   harnessPartNumber: {
     phrase: "a harness part number",
@@ -1034,6 +1042,24 @@ export async function sendCoatingOutOfSpecAlert(args: {
   if (emails.length === 0) return NOTHING_SENT;
   return notifyChangeEmails({
     target: { kind: "coatingCheck", id: args.check.id, title: args.check.title },
+    emails,
+  });
+}
+
+/**
+ * A pull test with a pull below the minimum (BusinessIT#64) — the "Pull test
+ * failed" people on Harness Alert Recipients, read fresh by the caller.
+ * Returns what was sent, so the save can say whether anyone heard.
+ */
+export async function sendPullTestFailedAlert(args: {
+  test: PullTest;
+  actor: Person;
+  recipients: Person[];
+}): Promise<MailSendResult> {
+  const emails = buildPullTestFailedEmails(args);
+  if (emails.length === 0) return NOTHING_SENT;
+  return notifyChangeEmails({
+    target: { kind: "pullTest", id: args.test.id, title: args.test.title },
     emails,
   });
 }

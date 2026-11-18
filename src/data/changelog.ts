@@ -1,4 +1,6 @@
-// =============================================================================
+// ======================================================================    ],
+  },
+  {
 // Application changelog.
 //
 // HOW TO UPDATE: When making a meaningful user-visible change, add a new
@@ -39,6 +41,19 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Plant Map: layouts can have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters). Show or hide each layer, or one of its groups, beside the plan; Safety starts hidden, and hidden items are still checked for problems",
       "Plant Map: in the editor, set an item's layer and group in the panel on the right; a new copy of a symbol joins the layer its other copies are on, and the item list has a Layer column",
       "Plant Map: Plant Map admins choose who is a viewer, editor or admin under Roles; ARC admins reach Roles from the Admin page",
+=======
+    version: "0.222.0",
+    date: "2026-11-17",
+    changes: [
+      "New under Harness: Pull Tests, a log of pulls on the Mark-10 WT3-200 tester at the start of a run, in process and at the end, judged against each terminal's minimum pull force",
+      "In Chrome or Edge, connect the tester over USB and each pull's peak fills the next box by itself; pulls can still be typed, and each test records whether they were read or typed",
+      "Pull Test Specs hold each terminal and wire gauge's minimum, from the manufacturer or an industry standard such as IPC/WHMA-A-620, which can cover any terminal on a gauge; ARC admins manage them",
+      "Each spec says how many pulls a test needs at Start, In process and End, from 1 to 5 each (three when left blank); the test form asks for that many, and every test keeps the count it was taken under",
+      "A pull test spec can be duplicated: the Duplicate button, or Start from an existing spec when adding one, fills the form from that spec so you only change what differs",
+      "A test with any pull below its minimum emails the people chosen for failed pull tests on Harness → Who's notified",
+      "Each test records how it failed, such as the wire broke or it pulled out of the crimp, picked from the answers already used or typed new",
+      "After each reading from the tester the cursor moves to the next empty pull box, then to How it failed",
+      "The test form and the manual list the tester settings that work, and what to do for a pull under 10 lbF",
     ],
   },
   {
