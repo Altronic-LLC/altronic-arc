@@ -59,6 +59,9 @@ interface ImportMetaEnv {
   readonly VITE_SP_CRIMP_CHECKS_LIST_ID: string;
   /** Harness Alert Recipients list (who the Harness emails go to). No default. */
   readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;
+  /** Pull Tests (BusinessIT#64, Harness) on the PMO site. No defaults. */
+  readonly VITE_SP_PULL_TEST_SPECS_LIST_ID: string;
+  readonly VITE_SP_PULL_TESTS_LIST_ID: string;
   /** Conformal Coating Checks (BusinessIT#60, Operations) on the PMO site. No defaults. */
   readonly VITE_SP_COATING_SPECS_LIST_ID: string;
   readonly VITE_SP_COATING_CHECKS_LIST_ID: string;
