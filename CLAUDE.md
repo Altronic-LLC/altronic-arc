@@ -1774,6 +1774,18 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
   `EirNumberUnconfirmedError` carrying the EIR; `useCreateEir` treats that as
   a create with a warning toast. Pinned in `api/eirs.numbering.test.ts` (real
   mode), verified by disabling the check and by flipping the older-wins rule.
+  **Initial vs current stock and cost** (BusinessIT#23, 2026-11-19). The
+  original `CurrentStock` / `Current_x0020_Price` columns hold the figures
+  from when the EIR was raised and are SHOWN as **Initial Stock / Initial
+  Cost** (display names renamed in SharePoint; internal names and the
+  `currentStock` / `currentPrice` domain keys unchanged). Two text columns,
+  `LatestStock` / `LatestCost` (shown **Current Stock / Current Cost**,
+  domain `latestStock` / `latestCost`), are kept up to date, editable on the
+  EIR page by the **Supply Chain** role only. `scripts/update-eir-fait-columns.ps1`
+  makes both changes. `listEirs` asks for the new columns and, on a 400 only,
+  retries without them and remembers (`eirLatestColumnsAvailable`, the MRB
+  Watchers arrangement); a write to them is then refused naming the script.
+  Pinned in real mode in `api/eirs.latestColumns.test.ts`.
 - **EIR Roles List ID:** `e85aeb77-9dbf-4962-ade2-08cb977a5b79` (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list on the Engineering site (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Managed at `/admin/eir-roles`.
 
   **The list EXISTS** — confirmed live 2026-08-24. This entry said "not yet created" for months and was wrong; the id above is the one the site returned. There is deliberately **no default in `config.ts`**: adding one turns EIR field gating ON at the next deploy, and every engineer not on the list would lose fields they can edit today. Set the env var only once the list is populated — that decision is Ray's, not a tidy-up.
@@ -3123,10 +3135,16 @@ users of its function... assuming all sign offs are done."*
   the optimistic patch back and toasts `err.message`, so no extra plumbing was
   needed for the refusal to surface.
 - **Whether this write closes the FAIT is decided in `onMutate`**, against
-  the pre-write row (same timing rule as `pendingSignOff` for the ordinary
-  sign-off chain — `onMutate` has already run by the time `mutationFn`
-  fires), and carried forward through a second WeakMap, `pendingNotifyClose`,
-  keyed on the mutation's `vars` object.
+  the row AS THIS SAVE LEAVES IT — `patch(prevFait)`, the pre-write row with
+  this write's own values applied (same timing rule as `pendingSignOff` for
+  the ordinary sign-off chain — `onMutate` has already run by the time
+  `mutationFn` fires), and carried forward through a second WeakMap,
+  `pendingNotifyClose`, keyed on the mutation's `vars` object. It read the
+  bare pre-write row until BusinessIT#75 (2026-11-19), so an engineer
+  approving and ticking Notify Initiator in ONE save of the Sign-off card was
+  refused as "not fully signed off". When such a save closes the FAIT, the
+  KAM is NOT asked for a signature (closing means the KAM's is already in).
+  Pinned in `useFaits.notifySameSave.test.tsx`.
 - **The close travels in the SAME PATCH** as the Notify Initiator checkbox
   itself — `{ NotifyInitiator: true, Status: "Closed" }` in one write, the
   same "the auto-advance can't disagree with what caused it" rule the
@@ -3249,6 +3267,13 @@ It is deliberately in two obvious places — one branch of `faitSignOffOutcome`
 and `buildFaitSqeFailedEmails` — so changing it is cheap. There is **no
 fallback queue** on it: the SQE reviewers are the people who record a Failed
 sign-off, so bouncing it back to them says nothing they don't know.
+
+**"Pending EIR Review & Response"** is a FAIT status (BusinessIT#73, Jerrod
+Waldron, 2026-11-19) for a FAIT waiting on an EIR. It's a plain status — no
+alert of its own, and the sign-off chain can still auto-advance a FAIT out of
+it. The Status column is a strict choice, so it was added in SharePoint by
+`scripts/update-eir-fait-columns.ps1`; a new status needs both that and
+`FAIT_STATUSES`. `FaitStatusChip` shows any `Pending…` status as waiting work.
 
 **`EngSignOff` and `KAMSignOff` offer only `Approved`** — there is no rejection
 value on either column, so there is no reject path at those two stages and none
@@ -11315,6 +11340,15 @@ What DID change, accepted: **an explicit `leading-*` now beats a responsive
 sm:text-2xl`; v3 let `sm:text-2xl`'s line-height win (32px), v4 honours
 `leading-tight` (30px). 2px tighter, and what the class list said all along.
 
+**`translate-*`, `scale-*` and `rotate-*` set their OWN CSS properties**
+(`translate`, `scale`, `rotate`), not `transform`. The built-in
+`transition-transform` lists all four, so it works; a hand-written
+`transition-[transform,…]` does NOT, and the element jumps instead of
+moving. Name `translate` in an arbitrary transition list, and check
+`propertyName === "translate"` in a `transitionend` handler. Found on the
+footer slide (2026-11-19), by sampling the position in headless Chrome
+every 80ms — a screenshot can't show motion.
+
 Two syntax changes worth knowing: **the important modifier is a SUFFIX**
 (`w-20!`, not `!w-20`; the prefix still works but is deprecated), and
 renamed scales (`shadow-sm`→`shadow-xs`, `rounded`→`rounded-sm`,
@@ -11416,6 +11450,19 @@ looked at. Three things it had to learn:
 - **Page errors are printed** after the capture (exceptions, `console.error`,
   `console.warn`) — a screenshot alone can't show why something didn't
   happen.
+
+### The footer can be slid away — `data-fixed-footer` only while it's shown
+
+BusinessIT#77 (Alexander Masgras, 2026-11-19): the fixed footer covered the
+bottom of the page. An arrow at its left slides it off (`-translate-x-full`
++ `invisible`, so it leaves the tab order); a tab at the bottom left brings it
+back. Plain `useState` in `Footer` — gone until pressed or the page reloads,
+never remembered, so nobody loses the version and access notices for good.
+Two things read the footer's position and both key on `data-fixed-footer`,
+which is dropped while it's hidden: dropdown placement (`visibleBottom` in
+`SearchableSelect`) and `useFitToWindow`. Toggling dispatches a `resize`
+event so fitted tables measure again. A new "stay clear of the footer"
+reader must query `[data-fixed-footer]`, not `footer`.
 
 ### The header fits every width — labels at 2xl, the buttons wrap below
 

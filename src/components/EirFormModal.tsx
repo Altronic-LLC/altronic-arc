@@ -37,8 +37,8 @@ interface EirFormModalProps {
  * Create-EIR modal. Layout mirrors the legacy Power Apps form so users
  * coming from the SharePoint UI feel at home: General Information up top
  * (Request Type, Reporter, Requested Priority, Requested Completion Date,
- * Subject, Description) followed by Purchasing Information (EAU, Current
- * Stock, Current Price, MFG, MFG P/N, LTB Date, Altronic Part Number,
+ * Subject, Description) followed by Purchasing Information (EAU, Initial
+ * Stock, Initial Cost, MFG, MFG P/N, LTB Date, Altronic Part Number,
  * Where Used).
  *
  * Required-field set matches the original form too: Request Type, Reporter,
@@ -336,20 +336,20 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
               />
             </FieldLabel>
 
-            <FieldLabel label="Current Stock">
+            <FieldLabel label="Initial Stock">
               <input
                 value={currentStock}
                 onChange={(e) => setCurrentStock(e.target.value)}
-                placeholder="Enter Current Stock"
+                placeholder="Stock on hand today"
                 className="input"
               />
             </FieldLabel>
 
-            <FieldLabel label="Current Price">
+            <FieldLabel label="Initial Cost">
               <input
                 value={currentPrice}
                 onChange={(e) => setCurrentPrice(e.target.value)}
-                placeholder="Enter Current Price"
+                placeholder="Cost today"
                 className="input"
               />
             </FieldLabel>

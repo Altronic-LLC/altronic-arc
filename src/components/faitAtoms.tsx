@@ -5,13 +5,14 @@ import { cn } from "@/lib/cn";
 // =============================================================================
 
 /**
- * Status. The three "this is with …" values are the ones that say who's
- * holding it up, so they read as active work; Closed goes quiet.
+ * Status. The three "this is with …" values, and "Pending EIR Review &
+ * Response", are the ones that say who's holding it up, so they read as
+ * active work; Closed goes quiet.
  */
 export function FaitStatusChip({ status }: { status: string }) {
   const value = (status ?? "").trim();
   const closed = value.toLowerCase() === "closed";
-  const waiting = /^this is with/i.test(value);
+  const waiting = /^(this is with|pending)/i.test(value);
   return (
     <span
       className={cn(

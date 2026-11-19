@@ -249,8 +249,14 @@ export function useUpdateFaitFields() {
       // owes is Approved. `undefined` means the box wasn't touched by this
       // write at all, so mutationFn's refusal check only fires for a write
       // that's actually trying to check it.
+      //
+      // Judged against the row AS THIS WRITE LEAVES IT (`patch(prevFait)`),
+      // not the pre-write row: the Sign-off card saves in one go, so an
+      // engineer approving AND ticking Notify Initiator in the same save is
+      // one write. Checking `prevFait` alone read their approval as still
+      // missing and refused the save (BusinessIT#75).
       if (prevFait && notifyInitiatorJustChecked(prevFait, vars.fields)) {
-        pendingNotifyClose.set(vars, faitFullySignedOff(prevFait));
+        pendingNotifyClose.set(vars, faitFullySignedOff(patch(prevFait)));
       }
       patchFait(qc, id, patch);
       const closingNow = pendingNotifyClose.get(vars) === true;
@@ -344,7 +350,10 @@ export function useUpdateFaitFields() {
             actor,
             watchers: prevFait.watchers,
           });
-        } else if (step.kind === "eng-approved" && step.kamOwed) {
+        } else if (step.kind === "eng-approved" && step.kamOwed && !ctx?.notifyClosing) {
+          // Not when this same save closes the FAIT: closing means every
+          // sign-off it owes, KAM's included, is already Approved, so there
+          // is no signature left to ask for.
           // kamNeeded gates this: with no KAM owed the chain finishes at the
           // engineer, and nobody is asked for a signature they don't owe.
           fireFaitSignOffRequest({

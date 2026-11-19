@@ -923,6 +923,8 @@ function applyFieldsLocally(
   if ("MFG" in fields) next.mfg = (fields.MFG as string) ?? "";
   if ("MFGP_x002f_N" in fields) next.mfgPartNumber = (fields.MFGP_x002f_N as string) ?? "";
   if ("Current_x0020_Price" in fields) next.currentPrice = (fields.Current_x0020_Price as string) ?? "";
+  if ("LatestStock" in fields) next.latestStock = (fields.LatestStock as string) ?? "";
+  if ("LatestCost" in fields) next.latestCost = (fields.LatestCost as string) ?? "";
   if ("Altronic_x0020_Part_x0020_Number" in fields)
     next.altronicPartNumber = (fields.Altronic_x0020_Part_x0020_Number as string) ?? "";
   if ("TaskReference" in fields) next.taskReference = (fields.TaskReference as string) ?? "";
@@ -979,6 +981,8 @@ function buildInverseFields(prev: Eir, fields: Record<string, unknown>): Record<
   if ("MFG" in fields) inv.MFG = prev.mfg;
   if ("MFGP_x002f_N" in fields) inv.MFGP_x002f_N = prev.mfgPartNumber;
   if ("Current_x0020_Price" in fields) inv.Current_x0020_Price = prev.currentPrice;
+  if ("LatestStock" in fields) inv.LatestStock = prev.latestStock;
+  if ("LatestCost" in fields) inv.LatestCost = prev.latestCost;
   if ("Altronic_x0020_Part_x0020_Number" in fields)
     inv.Altronic_x0020_Part_x0020_Number = prev.altronicPartNumber;
   if ("TaskReference" in fields) inv.TaskReference = prev.taskReference;
@@ -1025,6 +1029,8 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
       case "MFG":
       case "MFGP_x002f_N":
       case "Current_x0020_Price":
+      case "LatestStock":
+      case "LatestCost":
       case "Altronic_x0020_Part_x0020_Number":
         return "Part details updated.";
       case "Requested_x0020_Completion_x0020":

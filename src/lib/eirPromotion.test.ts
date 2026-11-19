@@ -40,6 +40,8 @@ function eir(over: Partial<Eir>): Eir {
     mfg: "",
     mfgPartNumber: "",
     currentPrice: "",
+    latestStock: "",
+    latestCost: "",
     altronicPartNumber: "",
     requestedCompletionDate: null,
     ltbDate: null,
