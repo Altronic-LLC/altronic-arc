@@ -6,8 +6,9 @@ Panel Tasks and the Capacity view replace it. The decision (Tim, 2026-10-28):
 **start fresh in ARC, but pull from Wrike while testing, and pull again right
 before go-live** so nothing is keyed in twice.
 
-The tool is `scripts/import-wrike-panel-tasks.ps1`. **It has not been run live
-yet.** The Wrike field names below come from the v4 API docs and the Graph side
+The tool is `scripts/import-wrike-panel-tasks.ps1`. It was run live 2026-11-03 to 2026-11-05 (202 tasks); the per-field
+tracking below was added 2026-11-19 and has been planned against a copy of
+that export, not yet applied. The Wrike field names below come from the v4 API docs and the Graph side
 can't be signed in from Claude's shell, so the first run is Tim's, in his own
 terminal. Anything marked *unverified* needs checking on that run.
 
@@ -94,8 +95,9 @@ the panel site's User Information List live, then writes:
 | `plan.json` | Every planned write, exactly as step 3 will perform it |
 | `report.md` | The counts. Read this first. |
 | `create.csv` | Wrike tasks with no ARC row yet |
-| `update.csv` | Wrike changed and the ARC row is untouched since the last import: the fields that will change |
-| `conflicts.csv` | **Edited in ARC since the last import.** Never overwritten. |
+| `update.csv` | Fields Wrike changed that ARC hasn't: which, and the status from → to |
+| `conflicts.csv` | **Fields changed in both** Wrike and ARC since the last import: ARC's value kept, never overwritten |
+| `gone.csv` | Imported tasks no longer in the export (deleted in Wrike, or moved out of the space). Listed, never deleted. |
 | `comments.csv` | Comments to append |
 | `unmatched-people.csv` | Responsibles the panel site can't resolve. Left off. |
 | `new-projects.csv` | A Panel Project Reference to **create** for each Wrike project that matches none |
@@ -104,6 +106,15 @@ the panel site's User Information List live, then writes:
 | `flexible-effort.csv` | Tasks whose Flexible effort was flattened to a total |
 
 #### New Panel Project References
+
+A Wrike project is matched to an existing Panel Project Reference by
+`projectMap`, then by the same title, then — since 2026-11-19 — **by drawing
+number**: its leading drawing number equals the DWG NO of exactly one
+existing reference. That keeps a project renamed in Wrike (`5900-FLX36-V2-025
+- AIG` → `5900-FLX36-V2-025 (AIG) - 1027-0387-00`) on the reference ARC
+already has; without it the 2026-11-19 plan would have created five
+duplicates and moved 18 tasks onto them. `projects-matched-by-dwg.csv` lists
+every such match. Two references sharing a DWG NO match neither.
 
 On 2026-10-28 the live list held four references and Wrike had 41 projects,
 none matching, so the import CREATES them (Tim). `new-projects.csv` proposes
@@ -210,26 +221,49 @@ never written as an empty person column. Fix it (they open the site, or add a
 `peopleMap` line) and re-plan; the next apply adds them, because the change
 counts as a Wrike-side difference against an ARC row nobody has touched.
 
-## Why a re-run is safe: the two hashes
+## Why a re-run is safe: per-field hashes
 
-`ImportHash` holds `src=<sha256>;arc=<sha256>` over Title, Status, project,
-assignee, watchers, description, dates and hours:
+Since 2026-11-19 `ImportHash` tracks **each field separately** (Title,
+Status, Work Type, Priority, SAP #, project, assigned, watchers, description,
+start, due, hours): `v2:` then, per field in that order, an 8-hex hash of
+**src** (what Wrike said at the last import) and of **arc** (what SharePoint
+stored, read back after the write — so a value SharePoint stores slightly
+differently can't read as an ARC edit for ever). 206 characters, inside the
+column's 255.
 
-- **src**: the values mapped from Wrike at the last import.
-- **arc**: the same fields as SharePoint **stored** them, read back after the
-  write. Taken from the read-back, not from what was sent, so a value
-  SharePoint stores slightly differently (a rich-text Description, say) can't
-  read as an ARC edit on every later run.
+On re-plan, per field:
 
-On re-plan, per task:
-
-| Live ARC row vs `arc` | Wrike now vs `src` | Plan |
+| Wrike now vs `src` | ARC now vs `arc` | Plan |
 |---|---|---|
-| no row | — | create |
-| different | — | **conflict**: listed, never touched |
-| same | same | nothing |
-| same | different | update the fields that differ |
-| `ImportHash` missing or unreadable | — | conflict |
+| same | — | left as ARC has it |
+| different | same | **updated** |
+| different | different, and not equal to Wrike's | **conflict**: ARC's value kept, listed in `conflicts.csv` |
+| different | equal to Wrike's | nothing to do |
+
+So an ARC edit holds only the field that was edited. A task dragged on the
+Capacity grid keeps its new dates, and its Wrike status still comes over. An
+ARC edit stays remembered: a later Wrike change to that same field is a
+conflict again, not a silent overwrite.
+
+**Watchers are never a conflict.** Wrike's responsibles are added to whoever
+watches in ARC (an @-mention or Watch adds people there), and nobody is
+removed — ARC's rule.
+
+**The older whole-row form** (`src=<sha256>;arc=<sha256>`, before
+2026-11-19) still reads. A row untouched since then is updated as normal and
+moved to the per-field form (an "ImportHash only" write for every untouched
+row, once). A row edited in ARC under the old form can't say which field was
+edited, so it stays a **whole-task conflict**, as before. On 2026-11-19 no
+imported task had been edited in ARC, so none are.
+
+| | Plan |
+|---|---|
+| no ARC row | create |
+| `ImportHash` missing or unreadable | whole-task conflict |
+
+**Skipped folders and status groups only stop NEW tasks.** A task already in
+ARC is always followed, so one Wrike cancels (`Cancelled` group) becomes
+Canceled in ARC, and one moved to `99. Archived` keeps getting its status.
 
 `Communication` is not hashed. Comments are append-only and deduped by the
 backfill's `commentKey` rule: same author, same words, ignoring time and the
@@ -240,17 +274,19 @@ appending can't overwrite anybody's edit.
 ## Testing → go-live
 
 **During testing**, run Export → Plan → Apply as often as is useful. Wrike
-stays the system of record. Edits made in ARC to imported tasks should be few:
-anything edited in ARC becomes a conflict and stops following Wrike. If a
-tester needs to change one, change it in Wrike instead.
+stays the system of record. A field edited in ARC stops following Wrike (it
+shows in `conflicts.csv` if Wrike changes it too); every other field of that
+task keeps following. To have Wrike win on a field, change it in Wrike AND set
+it back in ARC to the old value, or fix it by hand in ARC.
 
 **At go-live:**
 
 1. Tell Panel Engineering: no more Wrike edits from now on.
 2. Final `-Export` into a fresh folder, then `-Plan`.
-3. Review `report.md`, `conflicts.csv` and the two unmatched lists with Mark.
-   For each conflict, decide whether ARC's version stands (do nothing) or
-   Wrike's (fix it by hand in ARC).
+3. Review `report.md`, `update.csv` (status from → to), `conflicts.csv`,
+   `gone.csv` and the two unmatched lists with Mark. For each conflict, decide
+   whether ARC's value stands (do nothing) or Wrike's (fix it by hand in
+   ARC). For each gone task, decide whether to cancel it in ARC.
 4. `-Apply`, then `-Plan` once more, which should show zero writes.
 5. Make the Wrike space read-only (or archive it), and revoke the token.
 

@@ -17,6 +17,7 @@ function order(over: Partial<PanelOrder>): PanelOrder {
     projectRef: null,
     salesOrder: "",
     sapNumber: "",
+    drawingNumber: "",
     purchaseOrder: "",
     customerReference: "",
     customer: "",

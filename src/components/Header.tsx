@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   FileStack,
   FileText,
+  FolderKanban,
   FolderOpen,
   Hammer,
   HardHat,
@@ -69,7 +70,7 @@ import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { rememberView } from "@/hooks/useRememberedView";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PLANT_MAP_CONFIGURED, USE_MOCK } from "@/api/config";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PLANT_MAP_CONFIGURED, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -129,6 +130,13 @@ interface DepartmentItem {
   panelBomAccess?: "with" | "without";
   /** Panel planning tools (BusinessIT#42): shown only to the panel team and ARC admins. */
   requiresPanelTeam?: boolean;
+  /**
+   * Panel Orders / Tasks / Capacity / Project Dashboard during their live
+   * test (PANEL_PLANNING_LIVE off, Tim 2026-11-19), the BOM Builder way:
+   * `"with"` is the real row, for panel Super Users (everyone once live);
+   * `"without"` is its "Coming soon" row for everyone else while testing.
+   */
+  panelPreview?: "with" | "without";
 }
 
 interface DepartmentGroup {
@@ -213,23 +221,41 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Panels",
     items: [
       {
+        to: "/panels/projects",
+        label: "Panel Project Dashboard",
+        icon: <FolderKanban className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/projects"),
+        panelPreview: "with",
+      },
+      { ...soon("Panel Project Dashboard", <FolderKanban className="h-4 w-4" />), panelPreview: "without" },
+      {
         to: "/panels/orders",
         label: "Panel Orders",
         icon: <LayoutDashboard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/order"),
+        panelPreview: "with",
       },
+      { ...soon("Panel Orders", <LayoutDashboard className="h-4 w-4" />), panelPreview: "without" },
       {
         to: "/panels/tasks",
         label: "Panel Tasks",
         icon: <ListChecks className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/task"),
+        panelPreview: "with",
       },
+      { ...soon("Panel Tasks", <ListChecks className="h-4 w-4" />), panelPreview: "without" },
       {
         to: "/panels/capacity",
         label: "Panel Engineering Capacity",
         icon: <Gauge className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/capacity"),
         requiresPanelTeam: true,
+        panelPreview: "with",
+      },
+      {
+        ...soon("Panel Engineering Capacity", <Gauge className="h-4 w-4" />),
+        requiresPanelTeam: true,
+        panelPreview: "without",
       },
       {
         to: "/panels/time-off",
@@ -919,6 +945,15 @@ function DepartmentsMenu({
                 {group.items
                   .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
                   .filter((item) => !item.requiresPanelTeam || panelTeam.canOpen)
+                  .filter(
+                    (item) =>
+                      !item.panelPreview ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!panelTeam.planningResolving &&
+                        (item.panelPreview === "with"
+                          ? panelTeam.canOpenPlanning
+                          : !PANEL_PLANNING_LIVE && !panelTeam.canOpenPlanning)),
+                  )
                   .filter(
                     (item) =>
                       !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
