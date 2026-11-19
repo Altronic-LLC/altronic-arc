@@ -9,6 +9,8 @@ import { useAccessProbe } from "@/hooks/useListAccess";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { LoadingTasks } from "@/components/LoadingTasks";
+// Panel Orders / Tasks / Capacity / Project Dashboard live test (PANEL_PLANNING_LIVE).
+import { PanelPreviewGate } from "@/components/PanelTeamGate";
 import { ListView } from "@/views/ListView";
 import { DashboardView } from "@/views/DashboardView";
 import { KanbanView } from "@/views/KanbanView";
@@ -376,6 +378,14 @@ const PanelOrdersView = lazy(() =>
 const PanelOrderDetailView = lazy(() =>
   import("@/views/PanelOrderDetailView").then((m) => ({
     default: m.PanelOrderDetailView,
+  })),
+);
+const PanelProjectsView = lazy(() =>
+  import("@/views/PanelProjectsView").then((m) => ({ default: m.PanelProjectsView })),
+);
+const PanelProjectDashboardView = lazy(() =>
+  import("@/views/PanelProjectDashboardView").then((m) => ({
+    default: m.PanelProjectDashboardView,
   })),
 );
 const AdminPanelProjectsView = lazy(() =>
@@ -1390,51 +1400,83 @@ export function App() {
               }
             />
             <Route
+              path="/panels/projects"
+              element={
+                <PanelPreviewGate noun="panel projects">
+                  <Suspense fallback={<LoadingTasks noun="panel projects" />}>
+                    <PanelProjectsView />
+                  </Suspense>
+                </PanelPreviewGate>
+              }
+            />
+            <Route
+              path="/panels/projects/:id"
+              element={
+                <PanelPreviewGate noun="this panel project">
+                  <Suspense fallback={<LoadingTasks noun="this panel project" />}>
+                    <PanelProjectDashboardView />
+                  </Suspense>
+                </PanelPreviewGate>
+              }
+            />
+            <Route
               path="/panels/orders"
               element={
-                <Suspense fallback={<LoadingTasks noun="panel orders" />}>
-                  <PanelOrdersView />
-                </Suspense>
+                <PanelPreviewGate noun="panel orders">
+                  <Suspense fallback={<LoadingTasks noun="panel orders" />}>
+                    <PanelOrdersView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/order/:id"
               element={
-                <Suspense fallback={<LoadingTasks noun="this panel order" />}>
-                  <PanelOrderDetailView />
-                </Suspense>
+                <PanelPreviewGate noun="this panel order">
+                  <Suspense fallback={<LoadingTasks noun="this panel order" />}>
+                    <PanelOrderDetailView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/tasks"
               element={
-                <Suspense fallback={<LoadingTasks noun="panel tasks" />}>
-                  <PanelTasksView />
-                </Suspense>
+                <PanelPreviewGate noun="panel tasks">
+                  <Suspense fallback={<LoadingTasks noun="panel tasks" />}>
+                    <PanelTasksView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/task/:id"
               element={
-                <Suspense fallback={<LoadingTasks noun="this panel task" />}>
-                  <PanelTaskDetailView />
-                </Suspense>
+                <PanelPreviewGate noun="this panel task">
+                  <Suspense fallback={<LoadingTasks noun="this panel task" />}>
+                    <PanelTaskDetailView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/capacity"
               element={
-                <Suspense fallback={<LoadingTasks noun="panel capacity" />}>
-                  <PanelCapacityView />
-                </Suspense>
+                <PanelPreviewGate noun="panel capacity">
+                  <Suspense fallback={<LoadingTasks noun="panel capacity" />}>
+                    <PanelCapacityView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/task-templates"
               element={
-                <Suspense fallback={<LoadingTasks noun="the standard tasks" />}>
-                  <PanelTaskTemplatesView />
-                </Suspense>
+                <PanelPreviewGate noun="the standard tasks">
+                  <Suspense fallback={<LoadingTasks noun="the standard tasks" />}>
+                    <PanelTaskTemplatesView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route

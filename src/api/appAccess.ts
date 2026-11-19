@@ -58,6 +58,7 @@ import {
   SP_PANEL_BOMS_LIST_ID,
   SP_PANEL_BOM_PARTS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
+  SP_PANEL_PROJECTS_LIST_ID,
   SP_PANEL_QC_ISSUES_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
   SP_PANEL_TASK_TEMPLATES_LIST_ID,
@@ -218,6 +219,13 @@ export const APPS: AppSpec[] = [
   { path: "/feature-requests", label: "ARC Feature Requests", site: "engineering", lists: ids(SP_FEATURE_REQUESTS_LIST_ID) },
 
   // Panels ---------------------------------------------------------------
+  // The project dashboard reads all three; it's unreadable only when all are refused.
+  {
+    path: "/panels/projects",
+    label: "Panel Project Dashboard",
+    site: "panelTeam",
+    lists: ids(SP_PANEL_PROJECTS_LIST_ID, SP_PANEL_ORDERS_LIST_ID, SP_PANEL_TASKS_LIST_ID),
+  },
   { path: "/panels/orders", label: "Panel Orders", site: "panelTeam", lists: ids(SP_PANEL_ORDERS_LIST_ID) },
   { path: "/panels/tasks", label: "Panel Tasks", site: "panelTeam", lists: ids(SP_PANEL_TASKS_LIST_ID) },
   // Capacity reads Panel Tasks; refused time off only means nobody looks off.

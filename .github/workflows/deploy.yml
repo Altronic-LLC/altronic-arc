@@ -210,6 +210,7 @@ jobs:
           VITE_SP_PANEL_BOM_KITS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOM_KITS_LIST_ID }}
           VITE_SP_PANEL_BOMS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOMS_LIST_ID }}
           VITE_PANEL_BOM_LIVE: ${{ vars.VITE_PANEL_BOM_LIVE }}
+          VITE_PANEL_PLANNING_LIVE: ${{ vars.VITE_PANEL_PLANNING_LIVE }}
           VITE_SP_CRIMP_CHECKS_LIST_ID: ${{ vars.VITE_SP_CRIMP_CHECKS_LIST_ID }}
           VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: ${{ vars.VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID }}
           # Pull Tests (Harness, BusinessIT#64) — scripts/create-pull-test-lists.ps1.

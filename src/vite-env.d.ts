@@ -60,6 +60,8 @@ interface ImportMetaEnv {
   readonly VITE_SP_PANEL_BOM_KITS_LIST_ID: string;
   readonly VITE_SP_PANEL_BOMS_LIST_ID: string;
   readonly VITE_PANEL_BOM_LIVE: string;
+  /** "true" opens Panel Orders / Tasks / Capacity / Project Dashboard past the Super User live test. */
+  readonly VITE_PANEL_PLANNING_LIVE: string;
   readonly VITE_SP_CRIMP_CHECKS_LIST_ID: string;
   /** Harness Alert Recipients list (who the Harness emails go to). No default. */
   readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;

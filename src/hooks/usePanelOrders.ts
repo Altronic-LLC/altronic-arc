@@ -702,6 +702,7 @@ function applyFieldsLocally(o: PanelOrder, fields: Record<string, unknown>): Pan
   if ("Status" in fields) next.status = fields.Status as PanelOrder["status"];
   if ("SalesOrder" in fields) next.salesOrder = (fields.SalesOrder as string) ?? "";
   if ("SAPNumber" in fields) next.sapNumber = (fields.SAPNumber as string) ?? "";
+  if ("DrawingNumber" in fields) next.drawingNumber = (fields.DrawingNumber as string) ?? "";
   if ("PurchaseOrder" in fields) next.purchaseOrder = (fields.PurchaseOrder as string) ?? "";
   if ("CustomerReference" in fields)
     next.customerReference = (fields.CustomerReference as string) ?? "";
@@ -723,6 +724,8 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
         return "Status updated.";
       case "SalesOrder":
         return "Sales order updated.";
+      case "DrawingNumber":
+        return "Drawing number updated.";
       case "SAPNumber":
         return "SAP # updated.";
       case "PurchaseOrder":

@@ -13,6 +13,31 @@ import { LoadingTasks } from "./LoadingTasks";
  * team once it's live, only panel Super Users during its limited demo
  * (PANEL_BOM_LIVE off) — everyone else is told it's coming soon.
  */
+/**
+ * Panel Orders, Panel Tasks, Capacity and the Panel Project Dashboard during
+ * their live test (PANEL_PLANNING_LIVE off, Tim 2026-11-19): only panel Super
+ * Users get past; once live it renders its children for everyone. Wrapped
+ * round those routes in App.tsx, so an old email link lands here too.
+ */
+export function PanelPreviewGate({ noun, children }: { noun: string; children: ReactNode }) {
+  const access = usePanelTeamAccess();
+  if (access.planningResolving) return <LoadingTasks noun={noun} />;
+  if (!access.canOpenPlanning) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-12">
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-surface p-5">
+          <Lock className="mt-0.5 h-5 w-5 shrink-0 text-fg-muted" />
+          <div>
+            <h1 className="font-display text-base font-semibold text-fg">Coming soon</h1>
+            <p className="mt-1 text-sm text-fg-muted">{access.planningHint}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 export function PanelTeamGate({ noun, bom = false, children }: { noun: string; bom?: boolean; children: ReactNode }) {
   const access = usePanelTeamAccess();
   const resolving = bom ? access.bomResolving : access.resolving;

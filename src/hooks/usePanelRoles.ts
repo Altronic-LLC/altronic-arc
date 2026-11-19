@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addPanelRole, listPanelRoles, removePanelRole, updatePanelRole } from "@/api/panelRoles";
-import { PANEL_BOM_LIVE, PANEL_ROLES_ENFORCED, USE_MOCK } from "@/api/config";
+import { PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PANEL_ROLES_ENFORCED, USE_MOCK } from "@/api/config";
 import { listAdmins } from "@/api/admins";
 import { isAdminEmail } from "@/lib/adminAccess";
 import { matchesAnyEmail } from "@/lib/emailIdentity";
@@ -168,12 +168,21 @@ export function usePanelTeamAccess(): PanelTeamAccess {
   const emails = useCurrentUserEmails();
   const { data: entries = [], isLoading } = usePanelRoles();
   const admin = useAdminAccess();
-  if (USE_MOCK) return panelTeamAccess({ roles: [], isArcAdmin: true, resolving: false, bomLive: PANEL_BOM_LIVE });
+  if (USE_MOCK) {
+    return panelTeamAccess({
+      roles: [],
+      isArcAdmin: true,
+      resolving: false,
+      bomLive: PANEL_BOM_LIVE,
+      planningLive: PANEL_PLANNING_LIVE,
+    });
+  }
   return panelTeamAccess({
     roles: rolesFor(entries, emails),
     isArcAdmin: admin.isAdmin,
     resolving: isLoading || admin.isResolving,
     bomLive: PANEL_BOM_LIVE,
+    planningLive: PANEL_PLANNING_LIVE,
   });
 }
 

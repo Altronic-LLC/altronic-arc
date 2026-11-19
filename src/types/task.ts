@@ -915,6 +915,12 @@ export interface PanelOrder {
    * (2026-10-30). A standard task copies it when it's raised.
    */
   sapNumber: string;
+  /**
+   * `DrawingNumber` — the panel's drawing number ("5900-FLX36-V2-007"), the
+   * old Panel Job Dashboard's DWG No. (BusinessIT#42, 2026-11-19). "" when
+   * the list hasn't got the column yet.
+   */
+  drawingNumber: string;
   purchaseOrder: string;
   customerReference: string;
   /** Choice column — values discovered at runtime (mirrors the reference list's customer choices). */
