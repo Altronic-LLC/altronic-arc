@@ -900,6 +900,19 @@ export const SP_CRIMP_SPECS_LIST_ID = import.meta.env.VITE_SP_CRIMP_SPECS_LIST_I
 /** "Crimp Height Checks" — one row per check of three readings. */
 export const SP_CRIMP_CHECKS_LIST_ID = import.meta.env.VITE_SP_CRIMP_CHECKS_LIST_ID || "";
 
+// =============================================================================
+// Pull Tests (BusinessIT#64) — TWO lists on the PMO site, Harness department:
+// pull tests off the Mark-10 WT3-200 for the machined pins crimp height can't
+// judge. Created by scripts/create-pull-test-lists.ps1. No defaults, the crimp
+// checks' reasoning; an unset id shows "not set up yet".
+// =============================================================================
+
+/** "Pull Test Specs" — the minimum pull force per terminal + gauge. ARC admins manage it. */
+export const SP_PULL_TEST_SPECS_LIST_ID = import.meta.env.VITE_SP_PULL_TEST_SPECS_LIST_ID || "";
+
+/** "Pull Tests" — one row per test of up to five pulls. */
+export const SP_PULL_TESTS_LIST_ID = import.meta.env.VITE_SP_PULL_TESTS_LIST_ID || "";
+
 /**
  * "Harness Alert Recipients" — who the Harness department's emails go to
  * (an out-of-spec crimp check, a part number request), one row per person per
@@ -1073,6 +1086,18 @@ export const SP_PANEL_BOMS_LIST_ID: string | undefined =
  * Pricing switch. Mock mode is always live.
  */
 export const PANEL_BOM_LIVE = USE_MOCK || import.meta.env.VITE_PANEL_BOM_LIVE === "true";
+
+/**
+ * Panel Orders, Panel Tasks, Panel Engineering Capacity and the Panel Project
+ * Dashboard are in LIVE TESTING until this is "true" (Tim, 2026-11-19): only
+ * panel Super Users (on Panel User Roles) can open them; everyone else, ARC
+ * admins included, sees them as "Coming soon" on the Dashboard and in the
+ * Departments menu, and the pages themselves say Coming soon — the BOM
+ * Builder's arrangement. Going live is this repo variable and a redeploy.
+ * Navigation, not security: SharePoint's list permissions are the boundary.
+ * Mock mode is always live.
+ */
+export const PANEL_PLANNING_LIVE = USE_MOCK || import.meta.env.VITE_PANEL_PLANNING_LIVE === "true";
 
 /**
  * "QC Time Tracking" — the panel team's log of hours QC spends on a project.
@@ -1417,6 +1442,33 @@ export const MCNS_CONFIGURED =
  * — the Sales Pricing switch. Mock mode is always live.
  */
 export const MCN_LIVE = USE_MOCK || import.meta.env.VITE_MCN_LIVE === "true";
+
+// =============================================================================
+// Plant Map — Operations. Plant layouts drawn to scale over a building's wall
+// drawing. Three lists and a document library on the PMO site, created by
+// scripts/create-plant-map-lists.ps1.
+//
+// **No defaults**, the MCN arrangement: an unset id shows "not set up yet",
+// and nobody could edit a plant layout before this, so there is no one to lock
+// out. `SP_PLANT_LAYOUT_FILES_LIST_ID` is the LIBRARY's list id; its drive is
+// looked up from it.
+// =============================================================================
+
+export const SP_PLANT_MAP_ROLES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PLANT_MAP_ROLES_LIST_ID || undefined;
+export const SP_LAYOUT_COMPONENTS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_LAYOUT_COMPONENTS_LIST_ID || undefined;
+export const SP_PLANT_LAYOUTS_LIST_ID: string | undefined = import.meta.env.VITE_SP_PLANT_LAYOUTS_LIST_ID || undefined;
+export const SP_PLANT_LAYOUT_FILES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PLANT_LAYOUT_FILES_LIST_ID || undefined;
+
+/** Are all four there? Mock mode always is. */
+export const PLANT_MAP_CONFIGURED =
+  USE_MOCK ||
+  (!!SP_PLANT_MAP_ROLES_LIST_ID &&
+    !!SP_LAYOUT_COMPONENTS_LIST_ID &&
+    !!SP_PLANT_LAYOUTS_LIST_ID &&
+    !!SP_PLANT_LAYOUT_FILES_LIST_ID);
 
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 

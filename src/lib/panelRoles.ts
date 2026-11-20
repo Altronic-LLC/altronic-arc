@@ -91,6 +91,18 @@ export interface PanelTeamAccess {
   bomResolving: boolean;
   /** Why not, for the builder; empty when allowed. */
   bomHint: string;
+  /**
+   * May see Panel Orders, Panel Tasks, Capacity and the Panel Project
+   * Dashboard. During their live test (`planningLive` false —
+   * PANEL_PLANNING_LIVE) only a panel Super User: not an ARC admin, not the
+   * rest of the team (Tim, 2026-11-19). Once live, everyone (Capacity still
+   * needs `canOpen` on top).
+   */
+  canOpenPlanning: boolean;
+  /** Still loading the lists, and not yet a yes for those screens. */
+  planningResolving: boolean;
+  /** Why not, for those screens; empty when allowed. */
+  planningHint: string;
   /** Still loading the roles or Admins list — neither yes nor no yet. */
   resolving: boolean;
   /** Why not, in words; empty when allowed. */
@@ -103,6 +115,8 @@ export function panelTeamAccess(input: {
   resolving: boolean;
   /** PANEL_BOM_LIVE — false while the BOM Builder's limited demo runs. Default: live. */
   bomLive?: boolean;
+  /** PANEL_PLANNING_LIVE — false while Orders / Tasks / Capacity / Project Dashboard are tested. Default: live. */
+  planningLive?: boolean;
 }): PanelTeamAccess {
   const { roles, isArcAdmin } = input;
   const bomLive = input.bomLive ?? true;
@@ -115,6 +129,14 @@ export function panelTeamAccess(input: {
   const canBuildBom = canOpenBom && canEdit;
   const canManageBomParts = canOpenBom && (isArcAdmin || isSuperUser);
   const bomResolving = input.resolving && !canOpenBom;
+  const planningLive = input.planningLive ?? true;
+  const canOpenPlanning = planningLive || isSuperUser;
+  const planningResolving = input.resolving && !canOpenPlanning;
+  const planningHint = canOpenPlanning
+    ? ""
+    : planningResolving
+      ? "Checking your panel team access…"
+      : "This is being tested by panel Super Users and isn't open to everyone yet.";
   // A yes is final; a no waits until the lists have loaded.
   const resolving = input.resolving && !canEdit;
   let hint = "";
@@ -161,6 +183,9 @@ export function panelTeamAccess(input: {
     canBuildBom,
     bomResolving,
     bomHint,
+    canOpenPlanning,
+    planningResolving,
+    planningHint,
     resolving,
     hint,
   };

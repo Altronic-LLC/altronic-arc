@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Cable,
   Ruler,
+  Weight,
   Factory,
   CircuitBoard,
   ClipboardCheck,
@@ -24,6 +25,7 @@ import {
   FileSpreadsheet,
   FileStack,
   FileText,
+  FolderKanban,
   FolderOpen,
   Hammer,
   HardHat,
@@ -50,6 +52,7 @@ import {
   CalendarOff,
   Package,
   Gauge,
+  Map as MapIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
@@ -57,6 +60,7 @@ import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -66,7 +70,7 @@ import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { rememberView } from "@/hooks/useRememberedView";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { MCNS_CONFIGURED, PANEL_BOM_LIVE, USE_MOCK } from "@/api/config";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PLANT_MAP_CONFIGURED, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -111,6 +115,12 @@ interface DepartmentItem {
    */
   mcnAccess?: "with" | "without";
   /**
+   * Plant Map: `"with"` shown only to someone who can open it (everyone once
+   * live; people on Plant Map Roles and ARC admins until then); `"without"` —
+   * the "Coming soon" row — to everyone else.
+   */
+  plantMapAccess?: "with";
+  /**
    * Panel SAP BOM Builder (BusinessIT#59): `"with"` shown to whoever can open
    * it (panel Super Users during the limited demo, the panel team once live);
    * `"without"` — the "Coming soon" row — to everyone else, during the demo
@@ -120,6 +130,13 @@ interface DepartmentItem {
   panelBomAccess?: "with" | "without";
   /** Panel planning tools (BusinessIT#42): shown only to the panel team and ARC admins. */
   requiresPanelTeam?: boolean;
+  /**
+   * Panel Orders / Tasks / Capacity / Project Dashboard during their live
+   * test (PANEL_PLANNING_LIVE off, Tim 2026-11-19), the BOM Builder way:
+   * `"with"` is the real row, for panel Super Users (everyone once live);
+   * `"without"` is its "Coming soon" row for everyone else while testing.
+   */
+  panelPreview?: "with" | "without";
 }
 
 interface DepartmentGroup {
@@ -204,23 +221,41 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Panels",
     items: [
       {
+        to: "/panels/projects",
+        label: "Panel Project Dashboard",
+        icon: <FolderKanban className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/projects"),
+        panelPreview: "with",
+      },
+      { ...soon("Panel Project Dashboard", <FolderKanban className="h-4 w-4" />), panelPreview: "without" },
+      {
         to: "/panels/orders",
         label: "Panel Orders",
         icon: <LayoutDashboard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/order"),
+        panelPreview: "with",
       },
+      { ...soon("Panel Orders", <LayoutDashboard className="h-4 w-4" />), panelPreview: "without" },
       {
         to: "/panels/tasks",
         label: "Panel Tasks",
         icon: <ListChecks className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/task"),
+        panelPreview: "with",
       },
+      { ...soon("Panel Tasks", <ListChecks className="h-4 w-4" />), panelPreview: "without" },
       {
         to: "/panels/capacity",
         label: "Panel Engineering Capacity",
         icon: <Gauge className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/capacity"),
         requiresPanelTeam: true,
+        panelPreview: "with",
+      },
+      {
+        ...soon("Panel Engineering Capacity", <Gauge className="h-4 w-4" />),
+        requiresPanelTeam: true,
+        panelPreview: "without",
       },
       {
         to: "/panels/time-off",
@@ -275,6 +310,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         mcnAccess: "with",
       },
       { ...soon("MCNs", <Factory className="h-4 w-4" />), mcnAccess: "without" },
+      {
+        to: "/operations/plant-map",
+        label: "Plant Map",
+        icon: <MapIcon className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/plant-map"),
+        // Only for people on Plant Map Roles — no "Coming soon" row for anyone else.
+        plantMapAccess: "with",
+      },
       {
         to: "/operations/coating-checks",
         label: "Conformal Coating Checks",
@@ -334,6 +377,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Crimp Height Checks",
         icon: <Ruler className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/harness/crimp-checks"),
+      },
+      {
+        to: "/harness/pull-tests",
+        label: "Pull Tests",
+        icon: <Weight className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/pull-tests"),
       },
     ],
   },
@@ -842,6 +891,8 @@ function DepartmentsMenu({
   const canSeePricing = pricingRights.canOpen;
   const mcnAccess = useMyMcnAccess();
   const canSeeMcns = MCNS_CONFIGURED && mcnAccess.rights.canOpen;
+  const plantMapAccess = useMyPlantMapAccess();
+  const canSeePlantMap = PLANT_MAP_CONFIGURED && plantMapAccess.rights.canOpen;
   const panelTeam = usePanelTeamAccess();
 
   useEffect(() => {
@@ -896,6 +947,15 @@ function DepartmentsMenu({
                   .filter((item) => !item.requiresPanelTeam || panelTeam.canOpen)
                   .filter(
                     (item) =>
+                      !item.panelPreview ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!panelTeam.planningResolving &&
+                        (item.panelPreview === "with"
+                          ? panelTeam.canOpenPlanning
+                          : !PANEL_PLANNING_LIVE && !panelTeam.canOpenPlanning)),
+                  )
+                  .filter(
+                    (item) =>
                       !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
                   )
                   .filter(
@@ -903,6 +963,12 @@ function DepartmentsMenu({
                       !item.mcnAccess ||
                       // Neither row while the roles list answers — no flash of "Coming soon".
                       (!mcnAccess.resolving && (item.mcnAccess === "with" ? canSeeMcns : !canSeeMcns)),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.plantMapAccess ||
+                      // Hidden while the roles list answers, and for anyone not on it.
+                      (!plantMapAccess.resolving && canSeePlantMap),
                   )
                   .filter(
                     (item) =>

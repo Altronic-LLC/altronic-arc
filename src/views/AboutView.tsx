@@ -93,12 +93,12 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView · CoatingChecksView · CoatingSpecsView · OperationsAlertRecipientsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles · useCoatingChecks · useOperationsAlertRecipients — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles · coatingChecks · coatingSpecs · operationsAlertRecipients — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts · coatingCheck (coating thickness from three uncoated + three coated readings in mm or in, ÷ coated sides, judged in the spec's own unit; mm, in and mils shown) · coatingAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView · PlantLayoutsView · PlantLayoutView · PlantLayoutEditView · PlantSymbolsView · PlantMapRolesView · CoatingChecksView · CoatingSpecsView · OperationsAlertRecipientsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles · usePlantLayouts · usePlantMapRoles · useCoatingChecks · useOperationsAlertRecipients — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles · plantLayouts · layoutComponents · plantLayoutFiles · plantMapRoles · coatingChecks · coatingSpecs · operationsAlertRecipients — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts · plantEditor (the layout editor's undo-able edits, snapping, placing) · plantGeometry (placed items as rotated rectangles or their real outlines; overlap, wall and keep-out checks) · plantSvg (walls drawings and symbols sanitised, drawn only as images) · plantPublishFiles (a published layout's composite SVG and tags CSV for Power BI) · plantSymbolImport (a new symbol from an SVG, a DXF or a traced picture) · plantMapRoles (editor / admin) · coatingCheck (coating thickness from three uncoated + three coated readings in mm or in, ÷ coated sides, judged in the spec's own unit; mm, in and mils shown) · coatingAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
         palette: "ui",
       },
       {
         label: "Harness department (lazy-loaded)",
-        hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · crimpMachines (its own read of the asset register's presses — no Operations import) · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpMachines (presses in a Harness location, plus SCHCC36S by name; a spec with no machine is offered on every press) · crimpAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
+        hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · PullTestsView · PullTestSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · usePullTests · useMark10Tester · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · crimpMachines (its own read of the asset register's presses — no Operations import) · pullTests · pullTestSpecs · mark10Serial (Web Serial, the tester over USB) · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpMachines (presses in a Harness location, plus SCHCC36S by name; a spec with no machine is offered on every press) · crimpAlerts · pullTest (a pull at the minimum passes) · mark10 · pullTestAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
         palette: "ui",
       },
       {
@@ -153,7 +153,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Panels department (lazy-loaded bundle)",
-        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · PanelCapacityView · PanelTimeOffView · PanelTaskTemplatesView · PanelBomBuilderView · PanelBomsView · PanelBomPartsView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · usePanelTimeOff · usePanelOrderTasks · usePanelTaskTemplates · usePanelSettings · usePanelBom · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelTimeOff · panelTaskTemplates · panelSettings · panelBomParts · panelBoms · panelBomCosts (SAP cost via Fabric, read-only) · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Capacity runs on the SHARED lib/capacity + CapacityGrid through a Panels adapter (lib/panelCapacity), ready for Engineering/Operations. Own code-split chunk; no cross-department imports.",
+        hint: "PanelProjectsView · PanelProjectDashboardView (read-only, lib/panelProjectDashboard) · PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · PanelCapacityView · PanelTimeOffView · PanelTaskTemplatesView · PanelBomBuilderView · PanelBomsView · PanelBomPartsView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · usePanelTimeOff · usePanelOrderTasks · usePanelTaskTemplates · usePanelSettings · usePanelBom · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelTimeOff · panelTaskTemplates · panelSettings · panelBomParts · panelBoms · panelBomCosts (SAP cost via Fabric, read-only) · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Capacity runs on the SHARED lib/capacity + CapacityGrid through a Panels adapter (lib/panelCapacity), ready for Engineering/Operations. Own code-split chunk; no cross-department imports.",
         palette: "ui",
       },
     ],
@@ -201,6 +201,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
       { label: "Manufacturing Change Notices", hint: "Altronic_PMO site — one row per MCN (MFGFRM-021 as fields), with MCN Roles (who raises, approves, manages) and MCN Distribution Groups (who an approved MCN goes to) beside it", palette: "list" },
+      { label: "Plant Layouts", hint: "Altronic_PMO site — one row per VERSION of a plant layout: Draft, Published or Superseded, the whole layout as JSON in one column (one write per save; SharePoint has no transactions), and the drive id of its walls drawing. A Published row is never written — ARC re-reads before a save and refuses. A layout ARC can't parse is never written over", palette: "list" },
+      { label: "Layout Components / Plant Map Roles", hint: "Altronic_PMO site — the symbol library (SVG drawn to its real footprint in inches; added by a Plant Map admin from an SVG, a DXF or a traced picture; retired, never deleted; seeded from src/data/plantComponentSeed.json only while empty) and who may see and edit the Plant Map (viewer / editor / admin — nobody else sees it)", palette: "list" },
+      { label: "Plant Layout Files", hint: "Altronic_PMO site — a document library holding each layout's walls drawing (walls/…svg, in inches, never overwritten), and what Publish leaves for Power BI in published/: a composite SVG of the whole plan and a CSV of every item and area, per version and a current copy. Files rather than columns because a cleaned CAD export can pass a list column's 64,000-character limit", palette: "list" },
       { label: "Coating Specs", hint: "Altronic_PMO site — conformal coating min / max thickness, stored in mm with the unit it was entered in (mm or in), and coated sides (1 or 2); ARC admins manage, delete only when unused", palette: "list" },
       { label: "Coating Checks", hint: "Altronic_PMO site — three uncoated + three coated readings per check (mm or in), the thickness judged in the spec's unit and stored in mm, in and mils, the spec's figures copied on; read a year at a time on the indexed MeasuredAt", palette: "list" },
       { label: "Operations Alert Recipients", hint: "Altronic_PMO site — who each Operations email goes to (out-of-spec coating checks); ARC admins pick people in ARC, no redeploy", palette: "list" },
@@ -208,7 +211,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
       { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge, and the presses it runs on (a multi lookup into the Altronic Equipment List); ARC admins manage, delete only when unused", palette: "list" },
       { label: "Crimp Height Checks", hint: "Altronic_PMO site — three micrometer readings per check, the spec's figures copied on; read a year at a time on the indexed CheckedAt", palette: "list" },
-      { label: "Harness Alert Recipients", hint: "Altronic_PMO site — who each Harness email goes to (out-of-spec crimp checks, part number requests); ARC admins pick people in ARC, no redeploy", palette: "list" },
+      { label: "Pull Test Specs", hint: "Altronic_PMO site — minimum pull force per terminal + gauge, a manufacturer's or an industry standard's (blank terminal = any); ARC admins manage", palette: "list" },
+      { label: "Pull Tests", hint: "Altronic_PMO site — up to five pulls per test off the Mark-10 WT3-200, the spec's minimum copied on; read a year at a time on the indexed TestedAt", palette: "list" },
+      { label: "Harness Alert Recipients", hint: "Altronic_PMO site — who each Harness email goes to (out-of-spec crimp checks, failed pull tests, part number requests); ARC admins pick people in ARC, no redeploy", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
       { label: "Coil-PottingLimit", hint: "Altronic_PMO site — two rows (Lower/Upper Spec Limit), editable by any signed-in user", palette: "list" },
       { label: "Coil PSR Notification List", hint: "Altronic_PMO site — email list for out-of-limit alerts, editable by any signed-in user", palette: "list" },
@@ -358,6 +363,8 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "requestedPriority", type: "choice", kind: "field" },
       { name: "projectReferences", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "taskReference", type: "text", kind: "field" },
+      { name: "latestStock", type: "text", kind: "field" },
+      { name: "latestCost", type: "text", kind: "field" },
       { name: "reporter", type: "int", kind: "fk", references: "Person.id" },
       { name: "assignedEngineers", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
@@ -1181,6 +1188,58 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
 
+  // ---- Plant Map (Operations, Altronic_PMO site) -------------------------------
+  // A layout's placed items live in its LayoutJson, not in rows of their own,
+  // so the links below are to ids INSIDE that JSON — nothing in SharePoint
+  // enforces them.
+  {
+    name: "PlantLayout",
+    source: "Plant Layouts (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "building (the list's tabs)", type: "text", kind: "field" },
+      { name: "title / area", type: "text", kind: "field" },
+      { name: "layoutKey (groups versions)", type: "text", kind: "field" },
+      { name: "areas[] (LayoutJson: aisles, no-go areas)", type: "text", kind: "field" },
+      { name: "status (Draft / Published / Superseded)", type: "choice", kind: "field" },
+      { name: "version", type: "number", kind: "field" },
+      { name: "wallsFile (drive item id)", type: "text", kind: "field" },
+      { name: "items[].componentId (LayoutJson)", type: "int", kind: "fk", references: "LayoutComponent.id" },
+      { name: "items[].equipmentId (LayoutJson)", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "supersedesId", type: "int", kind: "fk", references: "PlantLayout.id" },
+    ],
+  },
+  {
+    name: "LayoutComponent",
+    source: "Layout Components (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title / componentKey / category", type: "text", kind: "field" },
+      { name: "svgMarkup", type: "text", kind: "field" },
+      { name: "footprintW / footprintD (in)", type: "number", kind: "field" },
+      { name: "collides / clearance", type: "bool", kind: "field" },
+      { name: "collisionPolygon (JSON points)", type: "text", kind: "field" },
+      { name: "isLabel / textBox (JSON)", type: "text", kind: "field" },
+      { name: "isActive", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PlantMapRole",
+    source: "Plant Map Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (viewer / editor / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+
   // ---- Harness Production Log (Operations, Altronic_PMO site) -----------------
   // Replaced an Access database. Built By / Visual Check are clock numbers or
   // initials as typed (no Person FK), the same reasoning as Teradyne's own
@@ -1321,6 +1380,45 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "crimpHeight / tolerance", type: "number", kind: "field" },
       { name: "wire / insulation setting, table height", type: "text", kind: "field" },
       { name: "machines (Machines)", type: "int[]", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+
+  // ---- Pull Tests (Harness, Altronic_PMO site) ------------------------------
+  // BusinessIT#64 — pulls on the Mark-10 WT3-200, read off it over USB. A test
+  // COPIES its spec's minimum as well as pointing at it, like a crimp check.
+  {
+    name: "PullTest",
+    source: "Pull Tests (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "testedAt (indexed)", type: "date", kind: "field" },
+      { name: "checkPoint / readingSource", type: "choice", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "PullTestSpec.id" },
+      { name: "terminal / wireGauge / applicator", type: "text", kind: "field" },
+      { name: "minimumForce / specUnit / pullsRequired (copied)", type: "number", kind: "field" },
+      { name: "pull1–5 / lowestPull / forceUnit", type: "number", kind: "field" },
+      { name: "failed", type: "bool", kind: "field" },
+      { name: "howFailed", type: "text", kind: "field" },
+      { name: "clockNumber / harnessOrAssembly / workOrder / notes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "PullTestSpec",
+    source: "Pull Test Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Terminal, blank = any)", type: "text", kind: "field" },
+      { name: "wireGauge / manufacturerPartNumber", type: "text", kind: "field" },
+      { name: "minimumForce / forceUnit", type: "number", kind: "field" },
+      { name: "pullsStart / pullsInProcess / pullsEnd (1–5, blank = 3)", type: "number", kind: "field" },
+      { name: "specSource / specReference", type: "choice", kind: "field" },
       { name: "notes", type: "text", kind: "field" },
       { name: "active", type: "bool", kind: "field" },
     ],
@@ -2181,10 +2279,17 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "MCN", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "MCN", fromColumn: "operationsTask (OperationsTaskRef)", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "McnRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  // Plant Map — links held inside a layout's JSON.
+  { fromTable: "PlantLayout", fromColumn: "items[].componentId (LayoutJson)", toTable: "LayoutComponent", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PlantLayout", fromColumn: "items[].equipmentId (LayoutJson)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PlantLayout", fromColumn: "supersedesId", toTable: "PlantLayout", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "PlantMapRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Harness Production Log — one single lookup into the admin-managed part list.
   { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
   // Crimp Height Checks — one single lookup into the admin-managed specs.
   { fromTable: "CrimpCheck", fromColumn: "specId (SpecRef)", toTable: "CrimpSpec", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Pull Tests — the same shape, into their own specs.
+  { fromTable: "PullTest", fromColumn: "specId (SpecRef)", toTable: "PullTestSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // The presses: a spec names several, a check the one it was taken on.
   { fromTable: "CrimpSpec", fromColumn: "machines (Machines)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "CrimpCheck", fromColumn: "machineId (MachineRef)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },

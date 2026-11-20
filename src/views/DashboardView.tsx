@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Cable,
   Ruler,
+  Weight,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -23,6 +24,7 @@ import {
   FileSpreadsheet,
   FileStack,
   FileText,
+  FolderKanban,
   FolderOpen,
   Factory,
   Hammer,
@@ -43,6 +45,7 @@ import {
   Timer,
   Users,
   Loader2,
+  Map as MapIcon,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
@@ -64,7 +67,8 @@ import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useMyMcnAccess } from "@/hooks/useMcnRoles";
-import { MCNS_CONFIGURED, PANEL_BOM_LIVE } from "@/api/config";
+import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PLANT_MAP_CONFIGURED } from "@/api/config";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -357,6 +361,9 @@ export function DashboardView() {
   } = panelOrdersQ;
   const panelTasksQ = usePanelTasks();
   const panelTeam = usePanelTeamAccess();
+  const showPanelPlanning = !panelTeam.planningResolving && panelTeam.canOpenPlanning;
+  // Their "Coming soon" cards, for everyone the live test doesn't include.
+  const panelPlanningSoon = !PANEL_PLANNING_LIVE && !panelTeam.planningResolving && !panelTeam.canOpenPlanning;
   const {
     data: panelTasks = [],
     isError: panelTasksError,
@@ -939,30 +946,48 @@ export function DashboardView() {
           panelsDenied ? <NoAccessNotice team="Panels" site="ALTRONICPANELTEAM" /> : undefined
         }
       >
-        <TypeCard
-          name="Panel Orders"
-          icon={<LayoutDashboard className="h-5 w-5" />}
-          tone="cooper-red"
-          count={panelOrderCard.count}
-          {...cardLoad(panelOrdersQ)}
-          unit="open"
-          segments={panelOrderCard.segments}
-          to={panelOrdersUrl}
-          onClick={() => navigate(panelOrdersUrl)}
-        />
-        <TypeCard
-          name="Panel Tasks"
-          icon={<ListChecks className="h-5 w-5" />}
-          tone="superior-blue"
-          count={panelTaskCard.count}
-          {...cardLoad(panelTasksQ)}
-          unit="open"
-          segments={panelTaskCard.segments}
-          to={panelTasksUrl}
-          onClick={() => navigate(panelTasksUrl)}
-        />
+        {/* BusinessIT#42 — the level above Orders and Tasks. A register you open
+            to look a project up, so a description, not a count. */}
+        {/* Panel Orders / Tasks / Capacity / Project Dashboard: panel Super Users
+            only until PANEL_PLANNING_LIVE (their live test, 2026-11-19). */}
+        {showPanelPlanning && (
+          <TypeCard
+            name="Panel Project Dashboard"
+            icon={<FolderKanban className="h-5 w-5" />}
+            tone="cooper-green"
+            description="Everything on one panel project — its orders, tasks, BOMs and discussion, read-only, with links to each."
+            to="/panels/projects"
+            onClick={() => navigate("/panels/projects")}
+          />
+        )}
+        {showPanelPlanning && (
+          <TypeCard
+            name="Panel Orders"
+            icon={<LayoutDashboard className="h-5 w-5" />}
+            tone="cooper-red"
+            count={panelOrderCard.count}
+            {...cardLoad(panelOrdersQ)}
+            unit="open"
+            segments={panelOrderCard.segments}
+            to={panelOrdersUrl}
+            onClick={() => navigate(panelOrdersUrl)}
+          />
+        )}
+        {showPanelPlanning && (
+          <TypeCard
+            name="Panel Tasks"
+            icon={<ListChecks className="h-5 w-5" />}
+            tone="superior-blue"
+            count={panelTaskCard.count}
+            {...cardLoad(panelTasksQ)}
+            unit="open"
+            segments={panelTaskCard.segments}
+            to={panelTasksUrl}
+            onClick={() => navigate(panelTasksUrl)}
+          />
+        )}
         {/* Panel team only (BusinessIT#42). Blue like Panel Tasks: its numbers ARE those tasks. */}
-        {panelTeam.canOpen && (
+        {panelTeam.canOpen && showPanelPlanning && (
           <TypeCard
             name="Panel Engineering Capacity"
             icon={<Gauge className="h-5 w-5" />}
@@ -1000,6 +1025,19 @@ export function DashboardView() {
           to={"/panels/qc-issues"}
           onClick={() => navigate("/panels/qc-issues")}
         />
+        {/* "Coming soon" for everyone the Orders / Tasks / Capacity / Project
+            Dashboard live test doesn't include. Capacity only for the team,
+            who are the only ones it would ever show to. */}
+        {panelPlanningSoon && (
+          <>
+            <PlaceholderCard name="Panel Project Dashboard" icon={<FolderKanban className="h-5 w-5" />} />
+            <PlaceholderCard name="Panel Orders" icon={<LayoutDashboard className="h-5 w-5" />} />
+            <PlaceholderCard name="Panel Tasks" icon={<ListChecks className="h-5 w-5" />} />
+            {panelTeam.canOpen && (
+              <PlaceholderCard name="Panel Engineering Capacity" icon={<Gauge className="h-5 w-5" />} />
+            )}
+          </>
+        )}
         {/* "Coming soon" for everyone the BOM Builder's limited demo doesn't include. */}
         {!PANEL_BOM_LIVE && !panelTeam.bomResolving && !panelTeam.canOpenBom && (
           <PlaceholderCard name="Panel SAP BOM Builder" icon={<Package className="h-5 w-5" />} />
@@ -1067,6 +1105,8 @@ export function DashboardView() {
         {/* MCNs — a real card once live (or for the pilot team), "Coming soon"
             for everyone else, so the pilot stays private. */}
         <McnCard onOpen={() => navigate("/operations/mcns")} />
+        {/* Only people on Plant Map Roles see this card — no "Coming soon" for anyone else. */}
+        <PlantMapCard onOpen={() => navigate("/operations/plant-map")} />
         <McnPlaceholder />
       </DeptSection>
 
@@ -1092,6 +1132,15 @@ export function DashboardView() {
           // No count, like the production log.
           to={"/harness/crimp-checks"}
           onClick={() => navigate("/harness/crimp-checks")}
+        />
+        <TypeCard
+          name="Pull Tests"
+          icon={<Weight className="h-5 w-5" />}
+          tone="ajax-yellow"
+          description="Pulls on the Mark-10 tester, read straight off it over USB, against each terminal's minimum — failed pulls are emailed."
+          // No count, like the other Harness logs.
+          to={"/harness/pull-tests"}
+          onClick={() => navigate("/harness/pull-tests")}
         />
       </DeptSection>
 
@@ -1703,6 +1752,30 @@ function McnPlaceholder() {
   const { rights, resolving } = useMyMcnAccess();
   if (resolving || (MCNS_CONFIGURED && rights.canOpen)) return null;
   return <PlaceholderCard name="MCNs" icon={<Factory className="h-5 w-5" />} />;
+}
+
+/**
+ * Plant Map — shown to whoever can open it (people on Plant Map Roles and ARC
+ * admins until it goes live). A description card, no count: the Dashboard
+ * reads no layout.
+ *
+ * ajax-yellow is repeated on purpose: the Operations section already uses all
+ * four tones, and yellow pairs the map with Maintenance — the asset register
+ * whose machines it will show.
+ */
+function PlantMapCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyPlantMapAccess();
+  if (!PLANT_MAP_CONFIGURED || !rights.canOpen) return null;
+  return (
+    <TypeCard
+      name="Plant Map"
+      icon={<MapIcon className="h-5 w-5" />}
+      tone="ajax-yellow"
+      description="The plant's layouts drawn to scale — every machine, bench and rack where it stands."
+      to={"/operations/plant-map"}
+      onClick={onOpen}
+    />
+  );
 }
 
 /** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */

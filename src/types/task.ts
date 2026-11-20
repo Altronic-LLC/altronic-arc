@@ -453,6 +453,14 @@ export interface Eir {
   mfg: string;
   mfgPartNumber: string;
   currentPrice: string;
+  /**
+   * Stock and cost NOW (BusinessIT#23) — Supply Chain updates these at any
+   * time. `currentStock` / `currentPrice` above hold the figures from when
+   * the EIR was raised and are SHOWN as Initial Stock / Initial Cost; their
+   * names follow the SharePoint columns, which kept their internal names.
+   */
+  latestStock: string;
+  latestCost: string;
   altronicPartNumber: string;
 
   // Dates
@@ -506,6 +514,10 @@ export interface EirItemFields {
   MFGP_x002f_N?: string;
   Communication?: string;
   Current_x0020_Price?: string;
+  /** "Current Stock" since BusinessIT#23 (CurrentStock is now shown "Initial Stock"). */
+  LatestStock?: string;
+  /** "Current Cost" since BusinessIT#23 (Current_x0020_Price is now shown "Initial Cost"). */
+  LatestCost?: string;
   Altronic_x0020_Part_x0020_Number?: string;
   /** Display name "Requested Completion Date" — internal name is truncated at 32 chars. */
   Requested_x0020_Completion_x0020?: string;
@@ -915,6 +927,12 @@ export interface PanelOrder {
    * (2026-10-30). A standard task copies it when it's raised.
    */
   sapNumber: string;
+  /**
+   * `DrawingNumber` — the panel's drawing number ("5900-FLX36-V2-007"), the
+   * old Panel Job Dashboard's DWG No. (BusinessIT#42, 2026-11-19). "" when
+   * the list hasn't got the column yet.
+   */
+  drawingNumber: string;
   purchaseOrder: string;
   customerReference: string;
   /** Choice column — values discovered at runtime (mirrors the reference list's customer choices). */

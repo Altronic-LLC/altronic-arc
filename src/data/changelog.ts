@@ -20,6 +20,73 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.225.0",
+    date: "2026-11-19",
+    changes: [
+      "EIRs: the stock and cost entered when an EIR is raised are now Initial Stock and Initial Cost, and new Current Stock and Current Cost fields beside them can be updated at any time by anyone with the Supply Chain role",
+      "EIRs: the EIR number now leads the EIR page in large type",
+      "FAITs: new status, Pending EIR Review & Response, for a FAIT waiting on an EIR to be answered",
+      "FAITs: an engineer can approve their sign-off and tick Notify Initiator in the same save — it used to be refused as not fully signed off",
+      "An arrow at the left of the footer slides it out of the way, so it no longer covers the bottom of the page; the tab at the bottom left brings it back, and it returns when you reload",
+    ],
+  },
+  {
+    version: "0.224.0",
+    date: "2026-11-19",
+    changes: [
+      "Panels: Panel Orders, Panel Tasks, Panel Engineering Capacity and the new Panel Project Dashboard are in live testing with the panel Super Users; everyone else sees them as Coming soon until they open",
+      "Panels: new Panel Project Dashboard — every panel project with its orders, open work and latest activity; open one to see all its orders, tasks, BOMs and comments in one place, read-only, each linking to its own page",
+      "Panel Project Dashboard: a project built for several customers shows a pill per customer with its order count — click one to see just that customer's orders, tasks, BOMs and comments; the project list counts each project's customers",
+      "Panel Project Dashboard: the project list fits the page without scrolling sideways, and every list on these pages is cards on a phone, with a Sort by picker",
+      "Panel Orders: an order's page now opens read-only — press Edit on the title, Order, Customer or Order Notes section to change it, then Save changes",
+      "Panel Orders: an order's Project Reference is now a link to that project's Panel Project Dashboard",
+      "Panel Orders: new Drawing Number field on each order — on the New Panel Order form, the order page and the order list, and searchable. Orders moved from the old Panel Job Dashboard get the drawing number they had there",
+      "Panel Orders: orders moved from the old Panel Job Dashboard are linked to their Panel Project Reference where the drawing number names exactly one project",
+
+    ],
+  },
+  {
+    version: "0.223.0",
+    date: "2026-11-18",
+    changes: [
+      "Operations: new Plant Map — the plant's layouts drawn to scale over each building's walls, with every machine, bench, rack and desk where it stands. Only the people on its roles list see it",
+      "Plant Map: open a layout to see it to scale — scroll to zoom, drag to pan, click an item for its details; each layout is checked for anything that overlaps, or sits on a wall, aisle or no-go area, and problems are outlined in red. Items may sit outside the building, such as fire extinguishers and emergency exits on an outside wall",
+      "Plant Map: editors drag symbols from the palette onto the plan, then move, turn and resize them; they snap to a grid and line up with nearby items along a dotted guide. Lock, duplicate, link to the equipment register, undo and keyboard shortcuts are all there",
+      "Plant Map: draw your own aisles and no-go areas on a layout and label them; anything placed in one is flagged by name",
+      "Plant Map: a Plant Map admin publishes a draft once its placement check passes, and the version it replaces becomes Superseded; a published layout is never changed — Edit starts a new draft version of it",
+      "Plant Map: publishing also saves the layout for Power BI — a drawing of the whole plan and a table of every item and area, with its position, layer and linked asset. The layout page lists both, to open or download, and a Plant Map admin can save them again",
+      "Plant Map: a Plant Map admin can delete a draft or superseded layout version. Its walls drawing goes too unless another layout still uses it, and the confirmation says which",
+      "Plant Map: the Layouts list has a tab per building. A new layout in an existing building reuses its walls drawing; a new building's drawing is reviewed before it's saved — confirm its size and pick which keep-outs become editable areas",
+      "Plant Map: a Symbols tab shows the symbol library, and a Plant Map admin can add a symbol from an SVG, a CAD DXF or a picture ARC traces to an outline",
+      "Plant Map: a Plant Map admin can replace a symbol with a new version — new details, or a new drawing at a new size. Layouts keep the version they were drawn with; in a draft, Update symbols moves them to the latest",
+      "Plant Map: a Plant Map admin can retire a symbol, taking it off the palette — the confirmation names the layouts that use it, and they keep it — and restore it later",
+      "Plant Map: symbols can also be Safety (extinguishers, exits, first aid, severe-weather shelters), Utility or Zone",
+      "Plant Map: a symbol that isn't a rectangle, such as an L-shaped bench, is checked by its real outline, so something tucked into its corner no longer counts as an overlap",
+      "Plant Map: when adding or replacing a symbol, draw that outline by clicking its corners on the preview, or type them",
+      "Plant Map: area and room labels from CAD now show their names inside the label, sized to fit, and a symbol can be marked as a label when it's added",
+      "Plant Map: an item's label runs along its long side and turns with it, and is never upside down",
+      "Plant Map: layouts can have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters). Show or hide each layer, or one of its groups, beside the plan; Safety starts hidden, and hidden items are still checked for problems",
+      "Plant Map: in the editor, set an item's layer and group in the panel on the right; a new copy of a symbol joins the layer its other copies are on, and the item list has a Layer column",
+      "Plant Map: in the editor, make a new layer under Layers, give it groups, rename either, choose whether it starts hidden, and remove one once nothing is on it — saved with the draft, and undoable",
+      "Plant Map: Plant Map admins choose who is a viewer, editor or admin under Roles; ARC admins reach Roles from the Admin page",
+    ],
+  },
+  {
+    version: "0.222.0",
+    date: "2026-11-17",
+    changes: [
+      "New under Harness: Pull Tests, a log of pulls on the Mark-10 WT3-200 tester at the start of a run, in process and at the end, judged against each terminal's minimum pull force",
+      "In Chrome or Edge, connect the tester over USB and each pull's peak fills the next box by itself; pulls can still be typed, and each test records whether they were read or typed",
+      "Pull Test Specs hold each terminal and wire gauge's minimum, from the manufacturer or an industry standard such as IPC/WHMA-A-620, which can cover any terminal on a gauge; ARC admins manage them",
+      "Each spec says how many pulls a test needs at Start, In process and End, from 1 to 5 each (three when left blank); the test form asks for that many, and every test keeps the count it was taken under",
+      "A pull test spec can be duplicated: the Duplicate button, or Start from an existing spec when adding one, fills the form from that spec so you only change what differs",
+      "A test with any pull below its minimum emails the people chosen for failed pull tests on Harness → Who's notified",
+      "Each test records how it failed, such as the wire broke or it pulled out of the crimp, picked from the answers already used or typed new",
+      "After each reading from the tester the cursor moves to the next empty pull box, then to How it failed",
+      "The test form and the manual list the tester settings that work, and what to do for a pull under 10 lbF",
+    ],
+  },
+  {
     version: "0.221.0",
     date: "2026-11-13",
     changes: [

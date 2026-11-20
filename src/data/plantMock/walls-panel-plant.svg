@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1200" data-building="Panel Plant" data-units="in" data-schema="1">
+  <title>Panel Plant (TEST PLAN, made-up, 160 ft x 100 ft)</title>
+  <g id="floor">
+    <rect id="floor-area" x="0" y="0" width="1920" height="1200" fill="#ffffff"/>
+  </g>
+  <g id="keepout">
+    <rect id="keepout-001" data-kind="door-swing" x="10" y="1080" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-002" data-kind="door-swing" x="700" y="10" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-005" data-kind="door-swing" x="1284" y="380" width="36" height="72" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-008" data-kind="door-swing" x="280" y="924" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+  </g>
+  <g id="walls" fill="#2b2f36">
+    <rect id="wall-001" x="0" y="0" width="700" height="10"/>
+    <rect id="wall-002" x="736" y="0" width="1184" height="10"/>
+    <rect id="wall-003" x="0" y="1190" width="1920" height="10"/>
+    <rect id="wall-004" x="0" y="10" width="10" height="1070"/>
+    <rect id="wall-005" x="0" y="1116" width="10" height="74"/>
+    <rect id="wall-006" x="1910" y="10" width="10" height="690"/>
+    <rect id="wall-007" x="1910" y="820" width="10" height="130"/>
+    <rect id="wall-008" x="1910" y="1070" width="10" height="120"/>
+    <rect id="wall-009" x="1317.5" y="10" width="5" height="370"/>
+    <rect id="wall-010" x="1317.5" y="452" width="5" height="28"/>
+    <rect id="wall-011" x="1318" y="477.5" width="592" height="5"/>
+    <rect id="wall-012" x="1317.5" y="480" width="5" height="280"/>
+    <rect id="wall-013" x="1317.5" y="1000" width="5" height="190"/>
+    <rect id="wall-014" x="10" y="957.5" width="270" height="5"/>
+    <rect id="wall-015" x="316" y="957.5" width="46" height="5"/>
+    <rect id="wall-016" x="357.5" y="960" width="5" height="230"/>
+  </g>
+  <g id="columns" fill="#2b2f36">
+    <rect id="col-001" x="294" y="294" width="12" height="12"/>
+    <rect id="col-002" x="594" y="294" width="12" height="12"/>
+    <rect id="col-003" x="894" y="294" width="12" height="12"/>
+    <rect id="col-004" x="1194" y="294" width="12" height="12"/>
+    <rect id="col-005" x="294" y="594" width="12" height="12"/>
+    <rect id="col-006" x="594" y="594" width="12" height="12"/>
+    <rect id="col-007" x="894" y="594" width="12" height="12"/>
+    <rect id="col-008" x="1194" y="594" width="12" height="12"/>
+    <rect id="col-009" x="294" y="894" width="12" height="12"/>
+    <rect id="col-010" x="594" y="894" width="12" height="12"/>
+    <rect id="col-011" x="894" y="894" width="12" height="12"/>
+    <rect id="col-012" x="1194" y="894" width="12" height="12"/>
+  </g>
+  <g id="doors">
+    <path id="door-001" d="M10 1080L46 1080A36 36 0 0 1 10 1116" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-002" d="M700 10L700 46A36 36 0 0 0 736 10" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <line id="door-003" x1="1915" y1="700" x2="1915" y2="820" stroke="#6b7280" stroke-width="3" stroke-dasharray="12 6"/>
+    <line id="door-004" x1="1915" y1="950" x2="1915" y2="1070" stroke="#6b7280" stroke-width="3" stroke-dasharray="12 6"/>
+    <path id="door-005" d="M1320 380L1284 380A36 36 0 0 0 1320 416" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-006" d="M1320 452L1284 452A36 36 0 0 1 1320 416" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-007" d="M280 960L280 924A36 36 0 0 1 316 960" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  </g>
+  <g id="labels" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <text x="1620" y="240" font-size="34">Panel Test</text>
+    <text x="1520" y="580" font-size="30">Staging / Warehouse</text>
+    <text x="180" y="1090" font-size="24">Office</text>
+    <text x="660" y="180" font-size="36">Panel Assembly</text>
+    <text x="830" y="840" font-size="30">Wiring / Sub-assembly</text>
+  </g>
+</svg>

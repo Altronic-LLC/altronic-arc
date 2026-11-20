@@ -58,32 +58,53 @@ const PANEL_FIELD_SELECT = [
  */
 const ARCHIVE_FIELD_SELECT = "Archived,LegacySource,LegacyCreated";
 
-let archiveColumnsAvailable: boolean | null = null;
+/**
+ * `DrawingNumber` (BusinessIT#42, 2026-11-19) — the panel's drawing number,
+ * the old Panel Job Dashboard's "DWG No.". Added by the same script, later
+ * than the archive columns, so it is its OWN step down: a list with the
+ * archive columns but no Drawing Number must keep its Archived flags.
+ */
+const DRAWING_FIELD_SELECT = "DrawingNumber";
 
-function panelOrderSelect(withArchive: boolean): string {
-  return withArchive ? `${PANEL_FIELD_SELECT},${ARCHIVE_FIELD_SELECT}` : PANEL_FIELD_SELECT;
+/**
+ * What each read asks for, most first. A 400 steps down one tier and the
+ * tier that worked is remembered for the session.
+ */
+const SELECT_TIERS = [
+  `${PANEL_FIELD_SELECT},${ARCHIVE_FIELD_SELECT},${DRAWING_FIELD_SELECT}`,
+  `${PANEL_FIELD_SELECT},${ARCHIVE_FIELD_SELECT}`,
+  PANEL_FIELD_SELECT,
+];
+
+let selectTier: number | null = null;
+
+/** Test seam — forget what the last read learned about the optional columns. */
+export function __resetPanelOrderArchiveColumns(): void {
+  selectTier = null;
 }
 
-/** Test seam — forget what the last read learned about the archive columns. */
-export function __resetPanelOrderArchiveColumns(): void {
-  archiveColumnsAvailable = null;
+/**
+ * Whether Panel Order Headers has its DrawingNumber column. True until a read
+ * learns otherwise (and always in mock mode) — the order page hides the field
+ * rather than offer a write SharePoint would refuse.
+ */
+export function panelOrderDrawingNumberAvailable(): boolean {
+  return USE_MOCK || selectTier === null || selectTier === 0;
 }
 
 async function withArchiveFallback<T>(read: (select: string) => Promise<T>): Promise<T> {
-  if (archiveColumnsAvailable === false) return read(panelOrderSelect(false));
-  try {
-    const result = await read(panelOrderSelect(true));
-    archiveColumnsAvailable = true;
-    return result;
-  } catch (err) {
-    // Only a 400 (a column the list hasn't got) is worth retrying, and only
-    // before we know. A throttle or an outage must propagate.
-    if (archiveColumnsAvailable !== null || !(err instanceof GraphError) || err.status !== 400) {
-      throw err;
+  if (selectTier !== null) return read(SELECT_TIERS[selectTier]);
+  for (let tier = 0; ; tier++) {
+    try {
+      const result = await read(SELECT_TIERS[tier]);
+      selectTier = tier;
+      return result;
+    } catch (err) {
+      // Only a 400 (a column the list hasn't got) is worth stepping down for.
+      // A throttle or an outage must propagate.
+      const last = tier === SELECT_TIERS.length - 1;
+      if (last || !(err instanceof GraphError) || err.status !== 400) throw err;
     }
-    const result = await read(panelOrderSelect(false));
-    archiveColumnsAvailable = false;
-    return result;
   }
 }
 
@@ -101,6 +122,8 @@ function loadMockStoreFromStorage(): PanelOrder[] | null {
       modifiedAt: new Date(o.modifiedAt),
       // Stores written before SAP# (2026-10-30) have none.
       sapNumber: o.sapNumber ?? "",
+      // …and before the drawing number (2026-11-19).
+      drawingNumber: o.drawingNumber ?? "",
       // …and before the archive (2026-11-13).
       archived: o.archived ?? false,
       legacySource: o.legacySource ?? "",
@@ -266,6 +289,7 @@ export async function updatePanelOrderFields(
     if ("Status" in fields) next.status = fields.Status as PanelOrder["status"];
     if ("SalesOrder" in fields) next.salesOrder = (fields.SalesOrder as string) ?? "";
     if ("SAPNumber" in fields) next.sapNumber = (fields.SAPNumber as string) ?? "";
+    if ("DrawingNumber" in fields) next.drawingNumber = (fields.DrawingNumber as string) ?? "";
     if ("PurchaseOrder" in fields) next.purchaseOrder = (fields.PurchaseOrder as string) ?? "";
     if ("CustomerReference" in fields)
       next.customerReference = (fields.CustomerReference as string) ?? "";
@@ -459,6 +483,7 @@ export async function createPanelOrder(input: {
   projectLookupId?: number | null;
   salesOrder?: string;
   sapNumber?: string;
+  drawingNumber?: string;
   purchaseOrder?: string;
   customerReference?: string;
   customer?: string;
@@ -482,6 +507,7 @@ export async function createPanelOrder(input: {
         : null,
       salesOrder: input.salesOrder ?? "",
       sapNumber: input.sapNumber ?? "",
+      drawingNumber: input.drawingNumber ?? "",
       purchaseOrder: input.purchaseOrder ?? "",
       customerReference: input.customerReference ?? "",
       customer: input.customer ?? "",
@@ -510,6 +536,7 @@ export async function createPanelOrder(input: {
   if (input.projectLookupId) fields.ProjectReferenceLookupId = input.projectLookupId;
   if (input.salesOrder) fields.SalesOrder = input.salesOrder;
   if (input.sapNumber) fields.SAPNumber = input.sapNumber;
+  if (input.drawingNumber) fields.DrawingNumber = input.drawingNumber;
   if (input.purchaseOrder) fields.PurchaseOrder = input.purchaseOrder;
   if (input.customerReference) fields.CustomerReference = input.customerReference;
   if (input.customer) fields.Customer = input.customer;

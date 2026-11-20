@@ -25,6 +25,7 @@ import { HARNESS_ALERTS, type HarnessAlert, type HarnessAlertRecipient } from "@
 
 const WHAT: Record<HarnessAlert, string> = {
   "Crimp out of spec": "Emailed when a crimp height check has any reading outside its spec.",
+  "Pull test failed": "Emailed when a pull test has any pull below its minimum.",
   "Part number request":
     "Emailed when somebody asks for a harness part number that isn't on the list, or is retired.",
 };

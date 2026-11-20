@@ -503,11 +503,18 @@ src/
 │   ├── crimpChecks.ts            Crimp Height Checks CRUD, year-scoped on the indexed CheckedAt — spec figures copied on, admin-gated delete
 │   ├── crimpMachines.ts          The asset register's rows for the crimp machine pickers — its own 5-column read of the Altronic Equipment List, READ-ONLY
 │   ├── harnessAlertRecipients.ts Harness Alert Recipients — who each Harness email goes to; admin-managed list, read fresh at send
+│   ├── pullTestSpecs.ts          Pull Test Specs (Harness, PMO site) — minimum pull force per terminal + gauge (blank terminal = any); admin writes, delete only when unused
+│   ├── pullTests.ts              Pull Tests CRUD, year-scoped on the indexed TestedAt — spec minimum copied on, admin-gated delete
+│   ├── mark10Serial.ts           The Mark-10 WT3-200 pull tester over Web Serial — choose/reopen the port, read lines, send "?"; no helper program
 │   ├── coatingSpecs.ts           Coating Specs (Operations, PMO site) — min / max stored in mm + the unit entered in + coated sides; admin writes, delete only when unused
 │   ├── coatingChecks.ts          Conformal Coating Checks CRUD, year-scoped on the indexed MeasuredAt — spec figures copied on, admin-gated delete
 │   ├── operationsAlertRecipients.ts Operations Alert Recipients — who each Operations email goes to; admin-managed list, read fresh at send
 │   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
+│   ├── plantLayouts.ts           Plant Layouts — one row per VERSION, the layout as JSON; never writes a Published row or over JSON it can't read
+│   ├── layoutComponents.ts       Layout Components — the Plant Map symbol library; add (key checked fresh), replace = a NEW row per version (latest checked fresh), never deleted
+│   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/ (never overwritten; deleted only when no layout uses them) and the Power BI files in published/ (replaced)
+│   ├── plantMapRoles.ts          Plant Map Roles CRUD (viewer / editor / admin) — only people on it see the Plant Map
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
@@ -579,8 +586,12 @@ src/
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── harnessMockData.ts        Sample harness log rows (this year + last) + part numbers, one retired
 │   ├── crimpMockData.ts          Sample crimp specs + checks — INVENTED terminals/applicators, one out of spec, one spec with no height
+│   ├── pullTestMockData.ts       Sample pull test specs + tests — INVENTED, an any-terminal spec, one in N, one failed, one with no minimum
 │   ├── coatingMockData.ts        Sample coating specs + checks — INVENTED machines, mm and inch checks, one out of spec, one retired spec
 │   ├── mcnMockData.ts            Sample MCNs (one per status), team roles + distribution groups — all invented
+│   ├── plantMockData.ts          Plant Map demo — three INVENTED buildings, the seeded symbols, layouts built from the two sample layouts
+│   ├── plantComponentSeed.json   The 12 starter symbols — seeds the Layout Components list (script) and the mock
+│   ├── plantMock/                The invented walls drawings (.svg, imported ?raw) and the clean / three-problem sample layouts
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
@@ -624,12 +635,17 @@ src/
 │   ├── useHarnessProductionLog.ts Harness log + part-number queries/mutations; delete and every part write are ARC-admin only
 │   ├── useCrimpChecks.ts         Crimp checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
 │   ├── useHarnessAlertRecipients.ts Who's notified CRUD (ARC admins) + readHarnessRecipients (fresh) + the part number request
+│   ├── usePullTests.ts           Pull tests + specs queries/mutations; the failed-pull email + its toast; admin-only delete and spec writes
+│   ├── useMark10Tester.ts        The pull tester for an open form — connect, reconnect to the one granted port, baud (remembered), each line parsed
 │   ├── useCoatingChecks.ts       Coating checks + specs queries/mutations; the out-of-spec email + its toast; admin-only delete and spec writes
 │   ├── useOperationsAlertRecipients.ts Operations Who's notified CRUD (ARC admins) + readOperationsRecipients (fresh)
 │   ├── useRequireArcAdmin.ts     "Only ARC admins can…" asked INSIDE a mutationFn, awaiting the Admins list (Harness + Crimp)
 │   ├── useRememberedView.tsx     List or Kanban remembered per browser (#51) — saved in the switcher, applied by a list route wrapper
 │   ├── useMcns.ts                MCN queries, card edits, the workflow + its emails, comments — every write gated in its mutationFn
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
+│   ├── usePlantLayouts.ts        Plant layouts, the symbol library and the walls drawings (read + sanitised once) as queries; start, save, copy-to-draft (editor-gated); publish + the Power BI files
+│   ├── usePlantMapRoles.ts       Plant Map Roles CRUD (manage-gated) + useMyPlantMapAccess / useResolvePlantMapAccess
+│   ├── usePlantLayerVisibility.ts Which Plant Map layers are shown — per viewer, never saved; starts from each layer's default
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -798,6 +814,7 @@ src/
 │   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
+│   ├── panelProjectDashboard.ts  Panel Project Dashboard (pure) — a project's orders, its tasks (own project OR raised for its orders), merged comments, per-project summary
 │   ├── panelOrderArchive.ts      Archived panel orders (moved from Panel Job Dashboard) — ?archived= scope, real created date, pickers skip them (pure)
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays, BOM parts + kits) + capacityPeople (who gets a Capacity row) (pure)
@@ -892,6 +909,10 @@ src/
 │   ├── crimpMachines.ts          Crimp machines (pure) — a press in a Harness location, picker options that keep a picked one, which specs run on a press
 │   ├── crimpMapper.ts            Graph item ⇄ Crimp Spec / Crimp Check; Average, OutOfSpec and Title derived on write
 │   ├── crimpAlerts.ts            The out-of-spec crimp email (pure)
+│   ├── pullTest.ts               Pull test rules (pure) — a pull AT the minimum passes, judged in the spec's unit, any pull low = failed, labels
+│   ├── pullTestMapper.ts         Graph item ⇄ Pull Test Spec / Pull Test; LowestPull, Failed and Title derived on write; five pull columns
+│   ├── pullTestAlerts.ts         The failed pull test email (pure)
+│   ├── mark10.ts                 The WT3-200's serial output as text (pure) — "124.8 lbF" lines, units, baud rates, errors in words
 │   ├── coatingCheck.ts           Conformal coating rules (pure) — averages, thickness ÷ coated sides, judged in the SPEC'S unit (mm or in), limits inclusive, labels
 │   ├── coatingMapper.ts          Graph item ⇄ Coating Spec / Coating Check; averages, both thicknesses, OutOfSpec and Title derived on write
 │   ├── coatingAlerts.ts          The out-of-spec conformal coating email (pure)
@@ -902,6 +923,18 @@ src/
 │   ├── mcnRoles.ts               MCN role tags → rights + the raise / approve / manage gates (pure)
 │   ├── mcnWorkflow.ts            The MCN workflow — actions per status, submit rules, which card is editable when (pure)
 │   ├── mcnAlerts.ts              MCN emails — submitted, approved, rejected, implemented; distribution prefill (pure)
+│   ├── plantGeometry.ts          Plant Map geometry (pure, inches) — rotated boxes, the separating-axis overlap test, the placement check and its wording
+│   ├── plantSvg.ts               Walls drawings + symbols — sanitiseSvg (drawn ONLY as images), the walls rules (viewBox in inches, obstacle groups)
+│   ├── plantEditor.ts            The layout editor's state (pure) — one action per edit with undo / redo, snap, size limits, placing a symbol
+│   ├── plantDrawingReview.ts     Reviewing an uploaded walls drawing (pure) — size / no-walls / unreadable-shape warnings, keep-outs offered as editable areas
+│   ├── plantSymbolImport.ts      A new symbol from an SVG, a DXF (read here, units from $INSUNITS) or a traced picture → the library's SVG (pure)
+│   ├── plantSymbolVersions.ts    Symbol versions (pure) — latest per key, what the palette shows, an item's newer version and the swap that updates it, the layouts that use a symbol
+│   ├── plantLabels.ts            Label symbols (pure) — where an item's label is written inside an IsLabel symbol's TextBox, and how big
+│   ├── plantAlign.ts             Alignment guides (pure) — a dragged box snaps onto a neighbour's edge or centre line, and the dotted guides to draw
+│   ├── plantLayers.ts            Plant Map layers (pure) — the layout's layers, what's shown, revealing a picked item, counts, where a new copy goes
+│   ├── plantPublishFiles.ts      A published layout's files for Power BI (pure) — the composite SVG (symbols inlined, ids = TagIds) and the tags CSV, and their names
+│   ├── plantLayoutDoc.ts         The LayoutJson column — parse (corrupt is never overwritten), serialize (refuses past the column's limit); which layouts share a walls drawing
+│   ├── plantMapRoles.ts          Plant Map role tags → rights + the edit / publish / manage gates (pure)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
 │   ├── monthTrend.ts             Reports' this-month-vs-last-month rule — rates not counts, good ≠ up, too-early threshold (pure)
@@ -930,10 +963,12 @@ src/
 │   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
 │   ├── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
 │   ├── crimp.ts                  Crimp Height Checks types + constants (CrimpSpec, CrimpCheck, check points)
+│   ├── pullTest.ts               Pull Tests types + constants (force units, spec sources, DEFAULT_PULLS_REQUIRED / MAX_PULLS)
 │   ├── coating.ts                Conformal Coating Checks types + constants (units — mm first, coated sides, spec, check)
 │   ├── operationsAlerts.ts       Operations Alert Recipients types + OPERATIONS_ALERTS (the Alert choices)
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
 │   ├── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
+│   ├── plant.ts                  Plant Map types + constants (roles, component categories, layout statuses, the layout doc)
 │   └── panelBom.ts               Panel SAP BOM Builder types + PANEL_BOM_CLUSTERS (the ten clusters, which drive item numbers)
 │
 ├── components/
@@ -959,6 +994,7 @@ src/
 │   ├── SearchInput.tsx           Shared debounced search box
 │   ├── SearchableSelect.tsx      MultiSelect / SingleSelect / ChoiceSelect (all searchable)
 │   ├── SortableTableHeader.tsx   Shared sort + per-column filter chrome (from Panel QC)
+│   ├── PhoneSortBar.tsx          A phone card list's Sort by picker + direction, over useSortableTable's state (+ "a filter is on" / Clear)
 │   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
 │   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content
 │   ├── RichTextEditor.tsx        Bold/italic/underline/lists editor (EIR text fields)
@@ -992,7 +1028,7 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task (incl. start/due dates + estimated hours)
 │   ├── CapacityGrid.tsx          SHARED capacity screen body — Days/Weeks + navigation in the URL, grid, task bars, cell detail, backlog
-│   ├── PanelTeamGate.tsx         "Panel team only" gate for Capacity + Time Off
+│   ├── PanelTeamGate.tsx         "Panel team only" gate for Capacity + Time Off; PanelPreviewGate = the PANEL_PLANNING_LIVE "Coming soon" gate
 │   ├── PanelTimeOffFormModal.tsx Add/edit/remove a Panel Time Off entry (defaultDate from the calendar)
 │   ├── PanelBomPartFormModal.tsx Add/edit a BOM Builder part (Super User / ARC admin) — no cost field
 │   ├── PanelBomKitFormModal.tsx  Add/edit a BOM Builder kit + its components; fills MFG # / description from a listed SAP #
@@ -1074,6 +1110,8 @@ src/
 │   ├── HarnessLogFormModal.tsx   Create/edit a harness log entry — part picked from the list, never typed
 │   ├── CrimpCheckFormModal.tsx   Record/correct a crimp check — spec picked, readings judged live, Enter-as-Tab for the micrometer, mm refused
 │   ├── CrimpSpecFormModal.tsx    Add/edit a crimp spec (ARC admins)
+│   ├── PullTestFormModal.tsx     Record/correct a pull test — spec picked, the tester panel (connect, Read now), pulls judged live, Enter-as-Tab
+│   ├── PullTestSpecFormModal.tsx Add/edit a pull test spec — source, terminal (blank = any for a standard), minimum + unit (ARC admins)
 │   ├── CoatingCheckFormModal.tsx Record/correct a coating check — spec picked, mm/in, six readings, thickness judged live in the spec's unit, Enter-as-Tab
 │   ├── CoatingSpecFormModal.tsx  Add/edit a coating spec in mm or inches, with coated sides (ARC admins)
 │   ├── HarnessPartRequestDialog.tsx  Request a new or retired harness part number — portalled, emails the part-request recipients
@@ -1081,6 +1119,14 @@ src/
 │   ├── McnFields.tsx             MCN dialog shell, scope-line editor, single-person picker, distribution ticks
 │   ├── McnFormModal.tsx          New MCN — saved as a Draft, number previewed; staged attachments upload after the create
 │   ├── McnDialogs.tsx            MCN card editors (description, scope, items, distribution) + approve / reject-reopen / implement
+│   ├── plantMapAtoms.tsx         Plant Map status chip, the Layouts / Symbols / Roles nav, PlantMapAccessGate (configured? on the roles list?)
+│   ├── PlantCanvas.tsx           THE plan, viewing and editing — a viewBox window (wheel zoom, drag to pan), walls + symbols as sanitised <image>s; editing adds move / rotate / resize drags and the palette ghost
+│   ├── PlantEditorPanels.tsx     The editor's symbol palette (drag or click) and the selected item's inspector (commit on Enter / blur; Layer / Group)
+│   ├── PlantOutlineEditor.tsx    A symbol's collision outline on the Add / Replace form — corners clicked on the preview (snapped to the inch) or typed
+│   ├── PlantLayersPanel.tsx      Show / hide a layout's layers and their groups, with counts — the viewer and the editor
+│   ├── NewPlantLayoutModal.tsx   Start a layout — name, area, building; an existing building reuses its drawing, a new one uploads it, reviewed BEFORE anything is written
+│   ├── NewPlantSymbolModal.tsx   Add a symbol, or replace one with its next version — SVG, DXF or a traced picture + name, category, footprint, solid / turn / resize; the preview IS what's saved
+│   ├── PlantDrawingReview.tsx    New layout's review of an uploaded drawing — preview of what ARC found, warnings, confirm the size, keep-outs → editable areas
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
@@ -1154,6 +1200,8 @@ src/
 │   ├── HarnessPartNumbersView.tsx    Harness Part Numbers — readable by all, ARC admins add/rename/retire
 │   ├── CrimpChecksView.tsx       Crimp Height Checks (/harness/crimp-checks, /:id opens one) — year picker, out-of-spec filter, cards on a phone
 │   ├── CrimpSpecsView.tsx        Crimp Specs — readable by all, ARC admins add/edit/retire, delete only when unused
+│   ├── PullTestsView.tsx         Pull Tests (/harness/pull-tests, /:id opens one) — year picker, terminal + failed filters, cards on a phone
+│   ├── PullTestSpecsView.tsx     Pull Test Specs — readable by all, ARC admins add/edit/retire, delete only when unused
 │   ├── HarnessAlertRecipientsView.tsx  Harness → Who's notified (/harness/alert-recipients) — people per alert, picked from the directory, ARC admins edit
 │   ├── CoatingChecksView.tsx     Conformal Coating Checks (/operations/coating-checks, /:id opens one) — year picker, machine + out-of-spec filters, cards on a phone
 │   ├── CoatingSpecsView.tsx      Coating Specs — readable by all, ARC admins add/edit/retire, delete only when unused; cards on a phone
@@ -1161,6 +1209,11 @@ src/
 │   ├── McnsView.tsx              MCN register (/operations/mcns) — opens on open MCNs, sortable, cards on a phone
 │   ├── McnDetailView.tsx         One MCN (/operations/mcns/:id) — form-order cards, the workflow button, locks after submit
 │   ├── McnSettingsView.tsx       MCN Settings — the Manufacturing Team's roles and the eight distribution groups
+│   ├── PlantLayoutsView.tsx      Plant Map (/operations/plant-map) — every layout version, sortable; New layout for editors
+│   ├── PlantLayoutView.tsx       One layout (/operations/plant-map/:id) — the plan, the placement check, the selected item, every item sortable; Edit, Publish, Delete
+│   ├── PlantLayoutEditView.tsx   The layout editor (/operations/plant-map/:id/edit, DRAFTS only) — palette, canvas, inspector, keyboard, live check, Save draft
+│   ├── PlantSymbolsView.tsx      Plant Map → Symbols (/operations/plant-map/symbols) — the latest version of each symbol, by category; Add symbol and Replace for a Plant Map admin
+│   ├── PlantMapRolesView.tsx     Plant Map → Roles (/operations/plant-map/roles) — viewer / editor / admin; a Plant Map admin, or an ARC admin from the Admin page, manages it
 │   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
 │   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
 │   ├── TeradyneDefectBreakdownReportView.tsx  Teradyne Defect Breakdown — latest month's donut, grouped by remark
@@ -1170,7 +1223,9 @@ src/
 │   ├── IgnitionQcDefectBreakdownReportView.tsx  Ignition QC Defect Breakdown — latest month's donut, 14 fixed categories
 │   ├── KioskReportsView.tsx      /reports/kiosk — cycles all 6 reports every 60s (FPY→donut per source), chrome-less
 │   ├── PanelOrdersView.tsx       Panel Orders list
-│   ├── PanelOrderDetailView.tsx  Panel order detail
+│   ├── PanelOrderDetailView.tsx  Panel order detail — READ-ONLY until a section's Edit (FieldEditModal); Project Reference links to its dashboard
+│   ├── PanelProjectsView.tsx     Panel Project Dashboard (/panels/projects) — every project with order / open-work counts and last activity, sortable
+│   ├── PanelProjectDashboardView.tsx  One project (/panels/projects/:id) — its orders, tasks, BOMs and every comment, read-only, linking down
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── PanelCapacityView.tsx     Panel Engineering Capacity (/panels/capacity) — Panels' gate, header and data around the shared CapacityGrid
@@ -1723,6 +1778,18 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
   `EirNumberUnconfirmedError` carrying the EIR; `useCreateEir` treats that as
   a create with a warning toast. Pinned in `api/eirs.numbering.test.ts` (real
   mode), verified by disabling the check and by flipping the older-wins rule.
+  **Initial vs current stock and cost** (BusinessIT#23, 2026-11-19). The
+  original `CurrentStock` / `Current_x0020_Price` columns hold the figures
+  from when the EIR was raised and are SHOWN as **Initial Stock / Initial
+  Cost** (display names renamed in SharePoint; internal names and the
+  `currentStock` / `currentPrice` domain keys unchanged). Two text columns,
+  `LatestStock` / `LatestCost` (shown **Current Stock / Current Cost**,
+  domain `latestStock` / `latestCost`), are kept up to date, editable on the
+  EIR page by the **Supply Chain** role only. `scripts/update-eir-fait-columns.ps1`
+  makes both changes. `listEirs` asks for the new columns and, on a 400 only,
+  retries without them and remembers (`eirLatestColumnsAvailable`, the MRB
+  Watchers arrangement); a write to them is then refused naming the script.
+  Pinned in real mode in `api/eirs.latestColumns.test.ts`.
 - **EIR Roles List ID:** `e85aeb77-9dbf-4962-ade2-08cb977a5b79` (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list on the Engineering site (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Managed at `/admin/eir-roles`.
 
   **The list EXISTS** — confirmed live 2026-08-24. This entry said "not yet created" for months and was wrong; the id above is the one the site returned. There is deliberately **no default in `config.ts`**: adding one turns EIR field gating ON at the next deploy, and every engineer not on the list would lose fields they can edit today. Set the env var only once the list is populated — that decision is Ray's, not a tidy-up.
@@ -3072,10 +3139,16 @@ users of its function... assuming all sign offs are done."*
   the optimistic patch back and toasts `err.message`, so no extra plumbing was
   needed for the refusal to surface.
 - **Whether this write closes the FAIT is decided in `onMutate`**, against
-  the pre-write row (same timing rule as `pendingSignOff` for the ordinary
-  sign-off chain — `onMutate` has already run by the time `mutationFn`
-  fires), and carried forward through a second WeakMap, `pendingNotifyClose`,
-  keyed on the mutation's `vars` object.
+  the row AS THIS SAVE LEAVES IT — `patch(prevFait)`, the pre-write row with
+  this write's own values applied (same timing rule as `pendingSignOff` for
+  the ordinary sign-off chain — `onMutate` has already run by the time
+  `mutationFn` fires), and carried forward through a second WeakMap,
+  `pendingNotifyClose`, keyed on the mutation's `vars` object. It read the
+  bare pre-write row until BusinessIT#75 (2026-11-19), so an engineer
+  approving and ticking Notify Initiator in ONE save of the Sign-off card was
+  refused as "not fully signed off". When such a save closes the FAIT, the
+  KAM is NOT asked for a signature (closing means the KAM's is already in).
+  Pinned in `useFaits.notifySameSave.test.tsx`.
 - **The close travels in the SAME PATCH** as the Notify Initiator checkbox
   itself — `{ NotifyInitiator: true, Status: "Closed" }` in one write, the
   same "the auto-advance can't disagree with what caused it" rule the
@@ -3198,6 +3271,13 @@ It is deliberately in two obvious places — one branch of `faitSignOffOutcome`
 and `buildFaitSqeFailedEmails` — so changing it is cheap. There is **no
 fallback queue** on it: the SQE reviewers are the people who record a Failed
 sign-off, so bouncing it back to them says nothing they don't know.
+
+**"Pending EIR Review & Response"** is a FAIT status (BusinessIT#73, Jerrod
+Waldron, 2026-11-19) for a FAIT waiting on an EIR. It's a plain status — no
+alert of its own, and the sign-off chain can still auto-advance a FAIT out of
+it. The Status column is a strict choice, so it was added in SharePoint by
+`scripts/update-eir-fait-columns.ps1`; a new status needs both that and
+`FAIT_STATUSES`. `FaitStatusChip` shows any `Pending…` status as waiting work.
 
 **`EngSignOff` and `KAMSignOff` offer only `Approved`** — there is no rejection
 value on either column, so there is no reject path at those two stages and none
@@ -6455,18 +6535,43 @@ The panel team's orders lived on **Panel Job Dashboard** (`7c74061d-…`, same
 ALTRONICPANELTEAM site, ~1,380 rows, 55 columns). ARC's **Panel Order
 Headers** had one test row, so the old orders are MOVED in by
 `scripts/move-panel-orders-to-arc.ps1` (Tim: "we don't need all the info").
-Dry run by default; `-ColumnsOnly`, `-Apply`, `-SkipShipped`, `-Limit`.
+Dry run by default; `-ColumnsOnly`, `-Apply`, `-FillOnly`, `-SkipShipped`,
+`-Limit`. The full move was applied before 2026-11-19 (1,382 orders).
 
 - **Only the columns ARC has come across** — the script's `$FieldMap` /
   `$StatusMap` are the mapping (Part Number → SAP #, Unit No. → Customer
   Reference, Notes and Quote Ref appended to Order Notes; old statuses
   folded into ARC's six). The old list is never changed.
-- **Three columns it adds**: `Archived` (yes/no — set when the old Status is
+- **Four columns it adds**: `Archived` (yes/no — set when the old Status is
   Shipped), `LegacySource` (`PanelJobDashboard#<id>`, indexed; a re-run skips
-  what's already moved and never rewrites it) and `LegacyCreated` (Graph
-  can't set Created, so ARC shows and sorts by this). ARC selects them and,
-  on a 400, retries without and remembers (the MRB Watchers arrangement), so
-  the deploy doesn't depend on the script having run.
+  what's already moved and never rewrites it), `LegacyCreated` (Graph
+  can't set Created, so ARC shows and sorts by this) and, from 2026-11-19,
+  `DrawingNumber` (text, indexed — the old DWG No.). ARC selects them and,
+  on a 400, STEPS DOWN (`SELECT_TIERS` in `api/panelOrders.ts`: all four,
+  then without DrawingNumber, then none) and remembers, so the deploy
+  doesn't depend on the script having run and a list without DrawingNumber
+  keeps its Archived flags. Without the column the order page hides the
+  field (`panelOrderDrawingNumberAvailable`).
+- **Project Reference is worked out, never guessed** (2026-11-19, `Find-Project`
+  in the script). The old list has no project column, so an order is linked
+  only when exactly ONE Panel Project Reference fits: its drawing number
+  (DWG No., else the Title's first segment) equals a project's `DWGNO`
+  (letters and digits, case ignored); or it's that DWG NO plus an option
+  suffix after `-`, a space or `(` (`5000-221-OP1`, `5000-222 (NO HMI)`;
+  longest DWG NO wins, a tie links nothing); or its Part Number is an SAP #
+  written in a project's title. Drawing and SAP # disagreeing links nothing.
+  Live 2026-11-19: 45 projects, 30 with a DWG NO; 127 of the 1,390 old orders
+  fit (85 drawing, 27 variant, 12 drawing + SAP #, 3 SAP #); 247 drawing
+  numbers fit no project (`panel-orders-no-project.csv`, with open counts —
+  the list to make project references from).
+- **Already-moved orders are FILLED, blanks only** — Drawing Number and
+  Project Reference, re-read just before each PATCH (a value set in ARC
+  meanwhile is left), every write read back. `-FillOnly` does only this.
+  Dry run 2026-11-19: 1,372 drawing numbers and 127 projects to fill; not
+  yet applied. Re-run after adding project references and more orders link.
+- **PowerShell 7.4 gotcha**: a script block STARTING with the word `Clean`
+  (`Where-Object { Clean $_.x }`) parses as the new `clean {}` block and the
+  whole script fails to parse. Wrap the call: `{ (Clean $_.x) }`.
 - **Archived is hidden by default** (`lib/panelOrderArchive.ts`): the list's
   Active / Archived / All switch is `?archived=only|all`; status counts are
   within the scope. Archived orders don't count on the Dashboard card, aren't
@@ -6482,6 +6587,68 @@ Dry run by default; `-ColumnsOnly`, `-Apply`, `-SkipShipped`, `-Limit`.
   inside the repo.
 - **`getPanelOrder` reads ONE item** now (it read the whole list, which every
   write re-reads through), and the list renders 150 rows with Show all.
+
+### Panel Project Dashboard + the read-only order page (BusinessIT#42, 2026-11-19)
+
+From the live demo with Mark. Two changes:
+
+- **A Panel Order opens READ-ONLY.** Its fields used to save the moment
+  they were touched (native selects and blur-to-save inputs), so reading an
+  order was one stray click from changing it. Now each section has ONE Edit
+  button and a `FieldEditModal` — title, **Order** (Status, Project
+  Reference, Engineer, Sales Order, SAP #, PO) and **Customer** — plus Order
+  Notes' existing inline Edit. `saveSection` sends the plain columns in ONE
+  PATCH, then the project and the engineer through their own hooks, one
+  after another (two optimistic patches must not race; each hook rolls back
+  and toasts its own refusal). A cleared Status or title is ignored, never
+  written. **Live on purpose**: Watch / Watchers (a subscription, not the
+  order), comments, attachments, ticking an Order Notes checklist, raising
+  standard tasks. A stored Status / Customer the live choices no longer
+  offer stays in its picker (`withCurrent`).
+- **Panel Project Dashboard** (`/panels/projects`, `/panels/projects/:id`),
+  read-only, open to everyone signed in like Orders and Tasks. Rules in
+  `lib/panelProjectDashboard.ts`. **A task belongs to a project when its
+  Project Reference is the project OR it was raised for one of the project's
+  orders** — a standard task copies the order's project once, and doesn't
+  follow the order if the order moves. The Discussion merges every order and
+  task comment, newest first, naming where each was posted; replies happen
+  on that page (nothing is written here). The Orders table shows each order's
+  Drawing Number. BOMs show only to the panel team
+  (`canOpenBom`), like the builder. QC Time Tracking and QC Issues are NOT
+  on it: neither has a link to a project (QC Time's project is free text).
+  The order page's Project Reference — sidebar and header chip — links to
+  the project's dashboard.
+- **Customer pills** (Tim, 2026-11-19): a project built for several
+  customers shows one pill per customer on its orders (`projectCustomers`,
+  case- and space-insensitive, "(none)" for a blank), each with its order
+  count; `?customer=` narrows orders, the tasks raised FOR those orders,
+  BOMs and comments (`narrowToCustomer`). A task on no order of the project
+  has no customer: hidden while one is picked, and the Tasks card says how
+  many. An unknown `?customer=` is ignored. The list's Customers column is
+  the distinct customers on a project's orders (`summary.customers`) — the
+  project's own Customer field is mostly blank, so it was dropped.
+- **Live test switch: `PANEL_PLANNING_LIVE`** (`VITE_PANEL_PLANNING_LIVE`,
+  Tim 2026-11-19) — the BOM Builder's `PANEL_BOM_LIVE` arrangement for Panel
+  Orders, Panel Tasks, Panel Engineering Capacity and the Panel Project
+  Dashboard. Off (the default; mock mode is always live): only panel **Super
+  Users** (`canOpenPlanning` in `panelTeamAccess`, not ARC admins) get the
+  real menu rows and Dashboard cards; everyone else gets "Coming soon" rows
+  (`panelPreview: "with" | "without"` in `Header.tsx`) and cards (Capacity's
+  only for the panel team, who'd ever see it). `PanelPreviewGate` wraps the
+  eight routes in `App.tsx` (projects ×2, orders ×2, tasks ×2, capacity, task
+  templates), so an old email link says Coming soon too. Super Users on
+  2026-11-19: Ray White, Mark Balent, Tim Webster. Going live = the repo
+  variable `"true"` + a redeploy. Navigation, not security. Pinned in
+  `lib/panelRoles.test.ts`, `components/PanelPreviewGate.test.tsx` and
+  `views/DashboardView.panelPreview.test.tsx` (verified by breaking the rule).
+- **No sideways scroll, cards on a phone**: the tables use the MRB width
+  pattern (title column `w-full` + `max-w-0`, truncating; the least-needed
+  columns `hidden lg:/xl:table-cell`). A phone gets cards rendered INSTEAD of
+  the table (`useIsPhone`, the Parts List way) with `components/PhoneSortBar`
+  — a shared Sort by picker + direction button over the same
+  `useSortableTable` state, and a "column filter is narrowing this list"
+  line. Orders and tasks on a project page are capped at 150 rows with Show
+  all (`5900-FLX36-V2-009` has 222 orders).
 
 ### Panel Engineering Capacity + Panel Time Off (Panels, panelTeam site)
 
@@ -6786,10 +6953,22 @@ and both SAPNumbers, and it writes Assigned in the multi shape. It prints the tw
 **Wrike import** — `scripts/import-wrike-panel-tasks.ps1` + `docs/WRIKE-IMPORT.md`.
 Re-runnable on purpose (Tim: pull during testing, run again before go-live):
 `-Export` (token from `$env:WRIKE_TOKEN`, raw JSON outside the repo) →
-`-Plan` → `-Apply`. Rows match on `LegacySource = wrike:<id>`; `ImportHash`
-holds the hash of what the import wrote, so a re-run **never overwrites a task
-somebody edited in ARC** — it lands in `conflicts.csv`. Nothing in it has run
-live yet.
+`-Plan` → `-Apply`. Rows match on `LegacySource = wrike:<id>`. `ImportHash`
+is PER FIELD since 2026-11-19 (`v2:` + an 8-hex src and arc hash per field,
+206 chars in a 255 column): a field Wrike changed and ARC didn't is updated;
+one changed in both keeps ARC's value and lands in `conflicts.csv`; so an ARC
+edit (a Capacity drag) holds only that field and the Wrike status still comes
+over. Watchers are merged, never removed, never a conflict. The old whole-row
+hash still reads (untouched rows are upgraded with an ImportHash-only write).
+The folder / status-group skips stop only NEW tasks — one already in ARC is
+followed into Cancelled or `99. Archived`. Imported tasks missing from the
+export are listed in `gone.csv`, never deleted. A Wrike project that matches
+no reference by title is matched by its leading drawing number to the ONE
+reference with that DWG NO (`projects-matched-by-dwg.csv`) — projects renamed
+in Wrike would otherwise become duplicate references. Run live 2026-11-03..05 (202
+tasks, all in step on 2026-11-19); the per-field logic is planned against a
+copy of that export and its decision code tested in isolation, not yet
+applied.
 
 ### Panel SAP BOM Builder (Panels, panelTeam site)
 
@@ -8469,6 +8648,199 @@ opens inside the entry form, and a form in a form is invalid. Escape is
 handled on the document (after a send the focused button is gone), and the
 entry form ignores Escape while it's open — pinned, verified by removing it.
 
+### Pull Tests (Harness, PMO site)
+
+BusinessIT#64 (David Bulkley via Feature Request #38; built with Tim,
+2026-11-09). Crimp height and crimp force can't judge the MACHINED pins
+(DriveCOM), so those are pull tested on a **Mark-10 WT3-200** wire crimp pull
+tester, and stamped terminals can be too. The Crimp Height Checks
+arrangement, copied on purpose (Tim: "yes copy that") — anyone records and
+corrects a test, ARC admins delete tests and manage specs, a failed test
+emails the "Pull test failed" people on Harness Alert Recipients. Pieces:
+`types/pullTest.ts`, `lib/pullTest.ts` (the rules), `lib/pullTestMapper.ts`,
+`lib/pullTestAlerts.ts`, `lib/mark10.ts`, `api/pullTestSpecs.ts`,
+`api/pullTests.ts`, `api/mark10Serial.ts`, `hooks/usePullTests.ts`,
+`hooks/useMark10Tester.ts`, the two `PullTest*FormModal`s, `PullTestsView`
+(`/harness/pull-tests`, `/:id` opens one) and `PullTestSpecsView`
+(`/harness/pull-tests/specs`).
+
+Two lists on `SITES.pmo`, created by `scripts/create-pull-test-lists.ps1`
+(idempotent, `-WhatIf`, write/read-back check; its internal names are the
+contract with `lib/pullTestMapper.ts`). **No defaults** — unset shows "not
+set up yet":
+
+| List | env | Holds |
+|---|---|---|
+| Pull Test Specs | `VITE_SP_PULL_TEST_SPECS_LIST_ID` | Title = terminal (blank = any), WireGauge, MinimumForce + ForceUnit, SpecSource, SpecReference, PullsStart / PullsInProcess / PullsEnd (1–5, blank = 3) |
+| Pull Tests | `VITE_SP_PULL_TESTS_LIST_ID` | one row per test; `TestedAt` indexed; Pull1–Pull5; the spec's minimum and PullsRequired copied on |
+
+The same script ADDS "Pull test failed" to Harness Alert Recipients' strict
+`Alert` choice (keeping any choice added by hand) — **run it before the
+deploy**, or nobody can be picked for the alert. `HARNESS_ALERTS` and
+`create-crimp-lists.ps1` carry the third choice too.
+
+Tim's decisions, 2026-11-09:
+- **Specs are a table**, some a manufacturer's figure, some an industry
+  standard (IPC/WHMA-A-620). An industry-standard spec may leave the terminal
+  BLANK — the standard's table goes by wire size — and the test then asks
+  which terminal was pulled. A manufacturer spec must name its terminal
+  (checked in the API, not just the form). One spec per terminal + gauge; an
+  any-terminal spec is one per gauge + REFERENCE (`pullSpecKey`), because a
+  standard gives several minimums per gauge — IPC/WHMA-A-620 Table 19-8 has
+  machined contacts (silver/tin and nickel plated wire), crimp splices, and
+  stamped and formed terminals, and the reference names which. A terminal's
+  own spec and the IPC rows for its gauge can all exist; the operator picks.
+- **The IPC table is loaded by `scripts/load-pull-test-specs.ps1`** from a
+  CSV kept OUT of the repo (a standard's table, and the repo is public).
+  Pounds are loaded (lbF, the tester's default); the table's N column goes in
+  Notes, and the script flags rows where the two disagree by more than 1%
+  (the table has a few, e.g. 6 AWG machined silver/tin 300 lb vs 1235.0 N).
+  ADD-ONLY, keyed like `pullSpecKey`; `-ParseOnly` needs no sign-in. Gauges
+  are stored as the label reads: "20" (shown "20 AWG"), "1/0 AWG",
+  "250 kcmil".
+- **Start / In process / End**, like crimp. **How many pulls is PER SPEC
+  AND PER POINT IN THE RUN** (Tim, 2026-11-17: "adjustable based on spec",
+  then "based on if its a start, In Process, finish test") —
+  `PullsStart` / `PullsInProcess` / `PullsEnd` on Pull Test Specs
+  (`PullTestSpec.pullsRequired`, a `PullsByCheckPoint`), each a whole number
+  1 to `MAX_PULLS` (5); blank means `DEFAULT_PULLS_REQUIRED` (3), so specs
+  made before the columns keep asking for three. Rules (`readPullsRequired`
+  / `pullsRequiredFor` in `lib/pullTest.ts`):
+  - **A test COPIES the count for its own point** (`PullsRequired` on Pull
+    Tests, one number, part of the snapshot), like the minimum, so raising a
+    spec to five never makes last month's three-pull tests incomplete. A test
+    saved before the column reads as 3. Correcting an old test's point in the
+    run re-reads the spec's count for the new point; otherwise an edit keeps
+    its own.
+  - **Before Start / In process / End is picked, the form uses the LARGEST
+    of the three** (`pullsRequiredFor(spec, null)`), so it never shows fewer
+    boxes than the test may need.
+  - **The form's boxes follow the spec** (`fitPullBoxes`): picking a spec
+    that needs five grows to five; switching to one that needs three drops
+    only EMPTY boxes, never a pull taken. "Add a pull" still adds extras up
+    to five, and only boxes past the count can be removed.
+  - **A stored 0, 6 or 2.5 reads as blank** (the default), and the API
+    refuses to write one. More than five needs Pull6… columns on Pull Tests
+    and `MAX_PULLS` raised — a list change, not just a number.
+  - **`create-pull-test-lists.ps1` adds the four columns and must run BEFORE
+    the deploy** that ships this: they are `$select`ed, and a missing column
+    400s the whole read. The lists were live before the columns existed.
+- **The test form never grows past the window** (Tim, 2026-11-17: after
+  picking a spec the top, spec picker included, was cut off and couldn't be
+  scrolled back to). A dialog centred with `items-center` that is taller than
+  the screen loses its top; the form is `max-h-full` with `my-auto`, its
+  fields scroll INSIDE it while the title and buttons stay, and from `lg` it
+  is two columns (`lg:max-w-6xl`): the run on the left, tester + pulls on the
+  right. The spec form uses `my-auto` without `items-center` for the same
+  reason. Reuse the pattern for any tall form.
+- **A spec can be DUPLICATED** (Tim, 2026-11-17) — a Duplicate button on
+  each Specs row, and "Start from an existing spec" on the Add form, both
+  filling `PullTestSpecFormModal` from that spec (`copyFrom`). It is an ADD:
+  the copy starts active, and `pullSpecKey`'s uniqueness check makes the
+  terminal, gauge or reference change before it saves. Admins only, like
+  every spec write.
+- **Read the tester straight into ARC** (option a), typing as the fallback.
+
+Rules that are load-bearing (all in `lib/pullTest.ts`, pinned in
+`pullTest.test.ts`):
+- **A pull passes when it holds AT LEAST the minimum**; there is no upper
+  limit. Any single pull below fails the test — never an average.
+- **Judged in the SPEC's unit**: a reading is converted, then rounded to 3
+  decimals before comparing (finer than the tester's 0.1 lbF / 0.5 N), so a
+  pull converted back to exactly the minimum isn't failed by float noise.
+- **A test copies its spec's minimum and unit** (and its terminal and
+  reference) as well as `SpecRef` (a SINGLE lookup, bare integer), so an
+  edited spec never re-judges an old test. Delete a spec only while no test
+  uses it, asked FRESH in `useDeletePullTestSpec`; otherwise retire it.
+- **`LowestPull`, `Failed` and `Title` are derived on every write**, and
+  `ReadingSource` records Tester / Typed / Mixed per test (a pull typed over
+  stops counting as the tester's).
+- **The email goes when a test BECOMES failed** (`shouldAlertPullFailed`), not
+  on re-saving one that already failed — the crimp rule.
+
+#### The tester — Web Serial, no helper program
+
+**The tester is a WT3-200** — that's the model on its label (Tim,
+2026-11-17). Its manual is the **WT-205 User's Guide**, which covers the
+WT3-200 too (the section numbers below are that guide's), and everything
+taken from it — the settings, the serial format — was confirmed on the
+WT3-200 itself on 2026-11-10, where the break threshold's floor turned out
+to be 5%, not the guide's 1%.
+
+The WT3-200's USB port is a serial port once Mark-10's USB driver is installed
+(User's Guide §3.2), and Chrome and Edge can open one from a web page. So the
+bench PC's browser reads it directly; ARC needs no server and no install.
+From the User's Guide §12 (`lib/mark10.ts`): 8 data bits, 1 stop bit, no
+parity, baud set on the tester (up to 115,200); a reading is `124.8 lbF` +
+CR LF (or the number alone, "Numeric Only"); it is sent on DATA, by itself
+after a break when **Auto Settings → RS232/USB Output** is ticked (the peak,
+plus a date/time stamp if installed), and in answer to `?` + CR. Units: lbF,
+ozF, kgF, N, kN.
+
+- **`parseMark10Line` takes the first number and the word after it**, ignores
+  the rest (the date/time stamp), and REFUSES a negative reading, an unknown
+  unit, `*10` (the tester's "illegal command") and noise — shown in the
+  panel, never guessed into a number. `takeLines` copes with CR and LF
+  arriving in different chunks.
+- **The Web Serial types are declared locally** in `api/mark10Serial.ts`
+  (`SerialPortLike`), not by augmenting the global `Navigator` — they aren't
+  in TypeScript's DOM lib, and a later lib that adds them must not collide.
+- **Connect needs a click** (the browser's port chooser); after that
+  `useMark10Tester` REOPENS the port by itself when a form opens, if the
+  browser remembers exactly ONE granted port. It closes the port when the form
+  closes — only one program can hold it, so leaving it open would lock out
+  Mark-10's MESUR software and the next form alike. `describeSerialError` says
+  which it is (in use, lost, blocked).
+- **A reading fills the first EMPTY box**, then grows a box, up to five; a
+  sixth is reported, not written over anything. The test's unit is the
+  tester's: the first reading sets it, and a reading in a different unit once
+  pulls exist is refused (`handleReading`'s guard, verified by removing it).
+  With "Numeric Only" the form's unit is assumed and the panel says to switch
+  the tester to Numeric + Units.
+- **The baud rate is a choice remembered per browser** (`arc-mark10-baud`,
+  default 9,600), because it must match the tester and nothing can detect it.
+- **Demo mode has "Simulate a pull"**, feeding a made-up line through the same
+  parser, so the screen can be shown without the tester.
+- **Verified on the real tester** (Tim, 2026-11-10, dev server against the
+  live lists). The bench setup that works: **Peak** mode, **Break Detection**
+  enabled, **Auto Settings → Enabled + RS232/USB Output + Auto Zero**, Data
+  Format **Numeric + Units**, baud matching ARC's panel. If readings don't
+  arrive, check those before suspecting ARC.
+- **The break threshold can't go below 5% on this firmware** — the manual
+  says 1–90%, the tester refuses under 5%, which is **10 lbF** of the 200 lbF
+  full scale. A pull that never passes 10 lbF isn't a break, so nothing is
+  sent by itself: the operator presses DATA (or Read now) and then ZERO. The
+  form's help text and the manual say so.
+- **A reading moves the cursor on** (`focusRequest` in `PullTestFormModal`):
+  to the next empty pull box, then to How it failed — unless somebody is
+  typing in another field (`typingElsewhere`), when the reading still lands
+  but the cursor stays. Pull boxes carry `data-pull-box` for this.
+
+Pinned in `lib/pullTest.test.ts`, `lib/mark10.test.ts`,
+`lib/pullTestMapper.test.ts`, `api/pullTests.real.test.ts` (request shapes,
+real mode), `api/mark10Serial.test.ts` (the read loop against a fake port),
+`hooks/usePullTests.test.tsx` and `components/PullTestFormModal.test.tsx`
+(the tester is a fake `api/mark10Serial` the test feeds lines to).
+
+**How it failed** (`HowFailed`, text, one per test — Tim, 2026-11-09) is a
+`SuggestInput`, the Harness Built By arrangement: free text, offered as the
+answers already used. `failureModeSuggestions` (`lib/pullTest.ts`) is the
+rule:
+- **The loaded tests' answers, most-used first**, with case and spacing
+  differences counted as one answer and shown the way it's written most.
+- **Then `STANDARD_FAILURE_MODES`** (Wire broke, Wire pulled out of crimp,
+  Terminal broke) not yet used, so the box is useful on day one.
+- **The box opens on the top `FAILURE_MODE_SHORT_LIST` (10)**; typing searches
+  every answer (`searchOptions`). A new answer typed today is a suggestion the
+  next time the log loads it. Nothing is stored apart from the test's own
+  value — no list to maintain.
+- **Optional, and asked on every test**, not only a failed one: a pull test is
+  destructive, so every pull ends somehow, and a passing test's answer ("wire
+  broke") is the healthy case worth comparing against. It is in the failed
+  email, the list (a column with a value filter, and search) and the phone card.
+
+How many pulls per setup is now set per spec (above), not an open question.
+
 ### Conformal Coating Checks (Operations, PMO site)
 
 BusinessIT#60 (David Bulkley via Feature Request #34; built with Tim,
@@ -8678,6 +9050,509 @@ Still to do (the roadmap): run the script and verify each column by write and
 read-back, plus the behavioural Communication check (FAIT 89); import the eight
 MCNs; Dave names the approver delegate and the group members; pilot; go live.
 Phase 2: the MFGFRM-021 print layout and MFGFRM-001 Information Requests.
+
+### Plant Map (Operations, PMO site)
+
+Started 2026-11-06 (Tim). The plant's layouts, drawn to scale over each
+building's walls drawing, with the equipment placed on them; later an overlay
+of live status (a kiosk entry). The design and the phases are in Tim's folder
+OUTSIDE the repo: `C:\Working_Dir\ProcessImprovement\Arc\plant manager\`
+(`plant-layout-options.md`, and `test-svgs/` — the invented plans the demo
+data came from, with the Python that generated them). Tim's decisions: under
+**Operations**, its own **Plant Map Roles** list, **inches**, the **PMO site**.
+
+**Phases 1 and 2 are built (v0.223.0)**: the lists, the data layer, the
+plan, the placement check, New layout, Roles, and the layout EDITOR (Tim tried
+the read-only first cut in demo mode and asked for drag and drop the same day;
+he also called it "a bit clunky", which is why the plan became a pan/zoom
+canvas and the editor works on the plan rather than through forms).
+**`docs/PLANT-MAP-ROADMAP.md` is the roadmap** — what's built, the open
+decisions and the next steps; update it in the same commit as a Plant Map
+change that moves any of them.
+**Phase 3 is built**: Publish (Tim, 2026-11-06) and the files it leaves for
+Power BI (2026-11-13) — see "Files for Power BI" below. Then Phase 4
+overlays, Phase 5 live status (CMMS AssetStatus
+first, then Fabric), Phase 6 Power BI. **The Plant Overlays list doesn't exist
+yet**; the script adds it in its phase. **There is no Plant Tags LIST** — Tim
+chose a CSV in the library instead (below). Still open from
+the design doc: where live machine state comes from, Ray's sign-off on a
+"builder" beside the code-defined Reports decision, and whether every placed
+machine must be a CMMS asset.
+
+Three lists and a document library on `SITES.pmo`, created by
+`scripts/create-plant-map-lists.ps1` (idempotent, `-WhatIf`, write/read-back
+check; its internal names are the contract). **No defaults**, the MCN
+arrangement. `PLANT_MAP_CONFIGURED` needs all four:
+
+| List | env | Holds |
+|---|---|---|
+| Plant Map Roles | `VITE_SP_PLANT_MAP_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles` (editor / admin CSV), `Note` |
+| Layout Components | `VITE_SP_LAYOUT_COMPONENTS_LIST_ID` | the symbol library: `SvgMarkup`, `FootprintW/D` (in), `Collides`, `Clearance`, `IsActive`… seeded from `src/data/plantComponentSeed.json` only while EMPTY |
+| Plant Layouts | `VITE_SP_PLANT_LAYOUTS_LIST_ID` | one row per VERSION: `Building`, `LayoutKey`, `Status`, `Version`, `WallsFile` (drive item id), `LayoutJson` (items AND drawn areas), `SupersedesId` |
+| Plant Layout Files | `VITE_SP_PLANT_LAYOUT_FILES_LIST_ID` | the LIBRARY's list id; walls drawings in `walls/`, Power BI files in `published/`; its drive is looked up from it once per session |
+
+**Only the people on Plant Map Roles see it** (Tim, 2026-11-06) — no
+Dashboard card, no menu row, and NOT "Coming soon" for anyone else; a link
+reaching somebody else says who to ask. There is no live switch (the
+`VITE_PLANT_MAP_LIVE` pilot switch was removed): opening it to everyone would
+be a change to `plantMapRightsFrom`. Rights (`lib/plantMapRoles.ts`, asked by
+every control and inside every mutationFn): any tag opens it (`canOpen`);
+`viewer` only looks; `editor` starts layouts and edits drafts; `admin`
+(implies editor) also publishes, manages the symbol library and the roles
+list. **An ARC admin gets ONLY the roles list** — not even `canOpen` — reached
+from the Admin page; `PlantMapAccessGate roleManagers` lets them into Roles
+alone, and the section nav then shows only Roles. Unset list = nobody.
+
+Eight things that are load-bearing:
+
+- **Inches, origin top-left, north up.** An item's x / y is its CENTRE, `rot`
+  degrees clockwise, and it stores its REAL size (w × d), never a scale.
+- **A walls drawing's viewBox IS the building** (`0 0 W H`, inches,
+  `data-units="in"` or absent). Walls, columns and keep-outs are axis-aligned
+  `<rect>`s in `<g id="walls">`, `columns`, `keepout` (keep-outs name
+  themselves in `data-kind`); that is what the check reads. A transformed
+  rect is skipped, not guessed. A drawing without the groups still shows.
+- **Every SVG read from SharePoint goes through `sanitiseSvg`**, and is drawn
+  ONLY as an `<image href="data:image/svg+xml…">`. It is never injected, so
+  there's no `dangerouslySetInnerHTML` (invariant #5), and a drawing runs no
+  script even if one slipped through. `<metadata>` is cut out first, contents
+  and all (the test plans carried C2PA blobs). `SANITIZE_DOM` is off because
+  the result is never in the page, and it would strip ids like "body".
+- **The placement check** (`findLayoutProblems`): a COLLIDING item may not
+  overlap a wall, column, keep-out or another colliding item; touching is not
+  overlapping. Floor zones don't collide. **Outside the building is allowed**
+  (Tim, 2026-11-11): exits and extinguishers on the safety layer sit outside
+  the walls, so the check takes no extent and has no "outside" problem — an
+  item out there is still checked against walls and other items. Don't put
+  the rule back, even for the base plan, without asking. `Clearance` is carried but NOT applied yet. Pinned against the two
+  sample layouts the generator checked: the clean one has none, the other
+  flags exactly i_bad1–3 plus VMC-1 and VMC-2 (the bad mill lands between them).
+- **A symbol that isn't a rectangle is checked by its real shape** (Tim,
+  2026-11-10). `CollisionPolygon` on Layout Components holds `[[x, y], …]` in
+  the symbol's own inches (its viewBox frame); `itemPieces` stretches it to
+  the item's w × d and turns it with the item, so something in the notch of an
+  L isn't an overlap. A concave outline is cut into triangles by ear clipping
+  (`convexPieces`, cached per outline) and every pair of pieces gets the
+  separating-axis test; an outline it can't read or cut falls back to the
+  RECTANGLE — the safe direction. A bounds test skips nearly every pair
+  first: the Main Plant extract (948 items) checks in ~6 ms. Outlines reach
+  the check through `shapeOfComponent` (`checkLayout`'s second argument), the
+  same way on the layout page, in the editor and in Publish. On that extract
+  outlines took the problems from 18 to 2. The CAD loader and the seed (the
+  L-desk) set one, and so does the Add / Replace symbol form (2026-11-18):
+  "Only an outline I draw" under Placement check, corners CLICKED on the
+  preview (`PlantOutlineEditor`, snapped to the inch inside the footprint —
+  `snapOutlinePoint`) or TYPED as x,y pairs. `outlineProblem` refuses fewer
+  than three corners, crossing edges and a shape with no area. A new drawing
+  or a new footprint clears the outline (it's in the symbol's inches); a
+  replacement that keeps its drawing opens with the current outline, and a
+  changed outline alone is a new version. A floor marking has none. The column was added
+  after the list, so a read that 400s retries without it and remembers (the
+  MRB Watchers arrangement), and a plain symbol's create leaves it out.
+- **The whole layout is ONE JSON column**, so a save is one write (no
+  transactions). `serializeLayoutDoc` refuses past 1,000,000 characters
+  (`LAYOUT_JSON_MAX_CHARS`) rather than let SharePoint truncate it. That
+  figure is MEASURED: `scripts/test-plant-layout-json-size.ps1` wrote up to
+  1,000,000 to the live column and read each back identical (2026-11-10). It
+  was 63,000, the UI's documented limit, which refused the Main Plant CAD
+  extract (~162,000); `parseLayoutDoc` calls anything unreadable
+  CORRUPT, and **ARC never writes over a corrupt layout**.
+- **A Published row is never written** by a save. `savePlantLayoutDraft`
+  re-reads the row and refuses anything but a Draft (`LayoutNotDraftError`).
+  Changing a published layout is "copy to a new draft".
+- **Publish** (`publishPlantLayout` + `usePublishPlantLayout`, the Publish
+  button on a draft's page): a Plant Map admin (`publishLayoutGate`), and only
+  with NO placement problems — `checkLayout` (lib/plantGeometry, the one
+  recipe the page uses too) is asked AGAIN in the mutationFn on a fresh read of
+  the layout, the walls drawing and the symbols, so a stale page can't publish
+  what it once showed. The API re-reads the row (Draft, readable), PATCHes it
+  `Published` FIRST, then each other `Published` row with the same `LayoutKey`
+  to `Superseded`, collecting a refusal as a warning naming the version to fix
+  by hand — the other order could leave nothing published. The button is
+  `aria-disabled` with the reason as its title, and confirms first
+  (`RichTextWarningDialog`). No email.
+**Files for Power BI** (Tim, 2026-11-13) — `lib/plantPublishFiles.ts` (pure),
+the published/ half of `api/plantLayoutFiles.ts`, `writeLayoutFiles` in
+`hooks/usePlantLayouts.ts`, and the Files for Power BI card on the layout page.
+Publish writes four files to `published/` in Plant Layout Files:
+`<layoutKey>-v<n>.svg` and `-v<n>-tags.csv` (that version, as it was), and
+`<layoutKey>.svg` / `-tags.csv` (the CURRENT copies, replaced by every publish
+of that layout, so a report keeps one address). Seven rules:
+
+- **A CSV, not a Plant Tags list** (Tim's pick). Main Plant has ~950 items, so
+  a list meant ~1,000 row writes plus deleting the old version's rows on every
+  publish — minutes from the browser, and no transactions. One file is written
+  whole or not at all. Power BI reads it with the SharePoint Folder connector
+  and joins `EquipmentId` to the Equipment List.
+- **The element id of an item or area in the SVG IS its `TagId` in the CSV**
+  (`tagIdFor`: the uid, made a valid XML id the same way every time).
+- **Every symbol is INLINED** as a nested `<svg>` per item, never `<defs>` +
+  `<use>`: `sanitiseSvg` strips `<use>`, and a Power BI visual colouring an
+  element by id needs the shapes inside it. Main Plant comes to ~1.2 MB.
+- **Ids inside the walls drawing and each symbol copy are PREFIXED**
+  (`walls--`, `<tagId>--`) and their `url(#…)` references rewritten, so the
+  walls' own `walls` / `columns` groups and two copies of a gradient can't
+  clash with each other or a tag.
+- **Layers are `<g id="layer-…">`** (base items in `layer-base`, groups as
+  `layer-<key>--<group>`), and a layer that starts hidden in ARC is
+  `display="none"` in the file.
+- **Written AFTER the row is published, best-effort.** A failure is a warning
+  toast naming **Save files for Power BI**, never an unpublished layout. That
+  button (Published versions only, a Plant Map admin, gate in the mutationFn)
+  is also how a layout published before this gets its files. A refused
+  Equipment List leaves AssetTag / AssetName blank, with a warning.
+- **`conflict: "replace"`** — `DriveConflictBehavior` gained it for these
+  ARC-owned files ONLY. Never use it for a file somebody uploaded.
+
+Downloads go through the item's pre-authenticated download link; the card's
+Open link is the file's SharePoint page, which is also the address to give
+Power BI. `create-plant-map-lists.ps1` creates `published/` beside `walls/`
+(an upload by path would create it anyway). Pinned in
+`lib/plantPublishFiles.test.ts` (the id prefixing verified by removing it),
+`api/plantLayoutFiles.published.real.test.ts`, the publish cases in
+`hooks/usePlantMap.gate.test.tsx` and `views/PlantMap.views.test.tsx`.
+
+- **Delete** (`deletePlantLayout` + `useDeletePlantLayout`, Tim, 2026-11-09):
+  a Plant Map admin (`deleteLayoutGate`, asked in the mutationFn), on a
+  **Draft or Superseded** version only — the API refuses a Published one. The
+  button is HIDDEN from everyone else. **A walls drawing is SHARED** — every
+  version keeps it (copy to draft) and every layout in a building reuses it —
+  so the ROW is deleted first, then the file ONLY if `layoutsSharingWalls`
+  (lib/plantLayoutDoc) finds no other row using it, on a FRESH list read. A
+  refused file delete, or a list that can't be read, KEEPS the file and is a
+  warning naming `walls/`; the row is already gone, and a spare file breaks
+  nothing (the other order could leave a layout on a missing drawing). Both
+  DELETEs go to the PMO recycle bin; a 404 counts as done. The confirm says
+  which layouts keep the drawing. A deleted Superseded row may leave a later
+  version's `SupersedesId` pointing at nothing — it's only stored, never read.
+- **New layout uploads the walls file FIRST** (the row needs its id), with
+  `conflictBehavior: rename` (never overwrite), and stores the SANITISED
+  drawing. If the row is then refused, the error names the file left behind.
+  The drawing is checked in the form before anything is written.
+- **The drawing's size wins over the stored extent** when showing a layout.
+
+The editor (`views/PlantLayoutEditView.tsx`, `components/PlantCanvas.tsx`,
+`lib/plantEditor.ts`):
+
+- **ONE canvas for viewing and editing** (`PlantCanvas`). Its viewBox is a
+  WINDOW onto the building (`x, y, px-per-inch`), sized to the box, so a
+  screen point maps to inches with one number and the drawing stays sharp.
+  **The wheel ZOOMS at the pointer, with no modifier** (Tim, 2026-11-06 — the
+  opposite of the About page's ER diagram, where a plain scroll must scroll
+  the page; here the canvas is a work surface). A NON-passive listener stops
+  the page scrolling under it; line/page deltas are normalised, and a
+  trackpad pinch (Ctrl + small deltas) gets a faster rate. Click and drag
+  empty floor to pan; a middle-button drag pans from anywhere and never
+  moves an item. It fits on the
+  first real measurement and when the building changes, never on a later
+  resize. Labels, handles and outlines are sized in SCREEN pixels; a label
+  shows only when its item is wide enough on screen to hold it (or selected).
+  A label runs along its item's LONG side and turns with it, never upside down
+  (`labelAngle`, kept in [-90, 90) so vertical text reads bottom to top) —
+  Tim, 2026-11-10, when a turned area label kept its text level.
+- **A drag is a PREVIEW until release**, then ONE `update` — so one drag is one
+  undo step. The preview is passed up (`onPreview`) so the placement check
+  follows the drag live. Moves snap to the chosen grid (Alt = to the inch);
+  **alignment guides** (Tim, 2026-11-06) come first: `lib/plantAlign.ts`
+  compares the dragged box's left / centre / right and top / middle / bottom
+  (rotated things by their bounds) with every other item's and area's, snaps
+  each axis to the closest within `ALIGN_SNAP_PX` (8 screen px, turned into
+  inches by the caller so it feels the same at any zoom), falls back to the
+  grid on an axis with no match, and returns magenta dotted guides spanning
+  everything on the line. Alt turns both off. Palette drops use the same rule
+  in the edit view (`placeAt`), passing the ghost's guides in as
+  `editing.ghostGuides` — and the drop lands where the ghost showed;
+  the handle turns in 15° steps (Shift = 1°); corners resize about the centre
+  within the symbol's `sizeLimits`. A locked item doesn't move and gets no
+  handles; the reducer refuses to move it too.
+- **The palette drags with pointer events, not HTML5 drag-and-drop**, so a
+  ghost (red where it won't fit) follows the pointer and it works with touch.
+  A press that doesn't move is a click: it drops one in the middle of the
+  view. Released off the plan = cancelled. The drop happens OUTSIDE a state
+  updater (a ref holds the drag) — an updater runs twice in development and
+  would place two.
+- **Keyboard** on `window`, ignored while typing in a box (the target may be
+  the window itself, so check `instanceof Element` before `.closest`).
+- **Nothing is written until Save draft**; `beforeunload` and Done ask first
+  when there are unsaved changes. The editor refuses anything but a Draft. A
+  published layout's **Edit** goes through `copyLayoutToDraft`: a new Draft
+  row, version max + 1, same walls and items, `SupersedesId` = the source —
+  or the draft that already exists for that `LayoutKey`, so there is only
+  ever one.
+
+**Aisles and no-go areas drawn ON the layout** (Tim, 2026-11-06: "edit the
+aisles or no-go areas … shouldn't need to touch the wall no-go, just draw areas
+and add labels"). `PlantLayoutDoc.areas` — `{ uid "a_…", kind aisle|no-go, x, y,
+w, d, rot, label, locked }`, in the same LayoutJson as the items, so a save is
+still one write. Added after the first layouts, so a missing `areas` reads as
+none; an unknown kind reads as no-go (the safe direction). `areaObstacles`
+turns them into keep-outs beside the walls drawing's own, which ARC never
+edits; the problem sentence names the area ("sits in an aisle (Main
+walkway)"). In the editor the Aisle / No-go tools (A / N, V or Esc back) make
+a drag on the plan DRAW one — items and areas let the pointer through while a
+tool is picked — and the tool drops back to Select after each, ready to label
+it. A drag under a foot either way is a stray click and draws nothing. Areas
+move, turn and resize with the same handles as items (at least a foot,
+`clampAreaSize`); no-go areas are hatched, so they don't rely on colour. In
+the viewer areas are part of the floor: a drag on one pans.
+
+**Buildings are a FIELD, not a list** (`Building` on Plant Layouts, indexed).
+The Layouts list has a tab per distinct building plus All (`?building=`);
+New layout offers the existing buildings in a SuggestInput and a new name
+starts a new building — its tab appears once its first layout exists. A row
+saved without the column reads its Title. New layout now opens the EDITOR.
+
+**An existing building REUSES its walls drawing** (Tim, 2026-11-06).
+`NewPlantLayoutInput.walls` is `{ kind: "upload", svg, fileName }` or
+`{ kind: "existing", fileId }`; the second uploads nothing, so the library
+doesn't fill with copies of one building. `buildingSource` (lib/plantLayoutDoc)
+picks the drawing: the building's PUBLISHED layout, else its newest; its
+extent and a COPY of its areas come too (a corrupt layout lends no areas), and
+the form's "Start with its N aisles and no-go areas" box (on by default) says
+whether they're used. A file picked always wins over the building's, and
+"Upload a different drawing" asks for one — leaving it unpicked is refused,
+never a quiet fallback.
+
+**An uploaded drawing is REVIEWED before it's saved** (Tim, 2026-11-06 — a
+review, deliberately NOT a CAD cleanup: that's done once per building outside
+ARC, to the rules in lib/plantSvg.ts). `PlantDrawingReview` (rules in
+`lib/plantDrawingReview.ts`) shows the drawing with what ARC found
+(`PlantCanvas`'s `found` overlay: walls/columns amber, keep-outs dashed),
+warnings (a size under 20 ft or over 2,000 ft either way — wrong units; no
+walls group; `drawing.skipped`, the shapes in the obstacle groups that aren't
+plain un-transformed rects, counted by `scanObstacles`), a REQUIRED "The
+building is W × H" tick, and every keep-out with tick / label / Aisle or No-go.
+Ticked ones are cut from the SAVED file (`removeKeepouts`, matched by
+`obstacleId` — an unnamed rect by its place in the group) and start as the
+layout's areas (`keepoutsToAreas`, centre-based, uids `a_d001…`); door swings
+start unticked. Text labels in the drawing beside a removed keep-out stay —
+ARC can't tell which label belongs to which shape.
+The dialog grows taller than the window with the review open, so it is
+centred by the form's `my-auto`, NOT the backdrop's `items-center` — that
+pushed its top above the scroll area, out of reach (Tim, 2026-11-06). The
+same `sm:items-center` pattern is in ~23 other dialogs; fix one the same way
+if it ever grows that tall. The preview passes `wheelZoom={false}` so the
+wheel scrolls the dialog rather than zooming the plan under the pointer.
+
+The demo has four layouts: Main Plant v1 Published (clean) and v2 Draft (five
+problems, plus a "Forklift charging" no-go area), Panel Plant (empty draft)
+and Engineering & Sales (a clean office draft with a "Main walkway" aisle —
+`views/PlantMap.views.test.tsx` pins that it has no problems, so a demo edit
+that breaks it fails a test).
+
+**The demo drawings carry only DOOR SWINGS as keep-outs** (Tim, 2026-11-06:
+"remove the aisles and no-go areas … add them back as editable"). Their
+aisles, exit routes, docks, the overhead-door clearance and the electrical
+clearances were moved onto the layouts as areas (`MAIN_PLANT_AREAS`,
+`PANEL_PLANT_AREAS`, `SAMPLE_ENG_SALES_AREAS`, via `rectArea`) at exactly the
+same place and size, with the drawings' small labels as the area labels; the
+paired panel-face + clearance rects became one area each. So the placement
+check finds the same problems, and `plantGeometry.test.ts` adds
+`areaObstacles(MAIN_PLANT_AREAS)` to the drawing's obstacles. Door swings
+stay in the drawing because they belong to the doors drawn there.
+
+**Adding a symbol** (Tim, 2026-11-06: "take a drawing in another format, fill
+out an info form, and ARC converts to SVG and adds the metadata"). Plant Map →
+Symbols (`PlantSymbolsView`, everyone who can open the Plant Map) → Add symbol
+(`manageSymbolsGate` = a Plant Map admin, the publish right; asked by the
+button and inside `useCreateLayoutComponent`'s mutationFn). Every source
+becomes ART in `lib/plantSymbolImport.ts`, and `buildSymbolSvg` makes the
+library's shape from it: `viewBox="0 0 W D"` inches, `data-component` = key,
+`data-units="in"`, `<title>`, a faint footprint, the drawing in a nested
+`<svg>` (`preserveAspectRatio` meet or none — "keep proportions" / "stretch"),
+and the front-edge notch. Sources:
+
+- **SVG** — sanitised and taken as drawn; real size known only from
+  `data-units="in"` or width/height with units, else asked for.
+- **DXF** — parsed here, no library: LINE, LWPOLYLINE (bulges as arcs),
+  POLYLINE/VERTEX, CIRCLE, ARC, ELLIPSE, SPLINE (through fit or control
+  points), INSERT (blocks moved, scaled, turned, 8 deep), everything as
+  straight segments, flipped (CAD's y runs up). Units from `$INSUNITS`
+  (in / ft / mm / cm / m); missing = inches, said in a note. Text, dimensions
+  and hatching are left out; anything else unknown is named. ASCII only — a
+  DWG or binary DXF is refused with what to do.
+- **Pictures** — drawn to a canvas at most `TRACE_MAX_PIXELS` (160) on the long
+  side, `inkFromRgba` by a threshold slider (a mostly-dark border inverts it),
+  `traceInk` as row runs stacked into rectangles. Never embedded as a picture:
+  `sanitiseSvg` refuses `<image>`. jsdom has no canvas, so the view test only
+  checks the refusal; the tracing is unit-tested.
+
+The key is `symbolKeyFor` (slug + `WxD`, not doubled, `-2…` on a clash) and
+`createLayoutComponent` re-checks it against a FRESH read; `SvgMarkup` over
+`MAX_SYMBOL_MARKUP_CHARS` (60,000) is refused. The name follows the picked file
+until it's typed over (`autoTitle`). Not built yet: a drawing tool to edit
+one in place (Tim parked it, 2026-11-11 — replace the file instead).
+
+**Retiring a symbol** (Tim, 2026-11-18) — Retire / Restore on a Symbols card
+(a Plant Map admin; `useSetLayoutComponentActive`, gate in the mutationFn).
+`setLayoutComponentActive` PATCHes `IsActive` on the symbol's LATEST
+version only — the palette and the Symbols page go by the latest, so that
+retires the whole symbol — after a FRESH read that refuses a version replaced
+meanwhile. Layouts that use it keep it (they point at row ids); the
+confirmation names them (`layoutsUsingSymbol`, any version, Superseded
+included), and the editor's inspector says when a picked item's symbol is
+retired. Replacing a retired symbol makes an active new version, which brings
+it back too. Nothing is ever deleted.
+
+**Replacing a symbol makes a NEW VERSION** (Tim, 2026-11-11) —
+`lib/plantSymbolVersions.ts` (pure), `replaceLayoutComponent`,
+`useReplaceLayoutComponent`, and Replace on a Symbols card (the Add symbol form
+with `replacing`). Seven rules:
+
+- **A version is a NEW ROW** with the same `ComponentKey` and `Version` + 1. The
+  row being replaced is never written. A placed item points at a ROW id, so
+  every layout keeps the version it was drawn with — a published layout never
+  changes under anyone. `ComponentKey` is NOT unique in SharePoint, which is
+  what allows this; don't make it unique.
+- **A symbol is its key, case-insensitively; its latest is the highest
+  Version** (a tie goes to the higher id). The Symbols page and the palette
+  show only the latest (`latestSymbols`). The CAD loader picks the latest the
+  same way.
+- **Replace re-reads the library** and refuses if the symbol was replaced
+  meanwhile, so two admins can't both make v2. A symbol with no key is refused.
+- **The footprint changes only with a new drawing** — the current one is
+  drawn at its size. Without a new drawing, the details change and the stored
+  SVG's `<title>` is renamed (`retitleSymbolSvg`). A new drawing DROPS the
+  collision outline (it was traced round the old art) and says so; keeping the
+  drawing keeps it. Nothing changed is refused.
+- **Items move to the latest only in a draft**: the editor's Update symbols
+  (all) or Use vN in the inspector (one) — one `swapSymbols` action, one undo
+  step, saved with the draft. An item keeps where it stands, its turn, label,
+  asset, lock and layer. One still at the OLD footprint takes the new one; one
+  that was resized keeps its size, clamped to the new version's limits
+  (`symbolSwap`). A locked item is updated too.
+- **A retired latest version offers no update** (`newerVersionFor`).
+- **Copies on an older version count** when numbering a new copy and choosing
+  its layer (`symbolVersionIds` → `nextItemLabel` / `placementLayerFor`).
+
+The layout page tells an EDITOR when items are on an older version (a draft:
+open the editor; published: Edit makes a draft). Viewers aren't told.
+
+**Check the editor in a real browser**, not only in jsdom:
+`scripts/screenshot-page.mjs` gained `SHOT_HEIGHT`, `SHOT_DRAGS` (real mouse
+drags over CDP — e.g. a palette symbol onto `svg[aria-label$="editing"]`) and
+`SHOT_EVAL` (prints an expression, e.g. the item count). A drag with
+`"hold": true` keeps the button down, to capture what shows mid-drag (guides). Don't target
+`svg[role=img]`: the header's Altronic mark matches first.
+
+**Loading a building from CAD** — `scripts/load-plant-cad-extract.ps1`
+(Tim, 2026-11-10). The extract (walls SVG, `components-reduced.json`,
+`current-layout-<building>.json`) is built OUTSIDE the repo, in Tim's
+`plant manager\cad-extract` folder — it is real plant data. Order: create
+the layout in ARC (New layout, upload the building's walls SVG, so the
+drawing is sanitised and reviewed like any other), then run the script
+(reports only until `-Apply`). Two buildings: `main-plant` (loaded live
+2026-11-10, base plan only) and `eng-sales` (its files in the `eng-sales\`
+subfolder: `walls-eng-sales.svg`, 2520 × 1631 in; `-Building eng-sales`;
+the Draft is found by "engineering" in its Building or Title, `-BuildingName`
+to change that). The Eng/Sales extract was checked 2026-11-10: 101 placements,
+every symbol in the library, only `hallway` (Zone, collides) not yet on the
+live list.
+
+- **Symbols are ADD-ONLY, matched on ComponentKey**, and only those the
+  building uses. An existing symbol is never changed; its id is used.
+- **Categories are written as the extract has them.** `Safety`, `Utility` and
+  `Zone` were added to `LAYOUT_COMPONENT_CATEGORIES` for it (the live list
+  was still empty, so nothing needed mapping), and `create-plant-map-lists.ps1`
+  now ADDS missing choices to an existing column (never removes one). A
+  category the column doesn't allow STOPS the loader before any write. Re-run
+  the list script with **`-NoSeed`** first, or an empty library gets the 12
+  demo starter symbols mixed in with the CAD ones.
+- **Placements on a `layer` keep their `layer` and `group`**, and the
+  extract's `layers` map (`{ safety: { title, default: "hidden", groups } }`)
+  becomes the layout's `layers` list (see "Layers" below). The first Main
+  Plant load predates layers and left its 77 safety items out;
+  **`-AddLayers`** adds just the layered placements to a Draft that already
+  has the rest — every existing item and area kept, a uid already there
+  skipped (a re-run adds nothing), each existing item compared field by field
+  before the write. It needs PowerShell 7.5+ (`ConvertFrom-Json -DateKind
+  String`): older versions turn a date-like label into a DateTime on the way
+  through. A Published layout is refused: press Edit in ARC first for a Draft.
+- Otherwise it fills only an EMPTY Draft of the extract's exact size, keeps
+  any areas on it, re-reads the row just before the write and compares the
+  read-back character for character.
+- `CollisionPolygon` is loaded and used (above), and so are `IsLabel` /
+  `TextBox` (below). New label symbols get both columns; **`-FillLabels`**
+  sets them on label symbols loaded before ARC read them (the live
+  `area-label` row) — only those two columns, only where IsLabel isn't Yes,
+  each read back — and touches no layout. Reports only until `-Apply`.
+
+**Label symbols** (Tim, 2026-11-18) — `lib/plantLabels.ts` (pure). A symbol
+with **`IsLabel`** (Yes/No) has each item's OWN label written inside it,
+fitted to its **`TextBox`** (JSON `{x, y, w, h}` in the symbol's inches; blank
+= the footprint inset 8%). Rules:
+
+- **`labelTextLayout` is the one rule**, used by the canvas AND the Power BI
+  SVG, so they place it the same. The box stretches with a resized item; the
+  font is the largest that fits its height (×0.75) and width; text on an item
+  turned 90°–269° is flipped to read the right way up.
+- **It is part of the drawing**: plan inches, scaled with the zoom, shown
+  with the Labels toggle on or off. A label item gets no floating name too.
+- **The two columns came after CollisionPolygon**, so the read steps down in
+  TIERS on a 400 — all three optional columns, then CollisionPolygon alone,
+  then none — and remembers. A list with outlines but no label columns keeps
+  its outlines. A create writes the columns only for a label symbol.
+- **`create-plant-map-lists.ps1 -NoSeed` adds them**, and must run before a
+  `-FillLabels` load. The Add / Replace symbol form has an "A label" box; a
+  replacement that keeps its drawing keeps its TextBox, a new drawing drops it.
+- The demo has an invented `area-label` symbol (id 16) and three room labels
+  on the Engineering & Sales draft.
+
+**Layers** (Tim, 2026-11-10) — `lib/plantLayers.ts` (pure),
+`hooks/usePlantLayerVisibility.ts`, `components/PlantLayersPanel.tsx`. An
+item may carry `layer` ("safety") and `group` ("extinguishers"); the doc may
+declare `layers: [{ key, title, hiddenByDefault, groups: [{ key, title }] }]`.
+No item layer = the BASE PLAN, always shown. Six rules:
+
+- **Showing and hiding is per viewer and never saved**; the doc saves only
+  whether a layer starts hidden. Hidden state is a set of keys: `safety`, or
+  `safety/extinguishers` for one group. Showing a group shows its layer.
+- **Hiding is display only.** The placement check reads EVERY item, shown or
+  not. The canvas is handed only the shown items, so hidden ones aren't
+  drawn, picked, nudged or lined up with — PlantCanvas knows nothing of layers.
+- **A layer an item names but the doc doesn't declare is still a layer**
+  (shown, titled from its key), so nothing becomes unreachable.
+- **Picking an item from a list reveals its layer** (`pick` in both views);
+  hiding the selected item's layer lets go of it.
+- **Read tolerantly, written lean.** `parseLayoutDoc` reads ARC's list or the
+  extract's map, and never calls a layout corrupt over its layers (a display
+  aid). An item's blank layer/group is omitted on write and removed in the
+  editor (`tidyLayer`), so "base plan and back" isn't an unsaved change.
+- **A new copy of a symbol joins the layer its other copies are ALL on**
+  (`placementLayerFor`), never a guess between two. The inspector's Layer /
+  Group pickers offer only existing layers. A locked item can still change
+  layer.
+
+**Making layers in the editor** (Tim, 2026-11-18) — the editor's Layers
+panel (`PlantLayersPanel` with `edit`) adds, renames and removes layers
+and groups and sets "starts hidden". The layers are part of `EditorDoc`
+(`layers`), so every change is ONE undo step and is saved with the draft.
+Rules:
+
+- **A key is made once from the first title** (`uniqueLayerKey`: slug,
+  `-2` on a clash) and never changes; a rename changes the title only,
+  because items store the key.
+- **`editorDocFrom` declares, on opening, a layer an item names but the
+  layout doesn't**, so it can be renamed like any other. `saved` is built
+  the same way, so opening is never an unsaved change.
+- **A layer or group is removed only once NO item is on it** — the reducer
+  refuses, and the bin is `aria-disabled` with the count. Moving items
+  off is the inspector's Layer picker; there is deliberately no "remove and
+  move everything to the base plan".
+- **Two layers (or two groups in a layer) can't share a title**, ignoring
+  case (`layerTitleProblem`).
+
+**The demo data is invented** (`src/data/plantMock/`, safe for the public
+repo); the real plant's CAD drawing goes in the library, never in `src/`.
+`Architectural Floor Plan.svg` in Tim's folder is Openclipart public-domain
+clip art (2,440 traced paths, no units), not usable as a walls drawing.
+Pinned in `lib/plantGeometry.test.ts`, `lib/plantSvg.test.ts`,
+`lib/plantLayoutDoc.test.ts`, `lib/plantEditor.test.ts`, `lib/plantAlign.test.ts`, `lib/plantDrawingReview.test.ts`, `lib/plantSymbolImport.test.ts`, `views/PlantSymbolsView.test.tsx`,
+`api/plantLayouts.real.test.ts`, `hooks/usePlantMap.gate.test.tsx`,
+`components/PlantCanvas.test.tsx`, `views/PlantMap.views.test.tsx` and
+`views/PlantLayoutEditView.test.tsx`; the
+not-a-draft guard, the edit gate and the problem outlines were each verified by
+removing them.
 
 ### Build Request Items — Assembly / Operations / Testing are MULTI-choice
 
@@ -10568,6 +11443,15 @@ What DID change, accepted: **an explicit `leading-*` now beats a responsive
 sm:text-2xl`; v3 let `sm:text-2xl`'s line-height win (32px), v4 honours
 `leading-tight` (30px). 2px tighter, and what the class list said all along.
 
+**`translate-*`, `scale-*` and `rotate-*` set their OWN CSS properties**
+(`translate`, `scale`, `rotate`), not `transform`. The built-in
+`transition-transform` lists all four, so it works; a hand-written
+`transition-[transform,…]` does NOT, and the element jumps instead of
+moving. Name `translate` in an arbitrary transition list, and check
+`propertyName === "translate"` in a `transitionend` handler. Found on the
+footer slide (2026-11-19), by sampling the position in headless Chrome
+every 80ms — a screenshot can't show motion.
+
 Two syntax changes worth knowing: **the important modifier is a SUFFIX**
 (`w-20!`, not `!w-20`; the prefix still works but is deprecated), and
 renamed scales (`shadow-sm`→`shadow-xs`, `rounded`→`rounded-sm`,
@@ -10652,6 +11536,8 @@ looked at. Three things it had to learn:
   fixed port collides with the previous run's Chrome still shutting down.
 - **The theme is `localStorage["aets-theme"]`**, set before the app renders.
   Check light AND dark — native controls and tinted panels differ between them.
+- **`SHOT_HEIGHT=900`** sets the window height (default 1600, which hides a
+  dialog too tall for a laptop screen — the Pull Test form's was, 2026-11-17).
 - **`SHOT_WIDTH=768 node scripts/…`** checks another width — EMULATED through
   the DevTools protocol, because headless Chrome won't open a window narrower
   than ~500px, so phone widths (360, 390) are real. Every run reports when the
@@ -10667,6 +11553,19 @@ looked at. Three things it had to learn:
 - **Page errors are printed** after the capture (exceptions, `console.error`,
   `console.warn`) — a screenshot alone can't show why something didn't
   happen.
+
+### The footer can be slid away — `data-fixed-footer` only while it's shown
+
+BusinessIT#77 (Alexander Masgras, 2026-11-19): the fixed footer covered the
+bottom of the page. An arrow at its left slides it off (`-translate-x-full`
++ `invisible`, so it leaves the tab order); a tab at the bottom left brings it
+back. Plain `useState` in `Footer` — gone until pressed or the page reloads,
+never remembered, so nobody loses the version and access notices for good.
+Two things read the footer's position and both key on `data-fixed-footer`,
+which is dropped while it's hidden: dropdown placement (`visibleBottom` in
+`SearchableSelect`) and `useFitToWindow`. Toggling dispatches a `resize`
+event so fitted tables measure again. A new "stay clear of the footer"
+reader must query `[data-fixed-footer]`, not `footer`.
 
 ### The header fits every width — labels at 2xl, the buttons wrap below
 

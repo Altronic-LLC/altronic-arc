@@ -82,6 +82,7 @@ export interface ChangeTarget {
     | "ecn"
     | "crimpCheck"
     | "coatingCheck"
+    | "pullTest"
     | "harnessPartNumber"
     | "scheduledMaintenance";
   id: number;
@@ -113,6 +114,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   ecn: "ECN",
   crimpCheck: "crimp height check",
   coatingCheck: "conformal coating check",
+  pullTest: "pull test",
   harnessPartNumber: "harness part number",
   scheduledMaintenance: "PM schedule",
 };
