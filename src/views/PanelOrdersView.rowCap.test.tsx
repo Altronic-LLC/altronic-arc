@@ -30,6 +30,7 @@ function makeOrders(n: number): PanelOrder[] {
     projectRef: null,
     salesOrder: "",
     sapNumber: "",
+    drawingNumber: "",
     purchaseOrder: "",
     customerReference: "",
     customer: "",

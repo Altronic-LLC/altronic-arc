@@ -3460,9 +3460,16 @@ const SECTIONS: ManualSection[] = [
       "panel team",
     ],
     searchText:
-      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. The list opens on active orders; finished orders moved from the old Panel Job Dashboard list are Archived, and the Active / Archived / All switch shows them. An archived order's page says it was moved and shows the date it was created on the old list. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
+      "Panel Orders, Panel Tasks, Panel Engineering Capacity and the Panel Project Dashboard are in live testing with the panel Super Users; until they open, everyone else sees them as Coming soon. Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. An order's page opens read-only: the Edit button on each section — the title, Order, Customer and Order Notes — opens its fields, and Save changes saves them; Cancel leaves the order as it was. Watch, watchers, comments, attachments and ticking an Order Notes checklist still work straight away. The Project Reference on an order is a link to that project's Panel Project Dashboard. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. An order also has a Drawing Number, the panel's drawing (for example 5900-FLX36-V2-007), which the search covers. Orders moved from the old Panel Job Dashboard carry the drawing number they had there, and are linked to the Panel Project Reference whose DWG NO matches it when exactly one does. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. The list opens on active orders; finished orders moved from the old Panel Job Dashboard list are Archived, and the Active / Archived / All switch shows them. An archived order's page says it was moved and shows the date it was created on the old list. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
     render: () => (
       <>
+        <P>
+          <strong>Live testing:</strong> Panel Orders, Panel Tasks, Panel
+          Engineering Capacity and the Panel Project Dashboard are being tested
+          by the panel Super Users. Until they open, everyone else sees them as{" "}
+          <strong>Coming soon</strong> on the Dashboard and in the Departments
+          menu.
+        </P>
         <P>
           <strong>Panel Orders</strong> is the Panels department's first ARC
           feature — the panel production team's view of panel sales orders,
@@ -3489,7 +3496,11 @@ const SECTIONS: ManualSection[] = [
           <strong>Archived</strong> and stay out of the way until you pick{" "}
           <strong>Archived</strong> or <strong>All</strong> above the status
           pills. An archived order's page says it came from the old list and
-          shows the date it was created there. Archived orders don't count
+          shows the date it was created there. Moved orders keep the{" "}
+          <strong>Drawing Number</strong> they had on the old list, and are
+          linked to their <strong>Project Reference</strong> when the drawing
+          number names exactly one panel project; the rest are left without a
+          project for you to set. Archived orders don't count
           on the Dashboard card, aren't offered when linking a BOM to an
           order, and don't offer to create standard tasks. The list shows
           the first 150 orders; <strong>Show all</strong> brings in the rest.
@@ -3549,15 +3560,31 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>The detail page</H3>
         <P>
-          Everything is edited in place: the title inline, the sidebar's
-          Status / Project Reference / Engineer / order-number / SAP # / customer
-          fields directly, and <strong>Order Notes</strong> as an editable
-          card that supports the same <code>- [ ]</code> checklists as a
-          task Description — checked boxes record who and when, unchecking
-          asks "Are you sure?", and toggles email the watchers and engineer.
-          Comments (with @-mentions and auto-watch), Watchers, and file
-          attachments work exactly like tasks and EIRs. Status changes and
-          engineer changes send the same email alerts other departments get.
+          An order's page opens <strong>read-only</strong>, so reading an
+          order can't change it by accident. Each section has its own{" "}
+          <strong>Edit</strong> button: the title, <strong>Order</strong>{" "}
+          (Status, Project Reference, Engineer Assigned, Sales Order, SAP #,
+          Drawing Number, Purchase Order), <strong>Customer</strong> (Customer, Customer
+          Reference, Customer Contact Email) and <strong>Order Notes</strong>.
+          Edit opens that section's fields; <strong>Save changes</strong>{" "}
+          saves only what you changed, and <strong>Cancel</strong> leaves the
+          order as it was.
+        </P>
+        <P>
+          The <strong>Project Reference</strong> — in the sidebar and on the
+          chip above the title — is a link to that project's{" "}
+          <strong>Panel Project Dashboard</strong>, with every order, task
+          and comment on the project.
+        </P>
+        <P>
+          <strong>Order Notes</strong> support the same <code>- [ ]</code>{" "}
+          checklists as a task Description — ticking a box works without
+          pressing Edit, records who and when, unchecking asks "Are you
+          sure?", and toggles email the watchers and engineer. Watch,
+          Watchers, comments (with @-mentions and auto-watch) and file
+          attachments work straight away, exactly like tasks and EIRs. Status
+          changes and engineer changes send the same email alerts other
+          departments get.
         </P>
         <H3>Admin lists</H3>
         <P>
@@ -3571,6 +3598,76 @@ const SECTIONS: ManualSection[] = [
           Engineer, Admin, Viewer) — one row per user per role. Roles don't
           lock any panel order fields yet; they're recorded now so
           field-level permissions can be switched on later.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-project-dashboard",
+    title: "Panel Project Dashboard",
+    group: "Panels",
+    keywords: [
+      "panel project dashboard",
+      "panel project",
+      "project dashboard",
+      "project reference",
+      "panel project reference",
+      "panel overview",
+    ],
+    searchText:
+      "The Panel Project Dashboard is the level above Panel Orders and Panel Tasks: everything on one Panel Project Reference in one place. Reach it from the Dashboard's Panel Project Dashboard card, the Departments menu's Panels group, or the Project Reference link on any Panel Order. The first screen lists every project with its customer, type, how many orders it has, how many orders and tasks are still open, and when anything on it last changed; it opens on the most recent activity, sorts and filters by column, searches, and can show only projects with open orders or tasks. The list also counts each project's customers, and on a phone it's cards with a Sort by picker. Open a project to see its details, its orders, its tasks, the BOMs on its orders (for the panel team), and every comment posted on any of its orders or tasks, newest first, each saying where it was posted. A task counts when its project is this one or it was raised for one of the project's orders. A project whose orders are for several customers shows a pill per customer with its order count; clicking one narrows the page to that customer's orders, the tasks raised for them, their BOMs and their comments, and the choice is kept in the link. Tasks tied to no order are hidden while a customer is picked, and the page says how many. The dashboard is read-only: every order, task, BOM and comment links to its own page, where it's changed, and Open in Panel Orders and Open in Panel Tasks open those lists filtered to the project.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Panel Project Dashboard</strong> is the level above
+          Panel Orders and Panel Tasks: everything on one{" "}
+          <strong>Panel Project Reference</strong> in one place. Reach it from
+          its card on the Dashboard, the <strong>Departments</strong>{" "}
+          menu's Panels group, or the <strong>Project Reference</strong> link
+          on any Panel Order.
+        </P>
+        <H3>The project list</H3>
+        <P>
+          One row per project: its customer and type, how many orders it
+          has, how many orders and tasks are still open, and when anything
+          on it last changed. It opens on the most recent activity; click a
+          column heading to sort or filter, search across the project
+          number, description, customer and DWG number, and tick{" "}
+          <strong>Only projects with open orders or tasks</strong> to hide
+          finished ones.
+        </P>
+        <H3>One project</H3>
+        <P>
+          A project's page shows its details, then its{" "}
+          <strong>Orders</strong>, its <strong>Tasks</strong>, the{" "}
+          <strong>BOMs</strong> on its orders (for the panel team, like the
+          BOM Builder), and the <strong>Discussion</strong> — every comment
+          on any of its orders or tasks, newest first, each saying which
+          order or task it was posted on. A task belongs to the project when
+          its Project Reference is this project, or when it was raised for
+          one of the project's orders.
+        </P>
+        <P>
+          A repeat panel is often built for several customers. When a
+          project's orders are for more than one, a{" "}
+          <strong>Customers</strong> row shows a pill per customer with its
+          number of orders. Click one to narrow the whole page — orders, the
+          tasks raised for them, BOMs and discussion — to that customer;
+          click it again, or <strong>All customers</strong>, to see
+          everything. The choice is in the link, so it can be shared. Tasks
+          tied to no order have no customer, so they're hidden while a
+          customer is picked, and the Tasks card says how many.
+        </P>
+        <P>
+          On a phone the lists are cards, with a <strong>Sort by</strong>{" "}
+          picker in place of the column headings.
+        </P>
+        <P>
+          The dashboard is <strong>read-only</strong>. Every order, task, BOM
+          and comment links to its own page, and that's where it's changed or
+          replied to. <strong>Open in Panel Orders</strong> and{" "}
+          <strong>Open in Panel Tasks</strong> open those lists filtered to
+          the project.
         </P>
       </>
     ),

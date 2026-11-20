@@ -18,10 +18,15 @@
              -MapFile (status map, project overrides, people overrides,
              folders to skip). Writes plan.json, report.md and CSVs:
                create.csv              Wrike tasks with no ARC row yet
-               update.csv              Wrike changed, ARC row untouched since
-                                       the last import: the fields to change
-               conflicts.csv           ARC row edited in ARC since the last
-                                       import - NEVER overwritten, listed
+               update.csv              tasks with fields Wrike changed that
+                                       ARC hasn't: the fields to change, and
+                                       the status from -> to
+               conflicts.csv           fields changed in BOTH Wrike and ARC
+                                       since the last import - ARC's value
+                                       kept, never overwritten, listed
+               gone.csv                imported tasks no longer in the Wrike
+                                       export (deleted, or moved out of the
+                                       space) - listed, never deleted
                comments.csv            comments to append
                unmatched-people.csv    responsibles the panel site can't resolve
                unmatched-projects.csv  Wrike projects with no Panel Project Reference
@@ -38,16 +43,29 @@
              comments. Refuses any row whose live values changed since the
              plan (re-plan). Never deletes. Every write is read back.
 
-    How a re-run tells a Wrike change from an ARC edit - ImportHash holds two
-    SHA-256 hashes, "src=<hex>;arc=<hex>":
-      src  the values the import mapped from Wrike last time
-      arc  the same fields as SharePoint STORED them, read back after the write
-    So: live != arc   -> someone edited it in ARC        -> conflict, left alone
-        mapped == src -> Wrike hasn't changed             -> no-op
-        otherwise     -> update the fields that differ.
+    How a re-run tells a Wrike change from an ARC edit - FIELD BY FIELD
+    (2026-11-19). ImportHash holds, for each of the twelve fields, two short
+    hashes: "v2:" then one "<src8><arc8>" per field, comma-separated:
+      src  the value the import mapped from Wrike last time
+      arc  the value as SharePoint STORED it, read back after the write
+    Per field:  Wrike unchanged (now == src)        -> left as ARC has it
+                Wrike changed, ARC not (live == arc) -> updated
+                both changed, to different values    -> conflict: ARC's kept, listed
+    So an ARC edit holds only the field that was edited: dragging a task on
+    the Capacity grid keeps its dates, and its Wrike status still comes over.
+    Watchers are never a conflict: Wrike's responsibles are ADDED to whoever
+    watches in ARC, and nobody is removed (ARC's rule).
+    An older "src=<hex>;arc=<hex>" ImportHash (whole-row) still reads: an
+    untouched row is updated and moved to the per-field form; a row edited in
+    ARC under the old form is a whole-row conflict, as before.
     "arc" is taken from the read-back, not from what was sent, so a field
     SharePoint stores slightly differently can't read as an ARC edit for ever.
     Communication is NOT hashed: comments are append-only and deduped.
+
+    A task ALREADY IN ARC is always followed, even if Wrike has since moved it
+    into an excluded folder (99. Archived) or a skipped status group
+    (Cancelled): those rules only stop NEW tasks being created, so a task
+    cancelled in Wrike becomes Canceled in ARC.
 
     Fields written (Panel Tasks internal names):
       Title, Status, WorkType and Priority (the space's "Work Type" and
@@ -243,6 +261,37 @@ function Get-Normal($v) {
     }
 }
 function Get-NormalHash($normal) { return Get-Sha256 (($normal.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join "`n") }
+
+# --- per-field ImportHash ("v2:") --------------------------------------------
+# The twelve hashed fields, in Get-Normal's order. The ImportHash column is
+# single-line text (255), so each value is an 8-hex hash: "v2:" + 12 x 16 hex
+# + 11 commas = 206 characters. Change this list only with a new version tag.
+$HASH_FIELDS = @("Title", "Status", "WorkType", "Priority", "SAPNumber", "Project", "Assigned", "Watchers", "Description", "StartDate", "DueDate", "EstimatedHours")
+function Get-FieldHashes($normal) {
+    $h = [ordered]@{}
+    foreach ($k in $HASH_FIELDS) { $h[$k] = (Get-Sha256 "$($normal[$k])").Substring(0, 8) }
+    return $h
+}
+function Format-ImportHash($src, $arc) {
+    return "v2:" + (($HASH_FIELDS | ForEach-Object { "$($src[$_])$($arc[$_])" }) -join ",")
+}
+# -> @{ version = 2; src = @{field = h8}; arc = @{field = h8} }, @{ version = 1; src; arc } (whole-row hex), or $null.
+function Read-ImportHash($value) {
+    $v = "$value"
+    $m1 = [regex]::Match($v, '^src=([0-9a-f]{64});arc=([0-9a-f]{64})$')
+    if ($m1.Success) { return @{ version = 1; src = $m1.Groups[1].Value; arc = $m1.Groups[2].Value } }
+    if ($v.StartsWith("v2:")) {
+        $parts = $v.Substring(3) -split ","
+        if ($parts.Count -ne $HASH_FIELDS.Count) { return $null }
+        $src = @{}; $arc = @{}
+        for ($i = 0; $i -lt $parts.Count; $i++) {
+            if ($parts[$i] -notmatch '^[0-9a-f]{16}$') { return $null }
+            $src[$HASH_FIELDS[$i]] = $parts[$i].Substring(0, 8); $arc[$HASH_FIELDS[$i]] = $parts[$i].Substring(8, 8)
+        }
+        return @{ version = 2; src = $src; arc = $arc }
+    }
+    return $null
+}
 
 # A live Panel Tasks row -> the same shape as a mapped Wrike task.
 function Get-LiveValues($f) {
@@ -637,6 +686,26 @@ if ($Plan) {
         $t = "$($p.fields.Title)".Trim().ToLowerInvariant()
         if ($t -and -not $projectByTitle.ContainsKey($t)) { $projectByTitle[$t] = [int]$p.id }
     }
+    # Existing projects by DWG NO (2026-11-19). A Wrike project RENAMED since
+    # the last import ("5900-FLX36-V2-025 - AIG" -> "5900-FLX36-V2-025 (AIG) -
+    # 1027-0387-00") no longer matches by title; matching it by its drawing
+    # number keeps its tasks on the project ARC already has, instead of
+    # creating a duplicate. Only when exactly ONE project has that DWG NO.
+    $projectsByDwg = @{}
+    foreach ($p in $arcProjects) {
+        $d = "$($p.fields.DWGNO)".Trim().ToUpperInvariant()
+        if (-not $d) { continue }
+        if (-not $projectsByDwg.ContainsKey($d)) { $projectsByDwg[$d] = @() }
+        $projectsByDwg[$d] += [int]$p.id
+    }
+    $arcTitleById = @{}
+    foreach ($p in $arcProjects) { $arcTitleById[[int]$p.id] = "$($p.fields.Title)" }
+    function Get-LeadingDwg($wrikeTitle) {
+        $clean = ("$wrikeTitle" -replace '^\s*DWG#\s*', '').Trim()
+        $m = [regex]::Match($clean, '^(\d{4}-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)')
+        if ($m.Success) { return $m.Groups[1].Value } else { return "" }
+    }
+    $matchedByDwg = [ordered]@{}   # Wrike title -> ARC title, for the report
     # --- proposed new Panel Project References ----------------------------------
     # A leading drawing number ("DWG# " ignored): 1234-ABC12-V1-002, 1000-111,
     # 0900-013. An SAP number later in the title (1027-0390-00) isn't one.
@@ -732,21 +801,46 @@ if ($Plan) {
 
     # --- map every task ----------------------------------------------------------
     $items = @(); $unmatchedPeople = @{}; $unmatchedProjects = @{}; $flexible = @(); $skipped = @{}; $unmappedStatuses = @{}
+    $seen = [Collections.Generic.HashSet[string]]::new()
     foreach ($t in $tasks) {
+        $legacy = "wrike:$($t.id)"
+        [void]$seen.Add($legacy)
+        # @(if ...) - an if statement UNROLLS a one-item array, so the bare form handed back the
+        # row itself and .Count counted its 12 keys ("12 ARC rows carry ...", 2026-11-05).
+        $rows = @(if ($liveByLegacy.ContainsKey($legacy)) { $liveByLegacy[$legacy] })
+        $inArc = $rows.Count -gt 0
+        $notes = @()
         $place = Get-TaskPlace $t
+        # The folder and status-group rules stop NEW tasks being created. A task
+        # already in ARC is always followed, so one Wrike cancels or archives
+        # gets that status in ARC instead of keeping its old one for ever.
         $excludedBy = $place.chain | Where-Object { $excludeFolders -contains $_.title } | Select-Object -First 1
-        if ($excludedBy) { $skipped["folder: $($excludedBy.title)"]++; continue }
+        if ($excludedBy) {
+            if (-not $inArc) { $skipped["folder: $($excludedBy.title)"]++; continue }
+            $notes += "now in '$($excludedBy.title)' in Wrike - kept in step because it's already in ARC"
+        }
         $st = $statusById[$t.customStatusId]
-        if ($st -and $skipGroups -contains $st.group) { $skipped["status group: $($st.group)"]++; continue }
+        if ($st -and $skipGroups -contains $st.group) {
+            if (-not $inArc) { $skipped["status group: $($st.group)"]++; continue }
+        }
         $statusName = if ($st) { $st.name } else { "$($t.status)" }
         if (-not $statusMap.Contains($statusName)) { $unmappedStatuses[$statusName]++; continue }
 
-        $notes = @()
         # Project: projectMap override, else the same title.
         $projectId = $null
         if ($place.project) {
             $wanted = if ($projectMap.Contains($place.project.title) -and $projectMap[$place.project.title]) { $projectMap[$place.project.title] } else { $place.project.title }
             $projectId = $projectByTitle["$wanted".Trim().ToLowerInvariant()]
+            if (-not $projectId -and -not ($projectMap.Contains($place.project.title) -and $projectMap[$place.project.title])) {
+                $dwg = (Get-LeadingDwg $place.project.title).ToUpperInvariant()
+                $hits = if ($dwg -and $projectsByDwg.ContainsKey($dwg)) { @($projectsByDwg[$dwg]) } else { @() }
+                if ($hits.Count -eq 1) {
+                    $projectId = $hits[0]
+                    $matchedByDwg[$place.project.title] = $arcTitleById[$projectId]
+                } elseif ($hits.Count -gt 1) {
+                    $notes += "project '$($place.project.title)': $($hits.Count) ARC projects have DWG NO $dwg - not matched"
+                }
+            }
             if (-not $projectId) { $projectId = Resolve-NewProject $place.project.title }
             if (-not $projectId) { $unmatchedProjects[$place.project.title]++; $notes += "project '$($place.project.title)' not matched" }
             elseif ("$projectId" -like 'new:*') { $notes += "project '$("$projectId".Substring(4))' will be created" }
@@ -805,17 +899,12 @@ if ($Plan) {
         }
         if ($mapped.Title.Length -gt 255) { $mapped.Title = $mapped.Title.Substring(0, 255); $notes += "title cut to 255 characters" }
         $normal = Get-Normal $mapped
-        $srcHash = Get-NormalHash $normal
-        $legacy = "wrike:$($t.id)"
 
         # Comments, oldest first, minus any already on the ARC row.
         $wrikeComments = @()
         $cfile = Join-Path $OutDir "comments/$($t.id).json"
         if (Test-Path $cfile) { $wrikeComments = @((Read-JsonFile $cfile).data) }
 
-        # @(if ...) - an if statement UNROLLS a one-item array, so the bare form handed back the
-        # row itself and .Count counted its 12 keys ("12 ARC rows carry ...", 2026-11-05).
-        $rows = @(if ($liveByLegacy.ContainsKey($legacy)) { $liveByLegacy[$legacy] })
         $live = if ($rows.Count -eq 1) { $rows[0] } else { $null }
         $present = Get-CommentKeys $(if ($live) { $live.fields.Communication } else { "" })
         $records = @()
@@ -831,7 +920,8 @@ if ($Plan) {
 
         $item = [ordered]@{
             wrikeId = $t.id; legacySource = $legacy; title = $mapped.Title; wrikePath = $place.path; permalink = $t.permalink
-            action = ""; itemId = $null; reason = ""; srcHash = $srcHash; planLiveHash = $null
+            action = ""; itemId = $null; reason = ""; planLiveHash = $null
+            srcFields = (Get-FieldHashes $normal); arcKeep = @{}; fieldConflicts = @(); statusFrom = ""
             mapped = $mapped; changed = @(); comments = $records; notes = $notes
         }
         if ($rows.Count -gt 1) {
@@ -841,24 +931,59 @@ if ($Plan) {
         } else {
             $item.itemId = [int]$live.id
             $liveNormal = Get-Normal (Get-LiveValues $live.fields)
-            $liveHash = Get-NormalHash $liveNormal
-            $item.planLiveHash = $liveHash
-            $m = [regex]::Match("$($live.fields.ImportHash)", '^src=([0-9a-f]{64});arc=([0-9a-f]{64})$')
-            $diff = @($normal.Keys | Where-Object { $normal[$_] -ne $liveNormal[$_] })
-            if (-not $m.Success) {
+            $item.planLiveHash = Get-NormalHash $liveNormal
+            $item.statusFrom = $liveNormal.Status
+            $liveFields = Get-FieldHashes $liveNormal
+            $ih = Read-ImportHash $live.fields.ImportHash
+            if (-not $ih) {
                 $item.action = "conflict"; $item.reason = "ImportHash missing or unreadable - not written by this import"
-            } elseif ($liveHash -ne $m.Groups[2].Value) {
-                $item.action = "conflict"; $item.reason = "edited in ARC since the last import"
-                $item.changed = $diff
-            } elseif ($srcHash -eq $m.Groups[1].Value) {
-                $item.action = "noop"
+                $item.changed = @($HASH_FIELDS | Where-Object { $normal[$_] -ne $liveNormal[$_] })
+            } elseif ($ih.version -eq 1 -and $item.planLiveHash -ne $ih.arc) {
+                # The old whole-row hash can't say WHICH field ARC changed.
+                $item.action = "conflict"; $item.reason = "edited in ARC before per-field tracking - can't tell which field, left alone"
+                $item.changed = @($HASH_FIELDS | Where-Object { $normal[$_] -ne $liveNormal[$_] })
             } else {
-                $item.action = "update"; $item.changed = $diff
-                if ($diff.Count -eq 0) { $item.action = "rehash"; $item.reason = "Wrike changed nothing ARC stores; only ImportHash moves" }
+                # The baseline per field. An untouched old-form row: what ARC holds
+                # now IS what the import wrote, so it stands in for both.
+                $srcBase = if ($ih.version -eq 2) { $ih.src } else { $liveFields }
+                $arcBase = if ($ih.version -eq 2) { $ih.arc } else { $liveFields }
+                $write = @(); $conflicts = @()
+                foreach ($k in $HASH_FIELDS) {
+                    if ($k -eq "Watchers") { continue }
+                    $arcEdited = $liveFields[$k] -ne $arcBase[$k]
+                    # An ARC edit is remembered (its baseline kept), so a later
+                    # Wrike change to the same field is still a conflict.
+                    if ($arcEdited) { $item.arcKeep[$k] = $arcBase[$k] }
+                    if ($item.srcFields[$k] -eq $srcBase[$k]) { continue }      # Wrike didn't change it
+                    if ($normal[$k] -eq $liveNormal[$k]) { continue }           # already the same
+                    if ($arcEdited) { $conflicts += $k } else { $write += $k }
+                }
+                # Watchers: Wrike's responsibles join whoever already watches in
+                # ARC; nobody is removed. Never a conflict.
+                $liveWatchers = @(@($liveNormal.Watchers -split ",") | Where-Object { $_ } | ForEach-Object { [int]$_ })
+                $union = @(@($liveWatchers) + @($mapped.Watchers | Where-Object { $_ } | ForEach-Object { [int]$_ }) | Sort-Object -Unique)
+                $mapped.Watchers = $union
+                if ($union.Count -ne $liveWatchers.Count) { $write += "Watchers" }
+
+                $item.changed = $write; $item.fieldConflicts = $conflicts
+                $srcMoved = @($HASH_FIELDS | Where-Object { $item.srcFields[$_] -ne $srcBase[$_] }).Count -gt 0
+                if ($write.Count) { $item.action = "update" }
+                elseif ($ih.version -eq 1 -or $srcMoved) {
+                    $item.action = "rehash"
+                    $item.reason = if ($ih.version -eq 1) { "moves ImportHash to per-field tracking" } else { "Wrike changed only fields ARC holds its own value for; only ImportHash moves" }
+                } else { $item.action = "noop" }
+                if ($conflicts.Count) { $item.reason = (@($item.reason, "kept ARC's $($conflicts -join ', ')") | Where-Object { $_ }) -join "; " }
             }
         }
         $items += $item
     }
+
+    # Imported tasks the export no longer has: deleted in Wrike, or moved out
+    # of the space. Listed for a person to decide; never deleted.
+    $gone = @(foreach ($k in $liveByLegacy.Keys) {
+        if ($seen.Contains($k)) { continue }
+        foreach ($r in $liveByLegacy[$k]) { [pscustomobject]@{ ArcId = $r.id; LegacySource = $k; Title = $r.fields.Title; Status = $r.fields.Status } }
+    })
 
     if ($unmappedStatuses.Count) {
         Write-Host "These Wrike statuses aren't in the MapFile's statusMap - add them and re-plan:" -ForegroundColor Red
@@ -889,10 +1014,16 @@ if ($Plan) {
     & $csv "create.csv" ($items | Where-Object { $_.action -eq "create" } | ForEach-Object {
         [pscustomobject]@{ WrikeId = $_.wrikeId; Title = $_.title; WrikePath = $_.wrikePath; Status = $_.mapped.Status
             Start = $_.mapped.StartDate; Due = $_.mapped.DueDate; Hours = $_.mapped.EstimatedHours; Comments = $_.comments.Count; Notes = ($_.notes -join "; ") } })
-    & $csv "update.csv" ($items | Where-Object { $_.action -in "update", "rehash" } | ForEach-Object {
-        [pscustomobject]@{ WrikeId = $_.wrikeId; ArcId = $_.itemId; Title = $_.title; Fields = ($_.changed -join ", "); Notes = ($_.notes -join "; ") } })
-    & $csv "conflicts.csv" ($items | Where-Object { $_.action -eq "conflict" } | ForEach-Object {
-        [pscustomobject]@{ WrikeId = $_.wrikeId; ArcId = $_.itemId; Title = $_.title; Reason = $_.reason; FieldsThatDifferFromWrike = ($_.changed -join ", ") } })
+    & $csv "update.csv" ($items | Where-Object { $_.action -eq "update" } | ForEach-Object {
+        [pscustomobject]@{ WrikeId = $_.wrikeId; ArcId = $_.itemId; Title = $_.title; Fields = ($_.changed -join ", ")
+            StatusFrom = $(if ($_.changed -contains "Status") { $_.statusFrom } else { "" })
+            StatusTo = $(if ($_.changed -contains "Status") { $_.mapped.Status } else { "" })
+            KeptArcValue = ($_.fieldConflicts -join ", "); Notes = ($_.notes -join "; ") } })
+    & $csv "conflicts.csv" ($items | Where-Object { $_.action -eq "conflict" -or $_.fieldConflicts.Count } | ForEach-Object {
+        [pscustomobject]@{ WrikeId = $_.wrikeId; ArcId = $_.itemId; Title = $_.title; Reason = $_.reason
+            Fields = $(if ($_.action -eq "conflict") { "whole task: $($_.changed -join ', ')" } else { $_.fieldConflicts -join ", " })
+            WrikeStatus = $_.mapped.Status; ArcStatus = $_.statusFrom } })
+    & $csv "gone.csv" $gone
     & $csv "comments.csv" ($items | Where-Object { $_.comments.Count } | ForEach-Object { $it = $_; $it.comments | ForEach-Object {
         [pscustomobject]@{ WrikeId = $it.wrikeId; ArcId = $it.itemId; Task = $it.title; Author = $_.author } } })
     & $csv "unmatched-people.csv" ($unmatchedPeople.GetEnumerator() | ForEach-Object {
@@ -902,6 +1033,7 @@ if ($Plan) {
     # Every Panel Project Reference row, so an unmatched Wrike project can be
     # pointed at the right one in the MapFile's projectMap.
     & $csv "new-projects.csv" ($newProjects.Values | ForEach-Object { [pscustomobject]$_ })
+    & $csv "projects-matched-by-dwg.csv" ($matchedByDwg.GetEnumerator() | ForEach-Object { [pscustomobject]@{ WrikeProject = $_.Key; ArcProject = $_.Value } })
     & $csv "arc-projects.csv" ($arcProjects | ForEach-Object {
         [pscustomobject]@{ Title = $_.fields.Title; Description = $_.fields.ProjectDescription; DwgNo = $_.fields.DWGNO; Customer = $_.fields.Customer } })
 
@@ -911,14 +1043,19 @@ if ($Plan) {
         "# Wrike -> ARC Panel Tasks: plan", "",
         "Planned $((Get-Date).ToString('yyyy-MM-dd HH:mm')) from the export of $($manifest.exportedAt) (space '$($manifest.spaceTitle)').", "",
         "| | Count |", "|---|---|",
-        "| Create | $(& $count 'create') |", "| Update | $(& $count 'update') |", "| ImportHash only | $(& $count 'rehash') |",
-        "| Unchanged (no write) | $(& $count 'noop') |", "| **Conflicts - left alone** | $(& $count 'conflict') |",
+        "| Create | $(& $count 'create') |", "| Update | $(& $count 'update') |",
+        "| - of them a status change | $(@($items | Where-Object { $_.action -eq 'update' -and $_.changed -contains 'Status' }).Count) |",
+        "| ImportHash only | $(& $count 'rehash') |",
+        "| Unchanged (no write) | $(& $count 'noop') |", "| **Whole task left alone** | $(& $count 'conflict') |",
+        "| **Fields kept as ARC has them (changed in both)** | $(($items | ForEach-Object { $_.fieldConflicts.Count } | Measure-Object -Sum).Sum) |",
+        "| In ARC but gone from Wrike (gone.csv) | $($gone.Count) |",
         "| Comments to append | $([int]$commentCount) |",
         "| People not on the panel site | $($unmatchedPeople.Count) |",
-        "| Panel Project References to create | $($toCreate.Count) |", "| Wrike projects left with no Panel Project Reference | $($unmatchedProjects.Count) |",
+        "| Panel Project References to create | $($toCreate.Count) |",
+        "| Wrike projects matched to an existing ARC project by DWG NO (projects-matched-by-dwg.csv) | $($matchedByDwg.Count) |", "| Wrike projects left with no Panel Project Reference | $($unmatchedProjects.Count) |",
         "| Flexible effort flattened | $($flexible.Count) |", "",
         "Skipped: $(if ($skipped.Count) { ($skipped.GetEnumerator() | ForEach-Object { "$($_.Key) ($($_.Value))" }) -join ', ' } else { 'none' })", "",
-        "Read new-projects.csv, conflicts.csv, unmatched-people.csv and unmatched-projects.csv before -Apply.",
+        "Read new-projects.csv, update.csv, conflicts.csv, gone.csv, unmatched-people.csv and unmatched-projects.csv before -Apply.",
         "A person or project fixed now needs a fresh -Plan; -Apply performs plan.json exactly."
     )
     Set-Content -Path (Join-Path $OutDir "report.md") -Value $report -Encoding utf8
@@ -936,10 +1073,14 @@ if ($Apply) {
     Connect-Graph
     $log = @()
 
-    function Write-ImportHash($itemId, $srcHash) {
+    # The per-field ImportHash: src = what Wrike says now; arc = what SharePoint
+    # stored, read back - except fields ARC edited and this run didn't write,
+    # whose old baseline is kept so the edit is still recognised next time.
+    function Write-ImportHash($itemId, $srcFields, $arcKeep, $written) {
         $back = Get-LiveTask $itemId
-        $arcHash = Get-NormalHash (Get-Normal (Get-LiveValues $back.fields))
-        $value = "src=$srcHash;arc=$arcHash"
+        $arc = Get-FieldHashes (Get-Normal (Get-LiveValues $back.fields))
+        foreach ($k in @($arcKeep.Keys)) { if (@($written) -notcontains $k) { $arc[$k] = $arcKeep[$k] } }
+        $value = Format-ImportHash $srcFields $arc
         Invoke-MgGraphRequest -Method PATCH -Uri "$graph/lists/$TASKS_LIST/items/$itemId/fields" -ContentType "application/json" `
             -Body (@{ ImportHash = $value } | ConvertTo-Json) | Out-Null
         $check = Invoke-MgGraphRequest -Method GET -Uri "$graph/lists/$TASKS_LIST/items/$($itemId)?`$expand=fields(`$select=ImportHash)"
@@ -1013,7 +1154,7 @@ if ($Apply) {
                 $pt = "$($it.mapped.Project)".Substring(4)
                 if (-not $newProjectIds.ContainsKey($pt)) { throw "its project '$pt' wasn't created - fix that and re-plan" }
                 $it.mapped.Project = $newProjectIds[$pt]
-                $it.srcHash = Get-NormalHash (Get-Normal $it.mapped)
+                $it.srcFields = Get-FieldHashes (Get-Normal $it.mapped)
             }
             if ($it.action -eq "create") {
                 $filter = [uri]::EscapeDataString("fields/LegacySource eq '$($it.legacySource)'")
@@ -1026,7 +1167,7 @@ if ($Apply) {
                 $created = Invoke-MgGraphRequest -Method POST -Uri "$graph/lists/$TASKS_LIST/items" -ContentType "application/json" `
                     -Body (@{ fields = $fields } | ConvertTo-Json -Depth 6)
                 $itemId = [int]$created.id; $entry.ArcId = $itemId
-                $back = Write-ImportHash $itemId $it.srcHash
+                $back = Write-ImportHash $itemId $it.srcFields @{} @()
                 if ("$($back.fields.LegacySource)" -ne $it.legacySource) { throw "LegacySource did not read back" }
                 $odd = Get-StoredDifferently $it.mapped $back @("Title", "Status", "WorkType", "Priority", "SAPNumber", "Project", "Assigned", "Watchers", "Description", "StartDate", "DueDate", "EstimatedHours")
                 if ($odd.Count) { $entry.Warning = "stored differently: $($odd -join ', ')" }
@@ -1040,12 +1181,15 @@ if ($Apply) {
                     Invoke-MgGraphRequest -Method PATCH -Uri "$graph/lists/$TASKS_LIST/items/$itemId/fields" -ContentType "application/json" `
                         -Body ($fields | ConvertTo-Json -Depth 6) | Out-Null
                 }
-                $back = Write-ImportHash $itemId $it.srcHash
+                $written = if ($it.action -eq "update") { @($it.changed) } else { @() }
+                $back = Write-ImportHash $itemId $it.srcFields $(if ($it.arcKeep) { $it.arcKeep } else { @{} }) $written
                 if ($it.action -eq "update") {
                     $odd = Get-StoredDifferently $it.mapped $back @($it.changed)
                     if ($odd.Count) { $entry.Warning = "stored differently: $($odd -join ', ')" }
                 }
                 $entry.Result = if ($it.action -eq "update") { "updated: $($it.changed -join ', ')" } else { "ImportHash updated" }
+                if ($it.changed -contains "Status") { $entry.Result += " (status $($it.statusFrom) -> $($it.mapped.Status))" }
+                if (@($it.fieldConflicts).Count) { $entry.Warning = (@($entry.Warning, "kept ARC's $($it.fieldConflicts -join ', ')") | Where-Object { $_ }) -join "; " }
             }
 
             # Comments: re-read, append only what still isn't there, read back.

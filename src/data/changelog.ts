@@ -31,6 +31,21 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.224.0",
+    date: "2026-11-19",
+    changes: [
+      "Panels: Panel Orders, Panel Tasks, Panel Engineering Capacity and the new Panel Project Dashboard are in live testing with the panel Super Users; everyone else sees them as Coming soon until they open",
+      "Panels: new Panel Project Dashboard — every panel project with its orders, open work and latest activity; open one to see all its orders, tasks, BOMs and comments in one place, read-only, each linking to its own page",
+      "Panel Project Dashboard: a project built for several customers shows a pill per customer with its order count — click one to see just that customer's orders, tasks, BOMs and comments; the project list counts each project's customers",
+      "Panel Project Dashboard: the project list fits the page without scrolling sideways, and every list on these pages is cards on a phone, with a Sort by picker",
+      "Panel Orders: an order's page now opens read-only — press Edit on the title, Order, Customer or Order Notes section to change it, then Save changes",
+      "Panel Orders: an order's Project Reference is now a link to that project's Panel Project Dashboard",
+      "Panel Orders: new Drawing Number field on each order — on the New Panel Order form, the order page and the order list, and searchable. Orders moved from the old Panel Job Dashboard get the drawing number they had there",
+      "Panel Orders: orders moved from the old Panel Job Dashboard are linked to their Panel Project Reference where the drawing number names exactly one project",
+
+    ],
+  },
+  {
     version: "0.223.0",
     date: "2026-11-18",
     changes: [

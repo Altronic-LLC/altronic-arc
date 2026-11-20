@@ -814,6 +814,7 @@ src/
 │   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
+│   ├── panelProjectDashboard.ts  Panel Project Dashboard (pure) — a project's orders, its tasks (own project OR raised for its orders), merged comments, per-project summary
 │   ├── panelOrderArchive.ts      Archived panel orders (moved from Panel Job Dashboard) — ?archived= scope, real created date, pickers skip them (pure)
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping + panelTeamAccess (who opens/changes Capacity and Time Off, standard tasks, amber + holidays, BOM parts + kits) + capacityPeople (who gets a Capacity row) (pure)
@@ -993,6 +994,7 @@ src/
 │   ├── SearchInput.tsx           Shared debounced search box
 │   ├── SearchableSelect.tsx      MultiSelect / SingleSelect / ChoiceSelect (all searchable)
 │   ├── SortableTableHeader.tsx   Shared sort + per-column filter chrome (from Panel QC)
+│   ├── PhoneSortBar.tsx          A phone card list's Sort by picker + direction, over useSortableTable's state (+ "a filter is on" / Clear)
 │   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
 │   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content
 │   ├── RichTextEditor.tsx        Bold/italic/underline/lists editor (EIR text fields)
@@ -1026,7 +1028,7 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task (incl. start/due dates + estimated hours)
 │   ├── CapacityGrid.tsx          SHARED capacity screen body — Days/Weeks + navigation in the URL, grid, task bars, cell detail, backlog
-│   ├── PanelTeamGate.tsx         "Panel team only" gate for Capacity + Time Off
+│   ├── PanelTeamGate.tsx         "Panel team only" gate for Capacity + Time Off; PanelPreviewGate = the PANEL_PLANNING_LIVE "Coming soon" gate
 │   ├── PanelTimeOffFormModal.tsx Add/edit/remove a Panel Time Off entry (defaultDate from the calendar)
 │   ├── PanelBomPartFormModal.tsx Add/edit a BOM Builder part (Super User / ARC admin) — no cost field
 │   ├── PanelBomKitFormModal.tsx  Add/edit a BOM Builder kit + its components; fills MFG # / description from a listed SAP #
@@ -1221,7 +1223,9 @@ src/
 │   ├── IgnitionQcDefectBreakdownReportView.tsx  Ignition QC Defect Breakdown — latest month's donut, 14 fixed categories
 │   ├── KioskReportsView.tsx      /reports/kiosk — cycles all 6 reports every 60s (FPY→donut per source), chrome-less
 │   ├── PanelOrdersView.tsx       Panel Orders list
-│   ├── PanelOrderDetailView.tsx  Panel order detail
+│   ├── PanelOrderDetailView.tsx  Panel order detail — READ-ONLY until a section's Edit (FieldEditModal); Project Reference links to its dashboard
+│   ├── PanelProjectsView.tsx     Panel Project Dashboard (/panels/projects) — every project with order / open-work counts and last activity, sortable
+│   ├── PanelProjectDashboardView.tsx  One project (/panels/projects/:id) — its orders, tasks, BOMs and every comment, read-only, linking down
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── PanelCapacityView.tsx     Panel Engineering Capacity (/panels/capacity) — Panels' gate, header and data around the shared CapacityGrid
@@ -6531,18 +6535,43 @@ The panel team's orders lived on **Panel Job Dashboard** (`7c74061d-…`, same
 ALTRONICPANELTEAM site, ~1,380 rows, 55 columns). ARC's **Panel Order
 Headers** had one test row, so the old orders are MOVED in by
 `scripts/move-panel-orders-to-arc.ps1` (Tim: "we don't need all the info").
-Dry run by default; `-ColumnsOnly`, `-Apply`, `-SkipShipped`, `-Limit`.
+Dry run by default; `-ColumnsOnly`, `-Apply`, `-FillOnly`, `-SkipShipped`,
+`-Limit`. The full move was applied before 2026-11-19 (1,382 orders).
 
 - **Only the columns ARC has come across** — the script's `$FieldMap` /
   `$StatusMap` are the mapping (Part Number → SAP #, Unit No. → Customer
   Reference, Notes and Quote Ref appended to Order Notes; old statuses
   folded into ARC's six). The old list is never changed.
-- **Three columns it adds**: `Archived` (yes/no — set when the old Status is
+- **Four columns it adds**: `Archived` (yes/no — set when the old Status is
   Shipped), `LegacySource` (`PanelJobDashboard#<id>`, indexed; a re-run skips
-  what's already moved and never rewrites it) and `LegacyCreated` (Graph
-  can't set Created, so ARC shows and sorts by this). ARC selects them and,
-  on a 400, retries without and remembers (the MRB Watchers arrangement), so
-  the deploy doesn't depend on the script having run.
+  what's already moved and never rewrites it), `LegacyCreated` (Graph
+  can't set Created, so ARC shows and sorts by this) and, from 2026-11-19,
+  `DrawingNumber` (text, indexed — the old DWG No.). ARC selects them and,
+  on a 400, STEPS DOWN (`SELECT_TIERS` in `api/panelOrders.ts`: all four,
+  then without DrawingNumber, then none) and remembers, so the deploy
+  doesn't depend on the script having run and a list without DrawingNumber
+  keeps its Archived flags. Without the column the order page hides the
+  field (`panelOrderDrawingNumberAvailable`).
+- **Project Reference is worked out, never guessed** (2026-11-19, `Find-Project`
+  in the script). The old list has no project column, so an order is linked
+  only when exactly ONE Panel Project Reference fits: its drawing number
+  (DWG No., else the Title's first segment) equals a project's `DWGNO`
+  (letters and digits, case ignored); or it's that DWG NO plus an option
+  suffix after `-`, a space or `(` (`5000-221-OP1`, `5000-222 (NO HMI)`;
+  longest DWG NO wins, a tie links nothing); or its Part Number is an SAP #
+  written in a project's title. Drawing and SAP # disagreeing links nothing.
+  Live 2026-11-19: 45 projects, 30 with a DWG NO; 127 of the 1,390 old orders
+  fit (85 drawing, 27 variant, 12 drawing + SAP #, 3 SAP #); 247 drawing
+  numbers fit no project (`panel-orders-no-project.csv`, with open counts —
+  the list to make project references from).
+- **Already-moved orders are FILLED, blanks only** — Drawing Number and
+  Project Reference, re-read just before each PATCH (a value set in ARC
+  meanwhile is left), every write read back. `-FillOnly` does only this.
+  Dry run 2026-11-19: 1,372 drawing numbers and 127 projects to fill; not
+  yet applied. Re-run after adding project references and more orders link.
+- **PowerShell 7.4 gotcha**: a script block STARTING with the word `Clean`
+  (`Where-Object { Clean $_.x }`) parses as the new `clean {}` block and the
+  whole script fails to parse. Wrap the call: `{ (Clean $_.x) }`.
 - **Archived is hidden by default** (`lib/panelOrderArchive.ts`): the list's
   Active / Archived / All switch is `?archived=only|all`; status counts are
   within the scope. Archived orders don't count on the Dashboard card, aren't
@@ -6558,6 +6587,68 @@ Dry run by default; `-ColumnsOnly`, `-Apply`, `-SkipShipped`, `-Limit`.
   inside the repo.
 - **`getPanelOrder` reads ONE item** now (it read the whole list, which every
   write re-reads through), and the list renders 150 rows with Show all.
+
+### Panel Project Dashboard + the read-only order page (BusinessIT#42, 2026-11-19)
+
+From the live demo with Mark. Two changes:
+
+- **A Panel Order opens READ-ONLY.** Its fields used to save the moment
+  they were touched (native selects and blur-to-save inputs), so reading an
+  order was one stray click from changing it. Now each section has ONE Edit
+  button and a `FieldEditModal` — title, **Order** (Status, Project
+  Reference, Engineer, Sales Order, SAP #, PO) and **Customer** — plus Order
+  Notes' existing inline Edit. `saveSection` sends the plain columns in ONE
+  PATCH, then the project and the engineer through their own hooks, one
+  after another (two optimistic patches must not race; each hook rolls back
+  and toasts its own refusal). A cleared Status or title is ignored, never
+  written. **Live on purpose**: Watch / Watchers (a subscription, not the
+  order), comments, attachments, ticking an Order Notes checklist, raising
+  standard tasks. A stored Status / Customer the live choices no longer
+  offer stays in its picker (`withCurrent`).
+- **Panel Project Dashboard** (`/panels/projects`, `/panels/projects/:id`),
+  read-only, open to everyone signed in like Orders and Tasks. Rules in
+  `lib/panelProjectDashboard.ts`. **A task belongs to a project when its
+  Project Reference is the project OR it was raised for one of the project's
+  orders** — a standard task copies the order's project once, and doesn't
+  follow the order if the order moves. The Discussion merges every order and
+  task comment, newest first, naming where each was posted; replies happen
+  on that page (nothing is written here). The Orders table shows each order's
+  Drawing Number. BOMs show only to the panel team
+  (`canOpenBom`), like the builder. QC Time Tracking and QC Issues are NOT
+  on it: neither has a link to a project (QC Time's project is free text).
+  The order page's Project Reference — sidebar and header chip — links to
+  the project's dashboard.
+- **Customer pills** (Tim, 2026-11-19): a project built for several
+  customers shows one pill per customer on its orders (`projectCustomers`,
+  case- and space-insensitive, "(none)" for a blank), each with its order
+  count; `?customer=` narrows orders, the tasks raised FOR those orders,
+  BOMs and comments (`narrowToCustomer`). A task on no order of the project
+  has no customer: hidden while one is picked, and the Tasks card says how
+  many. An unknown `?customer=` is ignored. The list's Customers column is
+  the distinct customers on a project's orders (`summary.customers`) — the
+  project's own Customer field is mostly blank, so it was dropped.
+- **Live test switch: `PANEL_PLANNING_LIVE`** (`VITE_PANEL_PLANNING_LIVE`,
+  Tim 2026-11-19) — the BOM Builder's `PANEL_BOM_LIVE` arrangement for Panel
+  Orders, Panel Tasks, Panel Engineering Capacity and the Panel Project
+  Dashboard. Off (the default; mock mode is always live): only panel **Super
+  Users** (`canOpenPlanning` in `panelTeamAccess`, not ARC admins) get the
+  real menu rows and Dashboard cards; everyone else gets "Coming soon" rows
+  (`panelPreview: "with" | "without"` in `Header.tsx`) and cards (Capacity's
+  only for the panel team, who'd ever see it). `PanelPreviewGate` wraps the
+  eight routes in `App.tsx` (projects ×2, orders ×2, tasks ×2, capacity, task
+  templates), so an old email link says Coming soon too. Super Users on
+  2026-11-19: Ray White, Mark Balent, Tim Webster. Going live = the repo
+  variable `"true"` + a redeploy. Navigation, not security. Pinned in
+  `lib/panelRoles.test.ts`, `components/PanelPreviewGate.test.tsx` and
+  `views/DashboardView.panelPreview.test.tsx` (verified by breaking the rule).
+- **No sideways scroll, cards on a phone**: the tables use the MRB width
+  pattern (title column `w-full` + `max-w-0`, truncating; the least-needed
+  columns `hidden lg:/xl:table-cell`). A phone gets cards rendered INSTEAD of
+  the table (`useIsPhone`, the Parts List way) with `components/PhoneSortBar`
+  — a shared Sort by picker + direction button over the same
+  `useSortableTable` state, and a "column filter is narrowing this list"
+  line. Orders and tasks on a project page are capped at 150 rows with Show
+  all (`5900-FLX36-V2-009` has 222 orders).
 
 ### Panel Engineering Capacity + Panel Time Off (Panels, panelTeam site)
 
@@ -6862,10 +6953,22 @@ and both SAPNumbers, and it writes Assigned in the multi shape. It prints the tw
 **Wrike import** — `scripts/import-wrike-panel-tasks.ps1` + `docs/WRIKE-IMPORT.md`.
 Re-runnable on purpose (Tim: pull during testing, run again before go-live):
 `-Export` (token from `$env:WRIKE_TOKEN`, raw JSON outside the repo) →
-`-Plan` → `-Apply`. Rows match on `LegacySource = wrike:<id>`; `ImportHash`
-holds the hash of what the import wrote, so a re-run **never overwrites a task
-somebody edited in ARC** — it lands in `conflicts.csv`. Nothing in it has run
-live yet.
+`-Plan` → `-Apply`. Rows match on `LegacySource = wrike:<id>`. `ImportHash`
+is PER FIELD since 2026-11-19 (`v2:` + an 8-hex src and arc hash per field,
+206 chars in a 255 column): a field Wrike changed and ARC didn't is updated;
+one changed in both keeps ARC's value and lands in `conflicts.csv`; so an ARC
+edit (a Capacity drag) holds only that field and the Wrike status still comes
+over. Watchers are merged, never removed, never a conflict. The old whole-row
+hash still reads (untouched rows are upgraded with an ImportHash-only write).
+The folder / status-group skips stop only NEW tasks — one already in ARC is
+followed into Cancelled or `99. Archived`. Imported tasks missing from the
+export are listed in `gone.csv`, never deleted. A Wrike project that matches
+no reference by title is matched by its leading drawing number to the ONE
+reference with that DWG NO (`projects-matched-by-dwg.csv`) — projects renamed
+in Wrike would otherwise become duplicate references. Run live 2026-11-03..05 (202
+tasks, all in step on 2026-11-19); the per-field logic is planned against a
+copy of that export and its decision code tested in isolation, not yet
+applied.
 
 ### Panel SAP BOM Builder (Panels, panelTeam site)
 

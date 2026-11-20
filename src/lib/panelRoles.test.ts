@@ -167,3 +167,28 @@ describe("panelTeamAccess: the BOM Builder's limited live demo (BusinessIT#59)",
     expect(a.bomHint).toMatch(/Checking/);
   });
 });
+
+describe("panelTeamAccess — Orders / Tasks / Capacity / Project Dashboard live test", () => {
+  const testing = (roles: PanelRole[], isArcAdmin = false) =>
+    panelTeamAccess({ roles, isArcAdmin, resolving: false, planningLive: false });
+
+  it("while testing, only a panel Super User sees them — not an ARC admin, not the rest of the team", () => {
+    expect(testing(["Super User"]).canOpenPlanning).toBe(true);
+    expect(testing([], true).canOpenPlanning).toBe(false);
+    expect(testing(["Engineer", "Manager", "Admin"]).canOpenPlanning).toBe(false);
+    expect(testing([]).planningHint).toMatch(/panel Super Users/);
+  });
+
+  it("once live, everyone sees them", () => {
+    expect(panelTeamAccess({ roles: [], isArcAdmin: false, resolving: false, planningLive: true }).canOpenPlanning).toBe(true);
+    // Live is the default, so nothing that predates the switch changes.
+    expect(panelTeamAccess({ roles: [], isArcAdmin: false, resolving: false }).canOpenPlanning).toBe(true);
+  });
+
+  it("waits for the roles list before saying no, but not before saying yes", () => {
+    const loading = panelTeamAccess({ roles: [], isArcAdmin: false, resolving: true, planningLive: false });
+    expect(loading.planningResolving).toBe(true);
+    expect(loading.planningHint).toMatch(/Checking/);
+    expect(panelTeamAccess({ roles: ["Super User"], isArcAdmin: false, resolving: true, planningLive: false }).planningResolving).toBe(false);
+  });
+});

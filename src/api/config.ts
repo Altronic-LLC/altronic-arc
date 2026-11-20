@@ -1088,6 +1088,18 @@ export const SP_PANEL_BOMS_LIST_ID: string | undefined =
 export const PANEL_BOM_LIVE = USE_MOCK || import.meta.env.VITE_PANEL_BOM_LIVE === "true";
 
 /**
+ * Panel Orders, Panel Tasks, Panel Engineering Capacity and the Panel Project
+ * Dashboard are in LIVE TESTING until this is "true" (Tim, 2026-11-19): only
+ * panel Super Users (on Panel User Roles) can open them; everyone else, ARC
+ * admins included, sees them as "Coming soon" on the Dashboard and in the
+ * Departments menu, and the pages themselves say Coming soon — the BOM
+ * Builder's arrangement. Going live is this repo variable and a redeploy.
+ * Navigation, not security: SharePoint's list permissions are the boundary.
+ * Mock mode is always live.
+ */
+export const PANEL_PLANNING_LIVE = USE_MOCK || import.meta.env.VITE_PANEL_PLANNING_LIVE === "true";
+
+/**
  * "QC Time Tracking" — the panel team's log of hours QC spends on a project.
  * Same site as the other three Panels lists, its own list. Added 2026-09-01.
  */
