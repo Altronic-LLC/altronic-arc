@@ -63,6 +63,7 @@ import {
   canEditEirProjectReference,
 } from "@/lib/eirProjectReference";
 import { EIR_WORKFLOW_HINT } from "@/lib/eirWorkflowEditors";
+import { eirLatestColumnsAvailable } from "@/api/eirs";
 import { useCanEditEirWorkflow } from "@/hooks/useEirWorkflowAccess";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
@@ -107,6 +108,9 @@ export function EirDetailView() {
   // LTB Date is set freely on the New EIR form; once the EIR is submitted it
   // belongs to Supply Chain, so the detail view locks it for everyone else.
   const supplyChainLocked = enforced && !isSupplyChain;
+  // Read per render: the first EIR read decides it, and the page only
+  // renders once that read has landed.
+  const latestReady = eirLatestColumnsAvailable();
 
   const updateFields = useUpdateEirFields();
   const setReporter = useSetEirReporter();
@@ -256,10 +260,13 @@ export function EirDetailView() {
                   Promoted to task
                 </span>
               )}
-              <span className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 font-mono text-xs font-semibold text-fg-muted">
-                {eir.eirNo || `#${eir.id}`}
-              </span>
             </div>
+            {/* The EIR number is how people refer to an EIR, so it leads the
+                page in large type (BusinessIT#72) rather than sitting in a
+                small grey pill at the end of the chip row. */}
+            <p className="mb-1 font-mono text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+              {eir.eirNo || `#${eir.id}`}
+            </p>
             <InlineTitle
               value={eir.title}
               onSave={(next) =>
@@ -348,17 +355,43 @@ export function EirDetailView() {
                 value={eir.eau}
                 onSave={(v) => updateFields.mutate({ id: eir.id, fields: { EAU: v } })}
               />
+              {/* BusinessIT#23: the stock and cost from when the EIR was
+                  raised are the INITIAL pair (stored in the old Current
+                  columns), and Supply Chain keeps a CURRENT pair up to
+                  date beside them. */}
               <InlineTextField
-                label="Current Stock"
+                label="Initial Stock"
                 value={eir.currentStock}
                 onSave={(v) => updateFields.mutate({ id: eir.id, fields: { CurrentStock: v } })}
               />
               <InlineTextField
-                label="Current Price"
+                label="Initial Cost"
                 value={eir.currentPrice}
                 onSave={(v) =>
                   updateFields.mutate({ id: eir.id, fields: { Current_x0020_Price: v } })
                 }
+              />
+              <InlineTextField
+                label="Current Stock"
+                value={eir.latestStock}
+                disabled={!latestReady || supplyChainLocked}
+                disabledHint={
+                  latestReady
+                    ? "Only users with the Supply Chain role can edit Current Stock."
+                    : "Current Stock isn't set up on the EIR list yet."
+                }
+                onSave={(v) => updateFields.mutate({ id: eir.id, fields: { LatestStock: v } })}
+              />
+              <InlineTextField
+                label="Current Cost"
+                value={eir.latestCost}
+                disabled={!latestReady || supplyChainLocked}
+                disabledHint={
+                  latestReady
+                    ? "Only users with the Supply Chain role can edit Current Cost."
+                    : "Current Cost isn't set up on the EIR list yet."
+                }
+                onSave={(v) => updateFields.mutate({ id: eir.id, fields: { LatestCost: v } })}
               />
               <InlineSelectField
                 label="Buyer Code"

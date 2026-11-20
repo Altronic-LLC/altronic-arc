@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.225.0",
+    date: "2026-11-19",
+    changes: [
+      "EIRs: the stock and cost entered when an EIR is raised are now Initial Stock and Initial Cost, and new Current Stock and Current Cost fields beside them can be updated at any time by anyone with the Supply Chain role",
+      "EIRs: the EIR number now leads the EIR page in large type",
+      "FAITs: new status, Pending EIR Review & Response, for a FAIT waiting on an EIR to be answered",
+      "FAITs: an engineer can approve their sign-off and tick Notify Initiator in the same save — it used to be refused as not fully signed off",
+      "An arrow at the left of the footer slides it out of the way, so it no longer covers the bottom of the page; the tab at the bottom left brings it back, and it returns when you reload",
+    ],
+  },
+  {
     version: "0.224.0",
     date: "2026-11-19",
     changes: [
@@ -31,6 +42,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Panel Orders: an order's Project Reference is now a link to that project's Panel Project Dashboard",
       "Panel Orders: new Drawing Number field on each order — on the New Panel Order form, the order page and the order list, and searchable. Orders moved from the old Panel Job Dashboard get the drawing number they had there",
       "Panel Orders: orders moved from the old Panel Job Dashboard are linked to their Panel Project Reference where the drawing number names exactly one project",
+
     ],
   },
   {

@@ -175,13 +175,21 @@ export function faitFieldsInSection(section: FaitSection): FaitField[] {
   return FAIT_FIELDS.filter((f) => f.section === section);
 }
 
-/** `Status` — drives the pills on the list view. */
+/**
+ * `Status` — drives the pills on the list view.
+ *
+ * The SharePoint column only accepts the values it lists, so a status added
+ * here must be added there too, or picking it is refused.
+ * "Pending EIR Review & Response" (BusinessIT#73, Jerrod Waldron) is added
+ * by scripts/update-eir-fait-columns.ps1.
+ */
 export const FAIT_STATUSES = [
   "Open",
   "FAIT Part Received",
   "This is with SQE",
   "This is with ENG",
   "This is with KAM",
+  "Pending EIR Review & Response",
   "Closed",
 ] as const;
 

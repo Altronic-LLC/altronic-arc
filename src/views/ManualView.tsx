@@ -5413,7 +5413,7 @@ const SECTIONS: ManualSection[] = [
       "oem impact",
     ],
     searchText:
-      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. A workflow diagram shows the whole process: the initiator raises the FAIT (Open); Supply Chain receives the part and assigns the engineer and KAM, then sends it to SQE; SQE signs off (This is with ENG), or fails it back to the initiator; the engineer signs off (This is with KAM, only when OEM Impact is Yes and a KAM is assigned); the KAM signs off; and ticking Notify Initiator closes the FAIT once every sign-off it owes is Approved. With OEM Impact set to No, no KAM sign-off is owed and the KAM fields are hidden. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT emails everyone watching it plus that same intake list, de-duplicated so nobody gets two. The three sign-offs run as a chain: assigning an engineer or a KAM emails them a heads-up that says no action is required yet; moving a FAIT to This is with SQE emails the configured SQE reviewers (default Jerrod Waldron) asking for the SQE sign-off; approving the SQE sign-off emails the assigned engineer and moves the Status to This is with ENG; approving the Eng sign-off emails the KAM and moves the Status to This is with KAM, but only when a KAM sign-off is needed - with no KAM the chain finishes at the engineer and the FAIT is ready to close. An SQE sign-off set to Failed sends the FAIT back to whoever raised it and does not advance the status. The status moves itself as the sign-offs land; a Status you pick yourself in the same edit wins, re-saving a recorded sign-off asks nobody twice, and editing the sign-offs on a closed FAIT never reopens it. FAITs cannot be deleted from ARC.",
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. A workflow diagram shows the whole process: the initiator raises the FAIT (Open); Supply Chain receives the part and assigns the engineer and KAM, then sends it to SQE; SQE signs off (This is with ENG), or fails it back to the initiator; the engineer signs off (This is with KAM, only when OEM Impact is Yes and a KAM is assigned); the KAM signs off; and ticking Notify Initiator closes the FAIT once every sign-off it owes is Approved. With OEM Impact set to No, no KAM sign-off is owed and the KAM fields are hidden. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Pending EIR Review & Response, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT emails everyone watching it plus that same intake list, de-duplicated so nobody gets two. The three sign-offs run as a chain: assigning an engineer or a KAM emails them a heads-up that says no action is required yet; moving a FAIT to This is with SQE emails the configured SQE reviewers (default Jerrod Waldron) asking for the SQE sign-off; approving the SQE sign-off emails the assigned engineer and moves the Status to This is with ENG; approving the Eng sign-off emails the KAM and moves the Status to This is with KAM, but only when a KAM sign-off is needed - with no KAM the chain finishes at the engineer and the FAIT is ready to close. An SQE sign-off set to Failed sends the FAIT back to whoever raised it and does not advance the status. The status moves itself as the sign-offs land; a Status you pick yourself in the same edit wins, re-saving a recorded sign-off asks nobody twice, and editing the sign-offs on a closed FAIT never reopens it. FAITs cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -5467,8 +5467,9 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           <strong>Status</strong> moves a FAIT along its own workflow: Open,
-          FAIT Part Received, with SQE, with Engineering, with the KAM, Closed.
-          Pick the new one and it's written straight away, and everyone
+          FAIT Part Received, with SQE, with Engineering, with the KAM,
+          Pending EIR Review &amp; Response (waiting on an EIR to be answered),
+          Closed. Pick the new one and it's written straight away, and everyone
           watching plus the initiator, engineer and KAM are emailed that it
           changed.
         </P>
@@ -5561,7 +5562,9 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Ticking <strong>Notify Initiator</strong> on the Sign-off card
             closes the FAIT and tells the initiator — but it won't save until
-            every sign-off the FAIT owes is Approved.
+            every sign-off the FAIT owes is Approved. The last sign-off can be
+            in the same save: an engineer can approve and tick Notify
+            Initiator together.
           </LI>
           <LI>
             <strong>Closing</strong> a FAIT emails everyone watching it, plus
@@ -6917,8 +6920,8 @@ const SECTIONS: ManualSection[] = [
           <strong>Subject</strong>, <strong>Description</strong>,{" "}
           <strong>Reporter</strong> (pre-filled to you),{" "}
           <strong>Requested Priority</strong>, and <strong>Request Type</strong>{" "}
-          (defaults to "EIR"). The Purchasing section also takes EAU, Current
-          Stock, Current Price, MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
+          (defaults to "EIR"). The Purchasing section also takes EAU, Initial
+          Stock, Initial Cost (the stock and cost when the EIR is raised), MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
           Risk Part Level, Technical Priority, Altronic Part Number, and Where
           Used. You can also add <strong>attachments</strong> — click Add file
           or drag files onto the Attachments card. They upload as soon as the
@@ -6954,11 +6957,15 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Detail page</H3>
         <P>
-          The main column shows the EIR No header, request-type chip,
-          Description, Engineering Response (with its own inline editor), Part
-          Details (Where Used, MFG, MFG P/N, Altronic Part Number, EAU, Current
-          Stock, Current Price, Buyer Code — all editable inline by clicking),
-          and the comments thread. Like a task's Description, the EIR's
+          The main column shows the EIR No in large type at the top, the
+          request-type chip, Description, Engineering Response (with its own
+          inline editor), Part Details (Where Used, MFG, MFG P/N, Altronic Part
+          Number, EAU, Initial Stock, Initial Cost, Current Stock, Current
+          Cost, Buyer Code — all editable inline by clicking), and the comments
+          thread. Initial Stock and Initial Cost are the figures from when the
+          EIR was raised; Current Stock and Current Cost are kept up to date by
+          Supply Chain, and only people with the Supply Chain role can change
+          them. Like a task's Description, the EIR's
           Description can hold a custom checklist — click{" "}
           <strong>Turn into checklist</strong> while editing it; see{" "}
           <em>Working with tasks → Custom checklists in the Description</em>{" "}
@@ -8530,8 +8537,9 @@ const SECTIONS: ManualSection[] = [
           EIR fields. Add a user, then tick <strong>Engineer</strong> (lets them
           edit an EIR's <strong>Engineering Response</strong> and{" "}
           <strong>Technical Priority</strong>) and/or <strong>Supply Chain</strong>{" "}
-          (lets them edit <strong>Buyer Code</strong>, <strong>Risk Part</strong>,
-          and <strong>Risk Part Level</strong>). A user can hold both. Everyone
+          (lets them edit <strong>Buyer Code</strong>, <strong>Risk Part</strong>,{" "}
+          <strong>Risk Part Level</strong>, <strong>LTB Date</strong>,{" "}
+          <strong>Current Stock</strong> and <strong>Current Cost</strong>). A user can hold both. Everyone
           signed in can still edit every other EIR field — only those are gated.
           The checkboxes save instantly; remove a user to drop all their EIR roles.
           The page lists what each role unlocks, so you can see what you're

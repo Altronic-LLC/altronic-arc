@@ -35,7 +35,9 @@ export function useFitToWindow(): [RefObject<HTMLDivElement>, number | null] {
     function measure() {
       const el = ref.current;
       if (!el || !mq.matches) return setHeight(null);
-      const footer = document.querySelector("footer");
+      // Only a footer that's on screen covers anything — it can be slid
+      // away (Footer's arrow), which drops `data-fixed-footer`.
+      const footer = document.querySelector("footer[data-fixed-footer]");
       const footerHeight = footer ? footer.getBoundingClientRect().height : 0;
       // Document position, so a measure taken while scrolled still agrees.
       const top = el.getBoundingClientRect().top + window.scrollY;

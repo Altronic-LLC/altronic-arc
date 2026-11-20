@@ -363,6 +363,8 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "requestedPriority", type: "choice", kind: "field" },
       { name: "projectReferences", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "taskReference", type: "text", kind: "field" },
+      { name: "latestStock", type: "text", kind: "field" },
+      { name: "latestCost", type: "text", kind: "field" },
       { name: "reporter", type: "int", kind: "fk", references: "Person.id" },
       { name: "assignedEngineers", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
