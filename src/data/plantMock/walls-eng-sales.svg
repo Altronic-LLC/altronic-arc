@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 960" data-building="Engineering/Sales" data-units="in" data-schema="1">
+  <title>Engineering/Sales (TEST PLAN, made-up, 120 ft x 80 ft)</title>
+  <g id="floor">
+    <rect id="floor-area" x="0" y="0" width="1440" height="960" fill="#ffffff"/>
+  </g>
+  <g id="keepout">
+    <rect id="keepout-001" data-kind="door-swing" x="1396" y="780" width="36" height="72" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-002" data-kind="door-swing" x="8" y="270" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-003" data-kind="door-swing" x="54" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-004" data-kind="door-swing" x="198" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-005" data-kind="door-swing" x="342" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-006" data-kind="door-swing" x="486" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-007" data-kind="door-swing" x="630" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-008" data-kind="door-swing" x="774" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-009" data-kind="door-swing" x="954" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-010" data-kind="door-swing" x="1240" y="204" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-012" data-kind="door-swing" x="1000" y="360" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-013" data-kind="door-swing" x="1164" y="700" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-014" data-kind="door-swing" x="1320" y="400" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-015" data-kind="door-swing" x="1320" y="520" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+  </g>
+  <g id="walls" fill="#2b2f36">
+    <rect id="wall-001" x="0" y="0" width="1440" height="8"/>
+    <rect id="wall-002" x="0" y="952" width="1440" height="8"/>
+    <rect id="wall-003" x="0" y="8" width="8" height="262"/>
+    <rect id="wall-004" x="0" y="306" width="8" height="646"/>
+    <rect id="wall-005" x="1432" y="8" width="8" height="772"/>
+    <rect id="wall-006" x="1432" y="852" width="8" height="100"/>
+    <rect id="wall-007" x="8" y="237.5" width="46" height="5"/>
+    <rect id="wall-008" x="90" y="237.5" width="108" height="5"/>
+    <rect id="wall-009" x="234" y="237.5" width="108" height="5"/>
+    <rect id="wall-010" x="378" y="237.5" width="108" height="5"/>
+    <rect id="wall-011" x="522" y="237.5" width="108" height="5"/>
+    <rect id="wall-012" x="666" y="237.5" width="108" height="5"/>
+    <rect id="wall-013" x="810" y="237.5" width="144" height="5"/>
+    <rect id="wall-014" x="990" y="237.5" width="250" height="5"/>
+    <rect id="wall-015" x="1276" y="237.5" width="156" height="5"/>
+    <rect id="wall-016" x="141.5" y="8" width="5" height="232"/>
+    <rect id="wall-017" x="285.5" y="8" width="5" height="232"/>
+    <rect id="wall-018" x="429.5" y="8" width="5" height="232"/>
+    <rect id="wall-019" x="573.5" y="8" width="5" height="232"/>
+    <rect id="wall-020" x="717.5" y="8" width="5" height="232"/>
+    <rect id="wall-021" x="861.5" y="8" width="5" height="232"/>
+    <rect id="wall-022" x="1149.5" y="8" width="5" height="232"/>
+    <rect id="wall-023" x="8" y="357.5" width="192" height="5"/>
+    <rect id="wall-024" x="272" y="357.5" width="368" height="5"/>
+    <rect id="wall-025" x="712" y="357.5" width="288" height="5"/>
+    <rect id="wall-026" x="1036" y="357.5" width="184" height="5"/>
+    <rect id="wall-027" x="1300" y="357.5" width="132" height="5"/>
+    <rect id="wall-028" x="897.5" y="360" width="5" height="592"/>
+    <rect id="wall-029" x="1197.5" y="360" width="5" height="340"/>
+    <rect id="wall-030" x="1197.5" y="736" width="5" height="216"/>
+    <rect id="wall-031" x="1317.5" y="360" width="5" height="40"/>
+    <rect id="wall-032" x="1317.5" y="436" width="5" height="84"/>
+    <rect id="wall-033" x="1317.5" y="556" width="5" height="44"/>
+    <rect id="wall-034" x="1320" y="477.5" width="112" height="5"/>
+    <rect id="wall-035" x="1320" y="597.5" width="112" height="5"/>
+  </g>
+  <g id="columns" fill="#2b2f36">
+    <rect id="col-001" x="295" y="655" width="10" height="10"/>
+    <rect id="col-002" x="595" y="655" width="10" height="10"/>
+  </g>
+  <g id="doors">
+    <path id="door-001" d="M1432 780L1396 780A36 36 0 0 0 1432 816" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-002" d="M1432 852L1396 852A36 36 0 0 1 1432 816" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-003" d="M8 270L44 270A36 36 0 0 1 8 306" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-004" d="M54 240L54 204A36 36 0 0 1 90 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-005" d="M198 240L198 204A36 36 0 0 1 234 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-006" d="M342 240L342 204A36 36 0 0 1 378 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-007" d="M486 240L486 204A36 36 0 0 1 522 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-008" d="M630 240L630 204A36 36 0 0 1 666 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-009" d="M774 240L774 204A36 36 0 0 1 810 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-010" d="M954 240L954 204A36 36 0 0 1 990 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-011" d="M1240 240L1240 204A36 36 0 0 1 1276 240" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-012" d="M1000 360L1000 396A36 36 0 0 0 1036 360" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-013" d="M1200 700L1164 700A36 36 0 0 0 1200 736" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-014" d="M1320 400L1356 400A36 36 0 0 1 1320 436" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-015" d="M1320 520L1356 520A36 36 0 0 1 1320 556" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  </g>
+  <g id="labels" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <text x="72" y="130" font-size="18">Office 201</text>
+    <text x="216" y="130" font-size="18">Office 202</text>
+    <text x="360" y="130" font-size="18">Office 203</text>
+    <text x="504" y="130" font-size="18">Office 204</text>
+    <text x="648" y="130" font-size="18">Office 205</text>
+    <text x="792" y="130" font-size="18">Office 206</text>
+    <text x="1008" y="130" font-size="22">Conference</text>
+    <text x="1296" y="130" font-size="22">Break Room</text>
+    <text x="450" y="560" font-size="30">Engineering (open office)</text>
+    <text x="1050" y="560" font-size="30">Lab</text>
+    <text x="1390" y="430" font-size="20">RR</text>
+    <text x="1390" y="550" font-size="20">RR</text>
+    <text x="1320" y="680" font-size="22">Lobby / Sales</text>
+  </g>
+</svg>

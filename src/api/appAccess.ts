@@ -33,6 +33,8 @@ import {
   SP_COST_IMPACT_NOTICES_LIST_ID,
   SP_CRIMP_CHECKS_LIST_ID,
   SP_CRIMP_SPECS_LIST_ID,
+  SP_PULL_TEST_SPECS_LIST_ID,
+  SP_PULL_TESTS_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
   SP_CUSTOMER_NOTES_LIST_ID,
   SP_ECNS_LIST_ID,
@@ -46,6 +48,9 @@ import {
   SP_LIST_ID,
   SP_MAINTENANCE_TASKS_LIST_ID,
   SP_MCNS_LIST_ID,
+  SP_PLANT_LAYOUTS_LIST_ID,
+  SP_LAYOUT_COMPONENTS_LIST_ID,
+  SP_PLANT_MAP_ROLES_LIST_ID,
   SP_MRB_LIST_ID,
   SP_OPEN_ORDERS_CUSTOMERS_LIST_ID,
   SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID,
@@ -53,6 +58,7 @@ import {
   SP_PANEL_BOMS_LIST_ID,
   SP_PANEL_BOM_PARTS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
+  SP_PANEL_PROJECTS_LIST_ID,
   SP_PANEL_QC_ISSUES_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
   SP_PANEL_TASK_TEMPLATES_LIST_ID,
@@ -213,6 +219,13 @@ export const APPS: AppSpec[] = [
   { path: "/feature-requests", label: "ARC Feature Requests", site: "engineering", lists: ids(SP_FEATURE_REQUESTS_LIST_ID) },
 
   // Panels ---------------------------------------------------------------
+  // The project dashboard reads all three; it's unreadable only when all are refused.
+  {
+    path: "/panels/projects",
+    label: "Panel Project Dashboard",
+    site: "panelTeam",
+    lists: ids(SP_PANEL_PROJECTS_LIST_ID, SP_PANEL_ORDERS_LIST_ID, SP_PANEL_TASKS_LIST_ID),
+  },
   { path: "/panels/orders", label: "Panel Orders", site: "panelTeam", lists: ids(SP_PANEL_ORDERS_LIST_ID) },
   { path: "/panels/tasks", label: "Panel Tasks", site: "panelTeam", lists: ids(SP_PANEL_TASKS_LIST_ID) },
   // Capacity reads Panel Tasks; refused time off only means nobody looks off.
@@ -231,6 +244,9 @@ export const APPS: AppSpec[] = [
   { path: "/operations/tasks", label: "Operational Tasks", site: "pmo", lists: ids(SP_OPERATIONS_TASKS_LIST_ID) },
   { path: "/operations/teradyne", label: "Teradyne Log", site: "pmo", lists: ids(SP_TERADYNE_LOG_LIST_ID) },
   { path: "/operations/mcns", label: "MCNs", site: "pmo", lists: ids(SP_MCNS_LIST_ID) },
+  { path: "/operations/plant-map/roles", label: "Plant Map Roles", site: "pmo", lists: ids(SP_PLANT_MAP_ROLES_LIST_ID) },
+  { path: "/operations/plant-map/symbols", label: "Plant Map Symbols", site: "pmo", lists: ids(SP_LAYOUT_COMPONENTS_LIST_ID) },
+  { path: "/operations/plant-map", label: "Plant Map", site: "pmo", lists: ids(SP_PLANT_LAYOUTS_LIST_ID) },
   { path: "/operations/maintenance/schedules", label: "Maintenance Schedules", site: "pmo", lists: ids(SP_SCHEDULED_MAINTENANCE_LIST_ID) },
   { path: "/operations/maintenance/assets", label: "Equipment Register", site: "pmo", lists: ids(SP_ALTRONIC_EQUIPMENT_LIST_ID) },
   { path: "/operations/maintenance", label: "Work Orders", site: "pmo", lists: ids(SP_MAINTENANCE_TASKS_LIST_ID) },
@@ -242,6 +258,8 @@ export const APPS: AppSpec[] = [
   { path: "/harness/production-log", label: "Harness Production Log", site: "pmo", lists: ids(SP_HARNESS_PRODUCTION_LOG_LIST_ID) },
   { path: "/harness/crimp-checks/specs", label: "Crimp Specs", site: "pmo", lists: ids(SP_CRIMP_SPECS_LIST_ID) },
   { path: "/harness/crimp-checks", label: "Crimp Height Checks", site: "pmo", lists: ids(SP_CRIMP_CHECKS_LIST_ID) },
+  { path: "/harness/pull-tests/specs", label: "Pull Test Specs", site: "pmo", lists: ids(SP_PULL_TEST_SPECS_LIST_ID) },
+  { path: "/harness/pull-tests", label: "Pull Tests", site: "pmo", lists: ids(SP_PULL_TESTS_LIST_ID) },
   { path: "/harness/alert-recipients", label: "Harness — Who's notified", site: "pmo", lists: ids(SP_HARNESS_ALERT_RECIPIENTS_LIST_ID) },
 
   // Coils ----------------------------------------------------------------

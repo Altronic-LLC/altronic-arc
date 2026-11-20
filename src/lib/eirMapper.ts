@@ -66,6 +66,8 @@ export function toEir(item: GraphListItem): Eir {
     mfg: (f.MFG as string) ?? "",
     mfgPartNumber: (f.MFGP_x002f_N as string) ?? "",
     currentPrice: (f.Current_x0020_Price as string) ?? "",
+    latestStock: (f.LatestStock as string) ?? "",
+    latestCost: (f.LatestCost as string) ?? "",
     altronicPartNumber: (f.Altronic_x0020_Part_x0020_Number as string) ?? "",
 
     requestedCompletionDate: parseDate(f.Requested_x0020_Completion_x0020),

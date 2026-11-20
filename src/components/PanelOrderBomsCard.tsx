@@ -88,7 +88,7 @@ export function PanelOrderBomsCard({ orderId }: { orderId: number }) {
               <Link to={`/panels/bom-builder/${b.id}`} className="min-w-0 flex-1 truncate font-medium text-fg hover:underline">
                 {b.panelSystemNumber || `BOM ${b.id}`}
               </Link>
-              <span className="text-xs text-fg-muted">
+              <span className="w-full text-xs text-fg-muted sm:w-auto">
                 {b.savedLines.length + b.savedManual.length} lines
                 {b.modifiedAt && ` · saved ${b.modifiedAt.toLocaleDateString()}`}
                 {b.modifiedBy && ` by ${b.modifiedBy.displayName}`}

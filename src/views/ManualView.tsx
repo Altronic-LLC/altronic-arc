@@ -2632,7 +2632,7 @@ const SECTIONS: ManualSection[] = [
       "alert recipients",
     ],
     searchText:
-      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the machine (the crimp press you're on, remembered for next time on that computer), then the terminal (each spec is a terminal, wire gauge and applicator; only that press's specs are offered, plus any with no machine set yet), pick Start, In process or End, enter your clock number and the three readings in inches. Press the orange button on the micrometer's U-WAVE Bluetooth adaptor and it types the reading and presses Enter, which moves to the next box; readings show to 5 decimals when the micrometer gives them. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused, and the form says so instead of calling the check out of spec: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with the presses it runs on and how many checks used it; a spec can run on several presses, picked from the crimp machines in the asset list; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
+      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the machine (the crimp press you're on, remembered for next time on that computer), then the terminal (each spec is a terminal, wire gauge and applicator; only that press's specs are offered, plus any with no machine set yet), pick Start, In process or End, enter your clock number and the three readings in inches. Press the orange button on the micrometer's U-WAVE Bluetooth adaptor and it types the reading and presses Enter, which moves to the next box; readings show to 5 decimals when the micrometer gives them. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused, and the form says so instead of calling the check out of spec: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks, failed pull tests and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with the presses it runs on and how many checks used it; a spec can run on several presses, picked from the crimp machines in the asset list; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
     render: () => (
       <>
         <P>
@@ -2699,7 +2699,7 @@ const SECTIONS: ManualSection[] = [
           The <strong>Who's notified</strong> button, shown to{" "}
           <strong>ARC admins</strong> on both Harness logs (and listed on the
           Admin page), shows who each Harness email goes to: out-of-spec crimp
-          checks, and part number requests. ARC admins add people from the staff
+          checks, failed pull tests, and part number requests. ARC admins add people from the staff
           directory and remove them. A change applies to the very next email.
         </P>
         <P>
@@ -2742,6 +2742,171 @@ const SECTIONS: ManualSection[] = [
             the checks already taken keep it.
           </LI>
         </UL>
+      </>
+    ),
+  },
+  {
+    id: "pull-tests",
+    title: "Pull Tests",
+    group: "Harness",
+    keywords: [
+      "pull test",
+      "pull tests",
+      "pull force",
+      "wire pull",
+      "mark-10",
+      "mark 10",
+      "wt-205",
+      "tester",
+      "usb",
+      "serial",
+      "machined pin",
+      "drivecom",
+      "terminal",
+      "wire gauge",
+      "minimum",
+      "ipc/whma-a-620",
+      "ipc",
+      "pull test spec",
+      "failed",
+      "how it failed",
+      "failure mode",
+      "wire broke",
+      "who's notified",
+    ],
+    searchText:
+      "Pull Tests log the pulls taken on the Mark-10 WT3-200 wire crimp pull tester, for the machined pins crimp height can't judge and for stamped terminals too. Reach it from the Pull Tests card on the Dashboard or the Departments menu under Harness. Click New test, pick the spec (a terminal and wire gauge with its minimum pull force, from the manufacturer or an industry standard such as IPC/WHMA-A-620), pick Start, In process or End, enter your clock number, and take the pulls the spec asks for at that point in the run: three unless the spec says otherwise, up to five. An industry-standard spec can cover any terminal on its gauge; then type the terminal you pulled. A standard can give several minimums for one gauge, such as machined contacts, crimp splices, or stamped and formed terminals; the spec's name says which, so pick the one for what you crimped. To read the tester straight into ARC, use Chrome or Edge on the computer the tester is plugged into by USB, with Mark-10's USB driver installed. Press Connect tester and pick the tester's port the first time; after that ARC reconnects by itself whenever the form opens. On the tester, use Peak mode, turn on Break Detection, and under Auto Settings tick Enabled, RS232/USB Output and Auto Zero, so it sends the peak each time a crimp lets go and zeroes itself for the next pull. A pull that never reaches 10 lbF doesn't count as a break, so nothing is sent: press DATA on the tester or Read now in ARC, then ZERO. Set the tester's Data Format to Numeric + Units. After each reading the cursor moves to the next empty pull box, then to How it failed. The baud rate in ARC must match the tester's. Each reading fills the next empty pull box and is marked from tester; an extra pull adds a box, up to five. The unit comes from the tester; a reading in a different unit from the pulls already taken is refused. You can always type pulls instead, and ARC records whether they were read by the tester, typed, or mixed. Each pull shows Holds or Below minimum; a pull exactly at the minimum passes, and readings in another unit are converted to the spec's unit first. Say how it failed, such as the wire broke or it pulled out of the crimp: pick an answer already used, most used first, or type a new one. Enter the work order the run is for, which is required. If any single pull is below the minimum, saving emails the people chosen for failed pull tests and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. ARC admins choose who is emailed on Who's notified. Every test keeps the minimum and the number of pulls it was judged by, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show failed tests only, or search; columns sort and filter from their headers; on a phone the log is cards. Anyone signed in can record and correct a test; only ARC admins can delete one. The Specs screen lists every spec with how many pulls a test needs at Start, In process and End (1 to 5 each; blank means three) and how many tests used it; ARC admins add, edit, duplicate, retire or delete specs (Duplicate, or Start from an existing spec when adding, fills the form from that spec so you only change the terminal, gauge or reference and anything else that differs), and a spec that has been used can't be deleted: retire it instead.",
+    render: () => (
+      <>
+        <P>
+          <strong>Pull Tests</strong> log the pulls taken on the{" "}
+          <strong>Mark-10 WT3-200</strong> wire crimp pull tester: for the
+          machined pins that crimp height can't judge, and for stamped terminals
+          too. Reach it from the <strong>Pull Tests</strong> card on the
+          Dashboard, or the Departments menu under Harness.
+        </P>
+        <H3>Recording a test</H3>
+        <UL>
+          <LI>
+            Click <strong>New test</strong> and pick the <strong>spec</strong>: a
+            terminal and wire gauge with its <strong>minimum pull force</strong>,
+            from the manufacturer or an industry standard such as
+            IPC/WHMA-A-620.
+          </LI>
+          <LI>
+            An industry-standard spec can cover <strong>any terminal</strong> on
+            its gauge. Then type the terminal you pulled. A standard can give
+            several minimums for one gauge (IPC/WHMA-A-620 has machined
+            contacts by plating, crimp splices, and stamped and formed
+            terminals); the spec's name says which it is, so pick the one for
+            what you crimped.
+          </LI>
+          <LI>
+            Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
+            <strong>End</strong>, enter your <strong>clock number</strong>, and
+            take the <strong>pulls the spec asks for</strong> at that point in
+            the run: three unless the spec says otherwise, and the form shows
+            how many once you pick Start, In process or End. Add more, up to
+            five, with <em>Add a pull</em>.
+          </LI>
+          <LI>
+            Each pull shows <strong>Holds</strong> or{" "}
+            <strong>Below minimum</strong>. A pull <strong>exactly at</strong>{" "}
+            the minimum passes. A reading in another unit is converted to the
+            spec's unit before it's judged.
+          </LI>
+          <LI>
+            Say <strong>how it failed</strong>: the wire broke, it pulled out of
+            the crimp, the terminal broke. Open the box to pick an answer
+            already used, most used first, or type a new one; a new answer is
+            offered the next time.
+          </LI>
+          <LI>
+            Enter the <strong>work order</strong> the run is for (required) and
+            the harness or assembly if you have it.
+          </LI>
+        </UL>
+        <H3>Reading the tester into ARC</H3>
+        <P>
+          ARC can read the pulls straight off the tester, so nobody copies a
+          number by hand. It needs <strong>Chrome or Edge</strong> on the
+          computer the tester is plugged into by USB, with Mark-10's USB driver
+          installed. On a phone or iPad, or in another browser, type the pulls
+          instead.
+        </P>
+        <UL>
+          <LI>
+            Press <strong>Connect tester</strong> and pick the tester's port the
+            first time. After that ARC <strong>reconnects by itself</strong>{" "}
+            whenever the form opens.
+          </LI>
+          <LI>
+            On the tester, use <strong>Peak</strong> mode, turn on{" "}
+            <strong>Break Detection</strong>, and under{" "}
+            <strong>Auto Settings</strong> tick <strong>Enabled</strong>,{" "}
+            <strong>RS232/USB Output</strong> and <strong>Auto Zero</strong>.
+            The tester then sends the <strong>peak</strong> each time a crimp lets
+            go and zeroes itself for the next pull. The reading lands in the next
+            empty pull box, marked <em>from tester</em>, and the cursor moves on
+            to the next empty box (then to <em>How it failed</em>), unless you're
+            typing in another field.
+          </LI>
+          <LI>
+            A pull that never reaches <strong>10 lbF</strong> doesn't count as a
+            break (5% of the tester's 200 lbF is the lowest threshold it allows),
+            so nothing is sent by itself. Press <strong>DATA</strong> on the
+            tester, or <strong>Read now</strong> in ARC, then{" "}
+            <strong>ZERO</strong>. Set the tester's Data Format to{" "}
+            <strong>Numeric + Units</strong> so ARC gets the unit too.
+          </LI>
+          <LI>
+            The <strong>baud rate</strong> in ARC must match the tester's{" "}
+            (Serial/USB Settings on the tester). ARC remembers it on that
+            computer.
+          </LI>
+          <LI>
+            The <strong>unit</strong> comes from the tester. A reading in a
+            different unit from the pulls already taken is refused, so switch
+            the tester back or clear the pulls.
+          </LI>
+          <LI>
+            Only one program can use the tester at a time. If Mark-10's own
+            software or another ARC tab has it open, close that first.
+          </LI>
+          <LI>
+            You can always type a pull, or correct one. ARC records whether a
+            test's pulls were read by the tester, typed, or mixed.
+          </LI>
+        </UL>
+        <H3>A failed test</H3>
+        <P>
+          If <strong>any single pull</strong> is below the minimum, saving the
+          test <strong>emails the people chosen for failed pull tests</strong>,
+          and a message tells you how many were emailed. If nobody is set up
+          yet, it asks you to tell your supervisor. ARC admins choose who is
+          emailed on <strong>Who's notified</strong>. Correcting a test that had
+          already failed doesn't email them again.
+        </P>
+        <H3>The log and the specs</H3>
+        <P>
+          The log opens on the current year. Filter by terminal, show failed
+          tests only, or search; columns sort and filter from their headers, and
+          on a phone the log is cards. <strong>Anyone can record and correct a
+          test</strong>; only <strong>ARC admins can delete</strong> one.
+        </P>
+        <P>
+          The <strong>Specs</strong> button lists every spec with how many
+          pulls a test needs at Start, In process and End, and how many tests
+          used it. <strong>ARC admins</strong> add, edit, retire or delete
+          specs, and set the <strong>pulls per test</strong> for each point
+          (1 to 5; blank means three). <strong>Duplicate</strong> (or{" "}
+          <em>Start from an existing spec</em> when adding) fills the form from
+          another spec, so you only change the terminal, gauge or reference and
+          anything else that differs.{" "}
+          <strong>Every test keeps the minimum and the pull count it was judged by</strong>, so
+          changing a spec never changes an old result, and a spec that has been
+          used can't be deleted: <strong>retire</strong> it instead.
+        </P>
       </>
     ),
   },
@@ -2951,6 +3116,201 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "plant-map",
+    title: "Plant Map",
+    group: "Operations",
+    keywords: [
+      "plant map",
+      "plant layout",
+      "floor plan",
+      "layout",
+      "walls drawing",
+      "svg",
+      "machine layout",
+      "overlap",
+      "keep-out",
+      "aisle",
+      "plant map roles",
+    ],
+    searchText:
+      "The Plant Map shows the plant's layouts drawn to scale over each building's walls drawing, with every machine, bench and rack where it stands. Reach it from the Plant Map card in the Operations part of the Dashboard or the Departments menu. Each layout version is a row on the Layouts list: Draft, Published or Superseded. Columns sort and filter. Open one to see it drawn; scroll to zoom, drag the floor to pan, turn labels on or off, and click an item on the plan or in the list below it to see its symbol, size, rotation and where it stands. Editors choose Edit layout on a draft; on a published layout Edit starts a new draft version or opens the existing one. Each building has a tab on the Layouts list. In the editor draw aisles and no-go areas with the Aisle and No-go tools (A, N), label, move, resize and turn them; anything standing in one is flagged by name. Drag symbols from the palette onto the plan, drag items to move them (snapping to the grid, or lining up with a nearby item or area's edge or centre with a dotted guide line; Alt to place freely), drag the round handle to turn and a corner to resize, set exact values, lock, duplicate, remove and link an item to its equipment-register asset. Arrows nudge, R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z undoes, Ctrl+S saves. Save draft saves; leaving with unsaved changes asks first. The placement check lists anything that overlaps another item, sits on a wall, column, aisle, dock, door swing, electrical clearance or other keep-out area, and outlines it in red (an item outside the building, such as an extinguisher or an exit, is fine); a symbol that isn't a rectangle, such as an L-shaped bench, is checked by its real outline. A draft can have problems; a Plant Map admin publishes it with Publish once there are none, and the version it replaces becomes Superseded. Publishing also saves a drawing of the whole plan and a table of every item and area for Power BI, listed under Files for Power BI on the layout's page. Some layouts have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters): tick a layer, or one of its groups, under Layers to show it; a layer can start hidden, hidden items are still checked for problems, and picking a hidden item from a list shows its layer. In the editor an item's Layer and Group are set in the panel on the right, and a new copy of a symbol joins the layer its other copies are on. New layer under Layers makes a layer; each layer can be renamed, given groups, set to start hidden, and removed once nothing is on it. A Plant Map admin can delete a draft or superseded version (never the published one); its walls drawing is deleted too only when no other layout uses it, and both go to the SharePoint recycle bin. Editors start a new layout with New layout: a name, an area, and the building. An existing building reuses its walls drawing and can start with its aisles and no-go areas; a new building needs its walls drawing as an SVG in inches, which is reviewed before it's saved: confirm the building's size, see what ARC can and can't check, and choose which of its keep-outs become editable aisles and no-go areas. A drawing ARC can't use is refused with the reason. Floor markings and zones never count as overlapping. The Symbols tab shows the symbol library; a Plant Map admin adds a symbol from an SVG, a DXF saved from CAD (its size is read from it) or a picture ARC traces to an outline, with its name, category, real footprint, and whether it is solid, can be turned and can be resized. Replace on a symbol saves a new version; layouts keep the version they were drawn with until Update symbols (or Use v2 on one item) in a draft moves them to the latest. Retire takes a symbol off the palette (layouts that use it keep it); Restore brings it back. Only the people on the Plant Map Roles list see the Plant Map at all — viewers look, editors also build layouts, and Plant Map admins also publish, manage symbols and the list; ARC admins manage the list from the Admin page.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Plant Map</strong> shows the plant's layouts drawn to scale over each
+          building's walls drawing, with every machine, bench and rack where it stands. Reach
+          it from the <strong>Plant Map</strong> card in the Operations part of the Dashboard,
+          or the <strong>Departments</strong> menu.
+        </P>
+        <H3>Layouts</H3>
+        <UL>
+          <LI>Each version of a layout is its own row: <strong>Draft</strong>, <strong>Published</strong> or <strong>Superseded</strong>. Every column sorts and filters from its header.</LI>
+          <LI>A tab across the top for each building narrows the list to that building's layouts.</LI>
+          <LI>Open one to see it drawn. Scroll the mouse wheel (or use the + button) to zoom where the pointer is, and click and drag the floor to pan; names appear as items get big enough on screen. Turn them off with <strong>Show labels</strong>, and click an item — on the plan or in the list below it — to see its symbol, size, rotation and where it stands.</LI>
+        </UL>
+        <H3>Layers</H3>
+        <P>
+          Some layouts carry <strong>layers</strong> — sets of items shown and hidden together,
+          such as <strong>Safety</strong>: fire extinguishers, fire exits, medical (first aid,
+          AEDs, eye wash) and severe-weather shelters. Tick a layer under <strong>Layers</strong>{" "}
+          beside the plan to show it, or tick and untick its groups one at a time; the number
+          beside each is how many items it holds. A layer can start hidden, as Safety does. What
+          you show and hide is yours alone and isn't saved. Everything else on the plan is the
+          base plan and is always shown.
+        </P>
+        <UL>
+          <LI>Hidden items are still checked: a problem on a hidden layer is still listed, and picking it shows its layer.</LI>
+          <LI>The list of items has a <strong>Layer</strong> column, and picking a hidden item from it shows that layer.</LI>
+          <LI>In the editor, the panel on the right sets an item's <strong>Layer</strong> and <strong>Group</strong> (<strong>Base plan</strong> for none). A symbol whose other copies are all on one layer and group goes there when you add it — a new extinguisher joins the others. Hidden items can't be picked or moved on the plan, and nothing lines up with them.</LI>
+          <LI>In the editor, <strong>New layer</strong> under <strong>Layers</strong> makes a layer. Beside each layer and group: the pencil renames it, + adds a group, and the bin removes it — only once nothing is on it, so move its items off first. <strong>Starts hidden</strong> decides how it opens for everyone. All of it is saved with the draft, and Ctrl+Z undoes it.</LI>
+        </UL>
+        <H3>The placement check</H3>
+        <P>
+          Every layout is checked against its walls drawing. Anything that overlaps another
+          item, sits on a wall, a column or a keep-out area (an aisle, a dock, a door swing,
+          electrical clearance, an exit route) is outlined in red and listed beside the
+          plan. Floor markings and zones never count as overlapping. An item may sit outside
+          the building, such as a fire extinguisher or an emergency exit on an outside wall;
+          it is still checked against walls and other items there. A symbol that isn't a rectangle, such as an L-shaped bench, is checked
+          by its real outline, so something tucked into its corner doesn't count as an
+          overlap. A draft can have problems; it can't be published until they're fixed.
+        </P>
+        <H3>Publishing</H3>
+        <P>
+          A Plant Map admin publishes a draft with <strong>Publish</strong> on its page. The button
+          stays greyed out, saying why, until the placement check finds nothing wrong — and the
+          check runs again as it publishes. Publishing asks first: the draft becomes the{" "}
+          <strong>Published</strong> layout, and the version that was published before becomes{" "}
+          <strong>Superseded</strong>. A published layout can't be changed; <strong>Edit as a new
+          draft</strong> starts the next version. Nobody is emailed.
+        </P>
+        <H3>Files for Power BI</H3>
+        <P>
+          Publishing also saves two files in the Plant Layout Files library, under{" "}
+          <strong>published</strong>: a drawing of the whole plan (an SVG with the walls, the aisles
+          and no-go areas, and every item with its symbol), and a table of every item and area (a
+          CSV with its position and size in inches, its layer, its symbol and the equipment-register
+          asset it's linked to). Each item has the same id in both, so a report can colour the
+          drawing from the table. There are two copies of each: one for the version, kept as it
+          was, and a <strong>current</strong> one that every publish of that layout replaces —
+          point a Power BI report at the current files. They're listed under{" "}
+          <strong>Files for Power BI</strong> on the layout's page, to open in SharePoint or
+          download. If they couldn't be saved when the layout was published, or the layout was
+          published before they existed, a Plant Map admin presses{" "}
+          <strong>Save files for Power BI</strong> there.
+        </P>
+        <H3>Deleting a layout</H3>
+        <P>
+          A Plant Map admin can delete a <strong>Draft</strong> or <strong>Superseded</strong> version
+          with <strong>Delete</strong> on its page; the published version can't be deleted. Several
+          layouts often share one walls drawing — every version of a layout, and every layout in the
+          same building — so the drawing is deleted too only when no other layout uses it, and the
+          confirmation says which. Both go to the SharePoint recycle bin, where they can be restored
+          for 93 days.
+        </P>
+        <H3>Editing a layout</H3>
+        <P>
+          Editors see <strong>Edit layout</strong> on a draft. On a published layout the
+          button starts a new draft version (or opens the draft that already exists) — a
+          published layout itself is never changed.
+        </P>
+        <UL>
+          <LI>Drag a symbol from the palette on the left onto the plan. A preview follows the pointer and turns red where the item won't fit. Clicking a symbol drops one in the middle of the view.</LI>
+          <LI>Drag an item to move it; it snaps to the grid chosen under <strong>Snap</strong> (hold Alt to place it freely). When its edge or centre comes close to another item's or area's, across or down, it snaps into line and a dotted guide shows what it lined up with — handy for rows of desks and machines. Symbols dragged in from the palette line up the same way. Drag the round handle to turn it in 15° steps (Shift for single degrees). Drag a corner to resize it, where the symbol allows.</LI>
+          <LI>The panel on the right sets the label, the exact position, size and rotation, and links the item to its asset in the equipment register. <strong>Lock</strong> stops an item being moved by accident.</LI>
+          <LI>Keys: arrows nudge (Shift for one inch), R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctrl+Shift+Z undo and redo, Ctrl+S saves. Scroll to zoom where the pointer is; click and drag empty floor (or drag with the middle button) to pan.</LI>
+          <LI><strong>Aisle</strong> and <strong>No-go</strong> in the toolbar (or A and N) draw an area: drag a rectangle on the plan. Give it a label, and move, resize or turn it like equipment. Machines and benches can't stand in one — anything that does is flagged by the area's name; floor zones can. The walls drawing's own keep-outs can't be changed here.</LI>
+          <LI>The placement check updates as you drag. Nothing is saved until <strong>Save draft</strong>; leaving with unsaved changes asks first.</LI>
+        </UL>
+        <H3>Starting a layout</H3>
+        <P>
+          Editors see <strong>New layout</strong>: pick the building — or type a new name, which
+          starts a new building with its own tab — and give it a name and an area. A building
+          that already has layouts uses the walls drawing it already has, so there is nothing
+          to upload, and the new layout starts with that building's aisles and no-go areas
+          (untick the box to leave them out). Choose <strong>Upload a different drawing</strong>{" "}
+          if the building has changed. A new building needs its walls drawing — an SVG exported
+          from CAD, in inches, with a viewBox of the building's size. A drawing ARC can't use is
+          refused with the reason. A drawing it can use is shown for review before anything is
+          saved: the walls and columns ARC will check against are highlighted, anything it can't
+          check is listed, and you tick to confirm the building's size (every symbol is drawn to
+          scale against it). Its keep-out areas are listed too — ticked ones come off the drawing
+          and start as aisles and no-go areas on the layout, which you can label, move and resize
+          later; unticked ones stay part of the drawing. Door swings stay by default. The new layout starts with no equipment on it.
+        </P>
+        <Tip>
+          The check can only see walls, columns and keep-outs drawn as rectangles in groups
+          named walls, columns and keepout. A drawing without them still shows; the check
+          then only finds items overlapping each other or the layout's own areas.
+        </Tip>
+        <H3>Symbols</H3>
+        <P>
+          The <strong>Symbols</strong> tab shows the library a layout is built from — every machine,
+          bench, rack and desk, by category, at its real size. Search it by name or category.
+        </P>
+        <UL>
+          <LI>
+            A Plant Map admin adds one with <strong>Add symbol</strong>: pick the drawing, give it a
+            name, a category and its real width and depth in inches, and say whether it is solid or a
+            floor marking, can be turned and can be resized. The preview shows the symbol exactly as it
+            will be saved.
+          </LI>
+          <LI>
+            The drawing can be an SVG; a DXF saved from CAD — its real size is read from it, and text,
+            dimensions and hatching are left out; or a picture (PNG or JPG) of the machine seen from
+            above, which ARC traces to an outline — move the threshold until it looks right. A DWG has
+            to be saved as a DXF first, and a PDF exported as SVG or DXF, or saved as a picture.
+          </LI>
+          <LI>
+            The drawing is fitted into the footprint, keeping its proportions or stretched, and a small
+            notch marks the front (the bottom edge), so you can see which way it faces once turned.
+          </LI>
+          <LI>
+            A solid symbol that isn't a rectangle — an L-shaped bench, a machine with an open bay — can
+            have an <strong>outline</strong>: under <strong>Placement check</strong> choose{" "}
+            <strong>Only an outline I draw</strong> and click its corners in order around the solid
+            part on the preview (or type them as x,y pairs in inches). Then something standing in the
+            gap isn't counted as overlapping it. A new drawing or a new size clears the outline.
+          </LI>
+          <LI>
+            A <strong>label</strong> symbol, such as an area-label pill, has each item's own label
+            written inside it, sized to fit and turned the right way up — tick <strong>A label</strong>{" "}
+            on the form. Change an item's label in the editor to change what it says.
+          </LI>
+          <LI>
+            A Plant Map admin changes a symbol with <strong>Replace</strong> on its card. This saves a
+            new version (v2, v3 …): change its name, category or settings, or pick a new drawing — the
+            footprint can only change with a new drawing. The library and the palette show only the
+            latest version.
+          </LI>
+          <LI>
+            Layouts keep the version they were drawn with, so a published layout never changes when a
+            symbol is replaced. In a draft, the editor says how many items use an older version:
+            <strong> Update symbols</strong> moves them all to the latest, or <strong>Use v2</strong> in
+            the panel on the right moves one. Each keeps where it stands; one still at the old size takes
+            the new size, and one you resized keeps its size. It's an ordinary change — undo it, or save
+            the draft and publish it.
+          </LI>
+          <LI>
+            <strong>Retire</strong> on a symbol's card takes it off the palette, after a confirmation
+            that says which layouts use it. Those layouts keep it, drawn as it is, and the editor says
+            so when one of its items is picked. Nothing is deleted: tick <strong>Show retired</strong>{" "}
+            and press <strong>Restore</strong> to bring it back.
+          </LI>
+        </UL>
+        <H3>Roles</H3>
+        <P>
+          Only the people on the Plant Map Roles list see the Plant Map at all — anyone else
+          has no card on the Dashboard and no menu entry. <strong>Viewers</strong> look;{" "}
+          <strong>editors</strong> also start layouts and edit drafts; <strong>Plant Map
+          admins</strong> also publish layouts, manage the symbol library and choose who is on
+          the list, from the <strong>Roles</strong> tab. ARC admins manage the list too, from the
+          Admin page, without being on it themselves.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "reports",
     title: "Reports",
     group: "Reports",
@@ -3100,9 +3460,16 @@ const SECTIONS: ManualSection[] = [
       "panel team",
     ],
     searchText:
-      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. The list opens on active orders; finished orders moved from the old Panel Job Dashboard list are Archived, and the Active / Archived / All switch shows them. An archived order's page says it was moved and shows the date it was created on the old list. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
+      "Panel Orders, Panel Tasks, Panel Engineering Capacity and the Panel Project Dashboard are in live testing with the panel Super Users; until they open, everyone else sees them as Coming soon. Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. An order's page opens read-only: the Edit button on each section — the title, Order, Customer and Order Notes — opens its fields, and Save changes saves them; Cancel leaves the order as it was. Watch, watchers, comments, attachments and ticking an Order Notes checklist still work straight away. The Project Reference on an order is a link to that project's Panel Project Dashboard. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. An order also has a Drawing Number, the panel's drawing (for example 5900-FLX36-V2-007), which the search covers. Orders moved from the old Panel Job Dashboard carry the drawing number they had there, and are linked to the Panel Project Reference whose DWG NO matches it when exactly one does. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. The list opens on active orders; finished orders moved from the old Panel Job Dashboard list are Archived, and the Active / Archived / All switch shows them. An archived order's page says it was moved and shows the date it was created on the old list. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
     render: () => (
       <>
+        <P>
+          <strong>Live testing:</strong> Panel Orders, Panel Tasks, Panel
+          Engineering Capacity and the Panel Project Dashboard are being tested
+          by the panel Super Users. Until they open, everyone else sees them as{" "}
+          <strong>Coming soon</strong> on the Dashboard and in the Departments
+          menu.
+        </P>
         <P>
           <strong>Panel Orders</strong> is the Panels department's first ARC
           feature — the panel production team's view of panel sales orders,
@@ -3129,7 +3496,11 @@ const SECTIONS: ManualSection[] = [
           <strong>Archived</strong> and stay out of the way until you pick{" "}
           <strong>Archived</strong> or <strong>All</strong> above the status
           pills. An archived order's page says it came from the old list and
-          shows the date it was created there. Archived orders don't count
+          shows the date it was created there. Moved orders keep the{" "}
+          <strong>Drawing Number</strong> they had on the old list, and are
+          linked to their <strong>Project Reference</strong> when the drawing
+          number names exactly one panel project; the rest are left without a
+          project for you to set. Archived orders don't count
           on the Dashboard card, aren't offered when linking a BOM to an
           order, and don't offer to create standard tasks. The list shows
           the first 150 orders; <strong>Show all</strong> brings in the rest.
@@ -3189,15 +3560,31 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>The detail page</H3>
         <P>
-          Everything is edited in place: the title inline, the sidebar's
-          Status / Project Reference / Engineer / order-number / SAP # / customer
-          fields directly, and <strong>Order Notes</strong> as an editable
-          card that supports the same <code>- [ ]</code> checklists as a
-          task Description — checked boxes record who and when, unchecking
-          asks "Are you sure?", and toggles email the watchers and engineer.
-          Comments (with @-mentions and auto-watch), Watchers, and file
-          attachments work exactly like tasks and EIRs. Status changes and
-          engineer changes send the same email alerts other departments get.
+          An order's page opens <strong>read-only</strong>, so reading an
+          order can't change it by accident. Each section has its own{" "}
+          <strong>Edit</strong> button: the title, <strong>Order</strong>{" "}
+          (Status, Project Reference, Engineer Assigned, Sales Order, SAP #,
+          Drawing Number, Purchase Order), <strong>Customer</strong> (Customer, Customer
+          Reference, Customer Contact Email) and <strong>Order Notes</strong>.
+          Edit opens that section's fields; <strong>Save changes</strong>{" "}
+          saves only what you changed, and <strong>Cancel</strong> leaves the
+          order as it was.
+        </P>
+        <P>
+          The <strong>Project Reference</strong> — in the sidebar and on the
+          chip above the title — is a link to that project's{" "}
+          <strong>Panel Project Dashboard</strong>, with every order, task
+          and comment on the project.
+        </P>
+        <P>
+          <strong>Order Notes</strong> support the same <code>- [ ]</code>{" "}
+          checklists as a task Description — ticking a box works without
+          pressing Edit, records who and when, unchecking asks "Are you
+          sure?", and toggles email the watchers and engineer. Watch,
+          Watchers, comments (with @-mentions and auto-watch) and file
+          attachments work straight away, exactly like tasks and EIRs. Status
+          changes and engineer changes send the same email alerts other
+          departments get.
         </P>
         <H3>Admin lists</H3>
         <P>
@@ -3211,6 +3598,76 @@ const SECTIONS: ManualSection[] = [
           Engineer, Admin, Viewer) — one row per user per role. Roles don't
           lock any panel order fields yet; they're recorded now so
           field-level permissions can be switched on later.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-project-dashboard",
+    title: "Panel Project Dashboard",
+    group: "Panels",
+    keywords: [
+      "panel project dashboard",
+      "panel project",
+      "project dashboard",
+      "project reference",
+      "panel project reference",
+      "panel overview",
+    ],
+    searchText:
+      "The Panel Project Dashboard is the level above Panel Orders and Panel Tasks: everything on one Panel Project Reference in one place. Reach it from the Dashboard's Panel Project Dashboard card, the Departments menu's Panels group, or the Project Reference link on any Panel Order. The first screen lists every project with its customer, type, how many orders it has, how many orders and tasks are still open, and when anything on it last changed; it opens on the most recent activity, sorts and filters by column, searches, and can show only projects with open orders or tasks. The list also counts each project's customers, and on a phone it's cards with a Sort by picker. Open a project to see its details, its orders, its tasks, the BOMs on its orders (for the panel team), and every comment posted on any of its orders or tasks, newest first, each saying where it was posted. A task counts when its project is this one or it was raised for one of the project's orders. A project whose orders are for several customers shows a pill per customer with its order count; clicking one narrows the page to that customer's orders, the tasks raised for them, their BOMs and their comments, and the choice is kept in the link. Tasks tied to no order are hidden while a customer is picked, and the page says how many. The dashboard is read-only: every order, task, BOM and comment links to its own page, where it's changed, and Open in Panel Orders and Open in Panel Tasks open those lists filtered to the project.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Panel Project Dashboard</strong> is the level above
+          Panel Orders and Panel Tasks: everything on one{" "}
+          <strong>Panel Project Reference</strong> in one place. Reach it from
+          its card on the Dashboard, the <strong>Departments</strong>{" "}
+          menu's Panels group, or the <strong>Project Reference</strong> link
+          on any Panel Order.
+        </P>
+        <H3>The project list</H3>
+        <P>
+          One row per project: its customer and type, how many orders it
+          has, how many orders and tasks are still open, and when anything
+          on it last changed. It opens on the most recent activity; click a
+          column heading to sort or filter, search across the project
+          number, description, customer and DWG number, and tick{" "}
+          <strong>Only projects with open orders or tasks</strong> to hide
+          finished ones.
+        </P>
+        <H3>One project</H3>
+        <P>
+          A project's page shows its details, then its{" "}
+          <strong>Orders</strong>, its <strong>Tasks</strong>, the{" "}
+          <strong>BOMs</strong> on its orders (for the panel team, like the
+          BOM Builder), and the <strong>Discussion</strong> — every comment
+          on any of its orders or tasks, newest first, each saying which
+          order or task it was posted on. A task belongs to the project when
+          its Project Reference is this project, or when it was raised for
+          one of the project's orders.
+        </P>
+        <P>
+          A repeat panel is often built for several customers. When a
+          project's orders are for more than one, a{" "}
+          <strong>Customers</strong> row shows a pill per customer with its
+          number of orders. Click one to narrow the whole page — orders, the
+          tasks raised for them, BOMs and discussion — to that customer;
+          click it again, or <strong>All customers</strong>, to see
+          everything. The choice is in the link, so it can be shared. Tasks
+          tied to no order have no customer, so they're hidden while a
+          customer is picked, and the Tasks card says how many.
+        </P>
+        <P>
+          On a phone the lists are cards, with a <strong>Sort by</strong>{" "}
+          picker in place of the column headings.
+        </P>
+        <P>
+          The dashboard is <strong>read-only</strong>. Every order, task, BOM
+          and comment links to its own page, and that's where it's changed or
+          replied to. <strong>Open in Panel Orders</strong> and{" "}
+          <strong>Open in Panel Tasks</strong> open those lists filtered to
+          the project.
         </P>
       </>
     ),
@@ -4956,7 +5413,7 @@ const SECTIONS: ManualSection[] = [
       "oem impact",
     ],
     searchText:
-      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. A workflow diagram shows the whole process: the initiator raises the FAIT (Open); Supply Chain receives the part and assigns the engineer and KAM, then sends it to SQE; SQE signs off (This is with ENG), or fails it back to the initiator; the engineer signs off (This is with KAM, only when OEM Impact is Yes and a KAM is assigned); the KAM signs off; and ticking Notify Initiator closes the FAIT once every sign-off it owes is Approved. With OEM Impact set to No, no KAM sign-off is owed and the KAM fields are hidden. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT emails everyone watching it plus that same intake list, de-duplicated so nobody gets two. The three sign-offs run as a chain: assigning an engineer or a KAM emails them a heads-up that says no action is required yet; moving a FAIT to This is with SQE emails the configured SQE reviewers (default Jerrod Waldron) asking for the SQE sign-off; approving the SQE sign-off emails the assigned engineer and moves the Status to This is with ENG; approving the Eng sign-off emails the KAM and moves the Status to This is with KAM, but only when a KAM sign-off is needed - with no KAM the chain finishes at the engineer and the FAIT is ready to close. An SQE sign-off set to Failed sends the FAIT back to whoever raised it and does not advance the status. The status moves itself as the sign-offs land; a Status you pick yourself in the same edit wins, re-saving a recorded sign-off asks nobody twice, and editing the sign-offs on a closed FAIT never reopens it. FAITs cannot be deleted from ARC.",
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. A workflow diagram shows the whole process: the initiator raises the FAIT (Open); Supply Chain receives the part and assigns the engineer and KAM, then sends it to SQE; SQE signs off (This is with ENG), or fails it back to the initiator; the engineer signs off (This is with KAM, only when OEM Impact is Yes and a KAM is assigned); the KAM signs off; and ticking Notify Initiator closes the FAIT once every sign-off it owes is Approved. With OEM Impact set to No, no KAM sign-off is owed and the KAM fields are hidden. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Pending EIR Review & Response, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT emails everyone watching it plus that same intake list, de-duplicated so nobody gets two. The three sign-offs run as a chain: assigning an engineer or a KAM emails them a heads-up that says no action is required yet; moving a FAIT to This is with SQE emails the configured SQE reviewers (default Jerrod Waldron) asking for the SQE sign-off; approving the SQE sign-off emails the assigned engineer and moves the Status to This is with ENG; approving the Eng sign-off emails the KAM and moves the Status to This is with KAM, but only when a KAM sign-off is needed - with no KAM the chain finishes at the engineer and the FAIT is ready to close. An SQE sign-off set to Failed sends the FAIT back to whoever raised it and does not advance the status. The status moves itself as the sign-offs land; a Status you pick yourself in the same edit wins, re-saving a recorded sign-off asks nobody twice, and editing the sign-offs on a closed FAIT never reopens it. FAITs cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -5010,8 +5467,9 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           <strong>Status</strong> moves a FAIT along its own workflow: Open,
-          FAIT Part Received, with SQE, with Engineering, with the KAM, Closed.
-          Pick the new one and it's written straight away, and everyone
+          FAIT Part Received, with SQE, with Engineering, with the KAM,
+          Pending EIR Review &amp; Response (waiting on an EIR to be answered),
+          Closed. Pick the new one and it's written straight away, and everyone
           watching plus the initiator, engineer and KAM are emailed that it
           changed.
         </P>
@@ -5104,7 +5562,9 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Ticking <strong>Notify Initiator</strong> on the Sign-off card
             closes the FAIT and tells the initiator — but it won't save until
-            every sign-off the FAIT owes is Approved.
+            every sign-off the FAIT owes is Approved. The last sign-off can be
+            in the same save: an engineer can approve and tick Notify
+            Initiator together.
           </LI>
           <LI>
             <strong>Closing</strong> a FAIT emails everyone watching it, plus
@@ -6517,8 +6977,8 @@ const SECTIONS: ManualSection[] = [
           <strong>Subject</strong>, <strong>Description</strong>,{" "}
           <strong>Reporter</strong> (pre-filled to you),{" "}
           <strong>Requested Priority</strong>, and <strong>Request Type</strong>{" "}
-          (defaults to "EIR"). The Purchasing section also takes EAU, Current
-          Stock, Current Price, MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
+          (defaults to "EIR"). The Purchasing section also takes EAU, Initial
+          Stock, Initial Cost (the stock and cost when the EIR is raised), MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
           Risk Part Level, Technical Priority, Altronic Part Number, and Where
           Used. You can also add <strong>attachments</strong> — click Add file
           or drag files onto the Attachments card. They upload as soon as the
@@ -6554,11 +7014,15 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Detail page</H3>
         <P>
-          The main column shows the EIR No header, request-type chip,
-          Description, Engineering Response (with its own inline editor), Part
-          Details (Where Used, MFG, MFG P/N, Altronic Part Number, EAU, Current
-          Stock, Current Price, Buyer Code — all editable inline by clicking),
-          and the comments thread. Like a task's Description, the EIR's
+          The main column shows the EIR No in large type at the top, the
+          request-type chip, Description, Engineering Response (with its own
+          inline editor), Part Details (Where Used, MFG, MFG P/N, Altronic Part
+          Number, EAU, Initial Stock, Initial Cost, Current Stock, Current
+          Cost, Buyer Code — all editable inline by clicking), and the comments
+          thread. Initial Stock and Initial Cost are the figures from when the
+          EIR was raised; Current Stock and Current Cost are kept up to date by
+          Supply Chain, and only people with the Supply Chain role can change
+          them. Like a task's Description, the EIR's
           Description can hold a custom checklist — click{" "}
           <strong>Turn into checklist</strong> while editing it; see{" "}
           <em>Working with tasks → Custom checklists in the Description</em>{" "}
@@ -8130,8 +8594,9 @@ const SECTIONS: ManualSection[] = [
           EIR fields. Add a user, then tick <strong>Engineer</strong> (lets them
           edit an EIR's <strong>Engineering Response</strong> and{" "}
           <strong>Technical Priority</strong>) and/or <strong>Supply Chain</strong>{" "}
-          (lets them edit <strong>Buyer Code</strong>, <strong>Risk Part</strong>,
-          and <strong>Risk Part Level</strong>). A user can hold both. Everyone
+          (lets them edit <strong>Buyer Code</strong>, <strong>Risk Part</strong>,{" "}
+          <strong>Risk Part Level</strong>, <strong>LTB Date</strong>,{" "}
+          <strong>Current Stock</strong> and <strong>Current Cost</strong>). A user can hold both. Everyone
           signed in can still edit every other EIR field — only those are gated.
           The checkboxes save instantly; remove a user to drop all their EIR roles.
           The page lists what each role unlocks, so you can see what you're

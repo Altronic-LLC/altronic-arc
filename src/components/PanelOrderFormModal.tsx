@@ -15,6 +15,7 @@ import { mergePeople } from "@/lib/people";
 import { usePanelTaskTemplates } from "@/hooks/usePanelTaskTemplates";
 import { activeTemplates } from "@/lib/panelOrderTasks";
 import { formatHours } from "@/lib/capacity";
+import { panelOrderDrawingNumberAvailable } from "@/api/panelOrders";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface PanelOrderFormModalProps {
@@ -46,6 +47,7 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [salesOrder, setSalesOrder] = useState("");
   const [sapNumber, setSapNumber] = useState("");
+  const [drawingNumber, setDrawingNumber] = useState("");
   const [purchaseOrder, setPurchaseOrder] = useState("");
   const [customerReference, setCustomerReference] = useState("");
   const [customer, setCustomer] = useState("");
@@ -116,6 +118,7 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
         projectLookupId: projectId ? parseInt(projectId, 10) : null,
         salesOrder: salesOrder.trim() || undefined,
         sapNumber: sapNumber.trim() || undefined,
+        drawingNumber: drawingNumber.trim() || undefined,
         purchaseOrder: purchaseOrder.trim() || undefined,
         customerReference: customerReference.trim() || undefined,
         customer: customer || undefined,
@@ -220,6 +223,18 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
                 disabled={busy}
               />
             </FieldLabel>
+            {panelOrderDrawingNumberAvailable() && (
+              <FieldLabel label="Drawing Number">
+                <input
+                  type="text"
+                  value={drawingNumber}
+                  onChange={(e) => setDrawingNumber(e.target.value)}
+                  placeholder="e.g. 5900-FLX36-V2-007"
+                  className="select"
+                  disabled={busy}
+                />
+              </FieldLabel>
+            )}
             <FieldLabel label="Purchase Order">
               <input
                 type="text"

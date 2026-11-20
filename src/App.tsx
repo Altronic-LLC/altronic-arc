@@ -9,6 +9,8 @@ import { useAccessProbe } from "@/hooks/useListAccess";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { LoadingTasks } from "@/components/LoadingTasks";
+// Panel Orders / Tasks / Capacity / Project Dashboard live test (PANEL_PLANNING_LIVE).
+import { PanelPreviewGate } from "@/components/PanelTeamGate";
 import { ListView } from "@/views/ListView";
 import { DashboardView } from "@/views/DashboardView";
 import { KanbanView } from "@/views/KanbanView";
@@ -235,6 +237,12 @@ const CrimpChecksView = lazy(() =>
 const CrimpSpecsView = lazy(() =>
   import("@/views/CrimpSpecsView").then((m) => ({ default: m.CrimpSpecsView })),
 );
+// Pull Tests (BusinessIT#64) — the Mark-10 WT3-200 pull tester, the crimp
+// checks' arrangement. Its specs have their own admin-managed screen.
+const PullTestsView = lazy(() => import("@/views/PullTestsView").then((m) => ({ default: m.PullTestsView })));
+const PullTestSpecsView = lazy(() =>
+  import("@/views/PullTestSpecsView").then((m) => ({ default: m.PullTestSpecsView })),
+);
 // Who the Harness department's emails go to — ARC admins edit, no redeploy.
 const HarnessAlertRecipientsView = lazy(() =>
   import("@/views/HarnessAlertRecipientsView").then((m) => ({ default: m.HarnessAlertRecipientsView })),
@@ -256,6 +264,11 @@ const OperationsAlertRecipientsView = lazy(() =>
 const McnsView = lazy(() => import("@/views/McnsView").then((m) => ({ default: m.McnsView })));
 const McnDetailView = lazy(() => import("@/views/McnDetailView").then((m) => ({ default: m.McnDetailView })));
 const McnSettingsView = lazy(() => import("@/views/McnSettingsView").then((m) => ({ default: m.McnSettingsView })));
+const PlantLayoutsView = lazy(() => import("@/views/PlantLayoutsView").then((m) => ({ default: m.PlantLayoutsView })));
+const PlantLayoutView = lazy(() => import("@/views/PlantLayoutView").then((m) => ({ default: m.PlantLayoutView })));
+const PlantSymbolsView = lazy(() => import("@/views/PlantSymbolsView").then((m) => ({ default: m.PlantSymbolsView })));
+const PlantMapRolesView = lazy(() => import("@/views/PlantMapRolesView").then((m) => ({ default: m.PlantMapRolesView })));
+const PlantLayoutEditView = lazy(() => import("@/views/PlantLayoutEditView").then((m) => ({ default: m.PlantLayoutEditView })));
 
 // Human Resources (Tim, 2026-11-17) — its own bundle; nothing else imports it.
 const NewHiresView = lazy(() => import("@/views/NewHiresView").then((m) => ({ default: m.NewHiresView })));
@@ -370,6 +383,14 @@ const PanelOrdersView = lazy(() =>
 const PanelOrderDetailView = lazy(() =>
   import("@/views/PanelOrderDetailView").then((m) => ({
     default: m.PanelOrderDetailView,
+  })),
+);
+const PanelProjectsView = lazy(() =>
+  import("@/views/PanelProjectsView").then((m) => ({ default: m.PanelProjectsView })),
+);
+const PanelProjectDashboardView = lazy(() =>
+  import("@/views/PanelProjectDashboardView").then((m) => ({
+    default: m.PanelProjectDashboardView,
   })),
 );
 const AdminPanelProjectsView = lazy(() =>
@@ -1166,6 +1187,31 @@ export function App() {
               }
             />
             <Route
+              path="/harness/pull-tests"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the pull tests" />}>
+                  <PullTestsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/harness/pull-tests/specs"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the pull test specs" />}>
+                  <PullTestSpecsView />
+                </Suspense>
+              }
+            />
+            {/* One test — the link in a failed-pull email (lib/appUrl.ts pullTest). */}
+            <Route
+              path="/harness/pull-tests/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the pull tests" />}>
+                  <PullTestsView />
+                </Suspense>
+              }
+            />
+            <Route
               path="/operations/coating-checks"
               element={
                 <Suspense fallback={<LoadingTasks noun="the coating checks" />}>
@@ -1247,6 +1293,46 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="HR access" />}>
                   <HrAccessView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Plant Map" />}>
+                  <PlantLayoutsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/symbols"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the symbol library" />}>
+                  <PlantSymbolsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/roles"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Plant Map roles" />}>
+                  <PlantMapRolesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the layout" />}>
+                  <PlantLayoutView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/plant-map/:id/edit"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the layout editor" />}>
+                  <PlantLayoutEditView />
                 </Suspense>
               }
             />
@@ -1347,51 +1433,83 @@ export function App() {
               }
             />
             <Route
+              path="/panels/projects"
+              element={
+                <PanelPreviewGate noun="panel projects">
+                  <Suspense fallback={<LoadingTasks noun="panel projects" />}>
+                    <PanelProjectsView />
+                  </Suspense>
+                </PanelPreviewGate>
+              }
+            />
+            <Route
+              path="/panels/projects/:id"
+              element={
+                <PanelPreviewGate noun="this panel project">
+                  <Suspense fallback={<LoadingTasks noun="this panel project" />}>
+                    <PanelProjectDashboardView />
+                  </Suspense>
+                </PanelPreviewGate>
+              }
+            />
+            <Route
               path="/panels/orders"
               element={
-                <Suspense fallback={<LoadingTasks noun="panel orders" />}>
-                  <PanelOrdersView />
-                </Suspense>
+                <PanelPreviewGate noun="panel orders">
+                  <Suspense fallback={<LoadingTasks noun="panel orders" />}>
+                    <PanelOrdersView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/order/:id"
               element={
-                <Suspense fallback={<LoadingTasks noun="this panel order" />}>
-                  <PanelOrderDetailView />
-                </Suspense>
+                <PanelPreviewGate noun="this panel order">
+                  <Suspense fallback={<LoadingTasks noun="this panel order" />}>
+                    <PanelOrderDetailView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/tasks"
               element={
-                <Suspense fallback={<LoadingTasks noun="panel tasks" />}>
-                  <PanelTasksView />
-                </Suspense>
+                <PanelPreviewGate noun="panel tasks">
+                  <Suspense fallback={<LoadingTasks noun="panel tasks" />}>
+                    <PanelTasksView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/task/:id"
               element={
-                <Suspense fallback={<LoadingTasks noun="this panel task" />}>
-                  <PanelTaskDetailView />
-                </Suspense>
+                <PanelPreviewGate noun="this panel task">
+                  <Suspense fallback={<LoadingTasks noun="this panel task" />}>
+                    <PanelTaskDetailView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/capacity"
               element={
-                <Suspense fallback={<LoadingTasks noun="panel capacity" />}>
-                  <PanelCapacityView />
-                </Suspense>
+                <PanelPreviewGate noun="panel capacity">
+                  <Suspense fallback={<LoadingTasks noun="panel capacity" />}>
+                    <PanelCapacityView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route
               path="/panels/task-templates"
               element={
-                <Suspense fallback={<LoadingTasks noun="the standard tasks" />}>
-                  <PanelTaskTemplatesView />
-                </Suspense>
+                <PanelPreviewGate noun="the standard tasks">
+                  <Suspense fallback={<LoadingTasks noun="the standard tasks" />}>
+                    <PanelTaskTemplatesView />
+                  </Suspense>
+                </PanelPreviewGate>
               }
             />
             <Route

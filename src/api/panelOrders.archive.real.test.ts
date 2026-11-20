@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Panel Order Headers in REAL mode — the archive columns that
 // scripts/move-panel-orders-to-arc.ps1 adds. Invisible from the mock branch:
-//  - a read asks for Archived / LegacySource / LegacyCreated, and a 400 (the
-//    script hasn't run yet) retries once without them and remembers;
+//  - a read asks for Archived / LegacySource / LegacyCreated / DrawingNumber,
+//    and a 400 (the script hasn't run yet) steps down — Drawing Number first,
+//    so a list without it keeps its Archived flags — and remembers;
 //  - anything other than a 400 propagates rather than retrying;
 //  - one order is read on its own, never by downloading the whole list.
 
@@ -27,7 +28,12 @@ vi.mock("./config", async (importOriginal) => {
 });
 
 import { GraphError } from "./graph";
-import { __resetPanelOrderArchiveColumns, getPanelOrder, listPanelOrders } from "./panelOrders";
+import {
+  __resetPanelOrderArchiveColumns,
+  getPanelOrder,
+  listPanelOrders,
+  panelOrderDrawingNumberAvailable,
+} from "./panelOrders";
 
 const ITEM = {
   id: "7",
@@ -60,19 +66,40 @@ describe("listPanelOrders", () => {
     expect(o.legacyCreatedAt?.toISOString()).toBe("2023-08-14T14:00:00.000Z");
   });
 
-  it("retries without them on a 400, and doesn't ask again", async () => {
+  it("steps down a tier per 400 — Drawing Number first, then the archive columns — and doesn't ask again", async () => {
     graphFetchAll
+      .mockRejectedValueOnce(badRequest())
       .mockRejectedValueOnce(badRequest())
       .mockResolvedValue([{ ...ITEM, fields: { Title: "Order", Status: "Submitted" } }]);
     const [o] = await listPanelOrders();
-    expect(graphFetchAll.mock.calls[1][0]).not.toMatch(/Archived/);
+    expect(graphFetchAll.mock.calls[0][0]).toMatch(/Archived,LegacySource,LegacyCreated,DrawingNumber/);
+    expect(graphFetchAll.mock.calls[1][0]).toMatch(/Archived/);
+    expect(graphFetchAll.mock.calls[1][0]).not.toMatch(/DrawingNumber/);
+    expect(graphFetchAll.mock.calls[2][0]).not.toMatch(/Archived|DrawingNumber/);
     expect(o.archived).toBe(false);
     expect(o.legacySource).toBe("");
     expect(o.legacyCreatedAt).toBeNull();
+    expect(panelOrderDrawingNumberAvailable()).toBe(false);
 
     await listPanelOrders();
-    expect(graphFetchAll).toHaveBeenCalledTimes(3);
-    expect(graphFetchAll.mock.calls[2][0]).not.toMatch(/Archived/);
+    expect(graphFetchAll).toHaveBeenCalledTimes(4);
+    expect(graphFetchAll.mock.calls[3][0]).not.toMatch(/Archived/);
+  });
+
+  it("keeps the archive columns when only Drawing Number is missing", async () => {
+    graphFetchAll.mockRejectedValueOnce(badRequest()).mockResolvedValue([ITEM]);
+    const [o] = await listPanelOrders();
+    expect(graphFetchAll).toHaveBeenCalledTimes(2);
+    expect(o.archived).toBe(true);
+    expect(o.drawingNumber).toBe("");
+    expect(panelOrderDrawingNumberAvailable()).toBe(false);
+  });
+
+  it("reads the drawing number when the column is there", async () => {
+    graphFetchAll.mockResolvedValue([{ ...ITEM, fields: { ...ITEM.fields, DrawingNumber: "5900C-013" } }]);
+    const [o] = await listPanelOrders();
+    expect(o.drawingNumber).toBe("5900C-013");
+    expect(panelOrderDrawingNumberAvailable()).toBe(true);
   });
 
   it("doesn't retry anything but a 400", async () => {

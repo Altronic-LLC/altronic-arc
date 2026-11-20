@@ -1,4 +1,4 @@
-import { graphFetch, graphFetchAll } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SP_EIRS_LIST_ID, SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
 import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type {
@@ -30,7 +30,7 @@ import { mockDelay } from "./mockLatency";
 // browser that has already stored the old ones (which is every demo user).
 // Bumping discards previous demo scribbles, which is the point.
 //   v1 → v2 (2026-08-12): demo EIR set grew from 4 to 20.
-const MOCK_STORAGE_KEY = "aets:mock-eirs-v2";
+const MOCK_STORAGE_KEY = "aets:mock-eirs-v3";
 
 function loadFromStorage(): Eir[] | null {
   if (typeof window === "undefined") return null;
@@ -66,6 +66,28 @@ function saveToStorage() {
 }
 
 let mockStore: Eir[] = loadFromStorage() ?? [...MOCK_EIRS];
+
+/**
+ * The two columns BusinessIT#23 added — Current Stock / Current Cost, now
+ * (`LatestStock` / `LatestCost`). They are created by
+ * scripts/update-eir-fait-columns.ps1, which runs separately from any
+ * deploy, and selecting a column a list hasn't got 400s the WHOLE read. So
+ * the read asks for them, and on a 400 ONLY retries once without them and
+ * remembers for the rest of the page session (the MRB Watchers
+ * arrangement). `null` = not yet known.
+ */
+const LATEST_COLUMNS = ["LatestStock", "LatestCost"] as const;
+let latestColumnsAvailable: boolean | null = null;
+
+/** Whether Current Stock / Current Cost can be read or written at all. */
+export function eirLatestColumnsAvailable(): boolean {
+  return USE_MOCK || latestColumnsAvailable !== false;
+}
+
+/** Test seam: forget what the last read learned about the columns. */
+export function __resetEirLatestColumns(): void {
+  latestColumnsAvailable = null;
+}
 
 export async function listEirs(): Promise<Eir[]> {
   if (USE_MOCK) {
@@ -129,12 +151,14 @@ export async function listEirs(): Promise<Eir[]> {
     "EIRMeetingRelevant",
     "BuyerCode",
     "Attachments",
-  ].join(",");
-  const path =
-    `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}` +
-    `/items?$expand=fields($select=${select})&$top=200`;
+  ];
+  const read = (withLatest: boolean) =>
+    graphFetchAll<GraphListItem>(
+      `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}` +
+        `/items?$expand=fields($select=${[...select, ...(withLatest ? LATEST_COLUMNS : [])].join(",")})&$top=200`,
+    );
   const [items, projects, siteUsers] = await Promise.all([
-    graphFetchAll<GraphListItem>(path),
+    readWithLatestFallback(read),
     listProjects(),
     // Best-effort: pull the SharePoint User Information List so we can
     // resolve Reporter LookupIds (and anyone else who only came back as
@@ -148,6 +172,25 @@ export async function listEirs(): Promise<Eir[]> {
   const eirs = items.map(toEir);
   attachEirReferences(eirs, projects, siteUsers);
   return eirs;
+}
+
+async function readWithLatestFallback<T>(read: (withLatest: boolean) => Promise<T>): Promise<T> {
+  if (latestColumnsAvailable === false) return read(false);
+  try {
+    const result = await read(true);
+    latestColumnsAvailable = true;
+    return result;
+  } catch (err) {
+    // Only a 400 can mean a missing column, and only on the first read. A
+    // throttle, a refusal or an outage must propagate, never be read as
+    // "the columns aren't there".
+    const missing = err instanceof GraphError && err.status === 400;
+    if (latestColumnsAvailable !== null || !missing) throw err;
+    const result = await read(false);
+    // Concluded only once the slim read SUCCEEDS.
+    latestColumnsAvailable = false;
+    return result;
+  }
 }
 
 /**
@@ -245,6 +288,8 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
       mfg: input.mfg ?? "",
       mfgPartNumber: input.mfgPartNumber ?? "",
       currentPrice: input.currentPrice ?? "",
+      latestStock: "",
+      latestCost: "",
       altronicPartNumber: input.altronicPartNumber ?? "",
       requestedCompletionDate: input.requestedCompletionDate ?? null,
       ltbDate: input.ltbDate ?? null,
@@ -449,6 +494,8 @@ export async function updateEirFields(
     if ("MFG" in fields) next.mfg = (fields.MFG as string) ?? "";
     if ("MFGP_x002f_N" in fields) next.mfgPartNumber = (fields.MFGP_x002f_N as string) ?? "";
     if ("Current_x0020_Price" in fields) next.currentPrice = (fields.Current_x0020_Price as string) ?? "";
+    if ("LatestStock" in fields) next.latestStock = (fields.LatestStock as string) ?? "";
+    if ("LatestCost" in fields) next.latestCost = (fields.LatestCost as string) ?? "";
     if ("Altronic_x0020_Part_x0020_Number" in fields)
       next.altronicPartNumber = (fields.Altronic_x0020_Part_x0020_Number as string) ?? "";
     if ("TaskReference" in fields) next.taskReference = (fields.TaskReference as string) ?? "";
@@ -511,6 +558,11 @@ export async function updateEirFields(
 
   if (!SP_EIRS_LIST_ID) {
     throw new Error("Cannot update EIR: VITE_SP_EIRS_LIST_ID is not set.");
+  }
+  if (latestColumnsAvailable === false && LATEST_COLUMNS.some((c) => c in fields)) {
+    throw new Error(
+      "Current Stock and Current Cost aren't set up on the EIR list yet — run scripts/update-eir-fait-columns.ps1.",
+    );
   }
 
   await graphFetch(

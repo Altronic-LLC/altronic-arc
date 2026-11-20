@@ -64,6 +64,11 @@ export function PanelOrderRow({ order, onOpen }: PanelOrderRowProps) {
               SO {order.salesOrder}
             </span>
           )}
+          {order.drawingNumber && (
+            <span className="inline-flex items-center gap-1 font-mono font-semibold uppercase tracking-wider">
+              DWG {order.drawingNumber}
+            </span>
+          )}
           {order.customer && (
             <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
               {order.customer}

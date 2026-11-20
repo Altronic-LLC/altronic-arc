@@ -32,6 +32,7 @@ export function toPanelOrder(item: GraphListItem): PanelOrder {
         : null),
     salesOrder: (f.SalesOrder as string) ?? "",
     sapNumber: (f.SAPNumber as string) ?? "",
+    drawingNumber: (f.DrawingNumber as string) ?? "",
     purchaseOrder: (f.PurchaseOrder as string) ?? "",
     customerReference: (f.CustomerReference as string) ?? "",
     customer: (f.Customer as string) ?? "",
