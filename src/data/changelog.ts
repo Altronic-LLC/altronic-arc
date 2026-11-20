@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A new hire's page has a kick-off checklist — Added to SAP, IT ticket raised, IT account created, Computer set up — and tells the submitter and the manager when everything is ready",
       "HR Access lets HR choose who sees each HR app",
       "New Hire emails come from the ARC mailbox, and replying reaches the HR person",
+      "A new hire's page checks SAP's employee list and shows whether they're in SAP yet, with their employee number",
     ],
   },
   {

@@ -9,6 +9,7 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { NewHireFormModal } from "@/components/NewHireFormModal";
+import { NewHireSapCheck } from "@/components/NewHireSapCheck";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { HrAccessGate, HrCardTitle, HrDialog, HrField, NewHireStatusChip } from "@/components/hrAtoms";
 import { cn } from "@/lib/cn";
@@ -18,7 +19,8 @@ import { cn } from "@/lib/cn";
 // (anyone with access edits everything). The kick-off checklist on the right
 // is the workflow: each tick stamps who and when, the status follows the
 // ticks, and the last tick tells the submitter and the manager the hire is
-// ready. Cancelling needs a reason and tells SAP, IT and the manager.
+// ready. Cancelling needs a reason and tells SAP, IT and the manager. The SAP
+// card above it checks SAP's employee list in the background (read-only).
 // =============================================================================
 
 export function NewHireDetailView() {
@@ -138,6 +140,7 @@ function NewHireDetail() {
         </div>
 
         <aside className="flex flex-col gap-4">
+          <NewHireSapCheck hire={hire} />
           <Checklist hire={hire} />
           <section className="rounded-xl border border-border bg-surface p-4 text-sm">
             <HrCardTitle>Record</HrCardTitle>

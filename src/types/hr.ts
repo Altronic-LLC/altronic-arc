@@ -3,9 +3,9 @@ import type { Person } from "./task";
 // =============================================================================
 // Human Resources — types and constants (Tim, 2026-11-17).
 //
-// HR has no SharePoint site yet, so the department is built on MOCK DATA ONLY
-// for now: the real branches exist, but they read nothing until an HR site and
-// its lists are set up (`HR_CONFIGURED` in api/config.ts).
+// HR's lists live on its own site, AltronicPC-ARCConnection (SITES.hr, a
+// QUIET site — see api/appAccess.ts); unset list ids read nothing
+// (`HR_CONFIGURED` in api/config.ts).
 //
 // Access is the HR Roles list — one tag per app, so a person can see New Hire
 // and not the next HR app. No role = the whole HR department is HIDDEN (menu

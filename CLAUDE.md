@@ -512,7 +512,8 @@ src/
 │   ├── mcns.ts                   MCNs CRUD + the workflow (fresh read, one PATCH per step) + comments (Operations, PMO site) — no delete
 │   ├── mcnRoles.ts               MCN Roles (member / approver / admin) + MCN Distribution Groups (Name <email> lines)
 │   ├── hrRoles.ts                HR Roles CRUD (HR site) — one tag per HR app; unset = HR hidden
-│   ├── newHires.ts               New Hires CRUD (HR site) — steps and cancel after a fresh read, no delete; mock only until HR has a site
+│   ├── newHires.ts               New Hires CRUD (HR site) — steps and cancel after a fresh read, no delete
+│   ├── sapEmployees.ts           SAP's employee list from Fabric (`tbl_arc_employee`), whole table — the New Hire "in SAP?" check, read-only
 │   ├── plantLayouts.ts           Plant Layouts — one row per VERSION, the layout as JSON; never writes a Published row or over JSON it can't read
 │   ├── layoutComponents.ts       Layout Components — the Plant Map symbol library; add (key checked fresh), replace = a NEW row per version (latest checked fresh), never deleted
 │   ├── plantLayoutFiles.ts       Plant Layout Files library — walls drawings in walls/ (never overwritten; deleted only when no layout uses them) and the Power BI files in published/ (replaced)
@@ -648,6 +649,7 @@ src/
 │   ├── useMcnRoles.ts            MCN team + distribution groups CRUD, useMyMcnAccess / useResolveMcnAccess, readMcnApprovers
 │   ├── useHrRoles.ts             HR Roles CRUD (HR admin / ARC admin) + useMyHrAccess / useResolveHrAccess / canSeeHr / readHrPeopleWithRole
 │   ├── useNewHires.ts            New Hire queries + gated writes (create, edit, tick a step, cancel/reopen) + their emails
+│   ├── useSapEmployees.ts        SAP's employee list as one cached query (+ why it couldn't be read, the dev demo's sign-in)
 │   ├── usePlantLayouts.ts        Plant layouts, the symbol library and the walls drawings (read + sanitised once) as queries; start, save, copy-to-draft (editor-gated); publish + the Power BI files
 │   ├── usePlantMapRoles.ts       Plant Map Roles CRUD (manage-gated) + useMyPlantMapAccess / useResolvePlantMapAccess
 │   ├── usePlantLayerVisibility.ts Which Plant Map layers are shown — per viewer, never saved; starts from each layer's default
@@ -932,6 +934,7 @@ src/
 │   ├── newHire.ts                New Hire rules (pure) — display name + email from the names, the four steps, derived status, what a submission needs
 │   ├── newHireMapper.ts          Graph item ⇄ NewHire; manager and step 'who' as Name <email> TEXT, ticket link as text
 │   ├── newHireAlerts.ts          New Hire emails (pure) — submitted / ready / cancelled; no personal identifiers
+│   ├── sapEmployees.ts           Is a new hire in SAP (pure) — by EMP number, else by name; a shared name is listed, never guessed
 │   ├── plantGeometry.ts          Plant Map geometry (pure, inches) — rotated boxes, the separating-axis overlap test, the placement check and its wording
 │   ├── plantSvg.ts               Walls drawings + symbols — sanitiseSvg (drawn ONLY as images), the walls rules (viewBox in inches, obstacle groups)
 │   ├── plantEditor.ts            The layout editor's state (pure) — one action per edit with undo / redo, snap, size limits, placing a symbol
@@ -1131,6 +1134,7 @@ src/
 │   ├── McnDialogs.tsx            MCN card editors (description, scope, items, distribution) + approve / reject-reopen / implement
 │   ├── hrAtoms.tsx               HR dialog / field / person picker, status chip, HR sub-nav, HrAccessGate
 │   ├── NewHireFormModal.tsx      New hire / edit — the HR spreadsheet's columns, email follows the name, NO browser draft
+│   ├── NewHireSapCheck.tsx       A new hire's SAP card — in SAP (with the employee number), not yet, or which of two; reads Fabric in the background
 │   ├── plantMapAtoms.tsx         Plant Map status chip, the Layouts / Symbols / Roles nav, PlantMapAccessGate (configured? on the roles list?)
 │   ├── PlantCanvas.tsx           THE plan, viewing and editing — a viewBox window (wheel zoom, drag to pan), walls + symbols as sanitised <image>s; editing adds move / rotate / resize drags and the palette ghost
 │   ├── PlantEditorPanels.tsx     The editor's symbol palette (drag or click) and the selected item's inspector (commit on Enter / blur; Layer / Group)
@@ -6614,6 +6618,34 @@ field-level split). The first app replaces HR's New Hire spreadsheet. Pieces:
   IT or SAP), the actor when there's no submitter. Pinned in
   `api/email.grouped.test.ts` (real mode, verified by removing the line).
   Another department can pass `replyTo` the same way.
+- **"Is the new hire in SAP?"** (Tim, 2026-11-20) — the SAP card on a new
+  hire's page (`components/NewHireSapCheck.tsx`) reads SAP's employee list
+  through Fabric in the background: warehouse table `dbo.tbl_arc_employee`,
+  GraphQL `tbl_arc_employees` (`api/sapEmployees.ts`,
+  `hooks/useSapEmployees.ts`). FOUR columns, proved one at a time with live
+  queries since introspection is off: `EMPLOYEE_NUMBER` (text, six digits),
+  `EMPLOYEE_NAME` (always first + " " + last), `FIRST_NAME`, `LAST_NAME`.
+  211 rows on 2026-11-20 — read whole (one page, ~0.6 s), cached 10 min,
+  matched in the browser (the warehouse matches case-exactly). Rules in
+  `lib/sapEmployees.ts` (`checkNewHireInSap`), each pinned:
+  - **An EMP number on the record is looked up by NUMBER and never falls
+    back to the name** — a wrong number is said, with who SAP has under the
+    name. A number SAP holds under another name is flagged.
+  - **No EMP number: by name**, legal OR preferred first name with the last
+    name, ignoring case, spacing, punctuation and accents. Both halves are
+    needed — a surname alone matches nobody.
+  - **A shared name is LISTED, never guessed** (the live table has a pair).
+  - **It writes nothing.** "Added to SAP" stays a person's tick; ticked but
+    not found is said ("may not have caught up").
+  - **Live in real mode AND the dev demo-with-live-Fabric mode**
+    (`!USE_MOCK || FABRIC_IN_DEMO`), so the demo's hires can be checked
+    against the real list; plain demo reads `MOCK_SAP_EMPLOYEES`
+    (`data/hrMockData.ts`). Who can read it is Fabric's call (Run Queries on
+    the GraphQL item); a refusal is a sentence on the card, nothing else.
+  - **Demo new hire #6 is Tim Webster, by name only, at his request**, so the
+    live mode confirms a real person. His mock SAP row carries an INVENTED
+    employee number; his real one is not in `src/`. Every other HR mock row
+    stays invented (rule 8).
 
 ### Panel Orders — moving in the old Panel Job Dashboard (2026-11-13)
 

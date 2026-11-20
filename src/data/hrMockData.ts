@@ -8,6 +8,13 @@ import { newHireStatus } from "@/lib/newHire";
 // is public (CLAUDE.md rule 8), and this department holds personal data. Real
 // new hires and the real HR team go into SharePoint, never into src/.
 //
+// ONE exception: new hire #6 is Tim Webster, by name only, at his request
+// (2026-11-20) — he is on SAP's real employee list, so the dev server's
+// demo-with-live-Fabric mode (VITE_FABRIC_IN_DEMO) shows the SAP check
+// confirming a real person. His name is already in src/ elsewhere; no number
+// or personal identifier of his is here — his row in MOCK_SAP_EMPLOYEES
+// carries an invented employee number.
+//
 // One new hire in each state (just submitted, part-way, complete, cancelled,
 // no computer needed). The demo user holds every HR tag; the other role rows
 // show the SAP and IT tags. Start dates are relative to today.
@@ -186,6 +193,47 @@ const SEEDS: Seed[] = [
     createdAt: ago(9),
     modifiedAt: ago(4),
   },
+  {
+    // Tim, at his request — see the header. Found in SAP by NAME (no EMP # yet).
+    id: 6,
+    displayName: "Tim Webster",
+    startDate: dayFromToday(10),
+    legalFirstName: "Tim",
+    preferredFirstName: "",
+    lastName: "Webster",
+    email: "Tim.Webster@altronic-llc.com",
+    jobTitle: "Business IT",
+    fabNumber: "",
+    personalNumber: "",
+    empNumber: "",
+    employmentType: "Permanent",
+    department: "Business IT",
+    manager: MANAGER_B,
+    needsComputer: true,
+    deskLocation: "",
+    notes: "Demo row — the SAP check should find this one.",
+    itTicketNumber: "",
+    itTicketLink: "",
+    steps: steps({}),
+    cancelled: null,
+    submittedBy: HR_PERSON,
+    createdAt: ago(1),
+    modifiedAt: ago(1),
+  },
+];
+
+/**
+ * SAP's employee list, as the demo's Fabric stand-in — the shape of
+ * `dbo.tbl_arc_employee`, every number invented. Robin and Morgan are found by
+ * their EMP number; Andrew ("Drew") Contractor and Tim Webster by name; Taylor
+ * Newman isn't in SAP yet.
+ */
+export const MOCK_SAP_EMPLOYEES = [
+  { EMPLOYEE_NUMBER: "900101", EMPLOYEE_NAME: "Robert Starter", FIRST_NAME: "Robert", LAST_NAME: "Starter" },
+  { EMPLOYEE_NUMBER: "900102", EMPLOYEE_NAME: "Morgan Joiner", FIRST_NAME: "Morgan", LAST_NAME: "Joiner" },
+  { EMPLOYEE_NUMBER: "900103", EMPLOYEE_NAME: "Tim Webster", FIRST_NAME: "Tim", LAST_NAME: "Webster" },
+  { EMPLOYEE_NUMBER: "900104", EMPLOYEE_NAME: "Andrew Contractor", FIRST_NAME: "Andrew", LAST_NAME: "Contractor" },
+  { EMPLOYEE_NUMBER: "900200", EMPLOYEE_NAME: "Jordan Manager", FIRST_NAME: "Jordan", LAST_NAME: "Manager" },
 ];
 
 export function mockNewHires(): NewHire[] {
