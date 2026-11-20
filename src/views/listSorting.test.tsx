@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
+import { quoteMockDb } from "@/data/quoteMockData";
+import { pricingMockDb } from "@/data/pricingMockData";
 
 // =============================================================================
 // Column sorting, exercised through real views.
@@ -35,6 +37,48 @@ vi.mock("@/hooks/useIsAdmin", () => ({
   useAdminAccess: () => adminAccess,
   useIsAdmin: () => adminAccess.isAdmin,
 }));
+
+// Insourcing Quotes is role-gated; give this file's user a quote manager's
+// rights so the two quote registers render their tables.
+vi.mock("@/hooks/useQuoteRoles", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useQuoteRoles")>();
+  const { quoteRightsFrom } = await import("@/lib/quoteRoles");
+  return {
+    ...actual,
+    useMyQuoteAccess: () => ({
+      rights: quoteRightsFrom(["manager"], { isArcAdmin: false }),
+      resolving: false,
+      failed: false,
+      configured: true,
+    }),
+  };
+});
+
+/** Insourcing Quotes admits only people with a quote role — give the mocked user one. */
+function grantQuoteRole() {
+  if (!quoteMockDb.roles.some((r) => r.email === "ray.white@altronic-llc.com")) {
+    quoteMockDb.roles.push({
+      id: 990,
+      email: "ray.white@altronic-llc.com",
+      displayName: "Ray White",
+      roles: ["manager"],
+      note: "",
+    });
+  }
+}
+
+/** Sales Pricing admits only people on its roles list — make the mocked user a pricing admin. */
+function grantPricingRole() {
+  if (!pricingMockDb.roles.some((r) => r.email === "ray.white@altronic-llc.com")) {
+    pricingMockDb.roles.push({
+      id: 990,
+      email: "ray.white@altronic-llc.com",
+      displayName: "Ray White",
+      roles: ["admin"],
+      note: "",
+    });
+  }
+}
 
 /** The data cells of the rendered rows, first column only. */
 function firstColumnValues(): string[] {
@@ -113,6 +157,31 @@ describe("every sortable list renders its sort buttons", () => {
     expect(screen.getByRole("button", { name: "Sort by Log No." })).toBeInTheDocument();
   });
 
+  it("SCNs", async () => {
+    const { ScnsView } = await import("./ScnsView");
+    renderWithProviders(<ScnsView />, { route: "/supply-chain/scns" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by SCN#" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Owner" })).toBeInTheDocument();
+  });
+
+  it("MCNs", async () => {
+    const { McnsView } = await import("./McnsView");
+    renderWithProviders(<McnsView />, { route: "/operations/mcns?status=All" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by MCN #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Implemented" })).toBeInTheDocument();
+  });
+
+  it("Insourcing Quotes", async () => {
+    grantQuoteRole();
+    const { QuotesView } = await import("./QuotesView");
+    renderWithProviders(<QuotesView />, { route: "/sales/quotes" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Quote #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Customer" })).toBeInTheDocument();
+  });
+
   it("Parts List (Global Search)", async () => {
     const { PartsListView } = await import("./PartsListView");
     renderWithProviders(<PartsListView />, {
@@ -123,12 +192,160 @@ describe("every sortable list renders its sort buttons", () => {
     expect(screen.getByRole("button", { name: "Sort by Part #" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort by Type" })).toBeInTheDocument();
   });
+
+  it("Quote Customers", async () => {
+    const { QuoteCustomersView } = await import("./QuoteCustomersView");
+    renderWithProviders(<QuoteCustomersView />, { route: "/sales/quotes/customers" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Customer #" })).toBeInTheDocument();
+  });
+
+  it("Quote Roles", async () => {
+    const { QuoteRolesView } = await import("./QuoteRolesView");
+    renderWithProviders(<QuoteRolesView />, { route: "/sales/quotes/roles" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Roles" })).toBeInTheDocument();
+  });
+  it("Sales Pricing requests", async () => {
+    grantPricingRole();
+    const { PricingRequestsView } = await import("./PricingRequestsView");
+    renderWithProviders(<PricingRequestsView />, { route: "/sales/pricing" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Request #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Customer" })).toBeInTheDocument();
+  });
+
+  it("New Product Pricing", async () => {
+    grantPricingRole();
+    const { NewProductPricingView } = await import("./NewProductPricingView");
+    renderWithProviders(<NewProductPricingView />, { route: "/sales/pricing/new-products" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Worksheet #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Base GM" })).toBeInTheDocument();
+  });
+
+  it("Customer Quotes", async () => {
+    grantPricingRole();
+    const { CustomerQuotesView } = await import("./CustomerQuotesView");
+    renderWithProviders(<CustomerQuotesView />, { route: "/sales/pricing/quotes" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Quote #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Total" })).toBeInTheDocument();
+  });
+
+  it("Pricing Roles", async () => {
+    grantPricingRole();
+    const { PricingRolesView } = await import("./PricingRolesView");
+    renderWithProviders(<PricingRolesView />, { route: "/sales/pricing/roles" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Roles" })).toBeInTheDocument();
+  });
+});
+
+describe("the Harness Production Log", () => {
+  it("renders its sort buttons", async () => {
+    const { HarnessProductionLogView } = await import("./HarnessProductionLogView");
+    renderWithProviders(<HarnessProductionLogView />, { route: "/harness/production-log" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Date" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Part Number" })).toBeInTheDocument();
+  });
+
+  it("re-orders its rows by Work Order, then reverses", async () => {
+    const { HarnessProductionLogView } = await import("./HarnessProductionLogView");
+    renderWithProviders(<HarnessProductionLogView />, { route: "/harness/production-log" });
+    await waitForTable();
+    const workOrders = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.querySelectorAll("td")[1]?.textContent?.trim() ?? "");
+
+    await sortBy("Work Order");
+    const ascending = workOrders();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+
+    await sortBy("Work Order");
+    expect(workOrders()).toEqual([...ascending].reverse());
+  });
+});
+
+describe("Crimp Height Checks", () => {
+  it("renders its sort buttons", async () => {
+    const { CrimpChecksView } = await import("./CrimpChecksView");
+    renderWithProviders(<CrimpChecksView />, { route: "/harness/crimp-checks" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Terminal" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Result" })).toBeInTheDocument();
+  });
+
+  it("re-orders its rows by Terminal, then reverses", async () => {
+    const { CrimpChecksView } = await import("./CrimpChecksView");
+    renderWithProviders(<CrimpChecksView />, { route: "/harness/crimp-checks" });
+    await waitForTable();
+    const terminals = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.querySelectorAll("td")[2]?.textContent?.trim() ?? "");
+
+    await sortBy("Terminal");
+    const ascending = terminals();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+
+    await sortBy("Terminal");
+    expect(terminals()).toEqual([...ascending].reverse());
+  });
+});
+
+describe("Pull Tests", () => {
+  it("re-orders its rows by Terminal, then reverses", async () => {
+    const { PullTestsView } = await import("./PullTestsView");
+    renderWithProviders(<PullTestsView />, { route: "/harness/pull-tests" });
+    await waitForTable();
+    const terminals = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.querySelectorAll("td")[2]?.textContent?.trim() ?? "");
+
+    await sortBy("Terminal");
+    const ascending = terminals();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+
+    await sortBy("Terminal");
+    expect(terminals()).toEqual([...ascending].reverse());
+  });
 });
 
 describe("the rows are actually re-ordered", () => {
   // Each case clicks a column and asserts the FIRST cell changed or the order
   // reversed. This is what catches a view whose <tbody> still maps the
   // unsorted list — the engine tests can't see that.
+
+  it("Quote Customers sorts by Name, then reverses", async () => {
+    const { QuoteCustomersView } = await import("./QuoteCustomersView");
+    renderWithProviders(<QuoteCustomersView />, { route: "/sales/quotes/customers" });
+    await waitForTable();
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    await sortBy("Name");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Quote Roles sorts by Name, then reverses", async () => {
+    const { QuoteRolesView } = await import("./QuoteRolesView");
+    renderWithProviders(<QuoteRolesView />, { route: "/sales/quotes/roles" });
+    await waitForTable();
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    await sortBy("Name");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
 
   it("CSA Listings sorts by File Number, then reverses", async () => {
     const { CsaListingsView } = await import("./CsaListingsView");
@@ -172,6 +389,44 @@ describe("the rows are actually re-ordered", () => {
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 
+  it("SCNs sorts by Product — a column that is NOT the default", async () => {
+    // SCN# is the default (descending), so sorting by it would only prove the
+    // direction flips. Product proves the key switches AND the tbody maps the
+    // sorted rows; `?status=All` so every mock row is on screen.
+    const { ScnsView } = await import("./ScnsView");
+    renderWithProviders(<ScnsView />, { route: "/supply-chain/scns?status=All" });
+    await waitForTable();
+    const byNumber = firstColumnValues();
+
+    await sortBy("Product");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byNumber);
+
+    await sortBy("Product");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("SCN Documents sorts by Modified, folders still first", async () => {
+    // Name is the default, so Modified proves the key switches AND the tbody
+    // maps the sorted rows. Folders always lead whatever the sort.
+    const { ScnDocumentsView } = await import("./ScnDocumentsView");
+    renderWithProviders(<ScnDocumentsView />, { route: "/supply-chain/scns/documents" });
+    await waitForTable();
+    const byName = firstColumnValues();
+    expect(byName[0]).toBe("ARCHIVE");
+
+    await sortBy("Modified");
+    const ascending = firstColumnValues();
+    expect(ascending).not.toEqual(byName);
+    expect(ascending.slice(0, 7).every((n) => !n.includes("."))).toBe(true);
+
+    await sortBy("Modified");
+    const descending = firstColumnValues();
+    expect(descending.slice(0, 7)).toEqual([...ascending.slice(0, 7)].reverse());
+    expect(descending.slice(7)).toEqual([...ascending.slice(7)].reverse());
+  });
+
   it("a Parts List list sorts by Description — not its default Part # order", async () => {
     // Part # is the default, so sorting by it would only prove the direction
     // flips. Description proves the key switches AND the tbody maps the sorted
@@ -191,6 +446,81 @@ describe("the rows are actually re-ordered", () => {
     expect(ascending).not.toEqual(byPartNumber);
 
     await sortBy("Description");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Insourcing Quotes sorts by Customer — a column that is NOT the default", async () => {
+    grantQuoteRole();
+    const { QuotesView } = await import("./QuotesView");
+    renderWithProviders(<QuotesView />, { route: "/sales/quotes" });
+    await waitForTable();
+    const byNumber = firstColumnValues();
+
+    await sortBy("Customer");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byNumber);
+
+    await sortBy("Customer");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Sales Pricing requests sort by Customer — a column that is NOT the default", async () => {
+    grantPricingRole();
+    const { PricingRequestsView } = await import("./PricingRequestsView");
+    renderWithProviders(<PricingRequestsView />, { route: "/sales/pricing" });
+    await waitForTable();
+    const byRaised = firstColumnValues();
+
+    await sortBy("Customer");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byRaised);
+
+    await sortBy("Customer");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("New Product Pricing sorts by Product — a column that is NOT the default", async () => {
+    grantPricingRole();
+    const { NewProductPricingView } = await import("./NewProductPricingView");
+    renderWithProviders(<NewProductPricingView />, { route: "/sales/pricing/new-products" });
+    await waitForTable();
+    const byUpdated = firstColumnValues();
+
+    await sortBy("Product");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byUpdated);
+
+    await sortBy("Product");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Customer Quotes sorts by Created — a column that is NOT the default", async () => {
+    grantPricingRole();
+    const { CustomerQuotesView } = await import("./CustomerQuotesView");
+    renderWithProviders(<CustomerQuotesView />, { route: "/sales/pricing/quotes" });
+    await waitForTable();
+    const byNumber = firstColumnValues();
+
+    await sortBy("Created");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byNumber);
+
+    await sortBy("Created");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Pricing Roles sorts by Name, then reverses", async () => {
+    grantPricingRole();
+    const { PricingRolesView } = await import("./PricingRolesView");
+    renderWithProviders(<PricingRolesView />, { route: "/sales/pricing/roles" });
+    await waitForTable();
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    await sortBy("Name");
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 
@@ -235,5 +565,56 @@ describe("the sort indicator says what is happening", () => {
         .find((h) => h.getAttribute("aria-sort") !== "none")
         ?.getAttribute("aria-sort"),
     ).toBe("descending");
+  });
+});
+
+describe("Conformal Coating Checks", () => {
+  it("renders its sort buttons", async () => {
+    const { CoatingChecksView } = await import("./CoatingChecksView");
+    renderWithProviders(<CoatingChecksView />, { route: "/operations/coating-checks" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Machine" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Coating (mm)" })).toBeInTheDocument();
+  });
+
+  it("re-orders its rows by coating thickness, then reverses", async () => {
+    const { CoatingChecksView } = await import("./CoatingChecksView");
+    renderWithProviders(<CoatingChecksView />, { route: "/operations/coating-checks" });
+    await waitForTable();
+    const thickness = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => Number(r.querySelectorAll("td")[5]?.textContent?.trim()));
+
+    await sortBy("Coating (mm)");
+    const ascending = thickness();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a - b));
+
+    await sortBy("Coating (mm)");
+    expect(thickness()).toEqual([...ascending].reverse());
+  });
+});
+
+describe("Panel SAP BOM Builder tables (BusinessIT#59)", () => {
+  it("Saved BOMs renders its sort buttons", async () => {
+    const { PanelBomsView } = await import("./PanelBomsView");
+    renderWithProviders(<PanelBomsView />, { route: "/panels/boms" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Panel System #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Last saved" })).toBeInTheDocument();
+  });
+
+  it("BOM parts re-order by SAP #, then reverse", async () => {
+    const { PanelBomPartsView } = await import("./PanelBomPartsView");
+    renderWithProviders(<PanelBomPartsView />, { route: "/panels/bom-parts" });
+    await waitForTable();
+    await sortBy("SAP #");
+    const ascending = firstColumnValues();
+    expect(new Set(ascending).size).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+    await sortBy("SAP #");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 });

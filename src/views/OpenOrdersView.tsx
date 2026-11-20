@@ -268,7 +268,7 @@ export function OpenOrdersView() {
                               onClick={() =>
                                 downloadZip.mutate({ weekName: week.name, files: weekFiles })
                               }
-                              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:opacity-60"
+                              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:opacity-60"
                             >
                               <Archive className="h-3.5 w-3.5" />
                               {downloadZip.isPending && downloadZip.progress
@@ -471,7 +471,7 @@ function GenerateCard({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+          className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
         >
           <X className="h-4 w-4" />
         </button>
@@ -499,7 +499,7 @@ function GenerateCard({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
           >
             <X className="h-4 w-4" />
           </button>
@@ -534,7 +534,7 @@ function GenerateCard({
             type="file"
             accept=".xlsx,.xls"
             onChange={(e) => void onPick(e.target.files?.[0])}
-            className="block w-full cursor-pointer rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg file:mr-3 file:rounded file:border-0 file:bg-surface-2 file:px-3 file:py-1 file:text-sm file:font-medium file:text-fg hover:file:bg-surface"
+            className="block w-full cursor-pointer rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg file:mr-3 file:rounded-sm file:border-0 file:bg-surface-2 file:px-3 file:py-1 file:text-sm file:font-medium file:text-fg hover:file:bg-surface"
           />
         </div>
       </div>
@@ -612,7 +612,7 @@ function GenerateCard({
                   type="checkbox"
                   checked={keepRaw}
                   onChange={(e) => setKeepRaw(e.target.checked)}
-                  className="h-4 w-4 rounded border-border"
+                  className="h-4 w-4 rounded-sm border-border"
                 />
                 Keep a copy of the raw extract in RAW UPLOADS
               </label>

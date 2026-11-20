@@ -6,11 +6,24 @@ import { MOCK_ALTRONIC_PARTS } from "@/data/altronicPartsMockData";
 import type { AltronicPart } from "@/types/task";
 
 // The Part List read is swapped per test — the mock data by default, a failure
-// or a big list where a case needs one.
+// or a big list where a case needs one. A list screen reads only its own list
+// (listAltronicPartsInLists), so that read is the same swap, filtered — one
+// fixture drives both.
 const listAltronicParts = vi.hoisted(() => vi.fn());
+const listAltronicPartsInLists = vi.hoisted(() => vi.fn());
 vi.mock("@/api/altronicParts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/altronicParts")>();
-  return { ...actual, listAltronicParts: () => listAltronicParts() };
+  const { partPrefix } = await import("@/lib/altronicPartMapper");
+  return {
+    ...actual,
+    listAltronicParts: () => listAltronicParts(),
+    listAltronicPartsInLists: async (prefixes: string[]) => {
+      listAltronicPartsInLists(prefixes);
+      const rows: AltronicPart[] = await listAltronicParts();
+      return rows.filter((p) => prefixes.includes(partPrefix(p.partNumber) ?? ""));
+    },
+    altronicPartListHasRows: async () => ((await listAltronicParts()) as AltronicPart[]).length > 0,
+  };
 });
 
 import { PartsListView } from "./PartsListView";
@@ -54,6 +67,22 @@ describe("PartsListView — one Part List list", () => {
     await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
     expect(tablePartNumbers()).toEqual(["309114", "309115"]);
     expect(screen.getByRole("heading", { name: "309 List" })).toBeInTheDocument();
+  });
+
+  it("says what the list's number means under EWI-005, in full on hover", async () => {
+    useMockParts();
+    renderList("/engineering/parts/list/309");
+    const subtitle = await screen.findByText(
+      "Altronic Part List · Altronic III Ignition · Components / Hardware · Wire Diagram / Sales Drawing",
+    );
+    expect(subtitle.getAttribute("title")).toMatch(/^EWI-005 Rev 5: 3 = Altronic III Ignition System/);
+  });
+
+  it("keeps a component list's own category, with no EWI-005 meaning", async () => {
+    useMockParts();
+    renderList("/engineering/parts/list/601");
+    const subtitle = await screen.findByText("Altronic Component List · Through Hole");
+    expect(subtitle).not.toHaveAttribute("title");
   });
 
   it("offers New part to somebody who can add there", async () => {

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   type QueryClient,
   type QueryKey,
@@ -12,11 +13,12 @@ import {
   deleteTask,
   updateProject,
   editComment,
+  getTask,
   getTaskRawFields,
   listProjects,
+  listRecentTasks,
   listTasks,
   setAssigned,
-  setParentProject,
   setParentTask,
   setRelatedProjects,
   setTaskStatus,
@@ -32,9 +34,14 @@ import {
 } from "./mentionAutoWatch";
 import { fanOutComment } from "@/hooks/useCommentMirror";
 import { listTaskColumns } from "@/api/taskColumns";
+import { listEirs, updateEirFields } from "@/api/eirs";
+import { EIRS_KEY } from "./useEirs";
+import { sameTaskReference } from "@/lib/eirTaskReference";
+import { renumberedTitle, retitledNumberedTitle } from "@/lib/taskNumbering";
 import type {
   Category,
   CommentAttachment,
+  Eir,
   Person,
   Priority,
   ProjectReference,
@@ -62,20 +69,65 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
+import { taskEmailTarget } from "@/lib/emailContext";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mergeTaskIntoList } from "@/lib/taskGraph";
 
 // Exported so the comment fan-out (hooks/useCommentMirror.ts) can read and
 // invalidate the same cache this file owns, rather than re-declaring the key.
 export const TASK_LIST_KEY = ["tasks", "list"] as const;
-const PROJECTS_KEY = ["projects"] as const;
+export const PROJECTS_KEY = ["projects"] as const;
 
-export function useTasks() {
+/**
+ * `enabled: false` lets a screen that only SOMETIMES shows Engineering tasks
+ * (the Operations list's "All tasks" scope) skip downloading the whole task
+ * list until it's asked for. Same key either way, so it shares the cache.
+ */
+export function useTasks({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: TASK_LIST_KEY,
     queryFn: listTasks,
     staleTime: 120_000,
+    enabled,
   });
+}
+
+/** NOT under TASK_LIST_KEY: nothing that patches or invalidates the list may touch it. */
+export const RECENT_TASKS_KEY = ["tasks", "recent"] as const;
+
+/**
+ * The tasks the List and Kanban screens draw: the full list once it has
+ * arrived, and until then a PREVIEW of the 200 most recently changed tasks
+ * (`listRecentTasks`, about a second, against ~16 s for the whole list).
+ *
+ * The preview lives in its own cache entry so that TASK_LIST_KEY keeps
+ * meaning "every task". Numbering, the project-delete guard, the open-child
+ * completion gate, the mention marker and EIR task links all read that and
+ * would go wrong on a partial list. Only screens that SHOW tasks read this.
+ *
+ * `preview` is true while the preview is what's on screen; the screen says
+ * so, and the Kanban holds drags until the full list lands. The preview is
+ * asked for only while the full list has nothing, and a failed preview just
+ * leaves the screen loading, as it did before.
+ */
+export function useTaskListWithPreview() {
+  const full = useTasks();
+  const waiting = full.data === undefined && !full.isError;
+  const recent = useQuery({
+    queryKey: RECENT_TASKS_KEY,
+    queryFn: listRecentTasks,
+    enabled: waiting,
+    retry: false,
+  });
+  const preview = full.data === undefined && recent.data !== undefined;
+  return {
+    data: full.data ?? recent.data,
+    preview,
+    isLoading: full.isLoading && !preview,
+    isError: full.isError,
+    error: full.error,
+  };
 }
 
 /**
@@ -172,8 +224,8 @@ async function snapshotAndPatch(
   prevTaskId: number | null,
   patch: (tasks: Task[]) => Task[],
 ): Promise<TaskCtx> {
-  // Cancel FIRST. A list refetch already in flight (DetailView polls every
-  // 20s, and every write invalidates when it settles) would otherwise resolve
+  // Cancel FIRST. A list refetch already in flight (every write invalidates
+  // when it settles; useTaskPoll guards itself separately) would otherwise resolve
   // with pre-write data *after* the patch below and silently wipe it off the
   // screen — the classic optimistic-update-eaten-by-a-refetch bug.
   await qc.cancelQueries(TASK_LIST_FILTER);
@@ -219,8 +271,18 @@ function invalidateTasks(qc: QueryClient) {
 function reconcile(qc: QueryClient, server: Task | undefined) {
   if (!server) return;
   qc.setQueriesData<Task[]>(TASK_LIST_FILTER, (old) =>
-    old?.map((t) => (t.id === server.id ? server : t)),
+    old ? mergeIntoCache(qc, old, server) : old,
   );
+}
+
+/**
+ * Land one task (a write's result, or the detail page's poll) in a cached
+ * list. A single-row read has no derived fields — child tasks, the parent's
+ * title, project names — so they are re-derived against the list rather than
+ * the row being pasted in as-is. See `mergeTaskIntoList`.
+ */
+export function mergeIntoCache(qc: QueryClient, list: Task[], server: Task): Task[] {
+  return mergeTaskIntoList(list, server, qc.getQueryData<ProjectReference[]>(PROJECTS_KEY) ?? []);
 }
 
 /**
@@ -238,6 +300,66 @@ function settleTasks(qc: QueryClient, server?: Task) {
   if (qc.isMutating({ mutationKey: TASK_WRITE_KEY }) > 1) return;
   reconcile(qc, server);
   invalidateTasks(qc);
+}
+
+/** How often an open task's detail page re-reads that task. */
+export const TASK_POLL_MS = 20_000;
+
+/**
+ * Keep ONE task current while its detail page is open: every TASK_POLL_MS,
+ * with the tab visible, re-read that row and land it in the list cache, which
+ * is what drives the page's "new comment from …" banner.
+ *
+ * This replaced invalidating the WHOLE task list every 20 seconds — ~17 pages,
+ * every comment thread on the list — per person with a task open
+ * (2026-10-26, investigating SharePoint 504s). The list itself now refreshes
+ * the normal way: after a write, from the header's Refresh, or when a list
+ * screen mounts and its data is over two minutes old.
+ *
+ * A poll must never paint over an edit still landing, so a tick is skipped
+ * while any task write is in flight, and a read is thrown away if a write was
+ * sent after it started — its row predates that write.
+ */
+export function useTaskPoll(id: number | null, intervalMs = TASK_POLL_MS) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (id == null) return;
+    let cancelled = false;
+    // One read at a time: when SharePoint is slow enough that a read outlasts
+    // the interval, stacking another on top is the last thing it needs.
+    let inFlight = false;
+    const tick = async () => {
+      if (inFlight || document.visibilityState !== "visible") return;
+      if (qc.isMutating({ mutationKey: TASK_WRITE_KEY }) > 0) return;
+      const startedAt = Date.now();
+      inFlight = true;
+      try {
+        const server = await getTask(id);
+        if (cancelled || taskWriteSince(qc, startedAt)) return;
+        // Gone — deleted elsewhere. Let the list catch up so the page says so.
+        if (!server) invalidateTasks(qc);
+        else reconcile(qc, server);
+      } catch (err) {
+        // Quiet: the next tick tries again, and the page keeps what it has.
+        console.warn(`[task poll] couldn't re-read task ${id}`, err);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const handle = window.setInterval(() => void tick(), intervalMs);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [id, qc, intervalMs]);
+}
+
+/** Is a task write in flight, or was one sent at or after `since`? */
+function taskWriteSince(qc: QueryClient, since: number): boolean {
+  return qc
+    .getMutationCache()
+    .findAll({ mutationKey: TASK_WRITE_KEY })
+    .some((m) => m.state.status === "pending" || m.state.submittedAt >= since);
 }
 
 function patchTask(id: number, transform: (t: Task) => Task) {
@@ -296,7 +418,7 @@ export function useSetStatus() {
       });
       if (ctx?.prevTask && prev) {
         fireFieldChangeAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           fieldLabel: "status",
           from: prev,
           to: status,
@@ -343,21 +465,41 @@ function stampChecklistEdits(
 export function useUpdateTaskFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  // The fields actually sent, keyed on the variables object React Query hands
+  // to every phase. A Title edit grows a NumberedTitle (withNumberedTitle), and
+  // the write, the optimistic patch and the undo must all agree on it.
+  const [sent] = useState(() => new WeakMap<object, Record<string, unknown>>());
+  const fieldsFor = (vars: { id: number; fields: Record<string, unknown> }) =>
+    sent.get(vars) ?? vars.fields;
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateTaskFields(id, stampChecklistEdits(qc, id, fields, actor?.displayName)),
-    onMutate: ({ id, fields }) =>
-      snapshotAndPatch(qc, id, patchTask(id, (t) => applyFieldsLocally(t, fields))),
-    onSuccess: (_data, { id, fields }, ctx) => {
+    mutationFn: (vars: { id: number; fields: Record<string, unknown> }) =>
+      updateTaskFields(
+        vars.id,
+        stampChecklistEdits(qc, vars.id, fieldsFor(vars), actor?.displayName),
+      ),
+    onMutate: (vars) => {
+      sent.set(vars, withNumberedTitle(qc, vars.id, vars.fields));
+      const fields = fieldsFor(vars);
+      return snapshotAndPatch(qc, vars.id, patchTask(vars.id, (t) => applyFieldsLocally(t, fields)));
+    },
+    onSuccess: (_data, vars, ctx) => {
+      const { id } = vars;
+      const fields = fieldsFor(vars);
       const prevFields = ctx?.prevTask ? extractInverseFields(ctx.prevTask, fields) : null;
+      const renamedFrom = ctx?.prevTask?.numberedTitle ?? "";
+      const renamedTo = typeof fields.NumberedTitle === "string" ? fields.NumberedTitle : "";
       pushToast({
         message: messageForFieldsUpdate(fields),
         undo:
           prevFields && Object.keys(prevFields).length > 0
-            ? buildUndo(qc, ctx?.snapshots, () => updateTaskFields(id, prevFields))
+            ? buildUndo(qc, ctx?.snapshots, async () => {
+                await updateTaskFields(id, prevFields);
+                if (renamedTo) await relinkEirTaskReferences(qc, renamedTo, renamedFrom);
+              })
             : undefined,
       });
+      if (renamedTo) void relinkEirTaskReferences(qc, renamedFrom, renamedTo);
       // Status is the only notify-worthy single field routed through
       // updateTaskFields (the detail view's Status dropdown). Assignment goes
       // through useSetAssigned; other fields here (priority, due date, …)
@@ -365,7 +507,7 @@ export function useUpdateTaskFields() {
       // diffing the checklist items below.
       if ("Status" in fields && ctx?.prevTask) {
         fireFieldChangeAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           fieldLabel: "status",
           from: ctx.prevTask.status,
           to: String(fields.Status ?? ""),
@@ -376,7 +518,7 @@ export function useUpdateTaskFields() {
       }
       if ("Description" in fields && ctx?.prevTask) {
         fireChecklistToggleAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           toggles: diffChecklistToggles(
             ctx.prevTask.description ?? "",
             String(fields.Description ?? ""),
@@ -431,31 +573,82 @@ export function useSetParentTask() {
   });
 }
 
+/**
+ * Move a task to another parent project, and RENUMBER it (BusinessIT#33).
+ *
+ * `NumberedTitle` is `T{n}-{project code}-{title}`, so a task moved from 0017
+ * to 0042 takes the next number in 0042, in the SAME PATCH as the lookup. Two
+ * writes could half-fail and leave the number naming a project the task is no
+ * longer in. `title`, when given, is the edit form's new title, written in
+ * that same PATCH for the same reason.
+ *
+ * An EIR whose Task Reference held the old numbered title is re-pointed at
+ * the new one afterwards (best-effort). That reference is matched by exact
+ * title, so its Linked Task card would otherwise stop finding the task.
+ */
 export function useSetParentProject() {
   const qc = useQueryClient();
+  // The PATCH, and the row it was planned from. That row is captured BEFORE
+  // the optimistic patch: after it, the cached task already sits in the new
+  // project, and planning from it would read as "nothing moved".
+  const [plans] = useState(
+    () => new WeakMap<object, { fields: Record<string, unknown>; before?: Task }>(),
+  );
+  type Vars = { id: number; projectLookupId: number | null; title?: string };
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
-    mutationFn: ({ id, projectLookupId }: { id: number; projectLookupId: number | null }) =>
-      setParentProject(id, projectLookupId),
-    onMutate: ({ id, projectLookupId }) =>
-      snapshotAndPatch(
+    mutationFn: async (vars: Vars) => {
+      const planned = plans.get(vars);
+      let fields = planned?.fields ?? planProjectMove(qc, vars);
+      // The number needs the project's title and every task in it. Normally
+      // both are cached; if not, load them rather than write a stale number.
+      if (!("NumberedTitle" in fields)) {
+        await Promise.all([
+          qc.ensureQueryData({ queryKey: PROJECTS_KEY, queryFn: listProjects }),
+          qc.ensureQueryData({ queryKey: TASK_LIST_KEY, queryFn: listTasks }),
+        ]);
+        fields = planProjectMove(qc, vars, planned?.before);
+        plans.set(vars, { fields, before: planned?.before });
+      }
+      return updateTaskFields(vars.id, fields);
+    },
+    onMutate: (vars) => {
+      const before = cachedTasks(qc)?.find((t) => t.id === vars.id);
+      const fields = planProjectMove(qc, vars, before);
+      plans.set(vars, { fields, before });
+      const { id, projectLookupId } = vars;
+      return snapshotAndPatch(
         qc,
         id,
         patchTask(id, (t) => ({
-          ...t,
+          ...applyFieldsLocally(t, fields),
           parentProject:
             projectLookupId != null
               ? resolveProject(qc, projectLookupId) ?? { lookupId: projectLookupId, title: "" }
               : null,
-          modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id }, ctx) => {
-      const prev = ctx?.prevTask?.parentProject?.lookupId ?? null;
+      );
+    },
+    onSuccess: (server, vars, ctx) => {
+      const { id } = vars;
+      const fields = plans.get(vars)?.fields ?? {};
+      const prev = ctx?.prevTask;
+      const from = prev?.numberedTitle ?? "";
+      const to = server?.numberedTitle || (fields.NumberedTitle as string | undefined) || "";
+      const renumbered = "NumberedTitle" in fields && !!from && to !== from;
+      const inverse: Record<string, unknown> = {
+        Parent_x0020_Project_x0020_ReferLookupId: prev?.parentProject?.lookupId ?? null,
+      };
+      if (prev && "NumberedTitle" in fields) inverse.NumberedTitle = prev.numberedTitle;
+      if (prev && "Title" in fields) inverse.Title = prev.title;
       pushToast({
-        message: "Parent project updated.",
-        undo: buildUndo(qc, ctx?.snapshots, () => setParentProject(id, prev)),
+        message: renumbered ? `Parent project updated. Now ${to}.` : "Parent project updated.",
+        undo: buildUndo(qc, ctx?.snapshots, async () => {
+          await updateTaskFields(id, inverse);
+          if (renumbered) await relinkEirTaskReferences(qc, to, from);
+        }),
       });
+      if (renumbered) void relinkEirTaskReferences(qc, from, to);
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -463,6 +656,100 @@ export function useSetParentProject() {
     },
     onSettled: (server) => settleTasks(qc, server),
   });
+}
+
+/** The first cached tasks list holding data. Every list query holds the same rows. */
+function cachedTasks(qc: QueryClient): Task[] | undefined {
+  for (const [, tasks] of qc.getQueriesData<Task[]>(TASK_LIST_FILTER)) {
+    if (tasks) return tasks;
+  }
+  return undefined;
+}
+
+/**
+ * The PATCH for a project move: the lookup, the new title if one was given,
+ * and the new `NumberedTitle` whenever the project's title and the task are
+ * both known. NumberedTitle is left out rather than guessed when they aren't;
+ * the mutationFn then loads them and plans again.
+ */
+function planProjectMove(
+  qc: QueryClient,
+  { id, projectLookupId, title }: { id: number; projectLookupId: number | null; title?: string },
+  before?: Task,
+): Record<string, unknown> {
+  const fields: Record<string, unknown> = {
+    Parent_x0020_Project_x0020_ReferLookupId: projectLookupId,
+  };
+  if (title !== undefined) fields.Title = title;
+  const tasks = cachedTasks(qc);
+  const self = before ?? tasks?.find((t) => t.id === id);
+  if (!tasks || !self) return fields;
+  const project = projectLookupId == null ? null : resolveProject(qc, projectLookupId);
+  if (projectLookupId != null && !project) return fields;
+  const nextTitle = title ?? self.title;
+  // Re-picking the project the task is already in isn't a move: it keeps its
+  // number, and only follows a title change.
+  const sameProject = (self.parentProject?.lookupId ?? null) === projectLookupId;
+  const numbered = sameProject
+    ? retitledNumberedTitle(self, nextTitle)
+    : renumberedTitle(self, nextTitle, project, tasks);
+  if (numbered && numbered !== self.numberedTitle) fields.NumberedTitle = numbered;
+  return fields;
+}
+
+/**
+ * A Title edit keeps the task's number and replaces the text after it
+ * (BusinessIT#33): `T3-0017-Old` becomes `T3-0017-New`. Left alone when the
+ * caller already set NumberedTitle, or when the stored value has no
+ * `T{n}-{code}-` prefix to keep (a legacy row). Inventing a number there
+ * would be worse than leaving it.
+ */
+function withNumberedTitle(
+  qc: QueryClient,
+  id: number,
+  fields: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!("Title" in fields) || "NumberedTitle" in fields) return fields;
+  const self = cachedTasks(qc)?.find((t) => t.id === id);
+  if (!self) return fields;
+  const numbered = retitledNumberedTitle(self, String(fields.Title ?? ""));
+  if (!numbered || numbered === self.numberedTitle) return fields;
+  return { ...fields, NumberedTitle: numbered };
+}
+
+/**
+ * Re-point every EIR whose Task Reference names `from` at `to`. ARC's
+ * promotion writes the task's FULL numbered title there, and the EIR's Linked
+ * Task card matches it exactly (lib/eirTaskReference.ts), so a renumbered or
+ * retitled task would otherwise drop off the EIR that raised it.
+ *
+ * Best-effort and never throws: the task's own write has already landed. A
+ * refusal is named in a toast so somebody can fix that EIR by hand.
+ */
+async function relinkEirTaskReferences(qc: QueryClient, from: string, to: string): Promise<void> {
+  if (!from || !to || from === to) return;
+  let eirs: Eir[];
+  try {
+    eirs = await qc.fetchQuery({ queryKey: EIRS_KEY, queryFn: listEirs, staleTime: 30_000 });
+  } catch (err) {
+    console.error("Couldn't read EIRs to update their task reference:", err);
+    return;
+  }
+  const linked = eirs.filter((e) => sameTaskReference(e.taskReference, from));
+  if (linked.length === 0) return;
+  const results = await Promise.allSettled(
+    linked.map((e) => updateEirFields(e.id, { TaskReference: to })),
+  );
+  const failed = linked.filter((_, i) => results[i].status === "rejected");
+  qc.invalidateQueries({ queryKey: EIRS_KEY });
+  if (failed.length > 0) {
+    pushToast({
+      message: `Couldn't update the task reference on ${failed
+        .map((e) => e.eirNo || `EIR #${e.id}`)
+        .join(", ")}. Set it to ${to} by hand.`,
+      variant: "error",
+    });
+  }
 }
 
 export function useSetRelatedProjects() {
@@ -518,11 +805,13 @@ export function useSetAssigned() {
       });
       if (ctx?.prevTask) {
         fireAssigneeChangeAlert({
-          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          target: taskEmailTarget(ctx.prevTask),
           prev,
           next: people,
           actor,
           watchers: ctx.prevTask.watchers,
+          // The description rides in the target's context (its own block).
+          details: { dueDate: ctx.prevTask.dueDate },
         });
       }
     },
@@ -694,7 +983,7 @@ export function useAddComment() {
         void notifyMentions({
           recipients,
           sender,
-          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          target: taskEmailTarget(task),
           commentExcerpt: htmlToPlainText(comment.bodyHtml),
           attachments: comment.attachments ?? [],
         });
@@ -848,7 +1137,7 @@ export function useEditComment() {
           void notifyMentions({
             recipients,
             sender,
-            target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+            target: taskEmailTarget(task),
             commentExcerpt: htmlToPlainText(newBodyHtml),
             attachments: prevComment.attachments ?? [],
           });
@@ -869,7 +1158,7 @@ export function useEditComment() {
           void notifyMentions({
             recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
             sender,
-            target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+            target: taskEmailTarget(task),
             commentExcerpt: htmlToPlainText(newBodyHtml),
             attachments: prevComment.attachments ?? [],
           });
@@ -908,11 +1197,16 @@ export function useCreateTask() {
       const assignees = variables.assigned ?? [];
       if (assignees.length > 0) {
         fireAssigneeChangeAlert({
-          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          // The description off the input, like the due date below: it's what
+          // the creator typed, and the create response may not carry it.
+          target: taskEmailTarget({ ...task, description: variables.description ?? task.description }),
           prev: [],
           next: assignees,
           actor,
           watchers: [],
+          // Off the mutation input, like the assignees: the input is exactly
+          // what the creator typed, and the response's copy adds nothing.
+          details: { dueDate: variables.dueDate ?? null },
         });
       }
       // Seed the new task into the cache immediately — TaskFormModal
@@ -922,7 +1216,7 @@ export function useCreateTask() {
       // yet, flashing "Task not found" until invalidateTasks' background
       // refetch catches up (a real, visible gap against SharePoint — the
       // mock list updates near-instantly, which is why this went unnoticed).
-      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? [task, ...old] : [task]));
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? mergeIntoCache(qc, old, task) : [task]));
       invalidateTasks(qc);
     },
     onError: () => errorToast("Couldn't create task — please retry."),

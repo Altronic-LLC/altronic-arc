@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil, Plus, Shield, X } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Plus, Shield, Trash2, X } from "lucide-react";
 import { useCreateProject, useProjects, useUpdateProject } from "@/hooks/useTasks";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useDeleteProject, useProjectUsage } from "@/hooks/useDeleteProject";
+import { describeProjectUsage } from "@/lib/projectUsage";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SearchInput } from "@/components/SearchInput";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
@@ -60,6 +62,7 @@ export function AdminProjectsView() {
   const { data: projects = [], isLoading } = useProjects();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
+  const [deleting, setDeleting] = useState<ProjectReference | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [search, setSearch] = useState("");
 
@@ -184,14 +187,14 @@ export function AdminProjectsView() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="e.g. 0042-New Engine Variant Trials"
-              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               disabled={createProject.isPending}
             />
           </label>
           <button
             type="submit"
             disabled={!newTitle.trim() || createProject.isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             {createProject.isPending ? "Creating…" : "Create"}
@@ -209,7 +212,7 @@ export function AdminProjectsView() {
           value={search}
           onChange={setSearch}
           placeholder="Search projects…"
-          className="h-9 w-full max-w-xs rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="h-9 w-full max-w-xs rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
         />
       </div>
 
@@ -242,11 +245,14 @@ export function AdminProjectsView() {
                 items={items}
                 onOpen={(id) => navigate(`/project/${id}`)}
                 onRename={(id, title) => updateProject.mutate({ lookupId: id, title })}
+                onDelete={setDeleting}
               />
             );
           })}
         </div>
       )}
+
+      {deleting && <DeleteProjectDialog project={deleting} onClose={() => setDeleting(null)} />}
     </div>
   );
 }
@@ -259,6 +265,7 @@ function ProjectTable({
   items,
   onOpen,
   onRename,
+  onDelete,
 }: {
   label: string;
   hint: string;
@@ -266,6 +273,7 @@ function ProjectTable({
   items: ProjectReference[];
   onOpen: (lookupId: number) => void;
   onRename: (lookupId: number, title: string) => void;
+  onDelete: (project: ProjectReference) => void;
 }) {
   return (
     <section className="flex flex-col rounded-lg border border-border bg-surface p-4">
@@ -284,9 +292,15 @@ function ProjectTable({
       {items.length === 0 ? (
         <p className="py-2 text-xs text-fg-muted">No projects in this series yet.</p>
       ) : (
-        <div className="scroll-elegant flex max-h-[22rem] flex-col gap-1.5 overflow-y-auto pr-1">
+        <div className="scroll-elegant flex max-h-88 flex-col gap-1.5 overflow-y-auto pr-1">
           {items.map((p) => (
-            <ProjectRow key={p.lookupId} project={p} onOpen={onOpen} onRename={onRename} />
+            <ProjectRow
+              key={p.lookupId}
+              project={p}
+              onOpen={onOpen}
+              onRename={onRename}
+              onDelete={onDelete}
+            />
           ))}
         </div>
       )}
@@ -305,10 +319,12 @@ function ProjectRow({
   project,
   onOpen,
   onRename,
+  onDelete,
 }: {
   project: ProjectReference;
   onOpen: (lookupId: number) => void;
   onRename: (lookupId: number, title: string) => void;
+  onDelete: (project: ProjectReference) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(project.title);
@@ -339,7 +355,7 @@ function ProjectRow({
             }
           }}
           placeholder="e.g. 0017-AMP-5000 Refresh (number + name)"
-          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
           maxLength={255}
         />
         <button
@@ -372,13 +388,132 @@ function ProjectRow({
       <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={startEdit}
-          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
+          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
           aria-label="Edit project number / name"
           title="Edit number / name"
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
+        <button
+          onClick={() => onDelete(project)}
+          className="rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red group-hover:opacity-100 focus:opacity-100"
+          aria-label={`Delete ${project.title}`}
+          title="Delete project"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
         <span className="font-mono text-[11px] text-fg-muted">#{project.lookupId}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Confirm deleting a project (BusinessIT#41 — duplicates). Shows where the
+ * project is still used, read fresh on open, and refuses while it's used by
+ * anything: deleting it would leave every one of those records pointing at a
+ * project that no longer exists. The hook checks again before it deletes.
+ */
+function DeleteProjectDialog({
+  project,
+  onClose,
+}: {
+  project: ProjectReference;
+  onClose: () => void;
+}) {
+  const usage = useProjectUsage(project.lookupId);
+  const del = useDeleteProject();
+  const busy = del.isPending;
+  const inUse = (usage.data?.length ?? 0) > 0;
+  const blockedReason = usage.isLoading
+    ? "Checking where this project is used…"
+    : usage.isError
+      ? "Couldn't check where this project is used, so it can't be deleted."
+      : inUse
+        ? "Still in use — move those records to the project you're keeping first."
+        : null;
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !busy) onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
+  async function confirm() {
+    if (blockedReason || busy) return;
+    try {
+      await del.mutateAsync(project);
+      onClose();
+    } catch {
+      // Toasted by the hook; keep the dialog open so the reason stays visible.
+      void usage.refetch();
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-project-title"
+        className="mt-16 w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
+      >
+        <h2 id="delete-project-title" className="font-display text-lg font-semibold text-fg">
+          Delete project?
+        </h2>
+        <p className="mt-2 text-sm text-fg">
+          <span className="font-medium">{project.title}</span>{" "}
+          <span className="font-mono text-xs text-fg-muted">#{project.lookupId}</span>
+        </p>
+        <p className="mt-2 text-sm text-fg-muted">
+          For removing a duplicate. A project can only be deleted once nothing points at it.
+        </p>
+
+        <div className="mt-4 rounded-md border border-border bg-bg p-3 text-sm">
+          {usage.isLoading ? (
+            <span className="inline-flex items-center gap-2 text-fg-muted">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking tasks, EIRs, ECNs, test sheets, build requests, FAITs and project folders…
+            </span>
+          ) : usage.isError ? (
+            <span className="text-cooper-red">
+              {usage.error instanceof Error ? usage.error.message : "Couldn't check where it's used."}
+            </span>
+          ) : inUse ? (
+            <span className="text-fg">
+              Still used by {describeProjectUsage(usage.data ?? [])}. Move them to the project
+              you're keeping, then delete this one.
+            </span>
+          ) : (
+            <span className="text-fg">Nothing points at this project. It can be deleted.</span>
+          )}
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-md border border-border px-3 py-1.5 text-sm text-fg hover:bg-surface-2"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={confirm}
+            aria-disabled={blockedReason !== null || busy}
+            title={blockedReason ?? undefined}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md bg-cooper-red px-3 py-1.5 text-sm font-medium text-white",
+              blockedReason !== null || busy
+                ? "cursor-not-allowed opacity-50"
+                : "hover:bg-cooper-red/90",
+            )}
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {busy ? "Deleting…" : "Delete project"}
+          </button>
+        </div>
       </div>
     </div>
   );

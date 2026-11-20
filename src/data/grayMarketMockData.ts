@@ -4,7 +4,7 @@ import type { GrayMarketRequest } from "@/types/task";
 // Sample gray market requests for mock mode.
 //
 // Shaped after the real rows (scripts/gray-market-request-schema.json): an
-// Altronic assembly number in Title, a GMR_YYYY-### log number, and the
+// SAP P/N in Title, a GMR_YYYY-### log number, and the
 // workflow columns filled in to the point each request has reached — most of
 // the live rows are part-filled, because the request moves between four teams
 // and each one adds its bit.
@@ -49,6 +49,7 @@ export const MOCK_GRAY_MARKET_REQUESTS: GrayMarketRequest[] = [
       aiPartNo: "711232",
       partDescription: "TRANSISTOR, FET, N-CHAN, 40V, 50mA, DFN",
       mfgPartNo: "IPZ40N04S5L2R8ATMA1",
+      partManufacturer: "Infineon",
       whereUsed: "<p>1000-7205-00 PCB ASSY, BB-4<br/>1000-7318-00 PCB ASSY, DE-4000</p>",
       eirNo: "",
       vendor: "Tektronics",
@@ -108,6 +109,7 @@ export const MOCK_GRAY_MARKET_REQUESTS: GrayMarketRequest[] = [
       aiPartNo: "701971",
       partDescription: "I.C., MICROCONTROLLER STELLARIS ETHERNET",
       mfgPartNo: "LM3S6918-IQC50-A2",
+      partManufacturer: "Texas Instruments",
       whereUsed: "<p>1000-4410-00 PCB ASSY, CPU95</p>",
       eirNo: "EIR_2026-0044",
       vendor: "AERI",
@@ -158,6 +160,7 @@ export const MOCK_GRAY_MARKET_REQUESTS: GrayMarketRequest[] = [
       aiPartNo: "711506",
       partDescription: "I.C., TRANSCEIVER, 500uA 16 PIN",
       mfgPartNo: "TRS3232EQPWRQ1",
+      partManufacturer: "Texas Instruments",
       whereUsed: "<p>1000-5607-00 PCB ASSY, DISN</p>",
       eirNo: "",
       vendor: "AERI",

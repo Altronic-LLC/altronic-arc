@@ -293,7 +293,7 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
       role="dialog"
       aria-modal="true"
       aria-labelledby="maintenance-task-form-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <form
@@ -344,7 +344,7 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="What is wrong, or what needs doing"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
                 required
                 maxLength={255}
               />
@@ -357,7 +357,7 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 placeholder="Symptoms, when it started, anything already tried"
-                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
             </Field>
 
@@ -509,7 +509,7 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
                 onChange={(e) => setTechNotes(e.target.value)}
                 rows={3}
                 placeholder="Running notes while the job is open"
-                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
             </Field>
           </div>
@@ -527,7 +527,7 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
           <button
             type="submit"
             disabled={busy || !title.trim()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />

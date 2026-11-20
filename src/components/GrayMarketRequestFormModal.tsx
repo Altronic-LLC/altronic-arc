@@ -5,6 +5,7 @@ import {
   GRAY_MARKET_STATUSES,
   GRAY_MARKET_TESTING_REQUIRED,
   fieldsInSection,
+  missingRequiredOnCreate,
 } from "@/lib/grayMarketFields";
 import { useCreateGrayMarketRequest } from "@/hooks/useGrayMarketRequests";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -101,6 +102,8 @@ export function GrayMarketRequestFormModal({
     // workflow, so a request is raised without it (Ray, 2026-08-23).
     if (!title.trim()) return setError("Title is required.");
     if (!requestDate) return setError("Request date is required.");
+    const missing = missingRequiredOnCreate(values);
+    if (missing.length > 0) return setError(`${missing.join(", ")} is required.`);
     setError(null);
 
     const input: GrayMarketRequestInput = {
@@ -159,7 +162,7 @@ export function GrayMarketRequestFormModal({
                 ref={firstFieldRef}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Altronic assembly number"
+                placeholder="SAP P/N"
                 className="input"
               />
             </Field>
@@ -227,6 +230,7 @@ export function GrayMarketRequestFormModal({
                   <Field
                     key={field.key}
                     label={field.label}
+                    required={field.requiredOnCreate}
                     // A pill group labels its own options; a <label> wrapping
                     // it would nest labels and steal the click.
                     plain={field.kind === "choice"}
@@ -289,7 +293,7 @@ export function GrayMarketRequestFormModal({
             type="submit"
             form="gray-market-form"
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Log request

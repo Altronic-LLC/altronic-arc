@@ -12,7 +12,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 // The mock "0017-AMP-5000 Refresh" folder is tagged with the project of the
 // SAME title, so once the Projects list loads the text appears twice (name +
 // project subtitle). Target the folder's button, not the text.
-const ampFolder = () => screen.getByRole("button", { name: /0017-AMP-5000 Refresh/ });
+const ampFolder = () => screen.getByRole("button", { name: /^0017-AMP-5000 Refresh/ });
 
 async function renderBrowser() {
   const result = renderWithProviders(<ProjectFoldersView />, {
@@ -69,7 +69,7 @@ describe("ProjectFoldersView", () => {
     // title — same text twice — so match the row's button rather than the text.
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: /0021-CleanBurn Telemetry/ }),
+        screen.getByRole("button", { name: /^0021-CleanBurn Telemetry/ }),
       ).toBeInTheDocument(),
     );
   });

@@ -1,6 +1,7 @@
 import { BrowserAuthError, InteractionRequiredAuthError } from "@azure/msal-browser";
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { graphScopes } from "@/auth/msalConfig";
+import { CHOOSE_ACCOUNT_MESSAGE, resolveAccount } from "@/auth/activeAccount";
 import { GRAPH_BASE, USE_MOCK } from "./config";
 import { authErrorLine, describeAuthError } from "@/lib/authErrors";
 
@@ -134,21 +135,22 @@ async function acquireGraphToken(scopes: string[], allowInteractive: boolean): P
   const instance = getMsalInstance();
   if (!instance) throw new Error("MSAL instance not initialised");
 
-  // Fall back to the first known account when no active one is selected yet.
-  // Queries in the app tree can fire in the same commit that MSAL reports an
-  // authenticated user but before the active account has been set (child
-  // effects run before the parent's), and treating that as "session expired"
-  // meant a perfectly good sign-in immediately surfaced a session warning.
-  let account = instance.getActiveAccount();
+  // Which account to act as — auth/activeAccount.ts holds the rule. Queries in
+  // the app tree can fire in the same commit that MSAL reports an
+  // authenticated user but before AuthGate's effect has set the active
+  // account (child effects run before the parent's), so a SINGLE cached
+  // account is taken as unambiguous and activated here. More than one with
+  // none active is never guessed at: `accounts[0]` was how a colleague's
+  // cached account got attached to someone else's writes on a shared PC
+  // (2026-09-02; the fallback here was still live on 2026-10-16).
+  const all = instance.getAllAccounts();
+  const account = resolveAccount(instance.getActiveAccount(), all);
   if (!account) {
-    account = instance.getAllAccounts()[0] ?? null;
-    if (account) instance.setActiveAccount(account);
+    // Signed out, or ambiguous — either way the caller should be looking at
+    // SignInPage. Throw SessionExpiredError so the gate re-renders cleanly.
+    throw new SessionExpiredError(all.length > 1 ? CHOOSE_ACCOUNT_MESSAGE : "Not signed in");
   }
-  if (!account) {
-    // Genuinely signed out — caller should have routed to SignInPage. Throw
-    // SessionExpiredError so the gate re-renders cleanly.
-    throw new SessionExpiredError("Not signed in");
-  }
+  if (!instance.getActiveAccount()) instance.setActiveAccount(account);
 
   try {
     const result = await instance.acquireTokenSilent({ scopes, account });
@@ -266,10 +268,13 @@ async function runGraphRequest<T>(path: string, accessToken: string, init: Reque
     if (response.status === 401) {
       throw new SessionExpiredError(`Graph returned 401: ${body}`);
     }
-    // Always log the full failure to the console — minified production
-    // errors collapse the body to just the URL otherwise, which makes
-    // diagnostics impossible. Include the request body too if there was
-    // one, so we can correlate what we sent with how Graph rejected it.
+    // Always log the failure to the console — minified production errors
+    // collapse the body to just the URL otherwise, which makes diagnostics
+    // impossible. The request is logged as its FIELD NAMES only, never its
+    // values: the "Notify app manager" button e-mails captured console output,
+    // so a value logged here (a comment, a price, a person) could travel by
+    // e-mail (review finding SEC-10, 2026-10-16). Which fields were sent is
+    // what diagnosing a rejected write needs.
     //
     // Also log the diagnostic claims from the access token (scp, roles,
     // aud, appid, tid, upn, exp). This is the only way to confirm a
@@ -282,7 +287,7 @@ async function runGraphRequest<T>(path: string, accessToken: string, init: Reque
     console.error(
       `[Graph ${response.status}] ${init.method ?? "GET"} ${url}\n` +
         `Token claims: ${JSON.stringify(tokenClaims, null, 2)}\n` +
-        `Request body: ${typeof init.body === "string" ? init.body : "(non-string)"}\n` +
+        `Request fields: ${describeRequestBody(init.body)}\n` +
         `Response body: ${body}`,
     );
     /* eslint-enable no-console */
@@ -303,6 +308,34 @@ async function runGraphRequest<T>(path: string, accessToken: string, init: Reque
     // raw text so callers can decide what to do.
     return text as unknown as T;
   }
+}
+
+/**
+ * What a request sent, for a log line: field NAMES, never values.
+ *
+ * Graph list writes nest the columns under `fields`, and sendMail nests under
+ * `message`, so one level of nesting is named as `parent.{a,b}`. Anything
+ * that isn't a JSON object (a file upload, a batch, plain text) is described
+ * by type and size only.
+ */
+export function describeRequestBody(body: RequestInit["body"]): string {
+  if (body === undefined || body === null) return "(none)";
+  if (typeof body !== "string") return "(non-string body)";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return `(text, ${body.length} chars)`;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return `(${Array.isArray(parsed) ? "array" : typeof parsed})`;
+  }
+  const parts = Object.entries(parsed as Record<string, unknown>).map(([key, value]) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? `${key}.{${Object.keys(value as Record<string, unknown>).join(",")}}`
+      : key,
+  );
+  return parts.length > 0 ? parts.join(", ") : "(empty object)";
 }
 
 /**

@@ -25,7 +25,7 @@ describe("buildRequests mock CRUD", () => {
       requestor: RAY,
       parentProjectLookupIds: [243],
     });
-    expect(created.status).toBe("Submitted");
+    expect(created.status).toBe("Pending Submission");
     expect(created.brNo).toBe("BR_2026-9001");
     expect(created.requestor?.displayName).toBe("Ray White");
 

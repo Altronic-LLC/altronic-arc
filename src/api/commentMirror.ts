@@ -1,6 +1,9 @@
 import { addComment as addTaskComment } from "./tasks";
 import { addBuildRequestComment } from "./buildRequests";
 import { addBuildRequestItemComment } from "./buildRequestItems";
+import { addEirComment } from "./eirs";
+import { addQuoteComment } from "./quotes";
+import { addOperationsComment } from "./operationsTasks";
 import {
   buildMirroredBody,
   type CommentOrigin,
@@ -44,6 +47,12 @@ function writeTo(
       return addBuildRequestComment(target.id, comment);
     case "buildRequestItem":
       return addBuildRequestItemComment(target.id, comment);
+    case "eir":
+      return addEirComment(target.id, comment);
+    case "quote":
+      return addQuoteComment(target.id, comment);
+    case "operationsTask":
+      return addOperationsComment(target.id, comment);
   }
 }
 
@@ -95,5 +104,11 @@ export function describeMirrorTarget(target: MirrorTarget): string {
       return "the linked build request";
     case "buildRequestItem":
       return "the build request part";
+    case "eir":
+      return "the linked EIR";
+    case "quote":
+      return "the linked quote";
+    case "operationsTask":
+      return "the linked Operations task";
   }
 }

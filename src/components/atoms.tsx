@@ -89,8 +89,21 @@ export function LabelChip({ label }: { label: Label }) {
 export function CategoryChip({ category }: { category: string | null }) {
   if (!category) return null;
   return (
-    <span className="inline-flex items-center rounded border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+    <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
       {category}
+    </span>
+  );
+}
+
+/**
+ * Which department a row belongs to — for lists that mix two departments'
+ * records (the Operations list's "All tasks" scope). A filled pill, so it
+ * reads apart from the outlined category chip below it.
+ */
+export function DepartmentChip({ department }: { department: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-superior-blue/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-superior-blue">
+      {department}
     </span>
   );
 }

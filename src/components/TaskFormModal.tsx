@@ -24,15 +24,23 @@ import {
   type Status,
   type Task,
 } from "@/types/task";
-import { wouldCreateCycle } from "@/lib/taskGraph";
-import { computeNumberedTitle } from "@/lib/taskNumbering";
+import { canCompleteTask, wouldCreateCycle } from "@/lib/taskGraph";
+import { useBuildRequests } from "@/hooks/useBuildRequests";
+import {
+  computeNumberedTitle,
+  numberedTitlePrefix,
+  renumberedTitle,
+  retitledNumberedTitle,
+} from "@/lib/taskNumbering";
 import {
   convertToChecklist,
   indentChecklistLine,
 } from "@/lib/descriptionChecklist";
 import { ChoiceSelect, MultiSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { mergePeople } from "@/lib/people";
+import { sameEmail } from "@/lib/emailIdentity";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { RichTextToggleField } from "./RichTextToggleField";
 import { DraftRestoredNotice } from "./DraftRestoredNotice";
@@ -79,8 +87,14 @@ interface TaskFormModalProps {
  */
 export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormModalProps) {
   const navigate = useNavigate();
-  const { data: allTasks = [] } = useTasks();
+  const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
+  // A new task's number counts the tasks already in its project, so it can't
+  // be worked out until the WHOLE list is here — from an empty list it would
+  // come out T1. The task list now shows a preview while it loads, which makes
+  // reaching this form that early likely, not rare.
+  const numberingPending = mode === "create" && !!tasksLoading;
   const { data: projects = [] } = useProjects();
+  const { data: buildRequests = [], isLoading: buildRequestsLoading } = useBuildRequests();
   const createTask = useCreateTask();
   const updateFields = useUpdateTaskFields();
   const setParentTask = useSetParentTask();
@@ -189,6 +203,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
   // Altronic. Directory people have no lookupId, but the write path resolves
   // it on demand via ensureuser, so picking one works.
   const directory = useDirectoryPeople();
+  const me = useCurrentUser();
   const allPeople: Person[] = useMemo(() => {
     const seen = new Map<string, Person>();
     for (const t of allTasks) {
@@ -197,8 +212,27 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
         if (!seen.has(key)) seen.set(key, p);
       }
     }
-    return mergePeople([...seen.values()], directory);
-  }, [allTasks, directory]);
+    // The signed-in user is always pickable, so "Add myself" never adds
+    // somebody the Assigned picker can't show — before the directory loads,
+    // or for a new starter on no task yet.
+    return mergePeople([...seen.values()], directory, me.email ? [me] : []);
+  }, [allTasks, directory, me]);
+
+  // "Add myself as an assignee" (BusinessIT#14) is a VIEW of the Assigned
+  // list, not a second piece of state: ticked whenever you're in it, however
+  // you got there, so the box and the picker can never disagree.
+  const meAssigned = !!me.email && assigned.some((p) => sameEmail(p.email, me.email));
+  function toggleAssignMe(checked: boolean) {
+    if (checked) {
+      if (meAssigned) return;
+      // Add the picker's own entry for you where there is one, so the chip
+      // keys off the same address the option does.
+      const mine = allPeople.find((p) => sameEmail(p.email, me.email)) ?? me;
+      setAssignedState((prev) => [...prev, mine]);
+    } else {
+      setAssignedState((prev) => prev.filter((p) => !sameEmail(p.email, me.email)));
+    }
+  }
 
   // Single-select: the SharePoint column holds one choice, so picking a label
   // replaces whatever was there and clicking the current one clears it.
@@ -219,6 +253,27 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       );
   }, [projects, parentProjectId]);
 
+  // Edit mode: the number this task will carry once saved (BusinessIT#33).
+  // A new project means a new number in that project; a new title keeps the
+  // number and replaces only the text after it. Same rules the hooks apply on
+  // save (lib/taskNumbering.ts), shown here so the change isn't a surprise.
+  const editNumbering = useMemo(() => {
+    if (mode !== "edit" || !task) return null;
+    const nextTitle = title.trim() || task.title;
+    const nextProjectId = parentProjectId === "" ? null : parentProjectId;
+    const projectChanged = nextProjectId !== (task.parentProject?.lookupId ?? null);
+    const nextProject =
+      nextProjectId == null ? null : projects.find((p) => p.lookupId === nextProjectId) ?? null;
+    const canRenumber = projectChanged && (nextProjectId == null || nextProject !== null);
+    const next = canRenumber
+      ? renumberedTitle(task, nextTitle, nextProject, allTasks)
+      : retitledNumberedTitle(task, nextTitle) ?? task.numberedTitle;
+    const prefix = canRenumber
+      ? next.slice(0, next.length - nextTitle.length)
+      : numberedTitlePrefix(task);
+    return { projectChanged: canRenumber, current: task.numberedTitle, next, prefix };
+  }, [mode, task, title, parentProjectId, projects, allTasks]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedTitle = title.trim();
@@ -228,6 +283,10 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
     }
     if (mode === "create" && parentProjectId === "") {
       setError("Parent Project is required.");
+      return;
+    }
+    if (numberingPending) {
+      setError("The task list is still loading — wait a moment so the new task gets the right number.");
       return;
     }
     setError(null);
@@ -284,7 +343,21 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       const baseFields: Record<string, unknown> = {};
       if (trimmedTitle !== task.title) baseFields.Title = trimmedTitle;
       if (description !== task.description) baseFields.Description = description;
-      if (status !== task.status) baseFields.Status = status;
+      if (status !== task.status) {
+        // The edit form is a path to Complete too, so it asks the same gate as
+        // the button, the sidebar picker and a Kanban drag (BusinessIT#2).
+        if (status === "Complete") {
+          const gate = canCompleteTask(task, {
+            buildRequests,
+            resolving: buildRequestsLoading,
+          });
+          if (!gate.allowed) {
+            setError(gate.hint);
+            return;
+          }
+        }
+        baseFields.Status = status;
+      }
       if ((priority || null) !== task.priority) baseFields.Priority = priority || null;
       if ((category || null) !== task.category) baseFields.Category = category || null;
       // Compare DATE TO DATE. The input holds "YYYY-MM-DD" while the task holds a
@@ -314,18 +387,24 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       // re-thrown for the catch below to surface.
       const writes: Array<Promise<unknown>> = [];
 
-      if (Object.keys(baseFields).length > 0) {
-        writes.push(updateFields.mutateAsync({ id: task.id, fields: baseFields }));
-      }
-
       const newParentProjectId = parentProjectId === "" ? null : parentProjectId;
       if (newParentProjectId !== (task.parentProject?.lookupId ?? null)) {
+        // A project move renumbers the task, and the number carries the title,
+        // so a title change rides in the SAME write. Sent separately, the two
+        // writes would each rebuild NumberedTitle from a different half.
+        const movedTitle = "Title" in baseFields ? trimmedTitle : undefined;
+        delete baseFields.Title;
         writes.push(
           setParentProject.mutateAsync({
             id: task.id,
             projectLookupId: newParentProjectId,
+            title: movedTitle,
           }),
         );
+      }
+
+      if (Object.keys(baseFields).length > 0) {
+        writes.push(updateFields.mutateAsync({ id: task.id, fields: baseFields }));
       }
 
       const newParentTaskId = parentTaskId === "" ? null : parentTaskId;
@@ -401,7 +480,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-form-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <form
@@ -448,16 +527,33 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
             )}
 
             <FieldLabel label="Title" required>
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Short, action-oriented summary"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                required
-                maxLength={255}
-              />
+              <div className="flex items-stretch">
+                {/* The task number is the app's. Shown beside the title so it
+                    reads as one value, and kept out of the box so editing the
+                    title can't change it (BusinessIT#33). */}
+                {editNumbering?.prefix && (
+                  <span
+                    data-testid="numbered-title-prefix"
+                    title="The task number is set by ARC. Change the project to renumber it."
+                    className="inline-flex shrink-0 items-center rounded-l-md border border-r-0 border-border bg-surface-2 px-2 font-mono text-xs font-semibold text-fg-muted"
+                  >
+                    {editNumbering.prefix}
+                  </span>
+                )}
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Short, action-oriented summary"
+                  className={cn(
+                    "w-full min-w-0 border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm",
+                    editNumbering?.prefix ? "rounded-r-md" : "rounded-md",
+                  )}
+                  required
+                  maxLength={255}
+                />
+              </div>
             </FieldLabel>
 
             {/*
@@ -518,7 +614,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 }}
                 rows={4}
                 placeholder="What needs to be done? Acceptance criteria, links, context…"
-                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
                 )}
               />
@@ -601,6 +697,13 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                   searchPlaceholder="Search projects…"
                 />
               )}
+              {editNumbering?.projectChanged && (
+                <span role="status" className="mt-1 block text-xs text-fg-muted">
+                  Saving renumbers this task:{" "}
+                  <span className="font-mono">{editNumbering.current}</span> becomes{" "}
+                  <span className="font-mono font-semibold text-fg">{editNumbering.next}</span>
+                </span>
+              )}
             </FieldLabel>
 
             <FieldLabel label="Parent Task">
@@ -647,6 +750,23 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 allLabel="Unassigned"
               />
             </FieldLabel>
+            {/*
+              Its own <label>, not inside the Assigned one: that label already
+              wraps the picker, and a second control inside it would steal the
+              click. Create mode only — editing a task already shows who's on it.
+            */}
+            {mode === "create" && (
+              <label className="-mt-2 inline-flex w-fit items-center gap-2 text-sm text-fg">
+                <input
+                  type="checkbox"
+                  checked={meAssigned}
+                  onChange={(e) => toggleAssignMe(e.target.checked)}
+                  disabled={!me.email}
+                  className="h-4 w-4 rounded-sm border-border accent-accent"
+                />
+                Add myself as an assignee
+              </label>
+            )}
 
             <FieldLabel label="Watchers">
               <PersonMultiSelect
@@ -663,13 +783,19 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 value={softwareRevision}
                 onChange={(e) => setSoftwareRevision(e.target.value)}
                 placeholder="e.g. v3.2.1, firmware-2026.04"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
             </FieldLabel>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface px-4 py-3 sm:px-5 sm:rounded-b-lg">
+          {numberingPending && (
+            <span role="status" className="mr-auto flex items-center gap-1.5 text-xs text-fg-muted">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading the task list to number this task…
+            </span>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -682,10 +808,11 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
             type="submit"
             disabled={
               busy ||
+              numberingPending ||
               !title.trim() ||
               (mode === "create" && parentProjectId === "")
             }
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />

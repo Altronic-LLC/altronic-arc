@@ -95,6 +95,8 @@ export function toMrbEntry(item: GraphListItem): MrbEntry {
     pricePerUnit: toNumber(f.field_9),
     pricePerIssue: toNumber(f.field_10),
     notes: text(f.field_11).trim(),
+    // A real boolean; absent (a row from before the column) reads as No.
+    panelDepartment: f.PanelDepartment === true,
     comments: parseCommunication(text(f[MRB_COMMUNICATIONS_COLUMN])),
     // `[]` both when nobody is watching and when the column doesn't exist
     // yet — the read drops it from the $select in that case.
@@ -201,6 +203,9 @@ function allFields(input: MrbEntryInput): Record<string, unknown> {
     field_9: input.pricePerUnit,
     field_10: input.pricePerIssue,
     field_11: input.notes.trim(),
+    // Always a boolean, never omitted: a create's blank-dropping keeps
+    // `false`, so SharePoint's own views read No rather than blank.
+    PanelDepartment: input.panelDepartment,
   };
 }
 
@@ -219,6 +224,7 @@ export function mrbEntryInput(entry: MrbEntry): MrbEntryInput {
     pricePerUnit: entry.pricePerUnit,
     pricePerIssue: entry.pricePerIssue,
     notes: entry.notes,
+    panelDepartment: entry.panelDepartment,
   };
 }
 

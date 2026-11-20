@@ -62,8 +62,12 @@ import {
   EIR_PROJECT_REFERENCE_HINT,
   canEditEirProjectReference,
 } from "@/lib/eirProjectReference";
+import { EIR_WORKFLOW_HINT } from "@/lib/eirWorkflowEditors";
+import { eirLatestColumnsAvailable } from "@/api/eirs";
+import { useCanEditEirWorkflow } from "@/hooks/useEirWorkflowAccess";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
+import { matchEirTaskReference, taskIdFromLink } from "@/lib/eirTaskReference";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import {
   isEmptyRichText,
@@ -98,9 +102,15 @@ export function EirDetailView() {
   // so the ROLES LIST can be missing without locking anyone out, and there is
   // no list here to be missing.
   const canEditProjectRef = canEditEirProjectReference(useCurrentUserEmails());
+  // Status and the assigned engineer belong to a hard-coded set of workflow
+  // editors (BusinessIT#45) — see lib/eirWorkflowEditors.ts.
+  const canEditWorkflow = useCanEditEirWorkflow();
   // LTB Date is set freely on the New EIR form; once the EIR is submitted it
   // belongs to Supply Chain, so the detail view locks it for everyone else.
   const supplyChainLocked = enforced && !isSupplyChain;
+  // Read per render: the first EIR read decides it, and the page only
+  // renders once that read has landed.
+  const latestReady = eirLatestColumnsAvailable();
 
   const updateFields = useUpdateEirFields();
   const setReporter = useSetEirReporter();
@@ -109,47 +119,21 @@ export function EirDetailView() {
   const addComment = useAddEirComment();
   const editComment = useEditEirComment();
 
-  // Match the EIR's Task Reference to a real task. The field can hold any
-  // of three shapes — depending on whether the EIR was promoted via the
-  // original Power Apps form, by hand, or via this app:
-  //
-  //   1. A Power Apps deep link, e.g.
-  //      `https://apps.powerapps.com/.../?...&ItemID=2755`
-  //      The `ItemID=` query param IS the SharePoint list-item id (== task.id).
-  //   2. A task number prefix like `T115` or `T115-PROJ-Title`. Matched
-  //      against task.numberedTitle.
-  //   3. A bare SharePoint item id like `2755`. Matched against task.id.
-  //
-  // We try them in that order so a URL doesn't get accidentally parsed as
-  // a bare id from a substring.
-  const linkedTask = useMemo(() => {
-    const raw = eir?.taskReference?.trim();
-    if (!raw) return null;
-    const fromUrl = extractItemIdFromUrl(raw);
-    if (fromUrl != null) {
-      const byId = tasks.find((t) => t.id === fromUrl);
-      if (byId) return byId;
-    }
-    const prefix = (/^T\d+/i.exec(raw)?.[0] ?? "").toUpperCase();
-    if (prefix) {
-      const byNumber = tasks.find((t) =>
-        t.numberedTitle?.toUpperCase().startsWith(prefix + "-") ||
-        t.numberedTitle?.toUpperCase() === prefix,
-      );
-      if (byNumber) return byNumber;
-    }
-    const asId = parseInt(raw.replace(/^T/i, ""), 10);
-    if (!Number.isNaN(asId)) {
-      const byId = tasks.find((t) => t.id === asId);
-      if (byId) return byId;
-    }
-    return null;
-  }, [eir?.taskReference, tasks]);
+  // Match the EIR's Task Reference to a real task — see lib/eirTaskReference.ts.
+  // A task number is only unique WITHIN a project (there are three T188s), so a
+  // reference that fits several tasks links to none of them and offers them
+  // instead. Guessing the first one is what linked EIR_2026-0270 to the wrong
+  // task.
+  const taskMatch = useMemo(
+    () => matchEirTaskReference(eir?.taskReference, tasks),
+    [eir?.taskReference, tasks],
+  );
+  const linkedTask = taskMatch.task;
 
   // True when the stored value is a Power Apps URL (vs a typed "T115").
   // Drives the UI swap below: instead of showing a hideous URL in a text
   // input, we render the linked task as a chip.
-  const taskRefIsUrl = !!eir && extractItemIdFromUrl(eir.taskReference) != null;
+  const taskRefIsUrl = !!eir && taskIdFromLink(eir.taskReference) != null;
 
   // People directory — collected across tasks + EIRs to give the pickers
   // a useful starting set even before the EIR list itself has watchers.
@@ -276,10 +260,13 @@ export function EirDetailView() {
                   Promoted to task
                 </span>
               )}
-              <span className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 font-mono text-xs font-semibold text-fg-muted">
-                {eir.eirNo || `#${eir.id}`}
-              </span>
             </div>
+            {/* The EIR number is how people refer to an EIR, so it leads the
+                page in large type (BusinessIT#72) rather than sitting in a
+                small grey pill at the end of the chip row. */}
+            <p className="mb-1 font-mono text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+              {eir.eirNo || `#${eir.id}`}
+            </p>
             <InlineTitle
               value={eir.title}
               onSave={(next) =>
@@ -296,7 +283,7 @@ export function EirDetailView() {
                 <button
                   type="button"
                   onClick={() => setPromoteOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
                   title="Create a task from this EIR"
                 >
                   <ArrowUpRight className="h-4 w-4" />
@@ -368,17 +355,43 @@ export function EirDetailView() {
                 value={eir.eau}
                 onSave={(v) => updateFields.mutate({ id: eir.id, fields: { EAU: v } })}
               />
+              {/* BusinessIT#23: the stock and cost from when the EIR was
+                  raised are the INITIAL pair (stored in the old Current
+                  columns), and Supply Chain keeps a CURRENT pair up to
+                  date beside them. */}
               <InlineTextField
-                label="Current Stock"
+                label="Initial Stock"
                 value={eir.currentStock}
                 onSave={(v) => updateFields.mutate({ id: eir.id, fields: { CurrentStock: v } })}
               />
               <InlineTextField
-                label="Current Price"
+                label="Initial Cost"
                 value={eir.currentPrice}
                 onSave={(v) =>
                   updateFields.mutate({ id: eir.id, fields: { Current_x0020_Price: v } })
                 }
+              />
+              <InlineTextField
+                label="Current Stock"
+                value={eir.latestStock}
+                disabled={!latestReady || supplyChainLocked}
+                disabledHint={
+                  latestReady
+                    ? "Only users with the Supply Chain role can edit Current Stock."
+                    : "Current Stock isn't set up on the EIR list yet."
+                }
+                onSave={(v) => updateFields.mutate({ id: eir.id, fields: { LatestStock: v } })}
+              />
+              <InlineTextField
+                label="Current Cost"
+                value={eir.latestCost}
+                disabled={!latestReady || supplyChainLocked}
+                disabledHint={
+                  latestReady
+                    ? "Only users with the Supply Chain role can edit Current Cost."
+                    : "Current Cost isn't set up on the EIR list yet."
+                }
+                onSave={(v) => updateFields.mutate({ id: eir.id, fields: { LatestCost: v } })}
               />
               <InlineSelectField
                 label="Buyer Code"
@@ -427,6 +440,7 @@ export function EirDetailView() {
             linkedTask={linkedTask}
             rawReference={eir.taskReference}
             referenceIsUrl={taskRefIsUrl}
+            ambiguous={taskMatch.ambiguous}
             onSaveReference={(v) =>
               updateFields.mutate({ id: eir.id, fields: { TaskReference: v } })
             }
@@ -449,6 +463,8 @@ export function EirDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`eir:${eirId}`}
               />
             </div>
           </div>
@@ -467,6 +483,8 @@ export function EirDetailView() {
                 label="Status"
                 value={eir.status}
                 options={EIR_STATUSES}
+                disabled={!canEditWorkflow}
+                disabledHint={EIR_WORKFLOW_HINT}
                 onChange={(v) => updateFields.mutate({ id: eir.id, fields: { Status: v } })}
               />
               <SidebarSelect
@@ -524,31 +542,51 @@ export function EirDetailView() {
                 />
               </SidebarField>
 
-              <SidebarField icon={<Users />} label="Assigned">
-                {/*
-                 * Type-to-filter dropdown rather than a flat list of every
-                 * person: the options are the whole staff directory (200+),
-                 * which is unusable as a wall of chips. "chips" keeps the
-                 * selected engineers visible and individually removable,
-                 * the way the field has always looked.
-                 */}
-                <MultiSelect
-                  variant="chips"
-                  allLabel="Unassigned"
-                  searchPlaceholder="Search people…"
-                  options={engineerOptions.map((p) => ({
-                    value: personKey(p),
-                    label: p.displayName,
-                  }))}
-                  selected={eir.assignedEngineers.map(personKey)}
-                  onChange={(keys) => {
-                    const byKey = new Map(engineerOptions.map((p) => [personKey(p), p]));
-                    const people = keys
-                      .map((k) => byKey.get(k))
-                      .filter((p): p is Person => !!p);
-                    setEngineers.mutate({ id: eir.id, people });
-                  }}
-                />
+              <SidebarField icon={<Users />} label="Assigned" locked={!canEditWorkflow}>
+                {!canEditWorkflow ? (
+                  // Locked: the engineers stay legible as static chips, the
+                  // ProjectLookupPicker arrangement — MultiSelect has no
+                  // `disabled` prop.
+                  <div className="flex flex-wrap gap-1.5" title={EIR_WORKFLOW_HINT}>
+                    {eir.assignedEngineers.length === 0 ? (
+                      <span className="text-sm text-fg-muted">Unassigned</span>
+                    ) : (
+                      eir.assignedEngineers.map((p) => (
+                        <span
+                          key={personKey(p)}
+                          className="rounded-full border border-border bg-bg px-2 py-0.5 text-xs text-fg"
+                        >
+                          {p.displayName}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  /*
+                   * Type-to-filter dropdown rather than a flat list of every
+                   * person: the options are the whole staff directory (200+),
+                   * which is unusable as a wall of chips. "chips" keeps the
+                   * selected engineers visible and individually removable,
+                   * the way the field has always looked.
+                   */
+                  <MultiSelect
+                    variant="chips"
+                    allLabel="Unassigned"
+                    searchPlaceholder="Search people…"
+                    options={engineerOptions.map((p) => ({
+                      value: personKey(p),
+                      label: p.displayName,
+                    }))}
+                    selected={eir.assignedEngineers.map(personKey)}
+                    onChange={(keys) => {
+                      const byKey = new Map(engineerOptions.map((p) => [personKey(p), p]));
+                      const people = keys
+                        .map((k) => byKey.get(k))
+                        .filter((p): p is Person => !!p);
+                      setEngineers.mutate({ id: eir.id, people });
+                    }}
+                  />
+                )}
               </SidebarField>
 
               <SidebarField
@@ -729,7 +767,7 @@ function InlineTitle({
             setEditing(false);
           }
         }}
-        className="flex-1 rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-2xl"
+        className="flex-1 rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-2xl"
       />
     </div>
   );
@@ -845,7 +883,7 @@ function EditableTextCard({
             onChange={(e) => setDraft(e.target.value)}
             rows={5}
             aria-label={`${title} (checklist)`}
-            className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+            className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
         ) : (
           <RichTextEditor
@@ -888,14 +926,6 @@ function EditableTextCard({
  * param is the underlying SP list-item id (== `task.id` in this app).
  * Returns null if `raw` isn't a Power Apps URL with an ItemID.
  */
-function extractItemIdFromUrl(raw: string): number | null {
-  if (!raw || !/^https?:\/\//i.test(raw)) return null;
-  const match = /[?&]ItemID=(\d+)/i.exec(raw);
-  if (!match) return null;
-  const n = parseInt(match[1], 10);
-  return Number.isNaN(n) || n <= 0 ? null : n;
-}
-
 /**
  * Linked-Task card — main-column section that mirrors the "Child tasks"
  * card on the task detail view. One row per linked task (just one for
@@ -912,11 +942,14 @@ function LinkedTaskCard({
   linkedTask,
   rawReference,
   referenceIsUrl,
+  ambiguous,
   onSaveReference,
 }: {
   linkedTask: import("@/types/task").Task | null;
   rawReference: string;
   referenceIsUrl: boolean;
+  /** Tasks the reference fits equally — offered, never guessed between. */
+  ambiguous: import("@/types/task").Task[];
   onSaveReference: (next: string) => void;
 }) {
   const navigate = useNavigate();
@@ -970,7 +1003,7 @@ function LinkedTaskCard({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="e.g. T115 — or paste a Power Apps task link"
-          className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
         />
       ) : linkedTask ? (
         <button
@@ -989,6 +1022,26 @@ function LinkedTaskCard({
             {linkedTask.status}
           </span>
         </button>
+      ) : ambiguous.length > 0 ? (
+        <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-fg-muted">
+          <p>
+            <code className="break-all">{rawReference}</code> matches {ambiguous.length} tasks —
+            task numbers repeat across projects. Pick the right one:
+          </p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {ambiguous.map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => onSaveReference(t.numberedTitle)}
+                  className="w-full truncate rounded-md border border-border bg-surface px-2 py-1 text-left text-xs text-fg hover:bg-surface-2"
+                >
+                  {t.numberedTitle}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : hasReference ? (
         <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-fg-muted">
           Reference is set but the linked task hasn't loaded yet (or it lives outside
@@ -1130,7 +1183,7 @@ function InlineTextField({
         placeholder={placeholder}
         disabled={disabled}
         title={disabled ? disabledHint : undefined}
-        className={`w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60 ${
           mono ? "font-mono" : ""
         }`}
       />
@@ -1171,7 +1224,7 @@ function InlineSelectField({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         title={disabled ? disabledHint : undefined}
-        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <option value="">{emptyLabel}</option>
         {options.map((o) => (
@@ -1254,6 +1307,8 @@ function SidebarSelect<T extends string>({
   options,
   onChange,
   renderOption,
+  disabled = false,
+  disabledHint,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -1261,13 +1316,18 @@ function SidebarSelect<T extends string>({
   options: readonly T[];
   onChange: (next: T) => void;
   renderOption?: (v: T) => string;
+  /** Greyed out, with the padlock, for somebody who may not change it. */
+  disabled?: boolean;
+  disabledHint?: string;
 }) {
   return (
-    <SidebarField icon={icon} label={label}>
+    <SidebarField icon={icon} label={label} locked={disabled}>
       <select
         value={value}
+        disabled={disabled}
+        title={disabled ? disabledHint : undefined}
         onChange={(e) => onChange(e.target.value as T)}
-        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {options.map((o) => (
           <option key={o || "__empty"} value={o}>

@@ -300,7 +300,7 @@ export function OpenOrdersCustomersView() {
                     </span>
                     {account.includeCustomerMaterialNumber && (
                       <span
-                        className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted"
+                        className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted"
                         title="Their workbook carries the Customer Material Number column"
                       >
                         Cust. material no.
@@ -353,7 +353,7 @@ export function OpenOrdersCustomersView() {
                       type="button"
                       onClick={() => startEdit(account)}
                       aria-label={`Edit ${account.customerName || account.accountNumber}`}
-                      className="rounded p-1.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+                      className="rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -371,7 +371,7 @@ export function OpenOrdersCustomersView() {
                           }
                         }}
                         aria-label={`Remove ${account.customerName || account.accountNumber}`}
-                        className="rounded p-1.5 text-fg-muted transition-colors hover:bg-cooper-red/10 hover:text-cooper-red"
+                        className="rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-cooper-red/10 hover:text-cooper-red"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -528,7 +528,7 @@ function CombinePanel({
           type="button"
           disabled={!chosen || busy}
           onClick={() => chosen && onBuild(chosen)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:opacity-60"
         >
           <Combine className="h-3.5 w-3.5" />
           {busy ? (step ?? "Working…") : "Download combined report"}
@@ -718,7 +718,7 @@ function ImportPanel({
           type="button"
           onClick={onClose}
           aria-label="Close import"
-          className="rounded p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+          className="rounded-sm p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
         >
           <X className="h-4 w-4" />
         </button>
@@ -728,7 +728,7 @@ function ImportPanel({
         type="file"
         accept=".xlsx,.xls"
         onChange={(e) => void onPick(e.target.files?.[0])}
-        className="block w-full cursor-pointer rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg file:mr-3 file:rounded file:border-0 file:bg-surface-2 file:px-3 file:py-1 file:text-sm file:font-medium file:text-fg"
+        className="block w-full cursor-pointer rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg file:mr-3 file:rounded-sm file:border-0 file:bg-surface-2 file:px-3 file:py-1 file:text-sm file:font-medium file:text-fg"
       />
 
       {parsing && <p className="text-sm text-fg-muted">Reading…</p>}
@@ -744,14 +744,14 @@ function ImportPanel({
             <button
               type="button"
               onClick={() => setPicked(new Set(addable.map((a) => a.soldTo)))}
-              className="rounded border border-border px-2 py-0.5 hover:text-fg"
+              className="rounded-sm border border-border px-2 py-0.5 hover:text-fg"
             >
               Select all new
             </button>
             <button
               type="button"
               onClick={() => setPicked(new Set())}
-              className="rounded border border-border px-2 py-0.5 hover:text-fg"
+              className="rounded-sm border border-border px-2 py-0.5 hover:text-fg"
             >
               Clear
             </button>
@@ -775,7 +775,7 @@ function ImportPanel({
                       else next.delete(f.soldTo);
                       setPicked(next);
                     }}
-                    className="h-4 w-4 shrink-0 rounded border-border disabled:opacity-40"
+                    className="h-4 w-4 shrink-0 rounded-sm border-border disabled:opacity-40"
                     aria-label={`Add ${f.customerName}`}
                   />
                   <div className="min-w-0 flex-1">

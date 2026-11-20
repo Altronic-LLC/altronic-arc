@@ -65,7 +65,7 @@ export function PottingSampleEntryFormModal({ onClose }: PottingSampleEntryFormM
       role="dialog"
       aria-modal="true"
       aria-labelledby="potting-sample-entry-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <form
@@ -140,7 +140,7 @@ export function PottingSampleEntryFormModal({ onClose }: PottingSampleEntryFormM
           <button
             type="submit"
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {busy ? "Saving…" : "Save entry"}

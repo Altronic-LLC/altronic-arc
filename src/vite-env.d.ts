@@ -11,6 +11,34 @@ interface ImportMetaEnv {
   readonly VITE_SP_PANELTEAM_SITE_ID: string;
   readonly VITE_SP_SALESTEAM_SITE_ID: string;
   readonly VITE_SP_SALES_ORDERENTRY_SITE_ID: string;
+  // ALTRONICSALESTEAM/SCN subsite — the SCN Dashboard list. All three optional;
+  // config.ts carries documented defaults.
+  readonly VITE_SP_SCN_SITE_ID: string;
+  readonly VITE_SP_SCN_SITE_URL: string;
+  readonly VITE_SP_SALES_DOCUMENTATION_SITE_ID: string;
+  readonly VITE_SP_SALES_DOCUMENTATION_SITE_URL: string;
+  readonly VITE_SP_SCNS_LIST_ID: string;
+  readonly VITE_SP_QUOTES_LIST_ID: string;
+  readonly VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: string;
+  readonly VITE_SP_QUOTE_CUSTOMERS_LIST_ID: string;
+  readonly VITE_SP_QUOTE_ROLES_LIST_ID: string;
+  readonly VITE_SP_PRICING_ROLES_LIST_ID: string;
+  readonly VITE_SP_PRICING_REQUESTS_LIST_ID: string;
+  readonly VITE_SP_PRICING_HISTORY_LIST_ID: string;
+  readonly VITE_SP_NEW_PRODUCT_PRICING_LIST_ID: string;
+  readonly VITE_SP_NP_SUBASSEMBLIES_LIST_ID: string;
+  readonly VITE_SP_CUSTOMER_QUOTES_LIST_ID: string;
+  readonly VITE_PRICING_LIVE: string;
+  readonly VITE_PRICING_PREVIEW_USERS: string;
+  readonly VITE_SP_MCNS_LIST_ID: string;
+  readonly VITE_SP_MCN_ROLES_LIST_ID: string;
+  readonly VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID: string;
+  readonly VITE_MCN_LIVE: string;
+  readonly VITE_SP_PLANT_MAP_ROLES_LIST_ID: string;
+  readonly VITE_SP_LAYOUT_COMPONENTS_LIST_ID: string;
+  readonly VITE_SP_PLANT_LAYOUTS_LIST_ID: string;
+  readonly VITE_SP_PLANT_LAYOUT_FILES_LIST_ID: string;
+  readonly VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID: string;
   readonly VITE_SP_PMO_SITE_ID: string;
   readonly VITE_SP_LIST_ID: string;
   readonly VITE_SP_PROJECTS_LIST_ID: string;
@@ -21,6 +49,33 @@ interface ImportMetaEnv {
   readonly VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID: string;
   readonly VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID: string;
   readonly VITE_SP_MAINTENANCE_ROLES_LIST_ID: string;
+  readonly VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID: string;
+  readonly VITE_SP_HARNESS_PART_NUMBERS_LIST_ID: string;
+  /** Crimp Height Checks (BusinessIT#55) on the PMO site. No defaults. */
+  readonly VITE_SP_CRIMP_SPECS_LIST_ID: string;
+  readonly VITE_SP_PANEL_TIME_OFF_LIST_ID: string;
+  readonly VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID: string;
+  readonly VITE_SP_PANEL_SETTINGS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOM_PARTS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOM_KITS_LIST_ID: string;
+  readonly VITE_SP_PANEL_BOMS_LIST_ID: string;
+  readonly VITE_PANEL_BOM_LIVE: string;
+  /** "true" opens Panel Orders / Tasks / Capacity / Project Dashboard past the Super User live test. */
+  readonly VITE_PANEL_PLANNING_LIVE: string;
+  readonly VITE_SP_CRIMP_CHECKS_LIST_ID: string;
+  /** Harness Alert Recipients list (who the Harness emails go to). No default. */
+  readonly VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: string;
+  /** Pull Tests (BusinessIT#64, Harness) on the PMO site. No defaults. */
+  readonly VITE_SP_PULL_TEST_SPECS_LIST_ID: string;
+  readonly VITE_SP_PULL_TESTS_LIST_ID: string;
+  /** Conformal Coating Checks (BusinessIT#60, Operations) on the PMO site. No defaults. */
+  readonly VITE_SP_COATING_SPECS_LIST_ID: string;
+  readonly VITE_SP_COATING_CHECKS_LIST_ID: string;
+  readonly VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID: string;
+  /** GET-1 (GE Transportation Log Sheet) on the PMO site. No default. */
+  readonly VITE_SP_QC_GET1_LIST_ID: string;
+  /** QCFRM-035 (Series X Controller log sheet) on the PMO site. No default. */
+  readonly VITE_SP_QC_SERIES_X_LIST_ID: string;
   /** Exact Windows printer name for QZ Tray to print Panel QC labels
    * directly to. Unset = always fall back to the browser print dialog. */
   readonly VITE_PANEL_QC_LABEL_PRINTER_NAME: string;
@@ -29,6 +84,11 @@ interface ImportMetaEnv {
    * "Allow this site to print?" prompt). See config.ts's QZ_CERTIFICATE. */
   readonly VITE_QZ_CERTIFICATE: string;
   readonly VITE_QZ_PRIVATE_KEY: string;
+  /** Fabric API for GraphQL endpoint — READ-ONLY reference data.
+   * Optional; config.ts carries the documented default. */
+  readonly VITE_FABRIC_GRAPHQL_ENDPOINT: string;
+  /** DEV ONLY — demo data, but the Calculator's cost lookup asks live Fabric. */
+  readonly VITE_FABRIC_IN_DEMO?: string;
   readonly VITE_SP_SITE_URL: string;
   readonly VITE_SHARED_MAILBOX: string;
   readonly VITE_APP_MANAGER_EMAIL: string;

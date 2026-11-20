@@ -5,6 +5,7 @@ import {
   SP_CSA_LISTINGS_LIST_ID,
   SP_ECNS_LIST_ID,
   SP_FAIT_LIST_ID,
+  SP_FEATURE_REQUESTS_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_MAINTENANCE_TASKS_LIST_ID,
@@ -17,7 +18,15 @@ import {
   SP_GRAY_MARKET_LIST_ID,
   SP_MRB_LIST_ID,
   SP_PMO_SITE_URL,
+  SP_PRICING_REQUESTS_LIST_ID,
+  SP_NEW_PRODUCT_PRICING_LIST_ID,
+  SP_CUSTOMER_QUOTES_LIST_ID,
+  SP_NP_SUBASSEMBLIES_LIST_ID,
+  SP_QUOTES_LIST_ID,
   SP_SALESTEAM_SITE_URL,
+  SP_SCNS_LIST_ID,
+  SP_MCNS_LIST_ID,
+  SP_SCN_SITE_URL,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
   SP_SITE_URL,
   SP_SUPPLIERS_LIST_ID,
@@ -27,6 +36,7 @@ import {
   USE_MOCK,
 } from "./config";
 import { spFetch, SharePointUnavailableError } from "./sharepoint";
+import { GraphError } from "./graph";
 import { formatBytes } from "./projectFiles";
 
 // =============================================================================
@@ -71,7 +81,15 @@ export type AttachmentParent =
   | "supplierContact"
   | "supplierIssue"
   | "costImpactNotice"
-  | "equipment";
+  | "scn"
+  | "equipment"
+  | "quote"
+  | "pricingRequest"
+  | "newProductPricing"
+  | "npSubAssembly"
+  | "customerQuote"
+  | "mcn"
+  | "featureRequest";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -188,6 +206,14 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     siteUrl: SP_SALESTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_COST_IMPACT_NOTICES_LIST_ID",
   },
+  // SCNs — the supplier's EOL notice, the customer letter, the sales-history
+  // export. Attachments are enabled on the list and 71 of 142 rows carried
+  // files at discovery (2026-10-07). The SCN subsite has its own REST root.
+  scn: {
+    listId: SP_SCNS_LIST_ID,
+    siteUrl: SP_SCN_SITE_URL,
+    listIdEnvVar: "VITE_SP_SCNS_LIST_ID",
+  },
   // The machine's manuals, wiring diagrams and nameplate photos, hung off the
   // asset itself rather than off whichever work order happened to need them
   // last. Same PMO site as the Operations tasks and the CMMS lists.
@@ -195,6 +221,54 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_ALTRONIC_EQUIPMENT_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_ALTRONIC_EQUIPMENT_LIST_ID",
+  },
+  // Insourcing Quotes — the customer's data package (drawings, specs) and
+  // supplier quotes hang off the quote header. Lines deliberately have no
+  // attachments. On PMO.
+  quote: {
+    listId: SP_QUOTES_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_QUOTES_LIST_ID",
+  },
+  // Sales Pricing — the customer's drawing or spec on a request, and the
+  // supplier quotes behind a new product's estimates. Both on the Sales site.
+  pricingRequest: {
+    listId: SP_PRICING_REQUESTS_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_PRICING_REQUESTS_LIST_ID",
+  },
+  newProductPricing: {
+    listId: SP_NEW_PRODUCT_PRICING_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_NEW_PRODUCT_PRICING_LIST_ID",
+  },
+  // Each sub-assembly's (or part's) own files — copied onto the fresh row a
+  // new revision writes, so every revision keeps its files.
+  npSubAssembly: {
+    listId: SP_NP_SUBASSEMBLIES_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_NP_SUBASSEMBLIES_LIST_ID",
+  },
+  customerQuote: {
+    listId: SP_CUSTOMER_QUOTES_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_CUSTOMER_QUOTES_LIST_ID",
+  },
+  // MCNs — the supporting data behind a manufacturing change (a test report,
+  // photos, the original Word form on an imported MCN). PMO site.
+  mcn: {
+    listId: SP_MCNS_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_MCNS_LIST_ID",
+  },
+  // ARC Feature Requests — a screenshot of what's being asked for, a mock-up.
+  // The list is a genericList, created with attachments ON, so nothing to set
+  // in SharePoint. Until this existed a file attached to a comment here was
+  // shown, then dropped on Send (BusinessIT, 2026-11-05). Engineering site.
+  featureRequest: {
+    listId: SP_FEATURE_REQUESTS_LIST_ID,
+    siteUrl: SP_SITE_URL,
+    listIdEnvVar: "VITE_SP_FEATURE_REQUESTS_LIST_ID",
   },
 };
 
@@ -333,6 +407,60 @@ export async function uploadAttachment(
     mockStore.set(key, next);
     return attachment;
   }
+  return inItemUploadQueue(`${parent}:${itemId}`, () => postAttachment(parent, itemId, file));
+}
+
+// ONE upload at a time per list item. Every AttachmentFiles/add also updates
+// the parent item, and two of them landing on one item together collide: the
+// file is stored, then SharePoint answers the item update with a bare 500
+// ("-2147467259 … Cannot complete this action"). Picking several files at once
+// fired one POST per file in parallel, so the upload "failed", the file was
+// there, and the person got a Save Failed email for a save that had worked
+// (reported 2026-10-22). Queued here, so every caller — the Attachments card,
+// a comment's files, a staged New-form batch, a promotion copy — is covered.
+const itemUploadQueues = new Map<string, Promise<unknown>>();
+
+function inItemUploadQueue<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = itemUploadQueues.get(key) ?? Promise.resolve();
+  const run = previous.then(task, task);
+  const tail = run.catch(() => undefined);
+  itemUploadQueues.set(key, tail);
+  void tail.then(() => {
+    if (itemUploadQueues.get(key) === tail) itemUploadQueues.delete(key);
+  });
+  return run;
+}
+
+/**
+ * A failure that doesn't say whether the file was stored: a 5xx or a 409 (the
+ * item update after the file write), or the connection dropping mid-request.
+ * A 400/403/404 is a refusal — nothing was written.
+ */
+function isAmbiguousUploadFailure(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  if (err instanceof GraphError) return err.status >= 500 || err.status === 409;
+  return false;
+}
+
+/** The item's attachment names, lower-cased — or null when they can't be read. */
+async function attachmentNames(parent: AttachmentParent, itemId: number): Promise<Set<string> | null> {
+  try {
+    const files = await listAttachments(parent, itemId);
+    return new Set(files.map((f) => f.fileName.toLowerCase()));
+  } catch {
+    return null;
+  }
+}
+
+async function postAttachment(
+  parent: AttachmentParent,
+  itemId: number,
+  file: File,
+): Promise<ListAttachment> {
+  // Who was already there, so an ambiguous failure can be settled by looking:
+  // a name that is there NOW and wasn't BEFORE is this upload. Without the
+  // "before", a same-named file somebody added earlier would read as success.
+  const before = await attachmentNames(parent, itemId);
   const bytes = await file.arrayBuffer();
   // SP REST attachment upload requires a binary POST. The filename has to
   // travel as a URL parameter — encode it carefully.
@@ -353,6 +481,19 @@ export async function uploadAttachment(
       body: bytes,
     });
   } catch (err) {
+    const name = file.name.toLowerCase();
+    if (before && !before.has(name) && isAmbiguousUploadFailure(err)) {
+      const landed = (await listAttachments(parent, itemId).catch(() => [])).find(
+        (a) => a.fileName.toLowerCase() === name,
+      );
+      if (landed) {
+        console.warn(
+          `[attachments] upload of a file to ${parent} ${itemId} reported a failure but the file is there — treating it as saved`,
+          err,
+        );
+        return landed;
+      }
+    }
     if (err instanceof TypeError) {
       throw new Error(
         `The upload of "${file.name}" (${formatBytes(file.size)}) was cut off before ` +
@@ -387,6 +528,35 @@ export async function deleteAttachment(
     method: "POST",
     headers: { "X-HTTP-Method": "DELETE", "If-Match": "*" },
   });
+}
+
+/**
+ * Upload files staged on a New form onto the item that form just created.
+ *
+ * Best-effort per file, never throws — the item already exists, so a failed
+ * file is a warning naming what to re-add from the item's page, not a failed
+ * create. One at a time (uploadAttachment queues per item anyway).
+ */
+export async function uploadAttachments(
+  parent: AttachmentParent,
+  itemId: number,
+  files: File[],
+  /** Called as each file STARTS — `index` is 0-based. */
+  onProgress?: (index: number, file: File) => void,
+): Promise<{ uploaded: string[]; failed: string[] }> {
+  const uploaded: string[] = [];
+  const failed: string[] = [];
+  for (const [index, file] of files.entries()) {
+    onProgress?.(index, file);
+    try {
+      await uploadAttachment(parent, itemId, file);
+      uploaded.push(file.name);
+    } catch (err) {
+      console.error(`uploadAttachments: failed to upload "${file.name}"`, err);
+      failed.push(file.name);
+    }
+  }
+  return { uploaded, failed };
 }
 
 /**

@@ -1,0 +1,618 @@
+import { describe, expect, it } from "vitest";
+import type { GraphListItem } from "@/types/task";
+import type { Quote, QuoteAssembly, QuoteCustomer } from "@/types/quote";
+import {
+  QUOTE_ASSEMBLY_SELECT,
+  QUOTE_CUSTOMER_SELECT,
+  QUOTE_ROLE_SELECT,
+  QUOTE_SELECT,
+  applyQuotePatch,
+  buildQuoteAssemblyCreateFields,
+  buildQuoteAssemblyUpdateFields,
+  buildQuoteCreateFields,
+  buildQuoteCustomerCreateFields,
+  buildQuoteCustomerUpdateFields,
+  buildQuoteRoleCreateFields,
+  buildQuoteRoleUpdateFields,
+  buildQuoteUpdateFields,
+  compareQuotes,
+  isUniqueValueRejection,
+  mockUniqueRejection,
+  parseAlternates,
+  parsePastedAlternates,
+  parsePriceBreaks,
+  serializeAlternates,
+  serializePriceBreaks,
+  toQuote,
+  toQuoteAssembly,
+  toQuoteCustomer,
+  toQuoteRoleEntry,
+} from "./quoteMapper";
+import { parseQuoteRoles, serializeQuoteRoles } from "./quoteRoles";
+
+/** The exact column set from design section 13.1 — a `$select` outside it 400s the whole read. */
+const CONTRACT = {
+  quotes: [
+    "Title", "QuoteBase", "Rev", "CustomerRef", "Status", "ValidityDays", "ContactName", "ContactEmail",
+    "Budgetary", "BudgetaryText", "QuoteNotes", "CustomerReference", "CustomerType", "ProjectContext", "Alternates", "Communication", "Watchers",
+    "EngineeringTaskId", "OperationsTaskId", "EngineeringProjectRef", "OperationsProjectRef",
+  ],
+  assemblies: [
+    "Title", "QuoteRef", "LineNo", "QuotedQty", "Cost", "LaborCost", "MaterialOverheadPct", "SapPartNumber",
+    "CustomerPartNumber", "Description", "PriceBreaks", "TargetGM", "ManualPrice", "TargetPrice", "EstimatedEAU", "CustomerPrice",
+  ],
+  customers: ["Title", "CustomerCode", "CustomerNumber", "Active", "Note"],
+  roles: ["Title", "PersonName", "Roles", "Note"],
+};
+/** Built-in columns every list has. */
+const BUILT_IN = ["Attachments"];
+
+function columnsOf(select: string): string[] {
+  return select.split(",");
+}
+
+function assertWithinContract(select: string, allowed: string[], lookups: string[]) {
+  for (const col of columnsOf(select)) {
+    const base = col.endsWith("LookupId") ? col.slice(0, -"LookupId".length) : col;
+    expect([...allowed, ...BUILT_IN], `${col} is not a 13.1 column`).toContain(base);
+  }
+  for (const l of lookups) {
+    expect(columnsOf(select)).toContain(l);
+    expect(columnsOf(select)).toContain(`${l}LookupId`);
+  }
+}
+
+function item(fields: Record<string, unknown>, extra: Partial<GraphListItem> = {}): GraphListItem {
+  return {
+    id: "7",
+    createdDateTime: "2026-10-01T12:00:00Z",
+    lastModifiedDateTime: "2026-10-02T12:00:00Z",
+    fields,
+    ...extra,
+  } as GraphListItem;
+}
+
+describe("$select — inside the 13.1 contract, BOTH halves of every single lookup", () => {
+  it("quotes", () => assertWithinContract(QUOTE_SELECT, CONTRACT.quotes, ["CustomerRef"]));
+  it("assemblies", () => assertWithinContract(QUOTE_ASSEMBLY_SELECT, CONTRACT.assemblies, ["QuoteRef"]));
+  it("no longer reads the Hyperlink link columns or the old LineType", () => {
+    expect(columnsOf(QUOTE_SELECT)).not.toContain("EngineeringTaskLink");
+    expect(columnsOf(QUOTE_SELECT)).not.toContain("OperationsTaskLink");
+    expect(columnsOf(QUOTE_ASSEMBLY_SELECT)).not.toContain("LineType");
+  });
+  it("customers", () => assertWithinContract(QUOTE_CUSTOMER_SELECT, CONTRACT.customers, []));
+  it("roles — PersonName, never DisplayName", () => {
+    assertWithinContract(QUOTE_ROLE_SELECT, CONTRACT.roles, []);
+    expect(QUOTE_ROLE_SELECT).not.toMatch(/DisplayName/);
+  });
+});
+
+describe("price breaks", () => {
+  it("round-trips", () => {
+    const breaks = [
+      { qty: 10, discountPct: 5, note: "" },
+      { qty: 50, discountPct: 10, note: "blanket" },
+    ];
+    expect(parsePriceBreaks(serializePriceBreaks(breaks))).toEqual(breaks);
+  });
+
+  it("is tolerant: bad JSON, non-arrays and malformed entries", () => {
+    expect(parsePriceBreaks("not json")).toEqual([]);
+    expect(parsePriceBreaks('{"qty":5}')).toEqual([]);
+    expect(parsePriceBreaks("")).toEqual([]);
+    expect(parsePriceBreaks(null)).toEqual([]);
+    expect(
+      parsePriceBreaks(
+        JSON.stringify([
+          { qty: 50, discountPct: "10" },
+          null,
+          { qty: "x", discountPct: 3 },
+          { qty: 0, discountPct: 3 },
+          { qty: 2.5, discountPct: 3 },
+          { qty: 5, discountPct: 120 },
+          { qty: 10 },
+        ]),
+      ),
+    ).toEqual([
+      { qty: 10, discountPct: 0, note: "" },
+      { qty: 50, discountPct: 10, note: "" },
+    ]);
+  });
+
+  it("an empty set serialises to blank", () => {
+    expect(serializePriceBreaks([])).toBe("");
+  });
+});
+
+describe("alternates", () => {
+  const src = (manufacturer = "", partNumber = "", leadTime = "") => ({ manufacturer, partNumber, leadTime });
+  const ROWS = [
+    { designator: "", sources: [src("TE", "1-1437290-3", "22 weeks"), src("Amphenol", "MS3106A", "3 weeks"), src()], reason: "Faster" },
+    { designator: "", sources: [src("Murata", "GRM31", "16 weeks"), src(), src()], reason: "" },
+  ];
+
+  it("round-trips, dropping blank rows, trimming, and always THREE options a row", () => {
+    const stored = serializeAlternates([
+      ...ROWS,
+      { designator: "", sources: [src(" "), src(), src()], reason: " " },
+    ]);
+    expect(parseAlternates(stored)).toEqual({ rows: ROWS, corrupt: false });
+    expect(serializeAlternates([])).toBe("");
+    expect(parseAlternates("")).toEqual({ rows: [], corrupt: false });
+    expect(parseAlternates(undefined)).toEqual({ rows: [], corrupt: false });
+    // A short or missing sources array is padded to three.
+    expect(parseAlternates('[{"designator":"","sources":[{"manufacturer":"X"}],"reason":"r"}]').rows[0].sources).toEqual([
+      src("X"),
+      src(),
+      src(),
+    ]);
+  });
+
+  it("reports a value it can't read as CORRUPT, never as an empty table", () => {
+    expect(parseAlternates("{broken")).toEqual({ rows: [], corrupt: true });
+    expect(parseAlternates('{"reason":"x"}')).toEqual({ rows: [], corrupt: true });
+    expect(toQuote(item({ Alternates: "{broken" })).alternatesCorrupt).toBe(true);
+  });
+
+  it("parses the working sheet — a Designator column, MFR / MFR NO. / Lead Time three times, then Reason", () => {
+    const pasted = [
+      "Designator\tMFR\tMFR NO.\tLead Time\tMFR\tMFR NO.\tLead Time\tMFR\tMFR NO.\tLead Time\tReason",
+      "5a\tAllied India\t12345789\t2-4 Weeks\tGrainger\t9897654\t1-2 Weeks\tEBAY\t654321\t4-6 Weeks\tGrainger has the shortest lead time.",
+      "6b\tMcMaster-Carr\t45821033\t1-2 Weeks\tDigi-Key\t7731204\t3-5 Days\tMouser\t558120\t1 Week\tDigi-Key has the shortest lead time.",
+    ].join("\r\n");
+    expect(parsePastedAlternates(pasted)).toEqual([
+      {
+        designator: "5a",
+        sources: [src("Allied India", "12345789", "2-4 Weeks"), src("Grainger", "9897654", "1-2 Weeks"), src("EBAY", "654321", "4-6 Weeks")],
+        reason: "Grainger has the shortest lead time.",
+      },
+      {
+        designator: "6b",
+        sources: [src("McMaster-Carr", "45821033", "1-2 Weeks"), src("Digi-Key", "7731204", "3-5 Days"), src("Mouser", "558120", "1 Week")],
+        reason: "Digi-Key has the shortest lead time.",
+      },
+    ]);
+  });
+
+  it("with no header row, eleven cells means a designator leads; ten means it doesn't", () => {
+    expect(parsePastedAlternates("7c\tA\t1\tw1\tB\t2\tw2\tC\t3\tw3\tWhy")).toEqual([
+      { designator: "7c", sources: [src("A", "1", "w1"), src("B", "2", "w2"), src("C", "3", "w3")], reason: "Why" },
+    ]);
+    expect(parsePastedAlternates("A\t1\tw1\tB\t2\tw2\tC\t3\tw3\tWhy")[0].designator).toBe("");
+  });
+
+  it("parses rows pasted from Excel — three Mfr / Mfr part # / Lead time sets, then the reason", () => {
+    const pasted = [
+      "Manufacturer 1\tMfr part # 1\tLead time 1\tManufacturer 2\tMfr part # 2\tLead time 2\tManufacturer 3\tMfr part # 3\tLead time 3\tReason",
+      "TE\t1-1437290-3\t22 weeks\tAmphenol\tMS3106A\t3 weeks\t\t\t\tFaster",
+      "",
+      "Murata\tGRM31\t16 weeks",
+      "A\tB\tC\tD\tE\tF\tG\tH\tI\tcheaper\tand in stock",
+    ].join("\r\n");
+    expect(parsePastedAlternates(pasted)).toEqual([
+      ROWS[0],
+      ROWS[1],
+      { designator: "", sources: [src("A", "B", "C"), src("D", "E", "F"), src("G", "H", "I")], reason: "cheaper and in stock" },
+    ]);
+  });
+
+  it("keeps a first row that is data, not a header", () => {
+    expect(parsePastedAlternates("Vishay\tCRCW0603\t4 wk")).toEqual([
+      { designator: "", sources: [src("Vishay", "CRCW0603", "4 wk"), src(), src()], reason: "" },
+    ]);
+  });
+});
+
+describe("role tags", () => {
+  it("parse loosely, keep known tags in canonical order", () => {
+    expect(parseQuoteRoles("Manager, viewer;bogus, viewer")).toEqual(["viewer", "manager"]);
+    expect(parseQuoteRoles(["QUOTER"])).toEqual(["quoter"]);
+    expect(parseQuoteRoles(undefined)).toEqual([]);
+    expect(serializeQuoteRoles(["manager", "quoter"])).toBe("quoter,manager");
+  });
+});
+
+describe("toQuote", () => {
+  it("maps every column, lookup ids arriving as STRINGS", () => {
+    const q = toQuote(
+      item(
+        {
+          Title: "IQ-COO-0042-R2",
+          QuoteBase: "IQ-COO-0042",
+          Rev: 2,
+          CustomerRefLookupId: "3",
+          Status: "Sent",
+          ValidityDays: 45,
+          ContactName: " Mark ",
+          ContactEmail: "m@x.com",
+          Budgetary: true,
+          BudgetaryText: "Non-binding",
+          QuoteNotes: "FOB Girard",
+          Communication: "10/01/2026 9:00:00 AM|||Ray White|||ray@x.com|||<p>hi</p>",
+          Watchers: [{ LookupId: 22, LookupValue: "Ray White", Email: "ray@x.com" }],
+          CustomerReference: " RFQ 4471 ",
+          CustomerType: "Arcline",
+          ProjectContext: "Fleet refresh, 2027",
+          Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
+          EngineeringTaskId: 5,
+          OperationsTaskId: "12",
+          EngineeringProjectRef: "0042-NGI",
+          OperationsProjectRef: "0007-Line 3",
+          Attachments: true,
+        },
+        { createdBy: { user: { displayName: "Katie", email: "k@x.com" } } },
+      ),
+    );
+    expect(q).toMatchObject({
+      id: 7,
+      quoteNumber: "IQ-COO-0042-R2",
+      quoteBase: "IQ-COO-0042",
+      rev: 2,
+      customerId: 3,
+      status: "Sent",
+      validityDays: 45,
+      contactName: "Mark",
+      budgetary: true,
+      customerReference: "RFQ 4471",
+      customerType: "Arcline",
+      projectContext: "Fleet refresh, 2027",
+      alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
+      alternatesCorrupt: false,
+      engineeringTaskId: 5,
+      operationsTaskId: 12,
+      engineeringProjectRef: "0042-NGI",
+      operationsProjectRef: "0007-Line 3",
+      hasAttachments: true,
+      createdBy: { displayName: "Katie", email: "k@x.com" },
+      createdAt: "2026-10-01T12:00:00Z",
+      modifiedAt: "2026-10-02T12:00:00Z",
+    });
+    expect(q.comments).toHaveLength(1);
+    expect(q.watchers).toEqual([{ displayName: "Ray White", email: "ray@x.com", lookupId: 22 }]);
+  });
+
+  it("reads an expanded lookup object too, and defaults sensibly", () => {
+    const q = toQuote(item({ CustomerRef: { LookupId: 9, LookupValue: "Cooper" }, Status: "Superseded" }));
+    expect(q.customerId).toBe(9);
+    // Unknown status → Draft (documented in toStatus).
+    expect(q.status).toBe("Draft");
+    expect(q.rev).toBe(1);
+    expect(q.validityDays).toBe(30);
+    expect(q.budgetary).toBe(false);
+    expect(q.createdBy).toBeNull();
+    expect(q.engineeringTaskId).toBeNull();
+    expect(q.operationsTaskId).toBeNull();
+    expect(q.customerReference).toBe("");
+    expect(q.customerType).toBeNull();
+    expect(q.projectContext).toBe("");
+    expect(q.alternates).toEqual([]);
+    expect(toQuote(item({ CustomerRefLookupId: "" })).customerId).toBeNull();
+  });
+});
+
+describe("toQuoteAssembly / toQuoteCustomer / toQuoteRoleEntry", () => {
+  it("assembly", () => {
+    const a = toQuoteAssembly(
+      item({
+        Title: "791950-08",
+        QuoteRefLookupId: "12",
+        LineNo: 2,
+        QuotedQty: 30,
+        Cost: 520,
+        LaborCost: 85,
+        MaterialOverheadPct: 18,
+        SapPartNumber: "1002-4587-10",
+        CustomerPartNumber: "C-1",
+        Description: "Module",
+        PriceBreaks: '[{"qty":10,"discountPct":5,"note":""}]',
+        TargetGM: 40,
+        ManualPrice: null,
+        TargetPrice: 1050,
+        EstimatedEAU: "120",
+        CustomerPrice: 1070.26,
+      }),
+    );
+    expect(a).toEqual({
+      id: 7,
+      quoteId: 12,
+      lineNo: 2,
+      quotedQty: 30,
+      materialCost: 520,
+      laborCost: 85,
+      materialOverheadPct: 18,
+      altronicPartNumber: "791950-08",
+      sapPartNumber: "1002-4587-10",
+      customerPartNumber: "C-1",
+      description: "Module",
+      priceBreaks: [{ qty: 10, discountPct: 5, note: "" }],
+      targetGM: 40,
+      manualPrice: null,
+      targetPrice: 1050,
+      estimatedEau: 120,
+      customerPrice: 1070.26,
+    });
+  });
+
+  it("Customer type reads only the three choices; EAU only a whole number ≥ 1", () => {
+    expect(toQuote(item({ CustomerType: "Cooper" })).customerType).toBe("Cooper");
+    expect(toQuote(item({ CustomerType: "Someone else" })).customerType).toBeNull();
+    for (const raw of [undefined, null, "", 0, -3, 2.5, "x"]) {
+      expect(toQuoteAssembly(item({ Title: "A", EstimatedEAU: raw })).estimatedEau, String(raw)).toBeNull();
+    }
+    expect(toQuoteAssembly(item({ Title: "A" })).targetPrice).toBeNull();
+  });
+
+  it("writes the new columns: Customer type and Project context on the header, target and EAU on a line", () => {
+    const prev = toQuote(item({ Title: "IQ-COO-0001-R1" }));
+    expect(buildQuoteUpdateFields({ customerType: "External", projectContext: "Why" }, prev)).toEqual({
+      CustomerType: "External",
+      ProjectContext: "Why",
+    });
+    // Clearing the choice writes null; an unchanged value sends nothing.
+    expect(buildQuoteUpdateFields({ customerType: null }, { ...prev, customerType: "Cooper" })).toEqual({ CustomerType: null });
+    expect(buildQuoteUpdateFields({ customerType: "Cooper" }, { ...prev, customerType: "Cooper" })).toEqual({});
+    const line = toQuoteAssembly(item({ Title: "A" }));
+    expect(buildQuoteAssemblyUpdateFields({ targetPrice: 99.5, estimatedEau: 400 }, line)).toEqual({
+      TargetPrice: 99.5,
+      EstimatedEAU: 400,
+    });
+    const created = buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 1, targetPrice: 12, estimatedEau: 300 });
+    expect(created.TargetPrice).toBe(12);
+    expect(created.EstimatedEAU).toBe(300);
+    const blank = buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 1, targetPrice: null, estimatedEau: null });
+    expect(blank).not.toHaveProperty("TargetPrice");
+    expect(blank).not.toHaveProperty("EstimatedEAU");
+  });
+
+  it("the quoted quantity is NEVER blank: missing, blank, zero, negative or fractional reads as 1", () => {
+    for (const raw of [undefined, null, "", 0, -3, 2.5, "x"]) {
+      expect(toQuoteAssembly(item({ Title: "A", QuotedQty: raw })).quotedQty, String(raw)).toBe(1);
+    }
+    expect(toQuoteAssembly(item({ Title: "A", QuotedQty: 12 })).quotedQty).toBe(12);
+    expect(toQuoteAssembly(item({ Title: "A", QuotedQty: "12" })).quotedQty).toBe(12);
+    // A create always sends it — a bad value is written as 1.
+    expect(buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 1, quotedQty: 0 }).QuotedQty).toBe(1);
+  });
+
+  it("assembly — blank costs read null; the SAP # is read as stored", () => {
+    expect(toQuoteAssembly(item({ Title: "A" }))).toMatchObject({ materialCost: null, laborCost: null, materialOverheadPct: null });
+    expect(toQuoteAssembly(item({ Title: "A", SapPartNumber: "100245871" })).sapPartNumber).toBe("100245871");
+  });
+
+  it("customer — text sold-to keeps zeros; missing Active reads active", () => {
+    const c = toQuoteCustomer(item({ Title: "Cooper", CustomerCode: "coo", CustomerNumber: "0001042" }));
+    expect(c).toEqual({ id: 7, name: "Cooper", code: "COO", customerNumber: "0001042", active: true, note: "" });
+    expect(toQuoteCustomer(item({ Active: false })).active).toBe(false);
+  });
+
+  it("role entry", () => {
+    expect(
+      toQuoteRoleEntry(item({ Title: "Ray@X.com", PersonName: "Ray", Roles: "manager", Note: "" })),
+    ).toEqual({ id: 7, email: "ray@x.com", displayName: "Ray", roles: ["manager"], note: "" });
+  });
+});
+
+const QUOTE: Quote = {
+  id: 1,
+  quoteNumber: "IQ-COO-0001-R1",
+  quoteBase: "IQ-COO-0001",
+  rev: 1,
+  customerId: 3,
+  status: "Draft",
+  validityDays: 30,
+  contactName: "Mark",
+  contactEmail: "m@x.com",
+  budgetary: false,
+  budgetaryText: "",
+  quoteNotes: "",
+  customerReference: "",
+  customerType: null,
+  projectContext: "",
+  alternates: [],
+  alternatesCorrupt: false,
+  comments: [],
+  watchers: [],
+  engineeringTaskId: null,
+  operationsTaskId: null,
+  engineeringProjectRef: "",
+  operationsProjectRef: "",
+  hasAttachments: false,
+  createdBy: null,
+  createdAt: null,
+  modifiedAt: null,
+};
+
+describe("quote field builders", () => {
+  it("create: bare-integer lookup, two-key Watchers, NO hyperlink columns, blanks left out", () => {
+    const fields = buildQuoteCreateFields({
+      quoteNumber: "IQ-COO-0001-R1",
+      quoteBase: "IQ-COO-0001",
+      rev: 1,
+      customerId: 3,
+      status: "Draft",
+      validityDays: 30,
+      contactName: "Mark",
+      contactEmail: "",
+      budgetary: true,
+      budgetaryText: "Non-binding",
+      quoteNotes: "",
+      watchers: [{ displayName: "A", lookupId: 5 }, { displayName: "B" }],
+    });
+    expect(fields).toEqual({
+      Title: "IQ-COO-0001-R1",
+      QuoteBase: "IQ-COO-0001",
+      Rev: 1,
+      Status: "Draft",
+      ValidityDays: 30,
+      Budgetary: true,
+      CustomerRefLookupId: 3,
+      ContactName: "Mark",
+      BudgetaryText: "Non-binding",
+      "WatchersLookupId@odata.type": "Collection(Edm.Int32)",
+      WatchersLookupId: [5],
+    });
+    expect(Object.keys(fields).join()).not.toMatch(/Link/);
+  });
+
+  it("create carries the reference, alternates and links when set", () => {
+    const fields = buildQuoteCreateFields({
+      quoteNumber: "x", quoteBase: "x", rev: 2, customerId: null, status: "Draft", validityDays: 30,
+      contactName: "", contactEmail: "", budgetary: false, budgetaryText: "", quoteNotes: "",
+      customerReference: " RFQ 1 ",
+      alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
+      engineeringTaskId: 47,
+      operationsTaskId: 9,
+      engineeringProjectRef: "0042-NGI",
+      operationsProjectRef: "0007-Line 3",
+      watchers: [],
+    });
+    expect(fields).toMatchObject({
+      CustomerReference: "RFQ 1",
+      Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
+      EngineeringTaskId: 47,
+      OperationsTaskId: 9,
+      EngineeringProjectRef: "0042-NGI",
+      OperationsProjectRef: "0007-Line 3",
+    });
+  });
+
+  it("create leaves Watchers out when nobody resolved", () => {
+    const fields = buildQuoteCreateFields({
+      quoteNumber: "x", quoteBase: "x", rev: 1, customerId: null, status: "Draft", validityDays: 30,
+      contactName: "", contactEmail: "", budgetary: false, budgetaryText: "", quoteNotes: "",
+      watchers: [{ displayName: "B" }], communication: "carried",
+    });
+    expect(fields).not.toHaveProperty("WatchersLookupId");
+    expect(fields).not.toHaveProperty("CustomerRefLookupId");
+    expect(fields.Communication).toBe("carried");
+  });
+
+  it("update is DIFFED: only changed columns, nothing when unchanged", () => {
+    expect(buildQuoteUpdateFields({ contactName: "Mark", status: "Draft", customerId: 3 }, QUOTE)).toEqual({});
+    expect(buildQuoteUpdateFields({ contactName: " Mark ", status: "Sent" }, QUOTE)).toEqual({ Status: "Sent" });
+    expect(buildQuoteUpdateFields({ customerId: 4, budgetary: true }, QUOTE)).toEqual({
+      CustomerRefLookupId: 4,
+      Budgetary: true,
+    });
+    expect(buildQuoteUpdateFields({ customerId: null }, QUOTE)).toEqual({ CustomerRefLookupId: null });
+    expect(buildQuoteUpdateFields({ contactName: undefined }, QUOTE)).toEqual({});
+  });
+
+  it("update writes the links as numbers / titles, and the alternates as JSON", () => {
+    expect(buildQuoteUpdateFields({ engineeringTaskId: 47, operationsProjectRef: "0007" }, QUOTE)).toEqual({
+      EngineeringTaskId: 47,
+      OperationsProjectRef: "0007",
+    });
+    expect(buildQuoteUpdateFields({ engineeringTaskId: null }, { ...QUOTE, engineeringTaskId: 47 })).toEqual({
+      EngineeringTaskId: null,
+    });
+    expect(buildQuoteUpdateFields({ alternates: [] }, QUOTE)).toEqual({});
+    expect(buildQuoteUpdateFields({ alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }] }, QUOTE)).toEqual({
+      Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
+    });
+    expect(buildQuoteUpdateFields({ customerReference: " RFQ " }, QUOTE)).toEqual({ CustomerReference: "RFQ" });
+  });
+
+  it("frozen keys can't travel", () => {
+    const sneaky = { quoteNumber: "IQ-HACK-9999-R1", rev: 9 } as unknown as Parameters<typeof buildQuoteUpdateFields>[0];
+    expect(buildQuoteUpdateFields(sneaky, QUOTE)).toEqual({});
+    expect(applyQuotePatch(QUOTE, sneaky).quoteNumber).toBe("IQ-COO-0001-R1");
+  });
+});
+
+const ASSEMBLY: QuoteAssembly = {
+  id: 1,
+  quoteId: 1,
+  lineNo: 1,
+  quotedQty: 1,
+  materialCost: 400,
+  laborCost: null,
+  materialOverheadPct: 18,
+  altronicPartNumber: "791950-08",
+  sapPartNumber: "",
+  customerPartNumber: "",
+  description: "",
+  priceBreaks: [{ qty: 10, discountPct: 5, note: "" }],
+  targetGM: 35,
+  manualPrice: null,
+  targetPrice: null,
+  estimatedEau: null,
+  customerPrice: 100,
+};
+
+describe("assembly builders", () => {
+  it("create writes QuoteRef as a bare integer", () => {
+    const fields = buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 12 });
+    expect(fields).toEqual({
+      Title: "791950-08",
+      QuoteRefLookupId: 12,
+      LineNo: 1,
+      QuotedQty: 1,
+      Cost: 400,
+      MaterialOverheadPct: 18,
+      PriceBreaks: '[{"qty":10,"discountPct":5,"note":""}]',
+      TargetGM: 35,
+      CustomerPrice: 100,
+    });
+    expect(buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 12, targetGM: null })).not.toHaveProperty("TargetGM");
+  });
+
+  it("update diffs, comparing breaks by value", () => {
+    expect(buildQuoteAssemblyUpdateFields({ priceBreaks: [{ qty: 10, discountPct: 5, note: "" }] }, ASSEMBLY)).toEqual({});
+    expect(buildQuoteAssemblyUpdateFields({ priceBreaks: [], manualPrice: 90 }, ASSEMBLY)).toEqual({
+      PriceBreaks: "",
+      ManualPrice: 90,
+    });
+    expect(buildQuoteAssemblyUpdateFields({ targetGM: 35 }, ASSEMBLY)).toEqual({});
+    expect(buildQuoteAssemblyUpdateFields({ targetGM: 42 }, ASSEMBLY)).toEqual({ TargetGM: 42 });
+    expect(buildQuoteAssemblyUpdateFields({ targetGM: null }, ASSEMBLY)).toEqual({ TargetGM: null });
+    expect(buildQuoteAssemblyUpdateFields({ quotedQty: 1 }, ASSEMBLY)).toEqual({});
+    expect(buildQuoteAssemblyUpdateFields({ quotedQty: 25 }, ASSEMBLY)).toEqual({ QuotedQty: 25 });
+    // Material is the Cost column; labor its own.
+    expect(buildQuoteAssemblyUpdateFields({ materialCost: 410, laborCost: 30 }, ASSEMBLY)).toEqual({
+      Cost: 410,
+      LaborCost: 30,
+    });
+    expect(buildQuoteAssemblyUpdateFields({ laborCost: null }, ASSEMBLY)).toEqual({});
+  });
+});
+
+describe("customer and role builders", () => {
+  const CUSTOMER: QuoteCustomer = { id: 1, name: "Cooper", code: "COO", customerNumber: "001", active: true, note: "" };
+
+  it("customer create upper-cases the code and always sends Active", () => {
+    expect(
+      buildQuoteCustomerCreateFields({ name: " Cooper ", code: "coo", customerNumber: "", note: "" }),
+    ).toEqual({ Title: "Cooper", CustomerCode: "COO", Active: true });
+  });
+
+  it("customer update diffs, and can never send the code", () => {
+    expect(buildQuoteCustomerUpdateFields({ name: "Cooper", active: true }, CUSTOMER)).toEqual({});
+    expect(buildQuoteCustomerUpdateFields({ active: false }, CUSTOMER)).toEqual({ Active: false });
+    const sneaky = { code: "XXX" } as unknown as Parameters<typeof buildQuoteCustomerUpdateFields>[0];
+    expect(buildQuoteCustomerUpdateFields(sneaky, CUSTOMER)).toEqual({});
+  });
+
+  it("roles write PersonName, never DisplayName", () => {
+    const fields = buildQuoteRoleCreateFields({ email: "Ray@X.com", displayName: "Ray", roles: ["manager"], note: "" });
+    expect(fields).toEqual({ Title: "ray@x.com", Roles: "manager", PersonName: "Ray" });
+    expect(buildQuoteRoleUpdateFields({ roles: ["viewer"] })).toEqual({ Roles: "viewer" });
+    expect(buildQuoteRoleUpdateFields({ displayName: "R" })).toEqual({ PersonName: "R" });
+  });
+});
+
+describe("misc", () => {
+  it("compareQuotes: newest sequence, then newest rev", () => {
+    const a = { ...QUOTE, id: 1, quoteBase: "IQ-COO-0001", rev: 1 };
+    const b = { ...QUOTE, id: 2, quoteBase: "IQ-COO-0001", rev: 2 };
+    const c = { ...QUOTE, id: 3, quoteBase: "IQ-WAB-0002", rev: 1 };
+    expect([a, b, c].sort(compareQuotes).map((q) => q.id)).toEqual([3, 2, 1]);
+  });
+
+  it("isUniqueValueRejection recognises the duplicate wording, not an edit conflict", () => {
+    expect(isUniqueValueRejection(mockUniqueRejection("Title", "IQ-COO-0001-R1"))).toBe(true);
+    expect(isUniqueValueRejection({ status: 409, body: '{"error":{"code":"nameAlreadyExists"}}' })).toBe(true);
+    expect(isUniqueValueRejection({ status: 409, body: '{"error":{"code":"resourceModified"}}' })).toBe(false);
+    expect(isUniqueValueRejection(new Error("Graph 500"))).toBe(false);
+  });
+});

@@ -13,7 +13,7 @@ import {
   type CoilDefectLogEntry,
   type CoilDefectLogInput,
 } from "@/lib/coilsQc";
-import { parseSpDate, toDateInputValue, fromDateInputValue, toSpDateOnly } from "@/lib/spDates";
+import { parseSpDateOnly, toDateInputValue, fromDateInputValue, toSpDateOnly } from "@/lib/spDates";
 import type { GraphListItem } from "@/types/task";
 
 const COILS_QC_SELECT = [
@@ -39,7 +39,9 @@ function toCoilDefectLogEntry(item: GraphListItem): CoilDefectLogEntry {
   return {
     id: item.id,
     coilPartNumber: String(fields.Title ?? ""),
-    date: toDateInputValue(parseSpDate(fields.Date)),
+    // Midday pivot: ARC writes 12:00Z, but rows SharePoint or the old Power App
+    // wrote sit at local midnight in the site's zone, which can be the day before in UTC.
+    date: toDateInputValue(parseSpDateOnly(fields.Date)),
     produced: toNumber(fields.Produced),
     failed: toNumber(fields.Failed),
     defects,

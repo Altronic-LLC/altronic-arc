@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ListChecks, Loader2, Plus, X } from "lucide-react";
 import {
@@ -24,7 +24,10 @@ import {
   OPERATIONS_STATUSES,
   type Person,
 } from "@/types/task";
-import { computeOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
+import {
+  computeOperationsTaskNumber,
+  renumberedOperationsTaskNumber,
+} from "@/lib/operationsTaskNumbering";
 import {
   convertToChecklist,
   indentChecklistLine,
@@ -54,7 +57,7 @@ interface OperationsTaskFormModalProps {
  */
 export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskFormModalProps) {
   const navigate = useNavigate();
-  const { data: allTasks = [] } = useOperationsTasks();
+  const { data: allTasks = [], refetch: refetchTasks } = useOperationsTasks();
   const { data: projects = [] } = useOperationsProjects();
   const { data: equipment = [] } = useOperationsEquipment();
   const createTask = useCreateOperationsTask();
@@ -131,6 +134,17 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
     return mergePeople([...seen.values()], directory);
   })();
 
+  // Edit mode: the number a project change will give this task (BusinessIT#33),
+  // by the same rule the hook applies on save. Null when it keeps its number.
+  const renumberPreview = useMemo(() => {
+    if (mode !== "edit" || !task) return null;
+    const nextId = parentProjectId === "" ? null : parentProjectId;
+    if (nextId === (task.parentProject?.lookupId ?? null)) return null;
+    const project = nextId == null ? null : projects.find((p) => p.lookupId === nextId) ?? null;
+    if (nextId != null && !project) return null;
+    return renumberedOperationsTaskNumber(task, project, allTasks);
+  }, [mode, task, parentProjectId, projects, allTasks]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedTitle = title.trim();
@@ -145,22 +159,38 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
       if (mode === "create") {
         const chosenProject =
           parentProjectId === "" ? null : projects.find((p) => p.lookupId === parentProjectId) ?? null;
-        const taskNumber = computeOperationsTaskNumber(chosenProject, allTasks);
+        const createWithNumber = (taskNumber: string) =>
+          createTask.mutateAsync({
+            title: trimmedTitle,
+            taskNumber,
+            description: description.trim() || undefined,
+            status,
+            priority: priority || null,
+            taskType: taskType || null,
+            location: location || null,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            parentProjectLookupId: parentProjectId === "" ? null : parentProjectId,
+            equipmentLookupId: equipmentId === "" ? null : equipmentId,
+            assigned,
+            watchers,
+          });
 
-        const created = await createTask.mutateAsync({
-          title: trimmedTitle,
-          taskNumber,
-          description: description.trim() || undefined,
-          status,
-          priority: priority || null,
-          taskType: taskType || null,
-          location: location || null,
-          dueDate: dueDate ? new Date(dueDate) : null,
-          parentProjectLookupId: parentProjectId === "" ? null : parentProjectId,
-          equipmentLookupId: equipmentId === "" ? null : equipmentId,
-          assigned,
-          watchers,
-        });
+        // The number comes off the cached list, which can be up to two minutes
+        // stale (staleTime). TaskNumber has "Enforce unique values" on in
+        // SharePoint, so if someone else numbered a task under the same code
+        // meanwhile the create is rejected rather than duplicated. Refetch,
+        // renumber and retry exactly once — and only when the fresh list
+        // actually yields a different number; any other failure surfaces as is.
+        const firstNumber = computeOperationsTaskNumber(chosenProject, allTasks);
+        let created: OperationsTask;
+        try {
+          created = await createWithNumber(firstNumber);
+        } catch (err) {
+          const fresh = (await refetchTasks()).data ?? allTasks;
+          const nextNumber = computeOperationsTaskNumber(chosenProject, fresh);
+          if (nextNumber === firstNumber) throw err;
+          created = await createWithNumber(nextNumber);
+        }
         onClose();
         navigate(`/operations/task/${created.id}`);
         return;
@@ -226,7 +256,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
       role="dialog"
       aria-modal="true"
       aria-labelledby="operations-task-form-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <form
@@ -278,7 +308,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Short, action-oriented summary"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
                 required
                 maxLength={255}
               />
@@ -326,7 +356,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
                 }}
                 rows={4}
                 placeholder="What needs to be done?"
-                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
             </label>
 
@@ -392,6 +422,13 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
                 emptyLabel="None"
                 searchPlaceholder="Search projects…"
               />
+              {renumberPreview && (
+                <span role="status" className="mt-1 block text-xs text-fg-muted">
+                  Saving renumbers this task:{" "}
+                  <span className="font-mono">{task?.taskNumber || "no number"}</span> becomes{" "}
+                  <span className="font-mono font-semibold text-fg">{renumberPreview}</span>
+                </span>
+              )}
             </FieldLabel>
 
             <FieldLabel label="Equipment">
@@ -440,7 +477,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
           <button
             type="submit"
             disabled={busy || !title.trim()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />

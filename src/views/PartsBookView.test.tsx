@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { __resetPartsRolesMockStore } from "@/api/partsRoles";
 import { PartsBookView } from "./PartsBookView";
+
+const download = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/useQuotePdf", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useQuotePdf")>()),
+  downloadBlob: download,
+}));
 
 /** Shows where the router ended up, so a navigation can be asserted. */
 function Where() {
@@ -52,6 +58,29 @@ describe("PartsBookView", () => {
     // 601 is a Component List (Through Hole) list; 610 is not.
     expect(screen.getByRole("link", { name: /^601/ })).toHaveTextContent("Through Hole");
     expect(screen.getByRole("link", { name: /^610/ })).not.toHaveTextContent("Through Hole");
+  });
+
+  it("names each Parts Book by its EWI-005 product code", () => {
+    renderBook();
+    expect(screen.getByRole("button", { name: /^300/ })).toHaveTextContent("Altronic III Ignition");
+    expect(screen.getByRole("button", { name: /^900/ })).toHaveTextContent("Fasteners & Hardware");
+    expect(screen.getByRole("button", { name: /^600/ })).toHaveAttribute(
+      "title",
+      "600 Parts Book — Instrumentation or Control Systems (EWI-005 Rev 5)",
+    );
+  });
+
+  it("labels a Part List list by what its digits mean, and leaves an HCO list's chip alone", async () => {
+    renderBook("/engineering/parts?book=6");
+    expect(await screen.findByRole("heading", { name: /600 Parts Book · Instrumentation & Control/ })).toBeInTheDocument();
+    // 610: level 1 (Mechanical), type 0 (Mechanical) — said once.
+    const list610 = await screen.findByRole("link", { name: /^610/ });
+    expect(list610).toHaveTextContent("Mechanical");
+    expect(list610.getAttribute("title")).toMatch(/^EWI-005 Rev 5: 6 = Instrumentation or Control Systems/);
+    // 601 is Through Hole: no EWI lines, no tooltip.
+    const list601 = screen.getByRole("link", { name: /^601/ });
+    expect(list601).not.toHaveTextContent("Components / Hardware");
+    expect(list601).not.toHaveAttribute("title");
   });
 
   it("jumps to a list for a three-digit number", async () => {
@@ -122,5 +151,18 @@ describe("PartsBookView — on a phone", () => {
     await userEvent.click(screen.getByRole("button", { name: "All Parts Books" }));
     expect(screen.getByRole("region", { name: "Parts books" })).not.toHaveClass("hidden");
     expect(screen.queryByRole("button", { name: "All Parts Books" })).not.toBeInTheDocument();
+  });
+
+  it("exports the Component List as a CSV once it has loaded", async () => {
+    renderBook();
+    const button = screen.getByRole("button", { name: /Export components/ });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+    expect(download).toHaveBeenCalledTimes(1);
+    const [blob, name] = download.mock.calls[0] as [Blob, string];
+    expect(name).toMatch(/^altronic-component-list-\d{4}-\d{2}-\d{2}\.csv$/);
+    const lines = (await blob.text()).split(String.fromCharCode(13, 10));
+    expect(lines[0]).toContain("Altronic Part #,Category,Description");
+    expect(lines.length).toBeGreaterThan(3);
   });
 });

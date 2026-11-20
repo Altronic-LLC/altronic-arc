@@ -2,11 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import {
+  Camera,
   BadgeCheck,
   Building2,
   Calculator,
+  CalendarClock,
   CalendarDays,
   ChevronDown,
+  Cable,
+  Ruler,
+  Weight,
+  Factory,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -19,19 +25,23 @@ import {
   FileSpreadsheet,
   FileStack,
   FileText,
+  FolderKanban,
   FolderOpen,
   Hammer,
   HardHat,
   LayoutDashboard,
   LayoutGrid,
+  Layers,
   Library,
   Lightbulb,
   List,
   ListChecks,
   Lock,
   MapPin,
+  Megaphone,
   MessageSquare,
   Moon,
+  Receipt,
   PackageSearch,
   RefreshCw,
   Shield,
@@ -39,17 +49,28 @@ import {
   TestTubes,
   Timer,
   Users,
+  CalendarOff,
+  Package,
+  Gauge,
+  Map as MapIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
+import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
+import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
+import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
+import { useAgendaAttentionCount } from "@/hooks/useAgenda";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
+import { rememberView } from "@/hooks/useRememberedView";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { USE_MOCK } from "@/api/config";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PLANT_MAP_CONFIGURED, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -74,6 +95,48 @@ interface DepartmentItem {
   icon: React.ReactNode;
   matchesPath: (pathname: string) => boolean;
   disabled?: boolean;
+  /**
+   * Shown ONLY to someone holding a quote role (or who can manage the roles
+   * list). No role means the entry doesn't appear at all — Insourcing Quotes
+   * shows cost and margin, so it isn't advertised to the whole company.
+   * Navigation only; every quote screen and write asks its own gate.
+   */
+  requiresQuoteAccess?: boolean;
+  /**
+   * Sales Pricing: `"with"` is shown only to someone with pricing access (the
+   * preview switch AND a pricing role); `"without"` only to everyone else —
+   * the old "Coming soon" row, so the review stays private.
+   */
+  pricingAccess?: "with" | "without";
+  /**
+   * MCNs: `"with"` shown only to someone who can open them (everyone once
+   * live; the pilot team, approvers and admins until then); `"without"` —
+   * the "Coming soon" row — to everyone else.
+   */
+  mcnAccess?: "with" | "without";
+  /**
+   * Plant Map: `"with"` shown only to someone who can open it (everyone once
+   * live; people on Plant Map Roles and ARC admins until then); `"without"` —
+   * the "Coming soon" row — to everyone else.
+   */
+  plantMapAccess?: "with";
+  /**
+   * Panel SAP BOM Builder (BusinessIT#59): `"with"` shown to whoever can open
+   * it (panel Super Users during the limited demo, the panel team once live);
+   * `"without"` — the "Coming soon" row — to everyone else, during the demo
+   * only. After go-live the builder is simply hidden from non-team people,
+   * like Capacity.
+   */
+  panelBomAccess?: "with" | "without";
+  /** Panel planning tools (BusinessIT#42): shown only to the panel team and ARC admins. */
+  requiresPanelTeam?: boolean;
+  /**
+   * Panel Orders / Tasks / Capacity / Project Dashboard during their live
+   * test (PANEL_PLANNING_LIVE off, Tim 2026-11-19), the BOM Builder way:
+   * `"with"` is the real row, for panel Super Users (everyone once live);
+   * `"without"` is its "Coming soon" row for everyone else while testing.
+   */
+  panelPreview?: "with" | "without";
 }
 
 interface DepartmentGroup {
@@ -158,17 +221,57 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Panels",
     items: [
       {
+        to: "/panels/projects",
+        label: "Panel Project Dashboard",
+        icon: <FolderKanban className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/projects"),
+        panelPreview: "with",
+      },
+      { ...soon("Panel Project Dashboard", <FolderKanban className="h-4 w-4" />), panelPreview: "without" },
+      {
         to: "/panels/orders",
         label: "Panel Orders",
         icon: <LayoutDashboard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/order"),
+        panelPreview: "with",
       },
+      { ...soon("Panel Orders", <LayoutDashboard className="h-4 w-4" />), panelPreview: "without" },
       {
         to: "/panels/tasks",
         label: "Panel Tasks",
         icon: <ListChecks className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/task"),
+        panelPreview: "with",
       },
+      { ...soon("Panel Tasks", <ListChecks className="h-4 w-4" />), panelPreview: "without" },
+      {
+        to: "/panels/capacity",
+        label: "Panel Engineering Capacity",
+        icon: <Gauge className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/capacity"),
+        requiresPanelTeam: true,
+        panelPreview: "with",
+      },
+      {
+        ...soon("Panel Engineering Capacity", <Gauge className="h-4 w-4" />),
+        requiresPanelTeam: true,
+        panelPreview: "without",
+      },
+      {
+        to: "/panels/time-off",
+        label: "Panel Time Off",
+        icon: <CalendarOff className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/time-off"),
+        requiresPanelTeam: true,
+      },
+      {
+        to: "/panels/bom-builder",
+        label: "Panel SAP BOM Builder",
+        icon: <Package className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/bom"),
+        panelBomAccess: "with",
+      },
+      { ...soon("Panel SAP BOM Builder", <Package className="h-4 w-4" />), panelBomAccess: "without" },
       {
         to: "/panels/qc-time-tracking",
         label: "QC Time Tracking",
@@ -198,6 +301,28 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Teradyne Log",
         icon: <CircuitBoard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/operations/teradyne"),
+      },
+      {
+        to: "/operations/mcns",
+        label: "MCNs",
+        icon: <Factory className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/mcns"),
+        mcnAccess: "with",
+      },
+      { ...soon("MCNs", <Factory className="h-4 w-4" />), mcnAccess: "without" },
+      {
+        to: "/operations/plant-map",
+        label: "Plant Map",
+        icon: <MapIcon className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/plant-map"),
+        // Only for people on Plant Map Roles — no "Coming soon" row for anyone else.
+        plantMapAccess: "with",
+      },
+      {
+        to: "/operations/coating-checks",
+        label: "Conformal Coating Checks",
+        icon: <Layers className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/coating-checks") || p.startsWith("/operations/alert-recipients"),
       },
       // CMMS. Four entries rather than one, because these are four different
       // jobs: raise/track a work order, see what's due, manage the recurring
@@ -233,6 +358,31 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Maintenance Dashboard",
         icon: <LayoutDashboard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/operations/maintenance/dashboard"),
+      },
+    ],
+  },
+  {
+    // Its own department since 2026-10-27 (Tim) — the harness floor's logs
+    // moved out of Operations. Same PMO site, own menu group and Dashboard section.
+    name: "Harness",
+    items: [
+      {
+        to: "/harness/production-log",
+        label: "Harness Production Log",
+        icon: <Cable className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/production-log"),
+      },
+      {
+        to: "/harness/crimp-checks",
+        label: "Crimp Height Checks",
+        icon: <Ruler className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/crimp-checks"),
+      },
+      {
+        to: "/harness/pull-tests",
+        label: "Pull Tests",
+        icon: <Weight className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/harness/pull-tests"),
       },
     ],
   },
@@ -311,6 +461,29 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <ClipboardX className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/supply-chain/mrb"),
       },
+      {
+        to: "/supply-chain/scns",
+        label: "SCNs",
+        icon: <Megaphone className="h-4 w-4" />,
+        // Covers both /supply-chain/scns and /supply-chain/scn/:id.
+        matchesPath: (p) => p.startsWith("/supply-chain/scn"),
+      },
+      {
+        to: "/supply-chain/files",
+        label: "Supply Chain Files",
+        icon: <FolderOpen className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/files"),
+      },
+      // Insourcing Quotes is listed under Supply Chain for now (Ray,
+      // 2026-10-09), matching its Dashboard card; its routes stay
+      // /sales/quotes so links already sent in emails keep working.
+      {
+        to: "/sales/quotes",
+        label: "Insourcing Quotes",
+        icon: <Receipt className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/quotes"),
+        requiresQuoteAccess: true,
+      },
     ],
   },
   {
@@ -337,7 +510,26 @@ const DEPARTMENTS: DepartmentGroup[] = [
         // detail page, not as separate screens — see CLAUDE.md.
         matchesPath: (p) => p.startsWith("/sales/customer"),
       },
-      soon("Pricing Requests", <Calculator className="h-4 w-4" />),
+      {
+        to: "/sales/application-photos",
+        label: "Application Photos",
+        icon: <Camera className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/application-photos"),
+      },
+      {
+        to: "/sales/documentation",
+        label: "Sales Documentation",
+        icon: <FolderOpen className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/documentation"),
+      },
+      {
+        to: "/sales/pricing",
+        label: "Pricing",
+        icon: <Calculator className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/pricing"),
+        pricingAccess: "with",
+      },
+      { ...soon("Pricing", <Calculator className="h-4 w-4" />), pricingAccess: "without" },
     ],
   },
 ];
@@ -382,8 +574,8 @@ export function Header() {
   const visitFilterQuery = visitReportFilterSearch(search);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface shadow-sm">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-6 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-border bg-surface shadow-xs">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 sm:px-6">
         <div className="flex items-center justify-between gap-3 sm:flex-1">
           <Link to="/" className="flex min-w-0 items-center gap-2 text-fg sm:gap-3">
             <Brandmark className="h-7 w-auto shrink-0 sm:h-9" />
@@ -396,6 +588,7 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
+            <AgendaButton />
             <RefreshButton />
             <SuggestFeatureButton />
             <NotifyAppManagerButton />
@@ -416,6 +609,8 @@ export function Header() {
             <span className="sm:hidden">Home</span>
           </NavLink>
           <DepartmentsMenu active={isDepartmentPage} pathname={pathname} />
+          {/* No Reports tab (Tim, 2026-10-07): /reports and /reports/kiosk
+              stay reachable by URL, but aren't advertised in the nav yet. */}
           {isAdmin && (
             <NavLink
               to="/admin/admins"
@@ -428,13 +623,19 @@ export function Header() {
         </nav>
         {showTaskViews && (
           <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
-            <NavLink to={`/list${filterQuery}`} active={isList} icon={<List className="h-4 w-4" />}>
+            <NavLink
+              to={`/list${filterQuery}`}
+              active={isList}
+              icon={<List className="h-4 w-4" />}
+              onClick={() => rememberView("tasks", "list")}
+            >
               List
             </NavLink>
             {kanbanAvailable && (
               <NavLink
                 to={`/kanban${filterQuery}`}
                 active={isKanban}
+                onClick={() => rememberView("tasks", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Kanban
@@ -447,6 +648,7 @@ export function Header() {
             <NavLink
               to={`/eirs${eirFilterQuery}`}
               active={isEirList}
+              onClick={() => rememberView("eirs", "list")}
               icon={<List className="h-4 w-4" />}
             >
               List
@@ -455,6 +657,7 @@ export function Header() {
               <NavLink
                 to={`/eirs/kanban${eirFilterQuery}`}
                 active={isEirKanban}
+                onClick={() => rememberView("eirs", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Board
@@ -489,6 +692,7 @@ export function Header() {
             <NavLink
               to={`/operations/tasks${filterQuery}`}
               active={isOpsList}
+              onClick={() => rememberView("operationsTasks", "list")}
               icon={<List className="h-4 w-4" />}
             >
               List
@@ -497,6 +701,7 @@ export function Header() {
               <NavLink
                 to={`/operations/tasks/kanban${filterQuery}`}
                 active={isOpsKanban}
+                onClick={() => rememberView("operationsTasks", "board")}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Kanban
@@ -506,9 +711,10 @@ export function Header() {
         )}
 
         <div className="ml-auto hidden items-center gap-3 sm:flex">
-          <span className="hidden text-[11px] text-fg-muted md:inline">
+          <span className="hidden whitespace-nowrap text-[11px] text-fg-muted xl:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
+          <AgendaButton />
           <RefreshButton />
           <SuggestFeatureButton />
           <NotifyAppManagerButton />
@@ -527,6 +733,41 @@ export function Header() {
 }
 
 /**
+ * My agenda (BusinessIT#13) — a link to `/agenda`, badged with how many of
+ * the person's tasks and EIRs are overdue or due today.
+ *
+ * The badge is hidden until BOTH lists have loaded (`null`), and hidden at
+ * zero — a permanent "0" is noise. It reads queries `useMentionScanner`
+ * already holds on every page, so it adds no request.
+ */
+function AgendaButton() {
+  const count = useAgendaAttentionCount();
+  const label =
+    count && count > 0
+      ? `My agenda — ${count} overdue or due today`
+      : "My agenda";
+  return (
+    <Link
+      to="/agenda"
+      title={label}
+      aria-label={label}
+      className="relative flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+    >
+      <CalendarClock className="h-4 w-4" />
+      <span className="hidden whitespace-nowrap 2xl:inline">My Agenda</span>
+      {count != null && count > 0 && (
+        <span
+          data-testid="agenda-badge"
+          className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-cooper-red px-1 text-[10px] font-semibold leading-none text-white"
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+/**
  * "Suggest a feature" — a plain link to the ARC Feature Requests tool, next
  * to Report Issue. Unlike Report Issue (a modal, for something BROKEN), this
  * is a full page, since raising and tracking a feature request needs more
@@ -541,7 +782,7 @@ function SuggestFeatureButton() {
       className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <Lightbulb className="h-4 w-4" />
-      <span className="hidden md:inline">Suggest a feature</span>
+      <span className="hidden whitespace-nowrap 2xl:inline">Suggest a feature</span>
     </Link>
   );
 }
@@ -589,7 +830,7 @@ function RefreshButton() {
       className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <RefreshCw className={cn("h-4 w-4", fetching && "animate-spin")} />
-      <span className="hidden md:inline">Refresh</span>
+      <span className="hidden whitespace-nowrap 2xl:inline">Refresh</span>
     </button>
   );
 }
@@ -600,6 +841,7 @@ function NavLink({
   dimmed,
   icon,
   title,
+  onClick,
   children,
 }: {
   to: string;
@@ -607,15 +849,18 @@ function NavLink({
   dimmed?: boolean;
   icon: React.ReactNode;
   title?: string;
+  /** Runs before the navigation — the List / Kanban switcher saves the pick here. */
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Link
       to={to}
       title={title}
+      onClick={onClick}
       className={cn(
         "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:flex-initial",
-        active ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+        active ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
         dimmed && !active && "opacity-40 hover:opacity-100",
       )}
     >
@@ -640,6 +885,15 @@ function DepartmentsMenu({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const denials = useAccessDenials();
+  const { rights: quoteRights } = useMyQuoteAccess();
+  const canSeeQuotes = quoteRights.canAccess || quoteRights.canManageRoles;
+  const { rights: pricingRights } = useMyPricingAccess();
+  const canSeePricing = pricingRights.canOpen;
+  const mcnAccess = useMyMcnAccess();
+  const canSeeMcns = MCNS_CONFIGURED && mcnAccess.rights.canOpen;
+  const plantMapAccess = useMyPlantMapAccess();
+  const canSeePlantMap = PLANT_MAP_CONFIGURED && plantMapAccess.rights.canOpen;
+  const panelTeam = usePanelTeamAccess();
 
   useEffect(() => {
     if (!open) return;
@@ -666,7 +920,7 @@ function DepartmentsMenu({
         aria-expanded={open}
         className={cn(
           "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:flex-initial",
-          active ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+          active ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
         )}
       >
         <Library className="h-4 w-4" />
@@ -688,7 +942,44 @@ function DepartmentsMenu({
                 {group.name}
               </div>
               <div className="space-y-1">
-                {group.items.map((item) => {
+                {group.items
+                  .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
+                  .filter((item) => !item.requiresPanelTeam || panelTeam.canOpen)
+                  .filter(
+                    (item) =>
+                      !item.panelPreview ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!panelTeam.planningResolving &&
+                        (item.panelPreview === "with"
+                          ? panelTeam.canOpenPlanning
+                          : !PANEL_PLANNING_LIVE && !panelTeam.canOpenPlanning)),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.mcnAccess ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!mcnAccess.resolving && (item.mcnAccess === "with" ? canSeeMcns : !canSeeMcns)),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.plantMapAccess ||
+                      // Hidden while the roles list answers, and for anyone not on it.
+                      (!plantMapAccess.resolving && canSeePlantMap),
+                  )
+                  .filter(
+                    (item) =>
+                      !item.panelBomAccess ||
+                      // Neither row while the roles list answers — no flash of "Coming soon".
+                      (!panelTeam.bomResolving &&
+                        (item.panelBomAccess === "with"
+                          ? panelTeam.canOpenBom
+                          : !PANEL_BOM_LIVE && !panelTeam.canOpenBom)),
+                  )
+                  .map((item) => {
                   const itemActive = item.matchesPath(pathname);
 
                   // SharePoint has already refused this app's list for this

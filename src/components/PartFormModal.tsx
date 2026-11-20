@@ -11,6 +11,7 @@ import {
   useCreateAltronicComponent,
   useCreateAltronicPart,
   useRequestNewPartsList,
+  useRequestNextLinkedList,
 } from "@/hooks/useAltronicParts";
 import { isDeletedPart, partEvent } from "@/lib/partLifecycle";
 import { useMyPartsAccess } from "@/hooks/usePartsRoles";
@@ -21,12 +22,20 @@ import { DateField } from "./DateField";
 import { DraftRestoredNotice } from "./DraftRestoredNotice";
 import { YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
-import { COMPONENT_PREFIX_CATEGORY, isComponentPrefix, partPrefix } from "@/lib/altronicPartMapper";
+import {
+  COMPONENT_PREFIX_CATEGORY,
+  componentSearchPrefixes,
+  isComponentPrefix,
+  partPrefix,
+} from "@/lib/altronicPartMapper";
 import {
   COMPONENT_FIELDS,
   PART_FIELDS,
   isRequired,
+  linkedListChain,
+  listNames,
   missingRequired,
+  nextLinkedPartNumber,
   nextPartNumber,
   opensNewList,
   partNumberProblem,
@@ -64,7 +73,9 @@ import { toDateInputValue } from "@/lib/spDates";
 // The typed text is kept as a draft (create only) so navigating away to look
 // something up doesn't lose it. The datasheet is NOT — a File can't be stored.
 //
-// A datasheet PDF may be picked (Tim, 2026-09-28). It is uploaded as
+// A datasheet PDF is OPTIONAL on every part (Tim, 2026-10-22). It was
+// required from 2026-10-09, except on a drawing number; that requirement was
+// removed entirely. When one is picked it is uploaded as
 // `<part #>.pdf` right AFTER the part is created — the name needs the final
 // number, and a file uploaded first would be left behind if the create were
 // refused. It is checked before the create, so a wrong pick leaves nothing
@@ -88,6 +99,8 @@ function defaultValues(): Record<string, string> {
   const now = new Date();
   return { dateAssigned: toDateInputValue(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 12))) };
 }
+
+const LISTS_LOADING = "The parts lists are still loading — Next free needs every number. Try again in a moment.";
 
 export function PartFormModal({ prefix, onClose }: { prefix: string | null; onClose: () => void }) {
   const navigate = useNavigate();
@@ -113,7 +126,16 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     };
   }, [parts.data, components.data]);
   const deletedNumbers = useMemo(() => [...deleted.values()].map((r) => r.partNumber), [deleted]);
+  // Next free needs EVERY number on BOTH lists. The Component List usually
+  // arrives seconds before the Part List, and working from it alone offered a
+  // Part List number as though its list were empty.
+  const listsLoaded = !!parts.data && !!components.data;
   const next = (p: string) => nextPartNumber(p, allNumbers, deletedNumbers);
+  /** Next free on `p`, overflowing into the linked HCO lists after it. */
+  const nextLinked = (p: string) => nextLinkedPartNumber(p, allNumbers, deletedNumbers);
+  // The list Next free last worked from on the Parts Book (no list fixed) —
+  // so "701 and 711 are full" can still be said once the number reads 712.
+  const [suggestedFrom, setSuggestedFrom] = useState<string | null>(null);
 
   const draft = useFormDraft<Record<string, string>>(`newAltronicPart:${prefix ?? "any"}`);
   const [partNumber, setPartNumber] = useState(draft.initial.partNumber ?? "");
@@ -127,11 +149,11 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   // Fill in the next free number once the lists have loaded — but never over
   // something typed or restored.
   useEffect(() => {
-    if (!prefix || partNumber || allNumbers.length === 0) return;
-    const n = next(prefix);
+    if (!prefix || partNumber || !listsLoaded) return;
+    const n = nextLinked(prefix).partNumber;
     if (n) setPartNumber(n);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefix, allNumbers.length]);
+  }, [prefix, listsLoaded]);
 
   useEffect(() => {
     draft.save({ ...values, partNumber });
@@ -173,7 +195,23 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     ? { ...values, description: composeDescription(needSil ? picks : { ...picks, silCategory: "" }) }
     : values;
   const labels = ratingLabelsFor(effectiveValues.description ?? "");
-  const listFull = !!prefix && allNumbers.length > 0 && next(prefix) === null;
+  // Linked lists (Tim, 2026-10-09): a part opened on 701 may land on 711 or
+  // 712 when the lists before them are full. `chainFrom` is the list the form
+  // was opened on (or Next free worked from), while the number is still in
+  // its chain; `overflowedPast` is the full lists it skipped to get here.
+  const origin = prefix ?? suggestedFrom;
+  const chainFrom = origin && linkedListChain(origin).includes(typedPrefix) ? origin : null;
+  const chain = chainFrom ? linkedListChain(chainFrom) : [];
+  const chainNext = chainFrom && listsLoaded ? nextLinked(chainFrom) : null;
+  const chainFull = !!chainNext && chainNext.partNumber === null;
+  const overflowedPast =
+    chainFrom && typedPrefix !== chainFrom
+      ? chain.slice(0, chain.indexOf(typedPrefix)).filter((p) => next(p) === null)
+      : [];
+  // A full HCO category gets the "ask for the next linked list" button; a full
+  // Part List list keeps its plain warning (it never rolls over).
+  const linkedFull = chainFull && isComponentPrefix(chainFrom!);
+  const listFull = chainFull && !linkedFull && !!prefix;
   // Typing (or being offered) a deleted number reuses it — say so, and when
   // it was deleted, so nobody mistakes it for a number that was never used.
   const reusing = deleted.get(partNumber.trim().toLowerCase()) ?? null;
@@ -202,9 +240,19 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   }
 
   function suggest() {
-    const n = typedPrefix ? next(typedPrefix) : null;
-    if (n) setPartNumber(n);
-    else setError(typedPrefix ? `List ${typedPrefix} is full — every number up to ${typedPrefix}999 is taken.` : "Type the three-digit list number first.");
+    setError(null);
+    if (!typedPrefix) return setError("Type the three-digit list number first.");
+    if (!listsLoaded) return setError(LISTS_LOADING);
+    // Stay on the chain already being worked from, so pressing Next free on a
+    // 712 number that overflowed from 701 still says why.
+    const from = chainFrom ?? typedPrefix;
+    if (!prefix) setSuggestedFrom(from);
+    const result = nextLinked(from);
+    if (result.partNumber) return setPartNumber(result.partNumber);
+    // A full linked chain shows its own notice, with the request button.
+    if (!isComponentPrefix(from)) {
+      setError(`List ${from} is full — every number up to ${from}999 is taken.`);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -300,7 +348,9 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
               <DraftRestoredNotice
                 onDiscard={() => {
                   draft.clear();
-                  setPartNumber(prefix ? (next(prefix) ?? "") : "");
+                  setSuggestedFrom(null);
+                  // Not loaded yet: left blank, and filled in once they are.
+                  setPartNumber(prefix && listsLoaded ? (nextLinked(prefix).partNumber ?? "") : "");
                   setValues(defaultValues());
                 }}
                 onKeep={draft.dismissNotice}
@@ -329,6 +379,11 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
                   Next free
                 </button>
               </div>
+              {!listsLoaded && (
+                <p role="status" className="mt-1 text-xs text-fg-muted">
+                  Loading the parts lists to find the next free number…
+                </p>
+              )}
             </Field>
             <div className="self-end text-xs text-fg-muted">
               {typedPrefix ? (
@@ -372,6 +427,25 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
               List {prefix} is full — every number up to {prefix}999 is taken. Check with the SAP admin which list the part
               belongs in.
             </p>
+          )}
+
+          {overflowedPast.length > 0 && (
+            <p
+              role="status"
+              className="mt-3 rounded-md border border-superior-blue/40 bg-superior-blue/5 px-3 py-2 text-xs text-fg"
+            >
+              {overflowedPast.length === 1 ? "List" : "Lists"} <strong>{listNames(overflowedPast)}</strong>{" "}
+              {overflowedPast.length === 1 ? "is" : "are"} full, so this part takes the next free number in the linked
+              list <strong>{typedPrefix}</strong>.
+            </p>
+          )}
+
+          {linkedFull && chainFrom && (
+            <LinkedListsFullRequest
+              category={COMPONENT_PREFIX_CATEGORY[chainFrom]}
+              lists={componentSearchPrefixes(chainFrom)}
+              description={effectiveValues.description ?? ""}
+            />
           )}
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -437,7 +511,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
             form="part-form"
             disabled={busy || !gate.allowed}
             title={gate.allowed ? undefined : gate.hint}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {uploadSheet.isPending ? "Uploading datasheet…" : "Add part"}
@@ -469,7 +543,7 @@ export function NewPartButton({ prefix }: { prefix: string | null }) {
         onClick={() => setOpen(true)}
         disabled={!gate.allowed}
         title={gate.resolving ? gate.hint : undefined}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
       >
         <Plus className="h-4 w-4" />
         New part
@@ -509,7 +583,7 @@ function NewListRequest({ prefix, partNumber, description }: { prefix: string; p
               { onSuccess: (to) => setSentFor({ prefix, to }) },
             )
           }
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
         >
           {request.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           Ask the SAP admin for list {prefix}
@@ -524,7 +598,62 @@ function NewListRequest({ prefix, partNumber, description }: { prefix: string; p
   );
 }
 
-/** Optional datasheet PDF — named after the part number when it's uploaded. */
+/**
+ * Every linked list in an HCO category is full — 701, 711 and 712, say — so
+ * there's no number to hand out. Say so, and offer to ask the SAP admin to
+ * create the next linked list (Tim, 2026-10-09).
+ */
+function LinkedListsFullRequest({
+  category,
+  lists,
+  description,
+}: {
+  category: string;
+  lists: string[];
+  description: string;
+}) {
+  const request = useRequestNextLinkedList();
+  const [sentTo, setSentTo] = useState<string[] | null>(null);
+  const names = listNames(lists);
+  return (
+    <div role="alert" className="mt-3 rounded-md border border-cooper-red/40 bg-cooper-red/5 px-3 py-2 text-xs text-fg">
+      <p>
+        {lists.length === 1 ? (
+          <>
+            The {category} list <strong>{names}</strong> is full
+          </>
+        ) : (
+          <>
+            Every linked {category} list is full (<strong>{names}</strong>)
+          </>
+        )}
+        , so there's no free number for a new part. Ask the SAP admin to create the next linked list.
+      </p>
+      {sentTo ? (
+        <p className="mt-2 font-medium text-fg">Sent to {sentTo.join(", ")}. You'll hear back once the next list is ready.</p>
+      ) : (
+        <button
+          type="button"
+          disabled={request.isPending}
+          onClick={() => request.mutate({ category, lists, description }, { onSuccess: setSentTo })}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
+        >
+          {request.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          Ask the SAP admin for the next {category} list
+        </button>
+      )}
+      {request.isError && !sentTo && (
+        <p className="mt-2 text-cooper-red">
+          {request.error instanceof Error ? request.error.message : "The request didn't send."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The datasheet PDF — optional, named after the part number when uploaded.
+ */
 function DatasheetPicker({
   file,
   onChange,
@@ -539,7 +668,9 @@ function DatasheetPicker({
   const input = useRef<HTMLInputElement>(null);
   return (
     <div className="mt-4 rounded-md border border-dashed border-border px-3 py-3">
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Datasheet</span>
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+        Datasheet
+      </span>
       <input
         ref={input}
         type="file"

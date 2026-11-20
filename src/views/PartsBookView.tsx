@@ -1,15 +1,18 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Cpu, Globe, ListTree, Search } from "lucide-react";
+import { ArrowLeft, Cpu, Download, Globe, ListTree, Search } from "lucide-react";
 import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicParts";
 import { PartKindChip, PartsDataGate } from "@/components/partsAtoms";
 import { buildPartsBooks, parsePartsQuery, partPath } from "@/lib/partSearch";
 import { COMPONENT_PREFIX_CATEGORY } from "@/lib/altronicPartMapper";
+import { listMeaning, partsBookLabel, partsBookTooltip } from "@/lib/partNumberScheme";
 import { PARTS_BOOKS, type AltronicComponent, type AltronicPart } from "@/types/task";
 import { NewPartButton } from "@/components/PartFormModal";
 import { useMyPartsAccess } from "@/hooks/usePartsRoles";
 import { manageDescriptionOptionsGate, partsRightsFor } from "@/lib/partsRoles";
 import { cn } from "@/lib/cn";
+import { componentCsvFileName, componentCsvRows, toCsv } from "@/lib/componentCsv";
+import { downloadBlob } from "@/hooks/useQuotePdf";
 
 // =============================================================================
 // Altronic Parts List — the landing page. Replaces the Power App's home screen
@@ -77,11 +80,35 @@ function DescriptionListsLink() {
   return (
     <Link
       to="/engineering/parts/descriptions"
-      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-sm transition-colors hover:bg-surface-2"
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2"
     >
       <ListTree className="h-4 w-4" />
       Descriptions
     </Link>
+  );
+}
+
+/**
+ * The Component List as a CSV (BusinessIT#53) — anyone who can read the Parts
+ * List. Built from the list already loaded for the tiles, so it costs no
+ * request; greyed until that has arrived.
+ */
+function ExportComponentsButton({ components }: { components: AltronicComponent[] | undefined }) {
+  return (
+    <button
+      type="button"
+      disabled={!components}
+      title={components ? "Download every live component as a CSV" : "The Component List is still loading"}
+      onClick={() => {
+        if (!components) return;
+        const blob = new Blob([toCsv(componentCsvRows(components))], { type: "text/csv;charset=utf-8" });
+        downloadBlob(blob, componentCsvFileName(new Date()));
+      }}
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2 disabled:opacity-50"
+    >
+      <Download className="h-4 w-4" />
+      Export components
+    </button>
   );
 }
 
@@ -151,15 +178,16 @@ export function PartsBookView() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Link
             to="/engineering/parts/search"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-sm transition-colors hover:bg-surface-2"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2"
           >
             <Globe className="h-4 w-4" />
             Global Search
           </Link>
           <DescriptionListsLink />
+          <ExportComponentsButton components={componentsQuery.data} />
           <NewPartButton prefix={null} />
         </div>
       </header>
@@ -176,13 +204,13 @@ export function PartsBookView() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="601, 601110, or a description…"
-            className="h-10 w-full rounded-md border border-border bg-surface px-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+            className="h-10 w-full rounded-md border border-border bg-surface px-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
             inputMode="search"
             autoComplete="off"
           />
           <button
             type="submit"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white shadow-xs hover:bg-accent/90"
           >
             <Search className="h-4 w-4" />
             Go
@@ -207,6 +235,7 @@ export function PartsBookView() {
                 onClick={() => selectBook(selectedBook === book ? null : book)}
                 disabled={empty}
                 aria-pressed={selectedBook === book}
+                title={partsBookTooltip(book)}
                 className={cn(
                   "flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-center transition-colors",
                   selectedBook === book
@@ -216,7 +245,7 @@ export function PartsBookView() {
                 )}
               >
                 <span className="font-display text-lg font-semibold tabular-nums">{book}00</span>
-                <span className="text-[11px] text-fg-muted">Parts Book</span>
+                <span className="text-[11px] leading-tight text-fg-muted">{partsBookLabel(book)}</span>
                 <span className="mt-0.5 text-[11px] tabular-nums text-fg-muted">
                   {books === null ? "…" : summary ? `${summary.count.toLocaleString()} parts` : "no parts"}
                 </span>
@@ -237,7 +266,7 @@ export function PartsBookView() {
             All Parts Books
           </button>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">
-            {selectedBook}00 Parts Book — pick a list
+            {selectedBook}00 Parts Book · {partsBookLabel(selectedBook)} — pick a list
           </h2>
           <PartsDataGate
             queries={[partsQuery, componentsQuery]}
@@ -246,19 +275,30 @@ export function PartsBookView() {
           >
             {bookSummary ? (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-8">
-                {bookSummary.lists.map((list) => (
-                  <Link
-                    key={list.prefix}
-                    to={`/engineering/parts/list/${list.prefix}`}
-                    className="flex flex-col items-center gap-0.5 rounded-lg border border-border bg-surface px-2 py-2.5 text-center transition-colors hover:border-accent hover:bg-surface-2"
-                  >
-                    <span className="font-mono text-base font-semibold text-fg">{list.prefix}</span>
-                    <span className="text-[11px] tabular-nums text-fg-muted">
-                      {list.count.toLocaleString()} part{list.count === 1 ? "" : "s"}
-                    </span>
-                    {list.component && <PartKindChip label={COMPONENT_PREFIX_CATEGORY[list.prefix]} />}
-                  </Link>
-                ))}
+                {bookSummary.lists.map((list) => {
+                  // EWI-005 meaning for a Part List list; the HCO lists keep
+                  // their Through Hole / Surface Mount / SIL chip instead.
+                  const meaning = listMeaning(list.prefix);
+                  return (
+                    <Link
+                      key={list.prefix}
+                      to={`/engineering/parts/list/${list.prefix}`}
+                      title={meaning?.description}
+                      className="flex flex-col items-center gap-0.5 rounded-lg border border-border bg-surface px-2 py-2.5 text-center transition-colors hover:border-accent hover:bg-surface-2"
+                    >
+                      <span className="font-mono text-base font-semibold text-fg">{list.prefix}</span>
+                      {meaning?.lines.map((line) => (
+                        <span key={line} className="text-[11px] leading-tight text-fg">
+                          {line}
+                        </span>
+                      ))}
+                      <span className="text-[11px] tabular-nums text-fg-muted">
+                        {list.count.toLocaleString()} part{list.count === 1 ? "" : "s"}
+                      </span>
+                      {list.component && <PartKindChip label={COMPONENT_PREFIX_CATEGORY[list.prefix]} />}
+                    </Link>
+                  );
+                })}
               </div>
             ) : (
               <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-fg-muted">

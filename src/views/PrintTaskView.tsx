@@ -50,7 +50,7 @@ export function PrintTaskView() {
               </p>
             </div>
           </div>
-          <div className="rounded-sm border border-gray-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-700">
+          <div className="rounded-xs border border-gray-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-700">
             Confidential
           </div>
         </div>

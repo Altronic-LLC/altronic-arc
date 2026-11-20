@@ -25,6 +25,11 @@ describe("appItemPath", () => {
     expect(appItemPath("ecn", 3)).toBe("/engineering/ecn/3");
   });
 
+  it("puts an SCN under Supply Chain — the detail route the views and every email agree on", () => {
+    expect(appItemPath("scn", 12)).toBe("/supply-chain/scn/12");
+    expect(appItemUrl("scn", 12)).toBe(`${window.location.origin}/supply-chain/scn/12`);
+  });
+
   it("agrees with appItemUrl about the segment for a kind", () => {
     // The two must not drift: one is for links people click in the app, the
     // other for links in an email.

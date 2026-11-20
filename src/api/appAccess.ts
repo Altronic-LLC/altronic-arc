@@ -28,7 +28,13 @@ import {
   SP_CAD_DRAWINGS_LIST_ID,
   SP_CCC_DRAWINGS_LIST_ID,
   SP_CEC_DRAWINGS_LIST_ID,
+  SP_COATING_CHECKS_LIST_ID,
+  SP_COATING_SPECS_LIST_ID,
   SP_COST_IMPACT_NOTICES_LIST_ID,
+  SP_CRIMP_CHECKS_LIST_ID,
+  SP_CRIMP_SPECS_LIST_ID,
+  SP_PULL_TEST_SPECS_LIST_ID,
+  SP_PULL_TESTS_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
   SP_CUSTOMER_NOTES_LIST_ID,
   SP_ECNS_LIST_ID,
@@ -37,19 +43,34 @@ import {
   SP_FAIT_LIST_ID,
   SP_FEATURE_REQUESTS_LIST_ID,
   SP_GRAY_MARKET_LIST_ID,
+  SP_HARNESS_ALERT_RECIPIENTS_LIST_ID,
+  SP_HARNESS_PRODUCTION_LOG_LIST_ID,
   SP_LIST_ID,
   SP_MAINTENANCE_TASKS_LIST_ID,
+  SP_MCNS_LIST_ID,
+  SP_PLANT_LAYOUTS_LIST_ID,
+  SP_LAYOUT_COMPONENTS_LIST_ID,
+  SP_PLANT_MAP_ROLES_LIST_ID,
   SP_MRB_LIST_ID,
   SP_OPEN_ORDERS_CUSTOMERS_LIST_ID,
+  SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
+  SP_PANEL_BOMS_LIST_ID,
+  SP_PANEL_BOM_PARTS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
+  SP_PANEL_PROJECTS_LIST_ID,
   SP_PANEL_QC_ISSUES_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
+  SP_PANEL_TASK_TEMPLATES_LIST_ID,
+  SP_PANEL_TIME_OFF_LIST_ID,
   SP_POTTING_SAMPLE_LOG_LIST_ID,
   SP_QC_COILS_LIST_ID,
-  SP_QC_CPU95_LIST_ID,
   SP_QC_TIME_TRACKING_LIST_ID,
+  SP_QUOTE_ASSEMBLIES_LIST_ID,
+  SP_QUOTES_LIST_ID,
+  SP_PRICING_REQUESTS_LIST_ID,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
+  SP_SCNS_LIST_ID,
   SP_SUPPLIERS_LIST_ID,
   SP_TERADYNE_LOG_LIST_ID,
   SP_TEST_RESULTS_LIST_ID,
@@ -60,7 +81,11 @@ import {
 import { DIGITAL_QC_FAMILY_LIST_IDS } from "./digitalQc";
 import { IGNITION_QC_FAMILY_LIST_IDS } from "./ignitionQc";
 import { OPEN_ORDERS_PATH } from "./openOrdersFiles";
+import { SUPPLY_CHAIN_FILES_PATH } from "./supplyChainFiles";
+import { SALES_DOCUMENTATION_PATH } from "./salesDocumentation";
+import { APPLICATION_PHOTOS_PATH } from "./applicationPhotos";
 import { PROJECT_FOLDERS_PATH } from "./projectFiles";
+import { QC_FORM_LISTS } from "./qcFormLists";
 
 export type SiteKey = keyof typeof SITES;
 
@@ -74,6 +99,8 @@ export const SITE_LABELS: Record<SiteKey, string> = {
   panelTeam: "ALTRONICPANELTEAM",
   salesTeam: "ALTRONICSALESTEAM",
   salesOrderEntry: "ALTRONICSALESTEAM/OrderEntry",
+  scn: "ALTRONICSALESTEAM/SCN",
+  salesDocumentation: "ALTRONICSALESTEAM/AltronicDocumentation",
   pmo: "Altronic_PMO",
 };
 
@@ -90,6 +117,9 @@ export const SITE_LABELS: Record<SiteKey, string> = {
  */
 export const SITE_PARENTS: Partial<Record<SiteKey, SiteKey>> = {
   salesOrderEntry: "salesTeam",
+  // The SCN subsite sits in the same collection, under the same parent.
+  scn: "salesTeam",
+  salesDocumentation: "salesTeam",
 };
 
 /** A site and every site above it, nearest first. */
@@ -189,17 +219,48 @@ export const APPS: AppSpec[] = [
   { path: "/feature-requests", label: "ARC Feature Requests", site: "engineering", lists: ids(SP_FEATURE_REQUESTS_LIST_ID) },
 
   // Panels ---------------------------------------------------------------
+  // The project dashboard reads all three; it's unreadable only when all are refused.
+  {
+    path: "/panels/projects",
+    label: "Panel Project Dashboard",
+    site: "panelTeam",
+    lists: ids(SP_PANEL_PROJECTS_LIST_ID, SP_PANEL_ORDERS_LIST_ID, SP_PANEL_TASKS_LIST_ID),
+  },
   { path: "/panels/orders", label: "Panel Orders", site: "panelTeam", lists: ids(SP_PANEL_ORDERS_LIST_ID) },
   { path: "/panels/tasks", label: "Panel Tasks", site: "panelTeam", lists: ids(SP_PANEL_TASKS_LIST_ID) },
+  // Capacity reads Panel Tasks; refused time off only means nobody looks off.
+  { path: "/panels/capacity", label: "Panel Engineering Capacity", site: "panelTeam", lists: ids(SP_PANEL_TASKS_LIST_ID) },
+  { path: "/panels/task-templates", label: "Panel standard tasks", site: "panelTeam", lists: ids(SP_PANEL_TASK_TEMPLATES_LIST_ID) },
+  // BOM Builder (BusinessIT#59): the builder and Parts & kits need the parts list; kits are read too, but a
+  // refused kits list alone still leaves a working builder. Saved BOMs is its own list.
+  { path: "/panels/bom-builder", label: "Panel SAP BOM Builder", site: "panelTeam", lists: ids(SP_PANEL_BOM_PARTS_LIST_ID) },
+  { path: "/panels/bom-parts", label: "BOM parts & kits", site: "panelTeam", lists: ids(SP_PANEL_BOM_PARTS_LIST_ID) },
+  { path: "/panels/boms", label: "Saved BOMs", site: "panelTeam", lists: ids(SP_PANEL_BOMS_LIST_ID) },
+  { path: "/panels/time-off", label: "Panel Time Off", site: "panelTeam", lists: ids(SP_PANEL_TIME_OFF_LIST_ID) },
   { path: "/panels/qc-time-tracking", label: "QC Time Tracking", site: "panelTeam", lists: ids(SP_QC_TIME_TRACKING_LIST_ID) },
   { path: "/panels/qc-issues", label: "Panel QC Issue Tracker", site: "panelTeam", lists: ids(SP_PANEL_QC_ISSUES_LIST_ID) },
 
   // Operations -----------------------------------------------------------
   { path: "/operations/tasks", label: "Operational Tasks", site: "pmo", lists: ids(SP_OPERATIONS_TASKS_LIST_ID) },
   { path: "/operations/teradyne", label: "Teradyne Log", site: "pmo", lists: ids(SP_TERADYNE_LOG_LIST_ID) },
+  { path: "/operations/mcns", label: "MCNs", site: "pmo", lists: ids(SP_MCNS_LIST_ID) },
+  { path: "/operations/plant-map/roles", label: "Plant Map Roles", site: "pmo", lists: ids(SP_PLANT_MAP_ROLES_LIST_ID) },
+  { path: "/operations/plant-map/symbols", label: "Plant Map Symbols", site: "pmo", lists: ids(SP_LAYOUT_COMPONENTS_LIST_ID) },
+  { path: "/operations/plant-map", label: "Plant Map", site: "pmo", lists: ids(SP_PLANT_LAYOUTS_LIST_ID) },
   { path: "/operations/maintenance/schedules", label: "Maintenance Schedules", site: "pmo", lists: ids(SP_SCHEDULED_MAINTENANCE_LIST_ID) },
   { path: "/operations/maintenance/assets", label: "Equipment Register", site: "pmo", lists: ids(SP_ALTRONIC_EQUIPMENT_LIST_ID) },
   { path: "/operations/maintenance", label: "Work Orders", site: "pmo", lists: ids(SP_MAINTENANCE_TASKS_LIST_ID) },
+  { path: "/operations/coating-checks/specs", label: "Coating Specs", site: "pmo", lists: ids(SP_COATING_SPECS_LIST_ID) },
+  { path: "/operations/coating-checks", label: "Conformal Coating Checks", site: "pmo", lists: ids(SP_COATING_CHECKS_LIST_ID) },
+  { path: "/operations/alert-recipients", label: "Operations — Who's notified", site: "pmo", lists: ids(SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID) },
+
+  // Harness ------------------------------------------------------------
+  { path: "/harness/production-log", label: "Harness Production Log", site: "pmo", lists: ids(SP_HARNESS_PRODUCTION_LOG_LIST_ID) },
+  { path: "/harness/crimp-checks/specs", label: "Crimp Specs", site: "pmo", lists: ids(SP_CRIMP_SPECS_LIST_ID) },
+  { path: "/harness/crimp-checks", label: "Crimp Height Checks", site: "pmo", lists: ids(SP_CRIMP_CHECKS_LIST_ID) },
+  { path: "/harness/pull-tests/specs", label: "Pull Test Specs", site: "pmo", lists: ids(SP_PULL_TEST_SPECS_LIST_ID) },
+  { path: "/harness/pull-tests", label: "Pull Tests", site: "pmo", lists: ids(SP_PULL_TESTS_LIST_ID) },
+  { path: "/harness/alert-recipients", label: "Harness — Who's notified", site: "pmo", lists: ids(SP_HARNESS_ALERT_RECIPIENTS_LIST_ID) },
 
   // Coils ----------------------------------------------------------------
   { path: "/coils/defect-log", label: "Coil Defect Log", site: "engineering", lists: ids(SP_QC_COILS_LIST_ID) },
@@ -208,7 +269,13 @@ export const APPS: AppSpec[] = [
   // Quality --------------------------------------------------------------
   { path: "/digital-qc", label: "Digital QC Defect Log", site: "engineering", lists: ids(...Object.values(DIGITAL_QC_FAMILY_LIST_IDS)) },
   { path: "/ignition-qc", label: "Ignition QC Defect Log", site: "engineering", lists: ids(...Object.values(IGNITION_QC_FAMILY_LIST_IDS)) },
-  { path: "/qc-forms", label: "QC Forms", site: "engineering", lists: ids(SP_QC_CPU95_LIST_ID) },
+  // Every form's list: the screen is unavailable only when all are refused.
+  {
+    path: "/qc-forms",
+    label: "QC Forms",
+    site: "pmo",
+    lists: ids(...Object.values(QC_FORM_LISTS).map((l) => l.listId)),
+  },
 
   // Supply Chain ---------------------------------------------------------
   { path: "/supply-chain/gray-market-requests", label: "Gray Market Requests", site: "pmo", lists: ids(SP_GRAY_MARKET_LIST_ID) },
@@ -216,6 +283,27 @@ export const APPS: AppSpec[] = [
   { path: "/supply-chain/cost-impact-notices", label: "Cost Impact Notices", site: "salesTeam", lists: ids(SP_COST_IMPACT_NOTICES_LIST_ID) },
   { path: "/supply-chain/faits", label: "FAITs", site: "engineering", lists: ids(SP_FAIT_LIST_ID) },
   { path: "/supply-chain/mrb", label: "MRB", site: "pmo", lists: ids(SP_MRB_LIST_ID) },
+  { path: "/supply-chain/scns", label: "SCNs", site: "scn", lists: ids(SP_SCNS_LIST_ID) },
+  // The SCN subsite's Documents library — files, not list rows, so a refused
+  // library locks it and only it (the SCN list itself is unaffected). Its own
+  // entry, because appForPath would otherwise resolve this route to SCNs.
+  {
+    path: "/supply-chain/scns/documents",
+    label: "SCN Documents",
+    site: "scn",
+    lists: [],
+    needsDrive: true,
+  },
+  // General/Supply Chain Files in the PMO library — a folder, not a list, so a
+  // refused library (or a missing folder) locks it and only it.
+  {
+    path: "/supply-chain/files",
+    label: "Supply Chain Files",
+    site: "pmo",
+    lists: [],
+    needsDrive: true,
+    drivePath: SUPPLY_CHAIN_FILES_PATH,
+  },
 
   // Sales ----------------------------------------------------------------
   // Everything on this screen is a workbook in the Sales document library —
@@ -228,6 +316,26 @@ export const APPS: AppSpec[] = [
     needsDrive: true,
     drivePath: OPEN_ORDERS_PATH,
   },
+  // Main Channel in the AltronicDocumentation subsite's library — a folder,
+  // not a list, so a refused library (or a missing folder) locks it alone.
+  {
+    path: "/sales/documentation",
+    label: "Sales Documentation",
+    site: "salesDocumentation",
+    lists: [],
+    needsDrive: true,
+    drivePath: SALES_DOCUMENTATION_PATH,
+  },
+  // General/A-Application Photos in the Sales library (BusinessIT#48) — a
+  // folder, so a refused library (or a missing folder) locks it alone.
+  {
+    path: "/sales/application-photos",
+    label: "Application Photos",
+    site: "salesTeam",
+    lists: [],
+    needsDrive: true,
+    drivePath: APPLICATION_PHOTOS_PATH,
+  },
   { path: "/sales/visit-reports", label: "Visit Reports", site: "salesTeam", lists: ids(SP_VISIT_REPORTS_LIST_ID) },
   {
     path: "/sales/customers",
@@ -236,6 +344,24 @@ export const APPS: AppSpec[] = [
     lists: ids(SP_CUSTOMER_NOTES_LIST_ID),
     detectHiddenRows: true,
     siteUrl: SP_SALES_ORDERENTRY_SITE_URL,
+  },
+  // Insourcing Quotes — the header and lines lists on the PMO site (customers
+  // and roles sit beside them). Locked only when BOTH are refused, like any
+  // multi-list app.
+  {
+    path: "/sales/quotes",
+    label: "Insourcing Quotes",
+    site: "pmo",
+    lists: ids(SP_QUOTES_LIST_ID, SP_QUOTE_ASSEMBLIES_LIST_ID),
+  },
+  // Sales Pricing — the requests list every pricing role reads. Pricing
+  // History and New Product Pricing are managers-only by design, so a
+  // requester refused THOSE must not lock the whole app.
+  {
+    path: "/sales/pricing",
+    label: "Pricing",
+    site: "salesTeam",
+    lists: ids(SP_PRICING_REQUESTS_LIST_ID),
   },
 ];
 

@@ -212,7 +212,7 @@ export function CsaListingFormModal({ listing, onClose }: CsaListingFormModalPro
             <button
               type="submit"
               disabled={busy}
-              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? "Saving…" : isEdit ? "Save changes" : "Add listing"}
             </button>
@@ -237,7 +237,7 @@ export function CsaListingFormModal({ listing, onClose }: CsaListingFormModalPro
 }
 
 const TEXTAREA_CLASS =
-  "rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm";
+  "rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm";
 
 function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {
   return (

@@ -4,6 +4,21 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      ref:
+        # Rollback: run this workflow by hand with the SHA (or tag) of the
+        # last known-good commit and that build is redeployed as-is, with no
+        # revert commit needed. Blank = the branch the run was started from.
+        description: "Commit SHA or tag to deploy (blank = this branch's head)"
+        required: false
+        default: ""
+      allow_rollback:
+        # Deploys only move forward unless this is ticked — see the
+        # "Refuse to go backwards" step below.
+        description: "Allow publishing a LOWER version than the one live (an intentional rollback)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -18,9 +33,49 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # Actions are pinned to commit SHAs, not moving tags, so a compromised
+      # or force-pushed tag upstream can't change what runs here. The
+      # trailing comment is the tag the SHA was resolved from; Dependabot
+      # (.github/dependabot.yml) bumps both together.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
-      - uses: actions/setup-node@v7
+      - name: Refuse to go backwards
+        # GitHub Pages serves whichever deploy FINISHED last. Re-running an old
+        # successful run republishes that old build over anything newer, and the
+        # in-app update banner can't warn anyone because version.json goes back
+        # with it. That happened on 2026-10-17: a re-run put 0.191.2 live for 80
+        # minutes while main was on 0.191.3 (review finding OPS-05).
+        #
+        # So: compare the version this commit would publish with the one live,
+        # and stop if it is LOWER. Equal is fine (docs-only commits keep the
+        # version). An intentional rollback ticks `allow_rollback` on a manual
+        # run. Runs before install and tests, so a refused run fails in seconds.
+        # If the live file can't be read (first deploy, Pages down), it warns
+        # and carries on rather than blocking a deploy on an outage.
+        env:
+          ALLOW_ROLLBACK: ${{ inputs.allow_rollback || false }}
+          LIVE_URL: https://altronic-llc.github.io/altronic-arc/version.json
+        run: |
+          next=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' public/version.json)
+          live=$(curl -fsS --max-time 15 "$LIVE_URL?cb=$GITHUB_RUN_ID" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          echo "live=${live:-unknown} next=$next allow_rollback=$ALLOW_ROLLBACK"
+          if [ -z "$live" ]; then
+            echo "::warning::Couldn't read the live version.json; skipping the forward-only check."
+            exit 0
+          fi
+          lowest=$(printf '%s\n%s\n' "$live" "$next" | sort -V | head -n1)
+          if [ "$next" != "$live" ] && [ "$lowest" = "$next" ]; then
+            if [ "$ALLOW_ROLLBACK" = "true" ]; then
+              echo "::warning::Rolling back from $live to $next (allow_rollback was set)."
+            else
+              echo "::error::This run would publish $next over the live $live. If that is an intentional rollback, run 'Deploy to GitHub Pages' by hand with allow_rollback ticked. Otherwise re-run the LATEST green deploy instead."
+              exit 1
+            fi
+          fi
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           # Node 24, the current LTS. It ships with npm 11, which is what
           # contributors run locally, so the lockfile shape agrees between
@@ -58,7 +113,38 @@ jobs:
           VITE_SP_PANEL_QC_DEFECTS_LIST_ID: ${{ vars.VITE_SP_PANEL_QC_DEFECTS_LIST_ID }}
           VITE_SP_SALESTEAM_SITE_ID: ${{ vars.VITE_SP_SALESTEAM_SITE_ID }}
           VITE_SP_SALES_ORDERENTRY_SITE_ID: ${{ vars.VITE_SP_SALES_ORDERENTRY_SITE_ID }}
+          # SCNs (Supply Chain, ALTRONICSALESTEAM/SCN subsite). Documented
+          # defaults in config.ts for all three, so a build without them still
+          # points at the live list; set them only to override.
+          VITE_SP_SCN_SITE_ID: ${{ vars.VITE_SP_SCN_SITE_ID }}
+          VITE_SP_SCN_SITE_URL: ${{ vars.VITE_SP_SCN_SITE_URL }}
+          VITE_SP_SALES_DOCUMENTATION_SITE_ID: ${{ vars.VITE_SP_SALES_DOCUMENTATION_SITE_ID }}
+          VITE_SP_SALES_DOCUMENTATION_SITE_URL: ${{ vars.VITE_SP_SALES_DOCUMENTATION_SITE_URL }}
+          VITE_SP_SCNS_LIST_ID: ${{ vars.VITE_SP_SCNS_LIST_ID }}
           VITE_SP_PMO_SITE_ID: ${{ vars.VITE_SP_PMO_SITE_ID }}
+          # Insourcing Quotes (PMO site). NO defaults in config.ts — unset
+          # reads as "not set up", and an unset Quote Roles list admits nobody.
+          # Set all five after scripts/create-quote-lists.ps1 has run.
+          VITE_SP_QUOTES_LIST_ID: ${{ vars.VITE_SP_QUOTES_LIST_ID }}
+          VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ASSEMBLIES_LIST_ID }}
+          VITE_SP_QUOTE_CUSTOMERS_LIST_ID: ${{ vars.VITE_SP_QUOTE_CUSTOMERS_LIST_ID }}
+          VITE_SP_QUOTE_ROLES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ROLES_LIST_ID }}
+          VITE_SP_PRICING_ROLES_LIST_ID: ${{ vars.VITE_SP_PRICING_ROLES_LIST_ID }}
+          VITE_SP_PRICING_REQUESTS_LIST_ID: ${{ vars.VITE_SP_PRICING_REQUESTS_LIST_ID }}
+          VITE_SP_PRICING_HISTORY_LIST_ID: ${{ vars.VITE_SP_PRICING_HISTORY_LIST_ID }}
+          VITE_SP_NEW_PRODUCT_PRICING_LIST_ID: ${{ vars.VITE_SP_NEW_PRODUCT_PRICING_LIST_ID }}
+          VITE_SP_NP_SUBASSEMBLIES_LIST_ID: ${{ vars.VITE_SP_NP_SUBASSEMBLIES_LIST_ID }}
+          VITE_SP_CUSTOMER_QUOTES_LIST_ID: ${{ vars.VITE_SP_CUSTOMER_QUOTES_LIST_ID }}
+          VITE_PRICING_LIVE: ${{ vars.VITE_PRICING_LIVE }}
+          VITE_PRICING_PREVIEW_USERS: ${{ vars.VITE_PRICING_PREVIEW_USERS }}
+          VITE_SP_MCNS_LIST_ID: ${{ vars.VITE_SP_MCNS_LIST_ID }}
+          VITE_SP_MCN_ROLES_LIST_ID: ${{ vars.VITE_SP_MCN_ROLES_LIST_ID }}
+          VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID: ${{ vars.VITE_SP_MCN_DISTRIBUTION_GROUPS_LIST_ID }}
+          VITE_MCN_LIVE: ${{ vars.VITE_MCN_LIVE }}
+          VITE_SP_PLANT_MAP_ROLES_LIST_ID: ${{ vars.VITE_SP_PLANT_MAP_ROLES_LIST_ID }}
+          VITE_SP_LAYOUT_COMPONENTS_LIST_ID: ${{ vars.VITE_SP_LAYOUT_COMPONENTS_LIST_ID }}
+          VITE_SP_PLANT_LAYOUTS_LIST_ID: ${{ vars.VITE_SP_PLANT_LAYOUTS_LIST_ID }}
+          VITE_SP_PLANT_LAYOUT_FILES_LIST_ID: ${{ vars.VITE_SP_PLANT_LAYOUT_FILES_LIST_ID }}
           VITE_SP_LIST_ID: ${{ vars.VITE_SP_LIST_ID }}
           VITE_SP_PROJECTS_LIST_ID: ${{ vars.VITE_SP_PROJECTS_LIST_ID }}
           VITE_SP_TEST_RESULTS_LIST_ID: ${{ vars.VITE_SP_TEST_RESULTS_LIST_ID }}
@@ -78,6 +164,17 @@ jobs:
           # in config.ts — the checklist card on an ECN reports itself "not
           # configured" until this is set, same as Quick Links.
           VITE_SP_ECN_CHECKLISTS_LIST_ID: ${{ vars.VITE_SP_ECN_CHECKLISTS_LIST_ID }}
+          # ECN Distribution Groups (BusinessIT#57) — who receives an ECN for
+          # each role on its DISTRIBUTION block. No default in config.ts; unset,
+          # the ECN says the groups aren't set up and nothing is emailed.
+          VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID: ${{ vars.VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID }}
+          # QC Forms — GET-1 (GE Transportation Log Sheet), PMO site. No
+          # default in config.ts — the GET-1 screen says the variable isn't
+          # set until scripts/create-qc-form-list.ps1 has built the list.
+          VITE_SP_QC_GET1_LIST_ID: ${{ vars.VITE_SP_QC_GET1_LIST_ID }}
+          # QC Forms — QCFRM-035 (Series X Controller log sheet), PMO site. No
+          # default, the GET-1 arrangement.
+          VITE_SP_QC_SERIES_X_LIST_ID: ${{ vars.VITE_SP_QC_SERIES_X_LIST_ID }}
           # MRB Data (Supply Chain, PMO site). Documented default in
           # config.ts, so a build without this still points at the live list;
           # set it only to override.
@@ -100,6 +197,28 @@ jobs:
           # these still points at the live lists; set them only to override.
           VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID }}
           VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID }}
+          # Harness Production Log + Harness Part Numbers (Operations, PMO).
+          # No defaults in config.ts — the screen says "not set up yet" until
+          # scripts/create-harness-production-lists.ps1 has run and these are set.
+          VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID: ${{ vars.VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID }}
+          VITE_SP_HARNESS_PART_NUMBERS_LIST_ID: ${{ vars.VITE_SP_HARNESS_PART_NUMBERS_LIST_ID }}
+          VITE_SP_CRIMP_SPECS_LIST_ID: ${{ vars.VITE_SP_CRIMP_SPECS_LIST_ID }}
+          VITE_SP_PANEL_TIME_OFF_LIST_ID: ${{ vars.VITE_SP_PANEL_TIME_OFF_LIST_ID }}
+          VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID: ${{ vars.VITE_SP_PANEL_TASK_TEMPLATES_LIST_ID }}
+          VITE_SP_PANEL_SETTINGS_LIST_ID: ${{ vars.VITE_SP_PANEL_SETTINGS_LIST_ID }}
+          VITE_SP_PANEL_BOM_PARTS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOM_PARTS_LIST_ID }}
+          VITE_SP_PANEL_BOM_KITS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOM_KITS_LIST_ID }}
+          VITE_SP_PANEL_BOMS_LIST_ID: ${{ vars.VITE_SP_PANEL_BOMS_LIST_ID }}
+          VITE_PANEL_BOM_LIVE: ${{ vars.VITE_PANEL_BOM_LIVE }}
+          VITE_PANEL_PLANNING_LIVE: ${{ vars.VITE_PANEL_PLANNING_LIVE }}
+          VITE_SP_CRIMP_CHECKS_LIST_ID: ${{ vars.VITE_SP_CRIMP_CHECKS_LIST_ID }}
+          VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID: ${{ vars.VITE_SP_HARNESS_ALERT_RECIPIENTS_LIST_ID }}
+          # Pull Tests (Harness, BusinessIT#64) — scripts/create-pull-test-lists.ps1.
+          VITE_SP_PULL_TEST_SPECS_LIST_ID: ${{ vars.VITE_SP_PULL_TEST_SPECS_LIST_ID }}
+          VITE_SP_PULL_TESTS_LIST_ID: ${{ vars.VITE_SP_PULL_TESTS_LIST_ID }}
+          VITE_SP_COATING_SPECS_LIST_ID: ${{ vars.VITE_SP_COATING_SPECS_LIST_ID }}
+          VITE_SP_COATING_CHECKS_LIST_ID: ${{ vars.VITE_SP_COATING_CHECKS_LIST_ID }}
+          VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID: ${{ vars.VITE_SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID }}
           # Maintenance Roles (Admin -> Maintenance Roles). No default in
           # config.ts — setting this switches CMMS role gating ON, so populate
           # the list first. Until it is set, everyone signed in keeps the
@@ -117,6 +236,7 @@ jobs:
           # as env-overridable while the build had no way to receive them, which
           # made that untrue in production.
           VITE_GRAY_MARKET_NEW_REQUEST_ALERTS: ${{ vars.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS }}
+          VITE_GRAY_MARKET_CHANGE_ALERTS: ${{ vars.VITE_GRAY_MARKET_CHANGE_ALERTS }}
           VITE_FAIT_NEW_ALERTS: ${{ vars.VITE_FAIT_NEW_ALERTS }}
           VITE_FAIT_SQE_REVIEWERS: ${{ vars.VITE_FAIT_SQE_REVIEWERS }}
           VITE_BUILD_REQUEST_PRODUCTION_ALERTS: ${{ vars.VITE_BUILD_REQUEST_PRODUCTION_ALERTS }}
@@ -130,6 +250,7 @@ jobs:
           VITE_EIR_TRIAGE_PROJECT_REVIEWERS: ${{ vars.VITE_EIR_TRIAGE_PROJECT_REVIEWERS }}
           VITE_EIR_TRIAGE_ASSIGNERS: ${{ vars.VITE_EIR_TRIAGE_ASSIGNERS }}
           VITE_EIR_RESPONSE_ACCEPTED_ALERTS: ${{ vars.VITE_EIR_RESPONSE_ACCEPTED_ALERTS }}
+          VITE_EIR_CLOSED_ALERTS: ${{ vars.VITE_EIR_CLOSED_ALERTS }}
           VITE_HIDDEN_PEOPLE: ${{ vars.VITE_HIDDEN_PEOPLE }}
           VITE_APP_MANAGER_EMAIL: ${{ vars.VITE_APP_MANAGER_EMAIL }}
           # QZ Tray silent printing (Panel QC label). Unset = always the
@@ -151,7 +272,7 @@ jobs:
         # picks up the URL on a hard refresh of e.g. /task/15.
         run: cp dist/index.html dist/404.html
 
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist
 
@@ -163,4 +284,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

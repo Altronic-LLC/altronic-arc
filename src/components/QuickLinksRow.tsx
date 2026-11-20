@@ -52,7 +52,7 @@ export function QuickLinksRow({ links }: { links: QuickLink[] }) {
               title={href ? undefined : "This link's URL doesn't look valid — ask an admin to fix it"}
               className={
                 href
-                  ? "inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-sm transition-colors hover:border-accent hover:text-accent"
+                  ? "inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:border-accent hover:text-accent"
                   : "inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-dashed border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg-muted opacity-60"
               }
             >

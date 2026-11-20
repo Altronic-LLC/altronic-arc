@@ -63,6 +63,7 @@ describe("createMrbEntry", () => {
       pricePerUnit: 10,
       pricePerIssue: 20,
       notes: "",
+      panelDepartment: false,
     });
 
     expect(created.dataFormat).toBe("Current");
@@ -87,6 +88,7 @@ describe("createMrbEntry", () => {
       pricePerUnit: null,
       pricePerIssue: null,
       notes: "",
+      panelDepartment: false,
     });
     expect((await listMrbEntries()).length).toBe(before + 1);
   });

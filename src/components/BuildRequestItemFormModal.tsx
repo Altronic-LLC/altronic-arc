@@ -220,7 +220,7 @@ export function BuildRequestItemFormModal({ buildRequest, onClose }: BuildReques
               onChange={(e) => setSpecialInstructions(e.target.value)}
               rows={3}
               disabled={busy}
-              className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+              className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
             />
           </FieldLabel>
 
@@ -255,7 +255,7 @@ export function BuildRequestItemFormModal({ buildRequest, onClose }: BuildReques
             <button
               type="submit"
               disabled={busy || !partNumber.trim()}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {busy ? "Adding…" : "Add Part"}

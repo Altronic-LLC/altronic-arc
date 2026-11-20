@@ -5,6 +5,7 @@ import {
   AttachmentIndicator,
   CategoryChip,
   CommentCount,
+  DepartmentChip,
   DueDateBadge,
   LabelChip,
   PriorityFlag,
@@ -15,9 +16,11 @@ import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
 interface TaskRowProps {
   task: Task;
   onOpen: (id: number) => void;
+  /** Shown as a chip beside the status — set only where rows from two lists mix. */
+  department?: string;
 }
 
-export function TaskRow({ task, onOpen }: TaskRowProps) {
+export function TaskRow({ task, onOpen, department }: TaskRowProps) {
   const lastComment = task.comments[0];
   const hasMention = useIsMentioned(`task:${task.id}`);
   const rowRef = useRef<HTMLButtonElement>(null);
@@ -58,6 +61,7 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
       <div className="flex flex-col gap-2 sm:w-72 sm:shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={task.status} />
+          {department && <DepartmentChip department={department} />}
           {hasMention && (
             <span className="rounded-full bg-cooper-red px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
               Mentioned

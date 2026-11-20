@@ -126,7 +126,7 @@ export function RichTextEditor({
             disabled={disabled}
             title={tool.label}
             aria-label={tool.label}
-            className="rounded p-1.5 text-fg-muted transition-colors hover:bg-surface hover:text-fg disabled:opacity-50"
+            className="rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-surface hover:text-fg disabled:opacity-50"
           >
             {tool.icon}
           </button>
@@ -147,7 +147,7 @@ export function RichTextEditor({
         onBlur={emit}
         onPaste={handlePaste}
         style={{ minHeight }}
-        className="comment-html w-full resize-y overflow-y-auto p-3 text-sm leading-relaxed text-fg focus:outline-none empty:before:text-fg-muted empty:before:content-[attr(data-placeholder)]"
+        className="comment-html w-full resize-y overflow-y-auto p-3 text-sm leading-relaxed text-fg focus:outline-hidden empty:before:text-fg-muted empty:before:content-[attr(data-placeholder)]"
       />
     </div>
   );

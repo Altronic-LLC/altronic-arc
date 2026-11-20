@@ -263,6 +263,8 @@ export function CustomerNoteDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={allPeople}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`customer:${customerId}`}
               />
             </div>
           </section>

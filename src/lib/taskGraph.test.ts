@@ -4,9 +4,11 @@ import {
   attachTaskRelationships,
   canCompleteTask,
   incompleteChildTasks,
+  mergeTaskIntoList,
   wouldCreateCycle,
 } from "./taskGraph";
-import type { ProjectReference, Task } from "@/types/task";
+import type { BuildRequest, ProjectReference, Task } from "@/types/task";
+import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 
 function makeTask(overrides: Partial<Task>): Task {
   return {
@@ -206,6 +208,92 @@ describe("attachProjectTitles", () => {
   });
 });
 
+// A write's result, or the detail page's poll, is ONE row read on its own —
+// what toTask() gives for a single item: parent id with no title, no
+// children, blank project titles. Pasting it into the list as-is blanked
+// those until the next full download.
+describe("mergeTaskIntoList", () => {
+  /** A loaded list: 10 is the parent of 11, both in project 42. */
+  function loaded(): Task[] {
+    const tasks = [
+      makeTask({
+        id: 10,
+        numberedTitle: "T1-0042-Parent",
+        status: "In Progress",
+        parentProject: { lookupId: 42, title: "Engineering Apps" },
+      }),
+      makeTask({
+        id: 11,
+        numberedTitle: "T2-0042-Child",
+        parentTask: { id: 10, numberedTitle: "", status: "BACKLOG" },
+        parentProject: { lookupId: 42, title: "Engineering Apps" },
+      }),
+    ];
+    return attachTaskRelationships(tasks);
+  }
+
+  /** How a single-item read of task 10 looks after its status changed. */
+  function singleRead10(): Task {
+    return makeTask({
+      id: 10,
+      numberedTitle: "T1-0042-Parent",
+      status: "Complete",
+      parentProject: { lookupId: 42, title: "" },
+    });
+  }
+
+  it("keeps the parent's children, which a single read can't carry", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10());
+    expect(next.find((t) => t.id === 10)?.childTasks.map((c) => c.id)).toEqual([11]);
+  });
+
+  it("fills the project title from another cached row naming the same project", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10());
+    expect(next.find((t) => t.id === 10)?.parentProject?.title).toBe("Engineering Apps");
+  });
+
+  it("prefers the projects list when one is given", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10(), [
+      { lookupId: 42, title: "Engineering Apps (renamed)" },
+    ]);
+    expect(next.find((t) => t.id === 10)?.parentProject?.title).toBe("Engineering Apps (renamed)");
+  });
+
+  it("re-resolves the written task's own parent title and status", () => {
+    const child = makeTask({
+      id: 11,
+      numberedTitle: "T2-0042-Child",
+      title: "Child, renamed",
+      parentTask: { id: 10, numberedTitle: "", status: "BACKLOG" },
+    });
+    const next = mergeTaskIntoList(loaded(), child);
+    expect(next.find((t) => t.id === 11)?.parentTask).toEqual({
+      id: 10,
+      numberedTitle: "T1-0042-Parent",
+      status: "In Progress",
+    });
+  });
+
+  it("updates the children's view of a parent whose status changed", () => {
+    const next = mergeTaskIntoList(loaded(), singleRead10());
+    expect(next.find((t) => t.id === 11)?.parentTask?.status).toBe("Complete");
+  });
+
+  it("adds a task the list doesn't hold yet at the top, linked to its parent", () => {
+    const created = makeTask({ id: 12, parentTask: { id: 10, numberedTitle: "", status: "BACKLOG" } });
+    const next = mergeTaskIntoList(loaded(), created);
+    expect(next[0].id).toBe(12);
+    expect(next.find((t) => t.id === 10)?.childTasks.map((c) => c.id)).toEqual([11, 12]);
+  });
+
+  it("never mutates the cached rows it was given", () => {
+    const list = loaded();
+    const before = JSON.stringify(list);
+    mergeTaskIntoList(list, singleRead10());
+    expect(JSON.stringify(list)).toBe(before);
+  });
+});
+
 describe("incompleteChildTasks", () => {
   it("returns an empty array for a task with no children", () => {
     const task = makeTask({ id: 1, childTasks: [] });
@@ -279,6 +367,61 @@ describe("canCompleteTask", () => {
       childTasks: [{ id: 2, numberedTitle: "T2", status: "Blocked" }],
     });
     expect(canCompleteTask(task).allowed).toBe(false);
+  });
+});
+
+// BusinessIT#2 — a task with an open linked build request can't be closed.
+describe("canCompleteTask — linked build requests", () => {
+  function br(id: number, status: string, taskId: number | null = 1): BuildRequest {
+    return { ...MOCK_BUILD_REQUESTS[0], id, brNo: `BR_2026-${id}`, status, taskReferenceLookupId: taskId };
+  }
+
+  it("refuses a task whose linked build request isn't Complete, naming it and its status", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), { buildRequests: [br(9, "Production Complete")] });
+    expect(gate.allowed).toBe(false);
+    expect(gate.hint).toBe("Build request BR_2026-9 is still Production Complete — it must be Complete first.");
+  });
+
+  it("allows it once the linked build request is Complete", () => {
+    expect(canCompleteTask(makeTask({ id: 1 }), { buildRequests: [br(9, "Complete")] })).toEqual({
+      allowed: true,
+      hint: "",
+    });
+  });
+
+  it("ignores build requests raised from a different task, or from none", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), {
+      buildRequests: [br(9, "In-process", 2), br(10, "In-process", null)],
+    });
+    expect(gate.allowed).toBe(true);
+  });
+
+  it("counts every open linked build request", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), {
+      buildRequests: [br(9, "Blocked"), br(10, "Complete"), br(11, "Submitted")],
+    });
+    expect(gate.hint).toBe(
+      "2 linked build requests aren't Complete yet (BR_2026-11, BR_2026-9) — they must be Complete first.",
+    );
+  });
+
+  it("names both reasons when a child task AND a build request are open", () => {
+    const task = makeTask({ id: 1, childTasks: [{ id: 2, numberedTitle: "T2", status: "Blocked" }] });
+    const gate = canCompleteTask(task, { buildRequests: [br(9, "In-process")] });
+    expect(gate.hint).toMatch(/^1 child task is still open/);
+    expect(gate.hint).toMatch(/Build request BR_2026-9 is still In-process/);
+  });
+
+  // Loading is "checking", never "allowed" — otherwise the first second of
+  // the page is a window to close a task the rule would refuse.
+  it("refuses with a checking reason while the build request list loads", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), { buildRequests: [], resolving: true });
+    expect(gate).toEqual({ allowed: false, hint: "Checking the linked build requests…" });
+  });
+
+  // A list that couldn't be read arrives as [] — and must not lock every task.
+  it("allows it when the list came back empty (or couldn't be read)", () => {
+    expect(canCompleteTask(makeTask({ id: 1 }), { buildRequests: [] }).allowed).toBe(true);
   });
 });
 

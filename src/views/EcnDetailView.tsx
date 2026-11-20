@@ -30,6 +30,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { EcnChecklistCard } from "@/components/EcnChecklistCard";
+import { EcnDistributionCard } from "@/components/EcnDistributionCard";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -257,6 +258,8 @@ ${ecn.title || "No title"}
             </section>
           ))}
 
+          <EcnDistributionCard ecn={ecn} />
+
           <AttachmentsSection parent="ecn" itemId={ecn.id} />
 
           <EcnChecklistCard ecn={ecn} />
@@ -284,6 +287,8 @@ ${ecn.title || "No title"}
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`ecn:${ecnId}`}
               />
             </div>
           </section>

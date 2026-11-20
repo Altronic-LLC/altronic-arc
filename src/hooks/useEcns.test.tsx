@@ -17,7 +17,10 @@ const notifyMentions = vi.hoisted(() =>
   vi.fn((_input: unknown) => Promise.resolve({ sent: [], failed: [] })),
 );
 
-vi.mock("@/api/email", () => ({ notifyMentions }));
+vi.mock("@/api/email", () => ({
+  notifyMentions,
+  notifyChangeEmails: vi.fn(async () => ({ sent: [], failed: [] })),
+}));
 
 vi.mock("./useCurrentUser", () => ({
   useCurrentUser: () => ({
@@ -87,6 +90,9 @@ describe("collectEcnPeople", () => {
         comments: [],
         hasAttachments: false,
         values: {},
+        distribution: [],
+        distributedTo: [],
+        distributedAt: null,
         createdAt: new Date(0),
         modifiedAt: new Date(0),
       }) as Ecn;

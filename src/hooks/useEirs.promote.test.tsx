@@ -169,7 +169,7 @@ describe("usePromoteEirToTask", () => {
     const spy = vi.spyOn(tasksApi, "createTask").mockRejectedValueOnce(
       new tasksApi.TaskFollowUpWriteError(
         partialTask,
-        ["EIRReference", "Communication"],
+        ["Communication"],
         new Error("400 invalidRequest"),
       ),
     );
@@ -188,8 +188,77 @@ describe("usePromoteEirToTask", () => {
     });
 
     expect(result!.task.id).toBe(999001);
-    expect(result!.followUpWarning).toMatch(/link back to the eir.*carried-over discussion/i);
+    expect(result!.followUpWarning).toMatch(/carried-over discussion couldn't be saved/i);
+    expect(result!.followUpWarning).not.toMatch(/link back/i);
 
+    spy.mockRestore();
+  });
+
+  // Ray, 2026-10-08: EIR_2026-0270 had three projects (321, 343, 369) and its
+  // task got only the parent — the other two were dropped. EVERY EIR project
+  // must land on the task's Related Projects.
+  it("puts every one of the EIR's projects on the new task's Related Projects", async () => {
+    const { Wrapper } = wrapper();
+    const eirs = renderHook(() => useEirs(), { wrapper: Wrapper });
+    await waitFor(() => expect(eirs.result.current.data?.length).toBeGreaterThan(0));
+    const projects = [
+      { lookupId: 501, title: "0017-AMP-5000 Refresh" },
+      { lookupId: 522, title: "0021-CleanBurn Telemetry" },
+      { lookupId: 530, title: "0030-Field Trial Tooling" },
+    ];
+    const eir = { ...eirs.result.current.data![0], parentProjects: projects, hasAttachments: false };
+    const spy = vi.spyOn(tasksApi, "setRelatedProjects");
+
+    const promote = renderHook(() => usePromoteEirToTask(), { wrapper: Wrapper });
+    let result: Awaited<ReturnType<typeof promote.result.current.mutateAsync>>;
+    await act(async () => {
+      result = await promote.result.current.mutateAsync({
+        eir,
+        title: "Three-project EIR",
+        project: projects[0],
+        watchers: [],
+        numberedTitle: "T1-0017-Three-project EIR",
+        promotedBy: { displayName: "Ray White", email: "ray.white@altronic-llc.com" },
+      });
+    });
+
+    expect(spy).toHaveBeenCalledWith(result!.task.id, [501, 522, 530]);
+    expect(result!.task.parentProject?.lookupId).toBe(501);
+    expect(result!.task.relatedProjects.map((r) => r.lookupId)).toEqual([501, 522, 530]);
+    expect(result!.followUpWarning).toBeNull();
+    spy.mockRestore();
+  });
+
+  it("still promotes, and names the projects to add, if the Related Projects write fails", async () => {
+    const { Wrapper } = wrapper();
+    const eirs = renderHook(() => useEirs(), { wrapper: Wrapper });
+    await waitFor(() => expect(eirs.result.current.data?.length).toBeGreaterThan(0));
+    const projects = [
+      { lookupId: 501, title: "0017-AMP-5000 Refresh" },
+      { lookupId: 522, title: "0021-CleanBurn Telemetry" },
+    ];
+    const eir = { ...eirs.result.current.data![0], parentProjects: projects, hasAttachments: false };
+    const spy = vi
+      .spyOn(tasksApi, "setRelatedProjects")
+      .mockRejectedValueOnce(new Error("Graph 400 invalidRequest"));
+
+    const promote = renderHook(() => usePromoteEirToTask(), { wrapper: Wrapper });
+    let result: Awaited<ReturnType<typeof promote.result.current.mutateAsync>>;
+    await act(async () => {
+      result = await promote.result.current.mutateAsync({
+        eir,
+        title: "Related write fails",
+        project: projects[0],
+        watchers: [],
+        numberedTitle: "T1-0017-Related write fails",
+        promotedBy: { displayName: "Ray White", email: "ray.white@altronic-llc.com" },
+      });
+    });
+
+    expect(result!.task.id).toBeGreaterThan(0);
+    expect(result!.followUpWarning).toMatch(
+      /project references couldn't be added.*0017-AMP-5000 Refresh, 0021-CleanBurn Telemetry/,
+    );
     spy.mockRestore();
   });
 

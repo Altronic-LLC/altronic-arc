@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommentComposer } from "./CommentComposer";
 import type { Person } from "@/types/task";
@@ -45,6 +45,11 @@ async function writeMention(user: ReturnType<typeof userEvent.setup>) {
   const textarea = screen.getByRole("textbox");
   await user.type(textarea, "Look at this @Bran");
   await user.click(await screen.findByRole("option", { name: /brandon mirto/i }));
+  // The picker puts the caret back from a requestAnimationFrame. Typing before
+  // it fires lets it yank the caret mid-word ("leasep") — slow CI machines hit it.
+  await act(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
   await user.type(textarea, "please");
 }
 

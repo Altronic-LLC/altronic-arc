@@ -396,7 +396,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
               onChange={(e) => setOperatorNotes(e.target.value)}
               rows={3}
               placeholder="What the operator saw…"
-              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
               disabled={busy}
             />
           </FieldLabel>
@@ -419,7 +419,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
             <button
               type="submit"
               disabled={busy}
-              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? "Saving…" : isEdit ? "Save changes" : "Add entry"}
             </button>

@@ -124,7 +124,7 @@ function ToastItem({ toast }: { toast: Toast }) {
       )}
       <button
         onClick={() => dismissToast(toast.id)}
-        className="shrink-0 rounded p-0.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        className="shrink-0 rounded-sm p-0.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
         aria-label="Dismiss"
       >
         <X className="h-3.5 w-3.5" />

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addOperationsComment,
@@ -7,7 +8,6 @@ import {
   resolvePmoSiteUserLookupId,
   setOperationsAssigned,
   setOperationsEquipment,
-  setOperationsParentProject,
   setOperationsWatchers,
   unwatchOperationsTask,
   updateOperationsTaskFields,
@@ -42,6 +42,8 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { renumberedOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
+import { fanOutComment } from "@/hooks/useCommentMirror";
 
 // =============================================================================
 // Operations department hooks — mirrors useTasks.ts's optimistic-update
@@ -50,15 +52,21 @@ import { parseWrittenDate } from "@/lib/dateInput";
 // generic. See src/api/operationsTasks.ts for the underlying API calls.
 // =============================================================================
 
-const OPERATIONS_TASK_LIST_KEY = ["operationsTasks", "list"] as const;
+export const OPERATIONS_TASK_LIST_KEY = ["operationsTasks", "list"] as const;
 const OPERATIONS_PROJECTS_KEY = ["operationsProjects"] as const;
 const OPERATIONS_EQUIPMENT_KEY = ["operationsEquipment"] as const;
 
-export function useOperationsTasks() {
+/**
+ * `enabled: false` lets a screen that only SOMETIMES shows Operations tasks
+ * (the Engineering list's "Engineering + Operations" scope) skip downloading
+ * the list until it's asked for. Same key either way, so it shares the cache.
+ */
+export function useOperationsTasks({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: OPERATIONS_TASK_LIST_KEY,
     queryFn: listOperationsTasks,
     staleTime: 120_000,
+    enabled,
   });
 }
 
@@ -199,32 +207,119 @@ function resolveReference(
   return refs?.find((r) => r.lookupId === lookupId) ?? null;
 }
 
+/**
+ * Move an Operations task to another project, and RENUMBER it
+ * (BusinessIT#33): `Task 0035-4` moved to 0042 becomes the next number under
+ * 0042, written in the SAME PATCH as the lookup so the two can't disagree.
+ *
+ * The number is planned in onMutate, from the row as it was BEFORE the
+ * optimistic patch (after it, the cached row already carries the new code and
+ * would read as "nothing to renumber"). TaskNumber has Enforce unique values
+ * on, and the cache can be minutes old, so a refused write is retried ONCE
+ * against a fresh list, and only when that list yields a different number:
+ * the create form's rule exactly.
+ */
+type OperationsMove = { id: number; projectLookupId: number | null };
+type OperationsMovePlan = { prev?: OperationsTask; taskNumber: string | null | undefined };
+
 export function useSetOperationsParentProject() {
   const qc = useQueryClient();
+  const [plans] = useState(() => new WeakMap<object, OperationsMovePlan>());
+
+  async function projectFor(lookupId: number | null): Promise<ProjectReference | null> {
+    if (lookupId == null) return null;
+    const cached = resolveReference(qc, OPERATIONS_PROJECTS_KEY, lookupId);
+    if (cached) return cached;
+    const all = await qc.ensureQueryData({
+      queryKey: OPERATIONS_PROJECTS_KEY,
+      queryFn: listOperationsProjects,
+    });
+    return all.find((p) => p.lookupId === lookupId) ?? null;
+  }
+
   return useMutation({
-    mutationFn: ({ id, projectLookupId }: { id: number; projectLookupId: number | null }) =>
-      setOperationsParentProject(id, projectLookupId),
-    onMutate: ({ id, projectLookupId }) =>
-      snapshotAndPatch(
+    mutationFn: async (vars: OperationsMove) => {
+      const { id, projectLookupId } = vars;
+      const plan = plans.get(vars) ?? { taskNumber: undefined };
+      let taskNumber = plan.taskNumber;
+      // Not planned up front (the project or the list wasn't cached yet).
+      if (taskNumber === undefined) {
+        const tasks = await qc.ensureQueryData({
+          queryKey: OPERATIONS_TASK_LIST_KEY,
+          queryFn: listOperationsTasks,
+        });
+        const prev = plan.prev ?? tasks.find((t) => t.id === id);
+        taskNumber = prev
+          ? renumberedOperationsTaskNumber(prev, await projectFor(projectLookupId), tasks)
+          : null;
+      }
+      plans.set(vars, { ...plan, taskNumber });
+      const write = (n: string | null) =>
+        updateOperationsTaskFields(id, {
+          ProjectRefLookupId: projectLookupId,
+          ...(n ? { TaskNumber: n } : {}),
+        });
+      try {
+        return await write(taskNumber);
+      } catch (err) {
+        if (!taskNumber) throw err;
+        const fresh = await qc.fetchQuery({
+          queryKey: OPERATIONS_TASK_LIST_KEY,
+          queryFn: listOperationsTasks,
+          staleTime: 0,
+        });
+        const self = fresh.find((t) => t.id === id);
+        const retry = self
+          ? renumberedOperationsTaskNumber(self, await projectFor(projectLookupId), fresh)
+          : null;
+        if (!retry || retry === taskNumber) throw err;
+        plans.set(vars, { ...plan, taskNumber: retry });
+        return write(retry);
+      }
+    },
+    onMutate: (vars) => {
+      const { id, projectLookupId } = vars;
+      const tasks = qc.getQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY);
+      const prev = tasks?.find((t) => t.id === id);
+      const project =
+        projectLookupId == null ? null : resolveReference(qc, OPERATIONS_PROJECTS_KEY, projectLookupId);
+      const known = !!tasks && !!prev && (projectLookupId == null || !!project);
+      const taskNumber = known ? renumberedOperationsTaskNumber(prev!, project, tasks!) : undefined;
+      plans.set(vars, { prev, taskNumber });
+      return snapshotAndPatch(
         qc,
         id,
         patchOperationsTask(id, (t) => ({
           ...t,
           parentProject:
             projectLookupId != null
-              ? resolveReference(qc, OPERATIONS_PROJECTS_KEY, projectLookupId) ?? {
-                  lookupId: projectLookupId,
-                  title: "",
-                }
+              ? project ?? { lookupId: projectLookupId, title: "" }
               : null,
+          ...(taskNumber ? { taskNumber } : {}),
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id }, ctx) => {
-      const prev = ctx?.prevTask?.parentProject?.lookupId ?? null;
+      );
+    },
+    onSuccess: (server, vars, ctx) => {
+      const { id } = vars;
+      const prev = ctx?.prevTask;
+      const renumbered = plans.get(vars)?.taskNumber ?? null;
+      if (renumbered) {
+        // The server's row, so the list shows the number that was actually
+        // written (a retry may have picked a different one).
+        qc.setQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY, (old) =>
+          old?.map((t) => (t.id === id ? server : t)),
+        );
+      }
+      const inverse: Record<string, unknown> = {
+        ProjectRefLookupId: prev?.parentProject?.lookupId ?? null,
+      };
+      if (renumbered && prev) inverse.TaskNumber = prev.taskNumber;
       pushToast({
-        message: "Project reference updated.",
-        undo: buildUndo(qc, ctx?.previous, () => setOperationsParentProject(id, prev)),
+        message: renumbered
+          ? `Project reference updated. Now ${server.taskNumber || renumbered}.`
+          : "Project reference updated.",
+        undo: buildUndo(qc, ctx?.previous, () => updateOperationsTaskFields(id, inverse)),
       });
     },
     onError: (_err, _vars, ctx) => {
@@ -299,6 +394,7 @@ export function useSetOperationsAssigned() {
           next: person ? [person] : [],
           actor,
           watchers: ctx.prevTask.watchers,
+          details: { dueDate: ctx.prevTask.dueDate, description: ctx.prevTask.description },
         });
       }
     },
@@ -444,6 +540,9 @@ export function useAddOperationsComment() {
         assignees: task.assigned ? [task.assigned] : [],
         authorEmail: comment.authorEmail,
       });
+      // A task created from a won quote shares the quote's conversation — see
+      // lib/quoteToTask.ts. Best-effort; the comment is already posted.
+      void fanOutComment({ qc, source: { kind: "operationsTask", id }, comment, alreadyNotified: recipients });
       if (recipients.length > 0) {
         void notifyMentions({
           recipients,
@@ -639,6 +738,12 @@ export function useCreateOperationsTask() {
           next: [assignee],
           actor,
           watchers: [],
+          // Off the mutation input, like the assignee — see useTasks.ts's
+          // useCreateTask, which does the same for Engineering.
+          details: {
+            dueDate: variables.dueDate ?? null,
+            description: variables.description ?? "",
+          },
         });
       }
       // Seed the cache immediately — see the identical fix in useTasks.ts's

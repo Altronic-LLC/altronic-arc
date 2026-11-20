@@ -204,7 +204,7 @@ export function AdminOpenOrdersRolesView() {
                       }
                     }}
                     aria-label={`Remove ${entry.displayName || entry.email}`}
-                    className="rounded p-1.5 text-fg-muted transition-colors hover:bg-cooper-red/10 hover:text-cooper-red"
+                    className="rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-cooper-red/10 hover:text-cooper-red"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

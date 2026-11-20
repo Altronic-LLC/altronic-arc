@@ -612,8 +612,8 @@ function PeriodToggle({
           onClick={() => onChange(p.days)}
           aria-pressed={value === p.days}
           className={cn(
-            "rounded-sm px-3 py-1 font-medium transition-colors",
-            value === p.days ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+            "rounded-xs px-3 py-1 font-medium transition-colors",
+            value === p.days ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
           )}
         >
           {p.label}

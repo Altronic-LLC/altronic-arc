@@ -207,7 +207,7 @@ function DayCell({
       // labelled "Add" button below instead.
       onClick={onAdd}
       className={cn(
-        "group flex min-h-[7rem] cursor-pointer flex-col gap-1 border-b border-r border-border p-1.5 transition-colors last:border-r-0 hover:bg-surface-2",
+        "group flex min-h-28 cursor-pointer flex-col gap-1 border-b border-r border-border p-1.5 transition-colors last:border-r-0 hover:bg-surface-2",
         isOtherMonth && "bg-surface-2/40",
       )}
     >
@@ -230,7 +230,7 @@ function DayCell({
           }}
           aria-label={`Add a visit report on ${dayLabel(day)}`}
           title={`Add a visit report on ${dayLabel(day)}`}
-          className="rounded p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+          className="rounded-sm p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -238,7 +238,7 @@ function DayCell({
 
       {/* Scrolls rather than truncating: a busy day is exactly the day whose
           visits you want to read, and "+3 more" with nowhere to go is worse. */}
-      <div className="flex max-h-[6rem] flex-col gap-1 overflow-y-auto">
+      <div className="flex max-h-24 flex-col gap-1 overflow-y-auto">
         {visits.map((visit) => (
           <button
             key={visit.id}
@@ -250,7 +250,7 @@ function DayCell({
             title={`${visit.customerName} — ${visit.rmName}${
               visit.customerStatus ? ` · ${visit.customerStatus}` : ""
             }`}
-            className="flex w-full items-center gap-1 rounded border border-border bg-surface px-1.5 py-1 text-left text-[11px] text-fg transition-colors hover:border-accent"
+            className="flex w-full items-center gap-1 rounded-sm border border-border bg-surface px-1.5 py-1 text-left text-[11px] text-fg transition-colors hover:border-accent"
           >
             <span
               aria-hidden="true"

@@ -44,29 +44,43 @@ beforeEach(() => {
   spFetch.mockReset();
 });
 
+/**
+ * Answer by REQUEST, not by call order: each upload lists the target's
+ * attachments first (so an ambiguous failure can be settled by looking), and
+ * an ordered list of mocked responses breaks every time that shape changes.
+ */
+function routeSharePoint(sourceFiles: string[], failDownloadOf?: string) {
+  spFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+    if (init?.method === "POST") {
+      const name = decodeURIComponent(/FileName='([^']+)'/.exec(path)![1]);
+      return { FileName: name, ServerRelativeUrl: `/x/${name}` };
+    }
+    if (path.endsWith("/items(42)/AttachmentFiles")) return attachmentListResponse(sourceFiles);
+    if (path.endsWith("/items(7)/AttachmentFiles")) return attachmentListResponse([]);
+    // A download of a source file — spFetch returns the raw Response.
+    if (failDownloadOf && path.endsWith(failDownloadOf)) throw new Error("SharePoint 403");
+    return { arrayBuffer: async () => new ArrayBuffer(4) };
+  });
+}
+
+const uploads = () =>
+  spFetch.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "POST");
+
 describe("copyAttachments (real mode)", () => {
   it("copies every file from the source item onto the target item", async () => {
-    spFetch
-      .mockResolvedValueOnce(attachmentListResponse(["photo.jpg", "report.pdf"]))
-      // Downloads — spFetch returns the raw Response for a binary GET.
-      .mockResolvedValueOnce({ arrayBuffer: async () => new ArrayBuffer(4) })
-      .mockResolvedValueOnce({ FileName: "photo.jpg", ServerRelativeUrl: "/x/photo.jpg" })
-      .mockResolvedValueOnce({ arrayBuffer: async () => new ArrayBuffer(8) })
-      .mockResolvedValueOnce({ FileName: "report.pdf", ServerRelativeUrl: "/x/report.pdf" });
+    routeSharePoint(["photo.jpg", "report.pdf"]);
 
     const result = await copyAttachments("eir", 42, "task", 7);
 
     expect(result).toEqual({ copied: ["photo.jpg", "report.pdf"], failed: [] });
-    // list, download+upload, download+upload = 5 calls
-    expect(spFetch).toHaveBeenCalledTimes(5);
+    expect(uploads().map(([path]) => path)).toEqual([
+      expect.stringContaining("/items(7)/AttachmentFiles/add(FileName='photo.jpg')"),
+      expect.stringContaining("/items(7)/AttachmentFiles/add(FileName='report.pdf')"),
+    ]);
   });
 
   it("keeps going and reports which files failed, without throwing", async () => {
-    spFetch
-      .mockResolvedValueOnce(attachmentListResponse(["ok.jpg", "bad.pdf"]))
-      .mockResolvedValueOnce({ arrayBuffer: async () => new ArrayBuffer(4) })
-      .mockResolvedValueOnce({ FileName: "ok.jpg", ServerRelativeUrl: "/x/ok.jpg" })
-      .mockRejectedValueOnce(new Error("SharePoint 403"));
+    routeSharePoint(["ok.jpg", "bad.pdf"], "bad.pdf");
 
     const result = await copyAttachments("eir", 42, "task", 7);
 

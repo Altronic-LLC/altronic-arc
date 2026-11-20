@@ -200,7 +200,7 @@ describe("AdminEirRolesView", () => {
       screen.getByText(/Can edit Engineering Response \+ Technical Priority/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Can edit Buyer Code, Risk Part, Risk Part Level \+ LTB Date/i),
+      screen.getByText(/Can edit Buyer Code, Risk Part, Risk Part Level, LTB Date \+ Current Stock \/ Current Cost/i),
     ).toBeInTheDocument();
   });
 });

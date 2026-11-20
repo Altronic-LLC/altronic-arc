@@ -13,6 +13,7 @@ const fireNewGrayMarketRequestAlert = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/email", () => ({
   fireNewGrayMarketRequestAlert,
+  fireGrayMarketFieldChangeAlert: vi.fn(),
   notifyMentions: vi.fn(),
   notifyChangeEmails: vi.fn(),
 }));

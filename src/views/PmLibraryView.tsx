@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CalendarDays, ClipboardCheck, ListChecks, Pencil, Plus } from "lucide-react";
 import type { ScheduledMaintenance } from "@/types/task";
 import {
@@ -93,6 +93,10 @@ const ACTIVE_OPTIONS = [
 
 export default function PmLibraryView() {
   const [params, setParams] = useSearchParams();
+  // /operations/maintenance/schedules/:id — one schedule, the link a PM
+  // schedule email opens (a schedule has no detail page of its own).
+  const { id: idParam } = useParams<{ id: string }>();
+  const onlyId = idParam && /^\d+$/.test(idParam) ? Number(idParam) : null;
   const { data: schedules = [], isLoading } = useScheduledMaintenance();
   // The equipment register, for the run-hours schedules' readings. Cached for
   // five minutes and already loaded by every other CMMS screen, so this costs
@@ -133,6 +137,9 @@ export default function PmLibraryView() {
   const assets = useMemo(() => meterAssetIndex(assetRows as MeterAsset[]), [assetRows]);
 
   const filtered = useMemo(() => {
+    // One schedule, whatever the filters say — a retired one included, since
+    // the email naming it may be about the retiring.
+    if (onlyId !== null) return schedules.filter((s) => s.id === onlyId);
     return schedules
       .filter((s) => {
         if (state === "" && !s.active) return false;
@@ -151,7 +158,7 @@ export default function PmLibraryView() {
         return matchesTokens(haystack, q);
       })
       .sort(compareScheduledMaintenance);
-  }, [schedules, q, state, assigned, equipment]);
+  }, [schedules, q, state, assigned, equipment, onlyId]);
 
   const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
 
@@ -188,7 +195,7 @@ export default function PmLibraryView() {
             onClick={() => setCreating(true)}
             disabled={!manageGate.allowed}
             title={manageGate.allowed ? undefined : manageGate.hint}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             New schedule
@@ -207,6 +214,16 @@ export default function PmLibraryView() {
         </p>
       )}
 
+      {onlyId !== null && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-fg">
+          <span>Showing one schedule.</span>
+          <Link to="/operations/maintenance/schedules" className="font-medium text-accent hover:underline">
+            Show all schedules
+          </Link>
+        </p>
+      )}
+
+      {onlyId === null && (
       <div
         role="search"
         aria-label="PM schedule filters"
@@ -259,6 +276,7 @@ export default function PmLibraryView() {
           />
         </label>
       </div>
+      )}
 
       {isLoading || equipmentLoading ? (
         /* Held until the equipment register has landed as well. A meter row
@@ -268,12 +286,14 @@ export default function PmLibraryView() {
         <LoadingTasks noun="the PM library" />
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-fg-muted">
-          No schedules match these filters.
+          {onlyId !== null
+            ? "That schedule isn't in the PM library. It may have been removed in SharePoint."
+            : "No schedules match these filters."}
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[64rem] text-sm">
+            <table className="w-full min-w-5xl text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
                   <Th>Schedule</Th>
@@ -397,12 +417,12 @@ function ScheduleRow({
             <span className="text-xs text-fg-muted">{schedule.category}</span>
           )}
           {schedule.requiresShutdown && (
-            <span className="rounded bg-ajax-yellow/20 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ajax-yellow">
+            <span className="rounded-sm bg-ajax-yellow/20 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ajax-yellow">
               Shutdown
             </span>
           )}
           {schedule.lotoRequired && (
-            <span className="rounded bg-cooper-red/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-cooper-red">
+            <span className="rounded-sm bg-cooper-red/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-cooper-red">
               LOTO
             </span>
           )}

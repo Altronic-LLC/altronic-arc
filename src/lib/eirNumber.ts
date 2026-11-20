@@ -12,11 +12,17 @@ import type { Eir } from "@/types/task";
  * (`EIR_2026-0083`) and the older hyphen format (`EIR-2026-0042`), so a mix in
  * the data doesn't restart the count. Numbers from other years are ignored.
  *
- * Note: this is computed client-side from the loaded EIR list, so two people
- * creating an EIR at the exact same moment could in theory land on the same
- * number — same lost-update window as the comment field. Acceptable for now.
+ * This is the arithmetic only. It must be fed a FRESH read of the list:
+ * `createEir` (api/eirs.ts) reads every EIR number from SharePoint at save
+ * time, then checks the saved number against SharePoint and renumbers on a
+ * collision. Feeding it the form's cached list is how EIR_2026-0263 and
+ * EIR_2026-0271 were each handed out twice (BusinessIT#27): the list was 7
+ * and 65 minutes old by the time Create was pressed.
  */
-export function nextEirNo(existing: Eir[], now: Date = new Date()): string {
+export function nextEirNo(
+  existing: readonly Pick<Eir, "eirNo">[],
+  now: Date = new Date(),
+): string {
   const year = now.getFullYear();
   const re = new RegExp(`^EIR[_-]${year}-(\\d+)$`, "i");
   let max = 0;

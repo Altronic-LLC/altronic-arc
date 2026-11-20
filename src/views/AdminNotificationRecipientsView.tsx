@@ -6,9 +6,11 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { auditRecipientList, suggestionsFor, type AuditedList } from "@/lib/recipientAudit";
 import {
+  APP_MANAGER_EMAIL,
   BUILD_REQUEST_COMPLETE_REVIEWERS,
   BUILD_REQUEST_FINAL_ALERTS,
   BUILD_REQUEST_PRODUCTION_ALERTS,
+  EIR_CLOSED_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
@@ -16,6 +18,7 @@ import {
   FEATURE_REQUEST_ALERTS,
   FAIT_NEW_ALERTS,
   FAIT_SQE_REVIEWERS,
+  GRAY_MARKET_CHANGE_ALERTS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
 } from "@/api/config";
@@ -71,10 +74,22 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     what: "Emailed when an EIR's status becomes Response Accepted, asking for it to be closed.",
   },
   {
+    label: "EIR — closed",
+    envVar: "VITE_EIR_CLOSED_ALERTS",
+    value: EIR_CLOSED_ALERTS,
+    what: "Emailed when an EIR's status becomes Closed. Watchers, the assigned engineer and the reporter are told as well.",
+  },
+  {
     label: "Gray Market — new request",
     envVar: "VITE_GRAY_MARKET_NEW_REQUEST_ALERTS",
     value: GRAY_MARKET_NEW_REQUEST_ALERTS,
     what: "Emailed when a gray market request is raised.",
+  },
+  {
+    label: "Gray Market — testing, engineering or production changed",
+    envVar: "VITE_GRAY_MARKET_CHANGE_ALERTS",
+    value: GRAY_MARKET_CHANGE_ALERTS,
+    what: "Emailed when Testing Required, or any field on the Engineering or Production cards, changes on a request. The request's watchers are emailed too.",
   },
   {
     // Shipped 2026-08-27 without a LISTS entry — the exact gap this screen
@@ -139,6 +154,12 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     value: BUILD_REQUEST_FINAL_ALERTS,
     what: "Emailed when a Production Complete build request is set Complete, alongside its assigned engineer, requestor and watchers.",
   },
+  {
+    label: "Report issue",
+    envVar: "VITE_APP_MANAGER_EMAIL",
+    value: APP_MANAGER_EMAIL,
+    what: "Receives every Report issue sent from the header's life-buoy button, with the reporter CC'd.",
+  },
 ];
 
 export function AdminNotificationRecipientsView() {
@@ -187,6 +208,18 @@ export function AdminNotificationRecipientsView() {
           and the bounce goes to{" "}
           <span className="font-mono text-xs">{SHARED_MAILBOX ?? "the shared mailbox"}</span>,
           which nobody reads.
+        </p>
+        <p className="max-w-3xl text-sm text-fg-muted">
+          The Harness department's emails (out-of-spec crimp checks, failed pull tests, part number requests) aren't
+          set here: ARC admins pick those people on{" "}
+          <Link to="/harness/alert-recipients" className="font-medium text-accent underline-offset-2 hover:underline">
+            Harness — Who's notified
+          </Link>
+          , and out-of-spec conformal coating checks on{" "}
+          <Link to="/operations/alert-recipients" className="font-medium text-accent underline-offset-2 hover:underline">
+            Operations — Who's notified
+          </Link>
+          , with no redeploy.
         </p>
       </header>
 

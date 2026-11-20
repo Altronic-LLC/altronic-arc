@@ -107,6 +107,21 @@ export function buildRequestForTask(
   return matches[0] ?? null;
 }
 
+/**
+ * The Build Requests raised from this task that are NOT Complete — the ones
+ * blocking the task from being marked Complete (BusinessIT#2). "Done" means
+ * `status === "Complete"` exactly; a request only reaches Complete through
+ * its final hand-off step, which requires every part to be Production
+ * Complete (lib/buildRequestProduction.ts), so "the request is Complete"
+ * already means "all its parts are done".
+ */
+export function openBuildRequestsForTask(
+  buildRequests: readonly BuildRequest[],
+  taskId: number | null,
+): BuildRequest[] {
+  return buildRequestsForTask([...buildRequests], taskId).filter((br) => br.status !== "Complete");
+}
+
 /** Every Build Request raised from this task — for the rare re-raise case. */
 export function buildRequestsForTask(
   buildRequests: BuildRequest[],

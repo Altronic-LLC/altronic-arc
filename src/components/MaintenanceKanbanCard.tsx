@@ -53,7 +53,7 @@ export function MaintenanceKanbanCard({
               e.stopPropagation();
               onOpen(task.id);
             }}
-            className="shrink-0 rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
+            className="shrink-0 rounded-sm p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
             aria-label="Open work order"
             title="Open work order"
           >
@@ -99,7 +99,7 @@ export function MaintenanceKanbanCard({
         style={style}
         onClick={() => onOpen(task.id)}
         className={cn(
-          "block w-full rounded-lg border bg-surface p-3 text-left shadow-sm transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]",
+          "block w-full rounded-lg border bg-surface p-3 text-left shadow-xs transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]",
           overdue ? "border-cooper-red/40" : "border-border",
         )}
       >
@@ -115,7 +115,7 @@ export function MaintenanceKanbanCard({
       {...attributes}
       {...listeners}
       className={cn(
-        "group cursor-grab rounded-lg border bg-surface p-3 shadow-sm transition-shadow active:cursor-grabbing",
+        "group cursor-grab rounded-lg border bg-surface p-3 shadow-xs transition-shadow active:cursor-grabbing",
         isDragging
           ? "border-accent opacity-50 shadow-lg"
           : overdue

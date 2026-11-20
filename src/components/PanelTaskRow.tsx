@@ -2,7 +2,7 @@ import { ChevronRight, FolderOpen, User } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { PanelTask } from "@/types/task";
 import { AttachmentIndicator, CommentCount } from "./atoms";
-import { PanelTaskStatusBadge } from "./panelAtoms";
+import { PanelPriorityChip, PanelTaskStatusBadge, PanelWorkTypeChip } from "./panelAtoms";
 import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
 
 interface PanelTaskRowProps {
@@ -42,10 +42,12 @@ export function PanelTaskRow({ task, onOpen }: PanelTaskRowProps) {
         <div className="flex flex-wrap items-center gap-2">
           <PanelTaskStatusBadge status={task.status} />
           {task.taskType && (
-            <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+            <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
               {task.taskType}
             </span>
           )}
+          {task.workType && <PanelWorkTypeChip workType={task.workType} />}
+          {task.priority && <PanelPriorityChip priority={task.priority} />}
           {hasMention && (
             <span className="rounded-full bg-cooper-red px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
               Mentioned
@@ -63,7 +65,7 @@ export function PanelTaskRow({ task, onOpen }: PanelTaskRowProps) {
           {task.projectRef ? (
             <span
               title={task.projectRef.title}
-              className="inline-flex max-w-[16rem] truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
+              className="inline-flex max-w-[16rem] truncate rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
             >
               {task.projectRef.title || `Project #${task.projectRef.lookupId}`}
             </span>
@@ -75,7 +77,7 @@ export function PanelTaskRow({ task, onOpen }: PanelTaskRowProps) {
           <User className="h-4 w-4 shrink-0 text-fg-muted" />
           <span className="truncate text-fg">
             <span className="text-fg-muted">Assigned · </span>
-            {task.assigned?.displayName || "Unassigned"}
+            {task.assigned.map((p) => p.displayName).join(", ") || "Unassigned"}
           </span>
           <div className="ml-auto flex items-center gap-2 lg:hidden">
             <CommentCount count={task.comments.length} />

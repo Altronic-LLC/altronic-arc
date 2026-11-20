@@ -112,6 +112,51 @@ export function AdminAdminsView() {
           >
             Quick Links →
           </Link>
+          {/* Harness admin screens live inside the department (their routes
+              aren't /admin/*), but they're admin work, so they're listed here
+              too (Tim, 2026-10-27). */}
+          <Link
+            to="/harness/alert-recipients"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Harness — Who's notified →
+          </Link>
+          <Link
+            to="/harness/crimp-checks/specs"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Harness — Crimp Specs →
+          </Link>
+          <Link
+            to="/harness/pull-tests/specs"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Harness — Pull Test Specs →
+          </Link>
+          <Link
+            to="/operations/alert-recipients"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Operations — Who's notified →
+          </Link>
+          <Link
+            to="/operations/plant-map/roles"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Operations — Plant Map Roles →
+          </Link>
+          <Link
+            to="/operations/coating-checks/specs"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Operations — Coating Specs →
+          </Link>
+          <Link
+            to="/harness/production-log/part-numbers"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Harness — Part Numbers →
+          </Link>
         </nav>
       </header>
 
@@ -127,7 +172,7 @@ export function AdminAdminsView() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
         >
           <UserPlus className="h-4 w-4" /> Add admin
         </button>
@@ -280,7 +325,7 @@ function NewAdminModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="someone@altronic-llc.com"
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
             />
           </label>
           {error && (
@@ -299,7 +344,7 @@ function NewAdminModal({
             <button
               type="submit"
               disabled={submitting || !email.trim()}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {submitting ? "Adding…" : "Add admin"}
             </button>

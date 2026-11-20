@@ -10,6 +10,7 @@ import { MOCK_ECNS } from "@/data/ecnMockData";
 import { MOCK_FAITS } from "@/data/faitMockData";
 import { MOCK_CUSTOMER_NOTES } from "@/data/crmMockData";
 import { MOCK_SUPPLIERS } from "@/data/srmMockData";
+import { MOCK_SCNS } from "@/data/scnMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -20,6 +21,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ displayName: "Demo User", email: "demo.user@altronic-llc.com", lookupId: 0 }),
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
@@ -34,6 +36,7 @@ const ECNS_KEY = ["ecns"] as const;
 const FAITS_KEY = ["faits"] as const;
 const CUSTOMER_NOTES_KEY = ["customerNotes"] as const;
 const SUPPLIERS_KEY = ["suppliers"] as const;
+const SCNS_KEY = ["scns"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
@@ -54,6 +57,7 @@ async function renderDashboard() {
       { key: FAITS_KEY, data: MOCK_FAITS },
       { key: CUSTOMER_NOTES_KEY, data: MOCK_CUSTOMER_NOTES },
       { key: SUPPLIERS_KEY, data: MOCK_SUPPLIERS },
+      { key: SCNS_KEY, data: MOCK_SCNS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });
@@ -247,6 +251,7 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     { name: /^Customers/i, url: "/sales/customers" },
     { name: /^Suppliers/i, url: "/supply-chain/suppliers" },
     { name: /Cost Impact Notices/i, url: "/supply-chain/cost-impact-notices" },
+    { name: /^SCNs/i, url: "/supply-chain/scns" },
     { name: /Teradyne Log/i, url: "/operations/teradyne" },
     { name: /QC Time Tracking/i, url: "/panels/qc-time-tracking" },
   ];
@@ -254,7 +259,9 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
   it.each(SHIPPED)("$name is a button that goes to $url", async ({ name, url }) => {
     const user = userEvent.setup();
     await renderDashboard();
-    const card = screen.getByRole("button", { name });
+    // findBy, not getBy: a card whose list isn't seeded here (CSA Listings)
+    // shows "Loading…" — not yet a button — until its mock read lands.
+    const card = await screen.findByRole("button", { name });
     // A placeholder is a <div aria-disabled> showing an em dash — never a button.
     expect(card).not.toHaveAttribute("aria-disabled");
     expect(within(card).queryByText(/coming soon/i)).toBeNull();
@@ -280,6 +287,20 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     const card = screen.getByRole("button", { name: /ECNs/i });
     expect(within(card).queryByText(/coming soon/i)).toBeNull();
     expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
+  });
+
+  // SCNs count the notices not yet CLOSED or Cancelled, in BOTH scopes — a
+  // notice is Supply Chain's as a whole, so there is no "mine" to narrow to.
+  it("counts the open SCNs, unscoped by Mine/Company", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    const card = screen.getByRole("button", { name: /^SCNs/i });
+    // Mock data: WIP, LTB in process, Customer Phase Out, On Hold are open;
+    // three CLOSED and one Cancelled are not.
+    expect(bigCount(card)).toHaveTextContent("4");
+    expect(within(card).getByText("open")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Company" }));
+    expect(bigCount(screen.getByRole("button", { name: /^SCNs/i }))).toHaveTextContent("4");
   });
 
   // Customers and Suppliers are description-only cards (Ray, 2026-08-27) —
@@ -330,14 +351,17 @@ describe("DashboardView — 'Coming soon' cards sit at the end of their section"
     // means something unrelated to "this is a Coming Soon placeholder".
     const grid = within(section).getByTestId("dept-cards");
     // Every card, in DOM order — a live card is a <button>, a placeholder is
-    // the aria-disabled <div> PlaceholderCard renders.
+    // the aria-disabled <div> PlaceholderCard renders. A card whose list is
+    // still LOADING is also an aria-disabled div, but it carries aria-busy and
+    // is a live card, so it doesn't count as a placeholder.
     const cards = Array.from(
       grid.querySelectorAll<HTMLElement>("button, [aria-disabled='true']"),
     );
 
     let seenPlaceholder = false;
     for (const card of cards) {
-      const isPlaceholder = card.getAttribute("aria-disabled") === "true";
+      const isPlaceholder =
+        card.getAttribute("aria-disabled") === "true" && card.getAttribute("aria-busy") !== "true";
       if (!isPlaceholder && seenPlaceholder) {
         throw new Error(`A live card follows a "Coming soon" placeholder in ${title}`);
       }
@@ -377,5 +401,24 @@ describe("DashboardView — Quick Links", () => {
     const heading = screen.getByRole("heading", { name: "Coils", level: 2 });
     const section = heading.closest("section") as HTMLElement;
     expect(within(section).queryAllByRole("link")).toHaveLength(0);
+  });
+});
+
+describe("the Harness department", () => {
+  // Harness moved out of Operations (2026-10-27): its two logs live in their
+  // own section, and Operations no longer shows them.
+  it("has its own section, between Operations and Coils, with both harness logs", async () => {
+    await renderDashboard();
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings.indexOf("Harness")).toBe(headings.indexOf("Operations") + 1);
+    expect(headings.indexOf("Coils")).toBe(headings.indexOf("Harness") + 1);
+
+    const section = (name: string) =>
+      screen.getByRole("heading", { name, level: 2 }).closest("section") as HTMLElement;
+    expect(within(section("Harness")).getByText("Harness Production Log")).toBeInTheDocument();
+    expect(within(section("Harness")).getByText("Crimp Height Checks")).toBeInTheDocument();
+    expect(within(section("Harness")).getByText("Pull Tests")).toBeInTheDocument();
+    expect(within(section("Operations")).queryByText("Harness Production Log")).toBeNull();
+    expect(within(section("Operations")).queryByText("Crimp Height Checks")).toBeNull();
   });
 });

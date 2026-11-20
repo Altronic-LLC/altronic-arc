@@ -39,7 +39,7 @@ beforeEach(() => {
   graphFetch.mockReset();
 });
 
-const LIVE = ["Submitted", "In-process", "Awaiting Parts", "Complete"];
+const LIVE = ["In-process", "Awaiting Parts", "Complete"];
 
 describe.each([
   ["Part Status", listBuildRequestPartStatusChoices, "items-list", "Part_x0020_Status", BUILD_REQUEST_PART_STATUSES],
@@ -52,7 +52,8 @@ describe.each([
         { name: column, choice: { choices: LIVE } },
       ],
     });
-    expect(await read()).toEqual(LIVE);
+    // BRStatus always leads with Pending Submission (see the describe below).
+    expect(await read()).toEqual(column === "BRStatus" ? ["Pending Submission", ...LIVE] : LIVE);
     expect(graphFetch.mock.calls[0][0]).toBe(`/sites/site-1/lists/${listId}/columns?$select=name,choice`);
   });
 
@@ -81,9 +82,22 @@ describe("reading a status ARC's built-in list doesn't know", () => {
     expect(toBuildRequestItem(graphItem({ Part_x0020_Status: "" })).partStatus).toBeNull();
   });
 
-  it("a request keeps it, and a blank still reads as Submitted", () => {
+  it("a request keeps it, and a blank reads as Pending Submission", () => {
     expect(toBuildRequest(graphItem({ BRStatus: "Awaiting Parts" })).status).toBe("Awaiting Parts");
-    expect(toBuildRequest(graphItem({})).status).toBe("Submitted");
+    expect(toBuildRequest(graphItem({})).status).toBe("Pending Submission");
+  });
+});
+
+describe("request Status choices — Pending Submission replaces Submitted (Ray, 2026-10-10)", () => {
+  it("drops Submitted and puts Pending Submission first, whatever SharePoint's order", async () => {
+    graphFetch.mockResolvedValue({
+      value: [{ name: "BRStatus", choice: { choices: ["Submitted", "In-process", "Pending Submission", "Complete"] } }],
+    });
+    expect(await listBuildRequestStatusChoices()).toEqual(["Pending Submission", "In-process", "Complete"]);
+  });
+
+  it("a request still holding Submitted reads as Pending Submission", () => {
+    expect(toBuildRequest(graphItem({ BRStatus: "Submitted" })).status).toBe("Pending Submission");
   });
 });
 

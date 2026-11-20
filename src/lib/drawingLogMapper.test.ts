@@ -9,6 +9,8 @@ import {
   compareDrawingLogEntries,
   drawingLogLabel,
   drawingLogMatches,
+  entriesWithNumber,
+  nextDrawingNumber,
   nextFreeChangeSlot,
   parseChangeLog,
   sortDate,
@@ -388,5 +390,25 @@ describe("drawingLogMatches", () => {
 
   it("matches everything with no tokens", () => {
     expect(drawingLogMatches(entry, [])).toBe(true);
+  });
+});
+
+describe("nextDrawingNumber / entriesWithNumber", () => {
+  const sketch = (id: number, sketchNumber: unknown) =>
+    ({ id, kind: "sketches", values: { sketchNumber }, changes: [] }) as unknown as DrawingLogEntry;
+
+  it("is one past the HIGHEST number, not the count", () => {
+    expect(nextDrawingNumber([sketch(1, 5), sketch(2, 2291), sketch(3, 40)], "sketchNumber")).toBe(2292);
+  });
+
+  it("starts an empty register at 1, and ignores blanks and non-numbers", () => {
+    expect(nextDrawingNumber([], "sketchNumber")).toBe(1);
+    expect(nextDrawingNumber([sketch(1, null), sketch(2, "see notes"), sketch(3, " 12 ")], "sketchNumber")).toBe(13);
+  });
+
+  it("finds the entries already holding a number", () => {
+    const rows = [sketch(1, 7), sketch(2, 8), sketch(3, 7)];
+    expect(entriesWithNumber(rows, "sketchNumber", 7).map((e) => e.id)).toEqual([1, 3]);
+    expect(entriesWithNumber(rows, "sketchNumber", 9)).toEqual([]);
   });
 });

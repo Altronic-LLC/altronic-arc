@@ -11,8 +11,12 @@ import {
 } from "@/lib/errorBuffer";
 import { pushToast } from "@/components/Toast";
 import { APP_MANAGER_EMAIL, SHARED_MAILBOX } from "@/api/config";
+import { parseRecipientList } from "@/lib/recipientList";
 import { isSendAsDenied } from "@/api/email";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+
+/** Every address Report issue goes to — the setting is a comma-separated list. */
+const MANAGER_ADDRESSES = parseRecipientList(APP_MANAGER_EMAIL).map((p) => p.email ?? "");
 
 // =============================================================================
 // "Notify app manager" button + modal. Lives in the Header so it's reachable
@@ -40,7 +44,7 @@ export function NotifyAppManagerButton() {
         className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
       >
         <LifeBuoy className="h-4 w-4" />
-        <span className="hidden md:inline">Report issue</span>
+        <span className="hidden whitespace-nowrap 2xl:inline">Report issue</span>
       </button>
       {open && <NotifyAppManagerModal onClose={() => setOpen(false)} />}
     </>
@@ -202,7 +206,7 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
               placeholder="e.g. I tried to drag a card to In Progress on the Kanban and the page reloaded."
-              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm"
+              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg outline-hidden focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm"
             />
           </label>
 
@@ -227,9 +231,9 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
               // console error is usually past the width of this box, and the
               // person reading the preview is deciding whether it's the error
               // they just hit.
-              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded bg-bg p-2 font-mono text-[11px] leading-snug text-fg">
+              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded-sm bg-bg p-2 font-mono text-[11px] leading-snug text-fg">
                 {captured.map((e, i) => (
-                  <li key={i} className="whitespace-pre-wrap break-words" title={e.message}>
+                  <li key={i} className="whitespace-pre-wrap wrap-break-word" title={e.message}>
                     <span
                       className={cn(
                         "mr-1 font-semibold uppercase",
@@ -255,12 +259,12 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
             {useMailto ? (
               <>
                 You're not signed in, so we'll open a draft email to{" "}
-                <strong className="text-fg">{APP_MANAGER_EMAIL}</strong> in your
+                <strong className="text-fg">{MANAGER_ADDRESSES.join(", ")}</strong> in your
                 mail client — review it and hit Send.
               </>
             ) : (
               <>
-                Sent to <strong className="text-fg">{APP_MANAGER_EMAIL}</strong>.
+                Sent to <strong className="text-fg">{MANAGER_ADDRESSES.join(", ")}</strong>.
                 You ({user.email}) will be CC'd.
               </>
             )}
@@ -313,7 +317,7 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={handleSend}
             disabled={sending || (!description.trim() && captured.length === 0)}
-            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending
               ? "Sending…"
@@ -446,7 +450,7 @@ function openMailtoDraft(input: {
     );
   }
 
-  const href = `mailto:${APP_MANAGER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const href = `mailto:${MANAGER_ADDRESSES.join(",")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   if (typeof window !== "undefined") {
     window.location.href = href;
   }

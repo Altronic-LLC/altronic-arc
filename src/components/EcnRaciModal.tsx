@@ -106,7 +106,7 @@ export function EcnRaciModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded p-1 text-fg-muted hover:bg-muted hover:text-fg"
+            className="rounded-sm p-1 text-fg-muted hover:bg-muted hover:text-fg"
           >
             <X className="h-4 w-4" />
           </button>
@@ -129,7 +129,7 @@ export function EcnRaciModal({
                   <dt>
                     <span
                       className={cn(
-                        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border text-xs font-semibold",
+                        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border text-xs font-semibold",
                         markTone(l.letter),
                       )}
                     >
@@ -170,7 +170,7 @@ export function EcnRaciModal({
                 <tr className="bg-muted/60">
                   <th
                     scope="col"
-                    className="sticky left-0 z-10 min-w-[18rem] max-w-[22rem] border-b border-r border-border bg-muted/60 p-2 text-left font-semibold text-fg"
+                    className="sticky left-0 z-10 min-w-[18rem] max-w-88 border-b border-r border-border bg-muted/60 p-2 text-left font-semibold text-fg"
                   >
                     Review step
                   </th>
@@ -202,7 +202,7 @@ export function EcnRaciModal({
                       className="h-32 border-b border-l border-border p-1 align-bottom"
                     >
                       {/* Rotated so 32 columns fit without a 40rem-wide table. */}
-                      <div className="mx-auto w-5 whitespace-nowrap text-left font-medium text-fg-muted [writing-mode:vertical-rl] [transform:rotate(180deg)]">
+                      <div className="mx-auto w-5 whitespace-nowrap text-left font-medium text-fg-muted [writing-mode:vertical-rl] transform-[rotate(180deg)]">
                         {r.role}
                       </div>
                     </th>
@@ -221,7 +221,7 @@ export function EcnRaciModal({
                       <th
                         scope="row"
                         className={cn(
-                          "sticky left-0 z-10 min-w-[18rem] max-w-[22rem] border-b border-r border-border p-2 text-left align-top font-normal text-fg",
+                          "sticky left-0 z-10 min-w-[18rem] max-w-88 border-b border-r border-border p-2 text-left align-top font-normal text-fg",
                           focused ? "bg-accent/10" : "bg-inherit",
                         )}
                       >
@@ -240,7 +240,7 @@ export function EcnRaciModal({
                             {mark && (
                               <span
                                 className={cn(
-                                  "inline-flex min-w-[2rem] items-center justify-center rounded border px-1 py-0.5 text-[0.7rem] font-semibold",
+                                  "inline-flex min-w-8 items-center justify-center rounded-sm border px-1 py-0.5 text-[0.7rem] font-semibold",
                                   markTone(mark),
                                 )}
                                 title={`${r.role} — ${mark}`}

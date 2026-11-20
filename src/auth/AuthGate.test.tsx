@@ -160,6 +160,57 @@ describe("AuthGate — auto-activating a cached account", () => {
     expect(mocks.setActiveAccount).not.toHaveBeenCalled();
   });
 
+  // The half of the 2026-09-02 fix that was missing until 2026-10-16: not
+  // activating an account is only a fix if the app then STOPS. msal-react's
+  // useIsAuthenticated() is true for any cached account, so `isAuthenticated`
+  // stayed true here, the app rendered, and the Graph client chose
+  // `accounts[0]` for itself. The gate has to look at the ACTIVE account.
+  it("shows the account picker, not the app, when MORE THAN ONE is cached and none is active", () => {
+    mocks.isAuthenticated = true; // what msal-react really reports with two cached accounts
+    mocks.activeAccount = null;
+    mocks.accounts = [{ homeAccountId: "acct-1" }, { homeAccountId: "acct-2" }];
+
+    renderWithProviders(
+      <AuthGate>
+        <div>App content</div>
+      </AuthGate>,
+    );
+
+    expect(screen.queryByText("App content")).not.toBeInTheDocument();
+    expect(screen.getByText(/more than one microsoft account/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign in with microsoft/i })).toBeInTheDocument();
+  });
+
+  it("renders the app once one of the cached accounts has been chosen", () => {
+    mocks.isAuthenticated = true;
+    mocks.activeAccount = { homeAccountId: "acct-2" };
+    mocks.accounts = [{ homeAccountId: "acct-1" }, { homeAccountId: "acct-2" }];
+
+    renderWithProviders(
+      <AuthGate>
+        <div>App content</div>
+      </AuthGate>,
+    );
+
+    expect(screen.getByText("App content")).toBeInTheDocument();
+  });
+
+  it("renders the app with ONE cached account before the activate effect has run", () => {
+    // The effect that activates the single account runs after the first
+    // render; that render must not flash the sign-in page.
+    mocks.isAuthenticated = true;
+    mocks.activeAccount = null;
+    mocks.accounts = [{ homeAccountId: "acct-1" }];
+
+    renderWithProviders(
+      <AuthGate>
+        <div>App content</div>
+      </AuthGate>,
+    );
+
+    expect(screen.getByText("App content")).toBeInTheDocument();
+  });
+
   it("leaves an already-active account alone even with others cached", () => {
     mocks.activeAccount = { homeAccountId: "acct-1" };
     mocks.accounts = [{ homeAccountId: "acct-1" }, { homeAccountId: "acct-2" }];

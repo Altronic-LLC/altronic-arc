@@ -29,9 +29,20 @@ export type AppItemKind =
   | "supplierContact"
   | "supplierIssue"
   | "costImpactNotice"
+  | "scn"
   | "featureRequest"
   | "altronicPart"
-  | "altronicComponent";
+  | "altronicComponent"
+  | "quote"
+  | "pricingRequest"
+  | "newProductPricing"
+  | "customerQuote"
+  | "mcn"
+  | "crimpCheck"
+  | "coatingCheck"
+  | "pullTest"
+  | "harnessPartNumber"
+  | "scheduledMaintenance";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -59,11 +70,39 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   supplierContact: "supply-chain/supplier-contact",
   supplierIssue: "supply-chain/supplier-issue",
   costImpactNotice: "supply-chain/cost-impact-notice",
+  // The SCN detail page (the list is at /supply-chain/scns). Wired with the
+  // views; this segment is the contract between them and every email.
+  scn: "supply-chain/scn",
   featureRequest: "feature-request",
   // The Parts List's two lists share ONE detail route, told apart by kind —
   // item ids repeat across the lists (see lib/partSearch.ts `partPath`).
   altronicPart: "engineering/parts/part",
   altronicComponent: "engineering/parts/component",
+  // Insourcing Quotes detail page (/sales/quotes/:id). A component's thread
+  // links to its parent quote — there is no per-component page.
+  quote: "sales/quotes",
+  // Sales Pricing (BusinessIT#47). The detail routes are wired in App.tsx;
+  // these segments are the contract between them and every email.
+  pricingRequest: "sales/pricing/request",
+  newProductPricing: "sales/pricing/new-product",
+  customerQuote: "sales/pricing/quote",
+  // Manufacturing Change Notices (BusinessIT#38) — detail pages sit under the register.
+  mcn: "operations/mcns",
+  // Crimp Height Checks (BusinessIT#55) — no detail page; the log opens the
+  // check's edit form from /harness/crimp-checks/:id.
+  crimpCheck: "harness/crimp-checks",
+  // Conformal Coating Checks (BusinessIT#60) — the crimp arrangement: the log
+  // opens the check's edit form from /operations/coating-checks/:id.
+  coatingCheck: "operations/coating-checks",
+  // Pull Tests (BusinessIT#64) — the crimp arrangement: the log opens the
+  // test's edit form from /harness/pull-tests/:id.
+  pullTest: "harness/pull-tests",
+  // A part number request has no item page — its email links to the list
+  // with `link`, so this segment is only the fallback.
+  harnessPartNumber: "harness/production-log/part-numbers",
+  // A PM schedule has no detail page: /operations/maintenance/schedules/:id is
+  // the PM library showing just that schedule (PmLibraryView reads the id).
+  scheduledMaintenance: "operations/maintenance/schedules",
 };
 
 /** Absolute URL to an item's detail page in this app. */

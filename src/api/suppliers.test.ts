@@ -74,6 +74,11 @@ describe("Suppliers API", () => {
       email: "glenn.terry@altronic-llc.com",
     });
     expect(withBuyer.assignedBuyer?.lookupId).toBeGreaterThan(0);
+    // The buyer also watches the supplier, and unassigning doesn't undo it.
+    expect(withBuyer.watchers.map((w) => w.email)).toContain("glenn.terry@altronic-llc.com");
+    const cleared = await updateSupplierAssignedBuyer(created.id, null);
+    expect(cleared.assignedBuyer).toBeNull();
+    expect(cleared.watchers.map((w) => w.email)).toContain("glenn.terry@altronic-llc.com");
 
     const withPoc = await updateSupplierPointOfContact(created.id, 1);
     expect(withPoc.pointOfContactId).toBe(1);

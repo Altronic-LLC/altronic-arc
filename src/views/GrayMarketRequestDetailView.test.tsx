@@ -96,6 +96,31 @@ describe("GrayMarketRequestDetailView", () => {
     );
   });
 
+  // BusinessIT#26 — Testing Required is Engineering's call, so it lives on the
+  // Engineering card and is edited there, not as live pills in the sidebar.
+  it("shows Testing Required on the Engineering card, not the sidebar", async () => {
+    await renderRequest(1);
+    expect(fieldBlock("Engineering", "Testing Required")).toHaveTextContent("In Process");
+    const sidebar = screen.getByText("Request Status").closest("aside") as HTMLElement;
+    expect(within(sidebar).queryByText("Testing Required")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Yes" })).toBeNull();
+  });
+
+  it("edits Testing Required through the Engineering card's modal", async () => {
+    // Request 3, so the mock store change can't leak into request 1's tests.
+    await renderRequest(3);
+    expect(fieldBlock("Engineering", "Testing Required")).toHaveTextContent("No");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit Engineering" }));
+    const dialog = await screen.findByRole("dialog", { name: /edit engineering/i });
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Yes" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(fieldBlock("Engineering", "Testing Required")).toHaveTextContent("Yes"),
+    );
+  });
+
   it("leaves the values alone when the modal is cancelled", async () => {
     await renderRequest();
     const before = fieldBlock("Purchasing", "Vendor").textContent;

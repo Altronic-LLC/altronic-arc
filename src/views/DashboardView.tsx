@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Camera,
   AlertTriangle,
   ArrowRight,
   BadgeCheck,
@@ -8,6 +9,9 @@ import {
   Calculator,
   CalendarDays,
   ChevronDown,
+  Cable,
+  Ruler,
+  Weight,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -20,19 +24,28 @@ import {
   FileSpreadsheet,
   FileStack,
   FileText,
+  FolderKanban,
   FolderOpen,
+  Factory,
   Hammer,
   HardHat,
   LayoutDashboard,
+  Layers,
   ListChecks,
+  Gauge,
+  Package,
   Lock,
   MapPin,
+  Megaphone,
   MessageSquare,
   PackageSearch,
+  Receipt,
   Sparkles,
   TestTubes,
   Timer,
   Users,
+  Loader2,
+  Map as MapIcon,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
@@ -47,7 +60,16 @@ import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
 import { useMrbEntries } from "@/hooks/useMrb";
 import { needsDisposition } from "@/lib/mrbMapper";
+import { useScns } from "@/hooks/useScns";
+import { isOpenScn } from "@/components/scnAtoms";
 import { useQuickLinksFor } from "@/hooks/useQuickLinks";
+import { useQuotes } from "@/hooks/useQuotes";
+import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
+import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { useMyMcnAccess } from "@/hooks/useMcnRoles";
+import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
+import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PLANT_MAP_CONFIGURED } from "@/api/config";
+import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
@@ -55,12 +77,13 @@ import { useBuildRequestStatusChoices, useBuildRequests } from "@/hooks/useBuild
 import { withCurrentChoice } from "@/api/columnChoices";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
+import { usePanelTeamAccess } from "@/hooks/usePanelRoles";
+import { isPanelTaskOpen } from "@/lib/panelTaskStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { pathAccessState } from "@/api/appAccess";
-import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
   DASHBOARD_DEPARTMENTS,
@@ -190,7 +213,7 @@ const OPERATIONS_BAR_COLOR: Record<OperationsStatus, string> = {
 
 /** Bar colour per BRStatus; a status added in SharePoint gets the neutral grey. */
 const BUILD_REQUEST_BAR_COLOR: Record<string, string> = {
-  Submitted: "bg-superior-blue",
+  "Pending Submission": "bg-superior-blue",
   "In-process": "bg-ajax-yellow",
   // Production hand-off (2026-09-29) — both still OPEN, so they count in the
   // card; only "Complete" is done. Kept off the four brand tones the other
@@ -213,10 +236,17 @@ const PANEL_ORDER_BAR_COLOR: Record<PanelOrderStatus, string> = {
 };
 
 const PANEL_TASK_BAR_COLOR: Record<PanelTaskStatus, string> = {
-  Pending: "bg-slate-400",
-  "In Process": "bg-ajax-yellow",
-  "On Hold": "bg-violet-500",
-  Complete: "bg-cooper-green",
+  New: "bg-slate-400",
+  "Pending Scheduling": "bg-slate-500",
+  Ready: "bg-cooper-green",
+  "In Progress": "bg-ajax-yellow",
+  "Revision Needed": "bg-cooper-red",
+  "Awaiting Pre-Req": "bg-superior-blue",
+  "Possible Support": "bg-violet-500",
+  Completed: "bg-cooper-green",
+  "On Hold - Approval": "bg-orange-500",
+  "On Hold - Internal": "bg-orange-400",
+  Canceled: "bg-slate-300",
 };
 
 /** Operations tasks have a single Assigned person, not Engineering's multi-person array. */
@@ -242,75 +272,111 @@ interface Segment {
   color: string;
 }
 
+/**
+ * A card's load state, from its own query.
+ *
+ * `loading` — nothing to show yet: the card says "Loading…" and can't be
+ * opened, because a 0 there would be a claim nobody has checked.
+ * `refreshing` — a background refetch over data already shown (the header's
+ * Refresh, or coming back after an edit). The card keeps its last count and
+ * STAYS clickable, with an "Updating" spinner: that number is still right,
+ * and locking every card on every refetch would block navigation for a beat
+ * many times a day.
+ */
+export function cardLoad(q: { isLoading: boolean; isFetching: boolean }): {
+  loading: boolean;
+  refreshing: boolean;
+} {
+  return { loading: q.isLoading, refreshing: !q.isLoading && q.isFetching };
+}
+
 export function DashboardView() {
   const navigate = useNavigate();
+  // Each card follows ITS OWN list (Tim, 2026-10-13). The page used to sit
+  // behind one full-screen loading screen until six lists had all arrived,
+  // and the cards fed by the other lists showed a confident 0 while theirs
+  // were still on the way. Now the page renders at once and a card whose list
+  // hasn't arrived says "Loading…" — see `cardLoad` and TypeCard.
+  const tasksQ = useTasks();
   const {
     data: tasks = [],
-    isLoading,
     isError: tasksError,
     error: tasksErrorObj,
     refetch: refetchTasks,
-  } = useTasks();
+  } = tasksQ;
+  const eirsQ = useEirs();
   const {
     data: eirs = [],
-    isLoading: eirsLoading,
     isError: eirsError,
     error: eirsErrorObj,
     refetch: refetchEirs,
-  } = useEirs();
+  } = eirsQ;
+  const operationsTasksQ = useOperationsTasks();
   const {
     data: operationsTasks = [],
-    isLoading: operationsTasksLoading,
     isError: operationsTasksError,
     error: operationsTasksErrorObj,
     refetch: refetchOperationsTasks,
-  } = useOperationsTasks();
-  const { data: maintenanceTasks = [] } = useMaintenanceTasks();
+  } = operationsTasksQ;
+  const maintenanceTasksQ = useMaintenanceTasks();
+  const { data: maintenanceTasks = [] } = maintenanceTasksQ;
   // Certification register — small, changes rarely, and like Teradyne it has no
   // status workflow, so the card is a plain count with no segments.
+  const csaQ = useCsaListings();
   const {
     data: csaListings = [],
     isError: csaError,
     error: csaErrorObj,
     refetch: refetchCsa,
-  } = useCsaListings();
-  const { data: ecns = [] } = useEcns();
-  const { data: faits = [] } = useFaits();
-  const { data: mrbEntries = [] } = useMrbEntries();
+  } = csaQ;
+  const ecnsQ = useEcns();
+  const { data: ecns = [] } = ecnsQ;
+  const faitsQ = useFaits();
+  const { data: faits = [] } = faitsQ;
+  const mrbQ = useMrbEntries();
+  const { data: mrbEntries = [] } = mrbQ;
+  const scnsQ = useScns();
+  const { data: scns = [] } = scnsQ;
+  const testSheetsQ = useTestSheets();
   const {
     data: testSheets = [],
     isError: testSheetsError,
     error: testSheetsErrorObj,
     refetch: refetchTestSheets,
-  } = useTestSheets();
+  } = testSheetsQ;
+  const buildRequestsQ = useBuildRequests();
   const {
     data: buildRequests = [],
-    isLoading: buildRequestsLoading,
     isError: buildRequestsError,
     error: buildRequestsErrorObj,
     refetch: refetchBuildRequests,
-  } = useBuildRequests();
+  } = buildRequestsQ;
   const { data: buildRequestStatuses = [] } = useBuildRequestStatusChoices();
+  const panelOrdersQ = usePanelOrders();
   const {
     data: panelOrders = [],
-    isLoading: panelOrdersLoading,
     isError: panelOrdersError,
     error: panelOrdersErrorObj,
     refetch: refetchPanelOrders,
-  } = usePanelOrders();
+  } = panelOrdersQ;
+  const panelTasksQ = usePanelTasks();
+  const panelTeam = usePanelTeamAccess();
+  const showPanelPlanning = !panelTeam.planningResolving && panelTeam.canOpenPlanning;
+  // Their "Coming soon" cards, for everyone the live test doesn't include.
+  const panelPlanningSoon = !PANEL_PLANNING_LIVE && !panelTeam.planningResolving && !panelTeam.canOpenPlanning;
   const {
     data: panelTasks = [],
-    isLoading: panelTasksLoading,
     isError: panelTasksError,
     error: panelTasksErrorObj,
     refetch: refetchPanelTasks,
-  } = usePanelTasks();
+  } = panelTasksQ;
+  const foldersQ = useProjectFolderEntries(undefined);
   const {
     data: folderEntries = [],
     isError: foldersError,
     error: foldersErrorObj,
     refetch: refetchFolders,
-  } = useProjectFolderEntries(undefined);
+  } = foldersQ;
   const { data: projects = [] } = useProjects();
   const currentUser = useCurrentUser();
   const [scope, setScope] = useState<Scope>("mine");
@@ -426,6 +492,17 @@ export function DashboardView() {
     [mrbEntries],
   );
 
+  /**
+   * SCNs: every notice not yet CLOSED or Cancelled. Like MRB, deliberately
+   * NOT scoped by Mine/Company — a notice is worked by Supply Chain as a
+   * whole, and `unit` says "open" so the number describes the register
+   * rather than the reader.
+   */
+  const scnCard = useMemo(
+    () => ({ count: scns.filter((s) => isOpenScn(s.status)).length }),
+    [scns],
+  );
+
   const eirCard = useMemo(() => {
     const active = eirs.filter(
       (e: Eir) =>
@@ -516,6 +593,7 @@ export function DashboardView() {
     const active = panelOrders.filter(
       (o: PanelOrder) =>
         o.status !== "Shipped" &&
+        !o.archived &&
         (!mine ||
           personMatchesSingle(o.engineerAssigned, myEmail) ||
           personMatches(o.watchers, myEmail)),
@@ -534,27 +612,16 @@ export function DashboardView() {
     // this card — panel tasks reference the Panel Project Reference list.
     const active = panelTasks.filter(
       (t: PanelTask) =>
-        t.status !== "Complete" &&
-        (!mine || personMatchesSingle(t.assigned, myEmail) || personMatches(t.watchers, myEmail)),
+        isPanelTaskOpen(t.status) &&
+        (!mine || personMatches(t.assigned, myEmail) || personMatches(t.watchers, myEmail)),
     );
-    const segments: Segment[] = PANEL_TASK_STATUSES.filter((s) => s !== "Complete").map((s) => ({
+    const segments: Segment[] = PANEL_TASK_STATUSES.filter(isPanelTaskOpen).map((s) => ({
       label: s,
       count: active.filter((t) => t.status === s).length,
       color: PANEL_TASK_BAR_COLOR[s],
     }));
     return { count: active.length, segments };
   }, [panelTasks, mine, myEmail]);
-
-  if (
-    isLoading ||
-    eirsLoading ||
-    operationsTasksLoading ||
-    buildRequestsLoading ||
-    panelOrdersLoading ||
-    panelTasksLoading
-  ) {
-    return <LoadingTasks noun="your dashboard" />;
-  }
 
   // URLSearchParams encodes its values itself — don't pre-encode here, or
   // the email ends up double-encoded (e.g. "%2540" instead of "%40") and
@@ -706,7 +773,7 @@ export function DashboardView() {
             </button>
           </div>
           {failedSources.some((s) => s.error) && (
-            <div className="mt-1.5 break-words pl-6 font-mono text-[11px] opacity-80">
+            <div className="mt-1.5 wrap-break-word pl-6 font-mono text-[11px] opacity-80">
               {failedSources
                 .filter((s) => s.error)
                 .map((s) => `${s.name}: ${(s.error as Error).message}`)
@@ -768,6 +835,7 @@ export function DashboardView() {
           icon={<ListChecks className="h-5 w-5" />}
           tone="superior-blue"
           count={taskCard.count}
+          {...cardLoad(tasksQ)}
           unit="active"
           segments={taskCard.segments}
           to={tasksUrl}
@@ -778,6 +846,7 @@ export function DashboardView() {
           icon={<FileText className="h-5 w-5" />}
           tone="cooper-red"
           count={eirCard.count}
+          {...cardLoad(eirsQ)}
           unit="open"
           segments={eirCard.segments}
           to={eirsUrl}
@@ -788,6 +857,7 @@ export function DashboardView() {
           icon={<ClipboardCheck className="h-5 w-5" />}
           tone="cooper-green"
           count={testCount}
+          {...cardLoad(testSheetsQ)}
           unit="records"
           to={"/test-sheets"}
           onClick={() => navigate("/test-sheets")}
@@ -797,6 +867,7 @@ export function DashboardView() {
           icon={<FolderOpen className="h-5 w-5" />}
           tone="ajax-yellow"
           count={folderCount}
+          {...cardLoad(foldersQ)}
           unit="folders"
           to={"/project-folders"}
           onClick={() => navigate("/project-folders")}
@@ -806,6 +877,7 @@ export function DashboardView() {
           icon={<HardHat className="h-5 w-5" />}
           tone="ajax-yellow"
           count={buildRequestCard.count}
+          {...cardLoad(buildRequestsQ)}
           unit="open"
           segments={buildRequestCard.segments}
           to={buildRequestsUrl}
@@ -826,6 +898,7 @@ export function DashboardView() {
           icon={<BadgeCheck className="h-5 w-5" />}
           tone="cooper-green"
           count={csaListings.length}
+          {...cardLoad(csaQ)}
           unit="on file"
           // No `segments` — a certification register has no active/done states.
           to={"/csa-listings"}
@@ -857,6 +930,7 @@ export function DashboardView() {
           icon={<FileDiff className="h-5 w-5" />}
           tone="ajax-yellow"
           count={ecnCard.count}
+          {...cardLoad(ecnsQ)}
           unit="on file"
           segments={ecnCard.segments}
           to={ecnsUrl}
@@ -872,26 +946,69 @@ export function DashboardView() {
           panelsDenied ? <NoAccessNotice team="Panels" site="ALTRONICPANELTEAM" /> : undefined
         }
       >
-        <TypeCard
-          name="Panel Orders"
-          icon={<LayoutDashboard className="h-5 w-5" />}
-          tone="cooper-red"
-          count={panelOrderCard.count}
-          unit="open"
-          segments={panelOrderCard.segments}
-          to={panelOrdersUrl}
-          onClick={() => navigate(panelOrdersUrl)}
-        />
-        <TypeCard
-          name="Panel Tasks"
-          icon={<ListChecks className="h-5 w-5" />}
-          tone="superior-blue"
-          count={panelTaskCard.count}
-          unit="open"
-          segments={panelTaskCard.segments}
-          to={panelTasksUrl}
-          onClick={() => navigate(panelTasksUrl)}
-        />
+        {/* BusinessIT#42 — the level above Orders and Tasks. A register you open
+            to look a project up, so a description, not a count. */}
+        {/* Panel Orders / Tasks / Capacity / Project Dashboard: panel Super Users
+            only until PANEL_PLANNING_LIVE (their live test, 2026-11-19). */}
+        {showPanelPlanning && (
+          <TypeCard
+            name="Panel Project Dashboard"
+            icon={<FolderKanban className="h-5 w-5" />}
+            tone="cooper-green"
+            description="Everything on one panel project — its orders, tasks, BOMs and discussion, read-only, with links to each."
+            to="/panels/projects"
+            onClick={() => navigate("/panels/projects")}
+          />
+        )}
+        {showPanelPlanning && (
+          <TypeCard
+            name="Panel Orders"
+            icon={<LayoutDashboard className="h-5 w-5" />}
+            tone="cooper-red"
+            count={panelOrderCard.count}
+            {...cardLoad(panelOrdersQ)}
+            unit="open"
+            segments={panelOrderCard.segments}
+            to={panelOrdersUrl}
+            onClick={() => navigate(panelOrdersUrl)}
+          />
+        )}
+        {showPanelPlanning && (
+          <TypeCard
+            name="Panel Tasks"
+            icon={<ListChecks className="h-5 w-5" />}
+            tone="superior-blue"
+            count={panelTaskCard.count}
+            {...cardLoad(panelTasksQ)}
+            unit="open"
+            segments={panelTaskCard.segments}
+            to={panelTasksUrl}
+            onClick={() => navigate(panelTasksUrl)}
+          />
+        )}
+        {/* Panel team only (BusinessIT#42). Blue like Panel Tasks: its numbers ARE those tasks. */}
+        {panelTeam.canOpen && showPanelPlanning && (
+          <TypeCard
+            name="Panel Engineering Capacity"
+            icon={<Gauge className="h-5 w-5" />}
+            tone="superior-blue"
+            description="Who on the panel team is overloaded, day by day — tasks' hours against capacity and time off."
+            to="/panels/capacity"
+            onClick={() => navigate("/panels/capacity")}
+          />
+        )}
+        {/* BusinessIT#59 — panel Super Users during the limited demo, the panel team once
+            PANEL_BOM_LIVE is on. Red like Panel Orders: a BOM belongs to an order. */}
+        {panelTeam.canOpenBom && (
+          <TypeCard
+            name="Panel SAP BOM Builder"
+            icon={<Package className="h-5 w-5" />}
+            tone="cooper-red"
+            description="Pick parts and kits from the panel parts list and copy SAP-ready BOM lines into SAP."
+            to="/panels/bom-builder"
+            onClick={() => navigate("/panels/bom-builder")}
+          />
+        )}
         <TypeCard
           name="QC Time Tracking"
           icon={<Timer className="h-5 w-5" />}
@@ -908,6 +1025,23 @@ export function DashboardView() {
           to={"/panels/qc-issues"}
           onClick={() => navigate("/panels/qc-issues")}
         />
+        {/* "Coming soon" for everyone the Orders / Tasks / Capacity / Project
+            Dashboard live test doesn't include. Capacity only for the team,
+            who are the only ones it would ever show to. */}
+        {panelPlanningSoon && (
+          <>
+            <PlaceholderCard name="Panel Project Dashboard" icon={<FolderKanban className="h-5 w-5" />} />
+            <PlaceholderCard name="Panel Orders" icon={<LayoutDashboard className="h-5 w-5" />} />
+            <PlaceholderCard name="Panel Tasks" icon={<ListChecks className="h-5 w-5" />} />
+            {panelTeam.canOpen && (
+              <PlaceholderCard name="Panel Engineering Capacity" icon={<Gauge className="h-5 w-5" />} />
+            )}
+          </>
+        )}
+        {/* "Coming soon" for everyone the BOM Builder's limited demo doesn't include. */}
+        {!PANEL_BOM_LIVE && !panelTeam.bomResolving && !panelTeam.canOpenBom && (
+          <PlaceholderCard name="Panel SAP BOM Builder" icon={<Package className="h-5 w-5" />} />
+        )}
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 
@@ -924,6 +1058,7 @@ export function DashboardView() {
           icon={<Cog className="h-5 w-5" />}
           tone="superior-blue"
           count={operationsTaskCard.count}
+          {...cardLoad(operationsTasksQ)}
           unit="active"
           segments={operationsTaskCard.segments}
           to={operationsTasksUrl}
@@ -947,6 +1082,7 @@ export function DashboardView() {
           // a section. Yellow also reads as the right kind of caution here.
           tone="ajax-yellow"
           count={maintenanceCard.count}
+          {...cardLoad(maintenanceTasksQ)}
           unit="open"
           description={
             maintenanceCard.overdue > 0
@@ -955,6 +1091,56 @@ export function DashboardView() {
           }
           to={"/operations/maintenance/calendar"}
           onClick={() => navigate("/operations/maintenance/calendar")}
+        />
+        <TypeCard
+          name="Conformal Coating Checks"
+          icon={<Layers className="h-5 w-5" />}
+          // cooper-green: the one tone the Operations section hadn't used.
+          tone="cooper-green"
+          description="Coating thickness at the start of each shift, in mm or inches, judged against the spec — out-of-spec boards are emailed."
+          // No count, like the other logs.
+          to={"/operations/coating-checks"}
+          onClick={() => navigate("/operations/coating-checks")}
+        />
+        {/* MCNs — a real card once live (or for the pilot team), "Coming soon"
+            for everyone else, so the pilot stays private. */}
+        <McnCard onOpen={() => navigate("/operations/mcns")} />
+        {/* Only people on Plant Map Roles see this card — no "Coming soon" for anyone else. */}
+        <PlantMapCard onOpen={() => navigate("/operations/plant-map")} />
+        <McnPlaceholder />
+      </DeptSection>
+
+      <DeptSection
+        title="Harness"
+        collapsed={collapsedSections.has("Harness")}
+        onToggle={() => toggleSection("Harness")}
+      >
+        <TypeCard
+          name="Harness Production Log"
+          icon={<Cable className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Every harness built — part, work order, quantity, rework, and who built and checked it."
+          // No count: an append-only log has no open state.
+          to={"/harness/production-log"}
+          onClick={() => navigate("/harness/production-log")}
+        />
+        <TypeCard
+          name="Crimp Height Checks"
+          icon={<Ruler className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Micrometer readings off the crimping area against each terminal's spec — out-of-spec crimps are emailed."
+          // No count, like the production log.
+          to={"/harness/crimp-checks"}
+          onClick={() => navigate("/harness/crimp-checks")}
+        />
+        <TypeCard
+          name="Pull Tests"
+          icon={<Weight className="h-5 w-5" />}
+          tone="ajax-yellow"
+          description="Pulls on the Mark-10 tester, read straight off it over USB, against each terminal's minimum — failed pulls are emailed."
+          // No count, like the other Harness logs.
+          to={"/harness/pull-tests"}
+          onClick={() => navigate("/harness/pull-tests")}
         />
       </DeptSection>
 
@@ -1046,6 +1232,7 @@ export function DashboardView() {
           icon={<ClipboardCheck className="h-5 w-5" />}
           tone="superior-blue"
           count={faitCard.count}
+          {...cardLoad(faitsQ)}
           unit="open"
           segments={faitCard.segments}
           to={faitsUrl}
@@ -1062,10 +1249,41 @@ export function DashboardView() {
           icon={<ClipboardX className="h-5 w-5" />}
           tone="superior-blue"
           count={mrbCard.count}
+          {...cardLoad(mrbQ)}
           unit="need a disposition"
           to={"/supply-chain/mrb"}
           onClick={() => navigate("/supply-chain/mrb")}
         />
+        {/* Shares cooper-green with Suppliers on purpose. Six cards over
+            four tones means a repeat, and these two are the pair worth
+            pairing: both are about what our SUPPLIERS do — the SRM tool is
+            who supplies us, an SCN is what they tell us is going obsolete
+            or being phased out. Red would blunt "red means a cost change",
+            and blue already carries the FAIT/MRB inspection pair. */}
+        <TypeCard
+          name="SCNs"
+          icon={<Megaphone className="h-5 w-5" />}
+          tone="cooper-green"
+          count={scnCard.count}
+          {...cardLoad(scnsQ)}
+          unit="open"
+          to={"/supply-chain/scns"}
+          onClick={() => navigate("/supply-chain/scns")}
+        />
+        {/* Supply Chain Files (BusinessIT#36) — a shared folder, so a description
+            rather than a count. Blue repeats FAIT/MRB's tone; every section
+            with more than four live cards has to repeat one. */}
+        <TypeCard
+          name="Supply Chain Files"
+          icon={<FolderOpen className="h-5 w-5" />}
+          tone="superior-blue"
+          description="The team's shared folder — browse, add, edit and organise files."
+          to={"/supply-chain/files"}
+          onClick={() => navigate("/supply-chain/files")}
+        />
+        {/* Insourcing Quotes sits under Supply Chain on the Dashboard for now
+            (Ray, 2026-10-09) — its routes stay /sales/quotes. */}
+        <InsourcingQuotesCard onOpen={() => navigate("/sales/quotes")} />
       </DeptSection>
 
       <DeptSection
@@ -1097,8 +1315,33 @@ export function DashboardView() {
           to={"/sales/customers"}
           onClick={() => navigate("/sales/customers")}
         />
+        {/* Sales Documentation (BusinessIT#24) — a shared folder, so a
+            description rather than a count. Green is the one tone this
+            section hadn't used. */}
+        <TypeCard
+          name="Sales Documentation"
+          icon={<FolderOpen className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Altronic's documentation folder — browse, add, edit and organise files."
+          to={"/sales/documentation"}
+          onClick={() => navigate("/sales/documentation")}
+        />
+        {/* Application Photos (BusinessIT#48) — a shared photo folder, so a
+            description rather than a count. All four tones are taken here;
+            green pairs it with Sales Documentation, the other Sales folder. */}
+        <TypeCard
+          name="Application Photos"
+          icon={<Camera className="h-5 w-5" />}
+          tone="cooper-green"
+          description="The Sales photo storehouse — browse and organise pictures, or take one on a phone or iPad."
+          to={"/sales/application-photos"}
+          onClick={() => navigate("/sales/application-photos")}
+        />
+        {/* Sales Pricing — a real card for whoever has access; everybody else
+            still sees "Coming soon", so the review stays private. */}
+        <SalesPricingCard onOpen={() => navigate("/sales/pricing")} />
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
-        <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />
+        <SalesPricingPlaceholder />
       </DeptSection>
 
       <p className="text-center text-xs text-fg-muted">
@@ -1225,8 +1468,8 @@ function ScopeToggle({
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           className={cn(
-            "rounded-sm px-3 py-1 font-medium transition-colors",
-            value === o.value ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+            "rounded-xs px-3 py-1 font-medium transition-colors",
+            value === o.value ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
           )}
         >
           {o.label}
@@ -1253,6 +1496,8 @@ function TypeCard({
   unit,
   description,
   segments,
+  loading = false,
+  refreshing = false,
   to,
   onClick,
 }: {
@@ -1269,6 +1514,10 @@ function TypeCard({
    */
   description?: string;
   segments?: Segment[];
+  /** Its list hasn't arrived yet — "Loading…", and not clickable. See `cardLoad`. */
+  loading?: boolean;
+  /** A background refetch over data already shown — stays clickable, shows "Updating". */
+  refreshing?: boolean;
   /**
    * The route this card opens. Also how the card knows whether the user can
    * get in at all — a card whose SharePoint list has already been refused
@@ -1312,9 +1561,38 @@ function TypeCard({
     );
   }
 
+  // Its list is still on the way. Disabled rather than clickable-with-a-0:
+  // a number nobody has checked is worse than no number. aria-disabled on a
+  // div, not a disabled <button>, so the reason stays readable and hoverable.
+  if (loading) {
+    return (
+      <div
+        className="flex flex-col gap-3 rounded-lg border border-border bg-surface/60 p-4 sm:p-5"
+        aria-disabled="true"
+        aria-busy="true"
+        title={`${name} — loading from SharePoint`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 opacity-70">
+            <span className={cn("flex h-9 w-9 items-center justify-center rounded-md", t.chip, t.text)}>
+              {icon}
+            </span>
+            <span className="font-display text-sm font-semibold text-fg">{name}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-fg-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading…
+        </div>
+        {segments && <div className="h-2 w-full animate-pulse rounded-full bg-surface-2" />}
+      </div>
+    );
+  }
+
   return (
     <button
       onClick={onClick}
+      aria-busy={refreshing || undefined}
       className="group flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 text-left transition-all hover:border-fg-muted hover:shadow-md sm:p-5"
     >
       <div className="flex items-center justify-between">
@@ -1324,7 +1602,18 @@ function TypeCard({
           </span>
           <span className="font-display text-sm font-semibold text-fg">{name}</span>
         </div>
-        <ArrowRight className="h-4 w-4 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
+        <span className="flex items-center gap-2">
+          {refreshing && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] text-fg-muted"
+              title="Updating from SharePoint"
+            >
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Updating
+            </span>
+          )}
+          <ArrowRight className="h-4 w-4 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
+        </span>
       </div>
 
       {description !== undefined ? (
@@ -1372,6 +1661,128 @@ function MiniBar({ segments }: { segments: Segment[] }) {
       )}
     </div>
   );
+}
+
+/**
+ * Insourcing Quotes — shown ONLY to someone holding a quote role. No role, no
+ * card: the tool shows cost and margin, so it isn't advertised company-wide.
+ * The quotes list is read only once the card is actually rendered, so a
+ * reader without a role never fetches it.
+ */
+function InsourcingQuotesCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyQuoteAccess();
+  if (!rights.canAccess) return null;
+  return <InsourcingQuotesCardBody onOpen={onOpen} />;
+}
+
+function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
+  const quotesQ = useQuotes();
+  const { data: quotes = [] } = quotesQ;
+  // Open = the LATEST rev of each quote, still Draft or Sent. An R1 that was
+  // superseded by an R2 is history, not work.
+  const open = useMemo(
+    () => latestRevisions(quotes).filter((q) => q.status === "Draft" || q.status === "Sent").length,
+    [quotes],
+  );
+  // ajax-yellow: in Supply Chain, where the card lives for now, green
+  // (Suppliers, SCNs), blue (FAITs, MRB) and red (Cost Impact) are already
+  // taken twice or carry a meaning; yellow is the least used (Gray Market).
+  return (
+    <TypeCard
+      name="Insourcing Quotes"
+      icon={<Receipt className="h-5 w-5" />}
+      tone="ajax-yellow"
+      count={open}
+      unit="open"
+      {...cardLoad(quotesQ)}
+      to={"/sales/quotes"}
+      onClick={onOpen}
+    />
+  );
+}
+
+/**
+ * Sales Pricing — shown ONLY to someone the preview switch and the Pricing
+ * Roles list let in. The requests list is read only once the card renders.
+ */
+function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyPricingAccess();
+  if (!rights.canOpen) return null;
+  // "Pricing", with NO count (Ray, 2026-10-15) — a description card, like
+  // Customers and Visit Reports, so the Dashboard reads no pricing list.
+  // ajax-yellow: the one tone this section hadn't used.
+  return (
+    <TypeCard
+      name="Pricing"
+      icon={<Calculator className="h-5 w-5" />}
+      tone="ajax-yellow"
+      description="Price parts and new products from cost and margin, and build customer quotes."
+      to={rights.canAccess ? "/sales/pricing" : "/sales/pricing/new-products"}
+      onClick={onOpen}
+    />
+  );
+}
+
+/**
+ * Manufacturing Change Notices — shown to whoever can open the section (the
+ * pilot team, approvers, MCN admins and ARC admins until it goes live). A
+ * description card, no count: the Dashboard reads no MCN list.
+ *
+ * superior-blue is repeated on purpose: the Operations section's four cards
+ * already use all four tones, and blue pairs MCNs with Operational Tasks —
+ * an MCN often starts as a task.
+ */
+function McnCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyMcnAccess();
+  if (!MCNS_CONFIGURED || !rights.canOpen) return null;
+  return (
+    <TypeCard
+      name="MCNs"
+      icon={<Factory className="h-5 w-5" />}
+      tone="superior-blue"
+      description="Manufacturing Change Notices — process and equipment changes, approved and distributed."
+      to={"/operations/mcns"}
+      onClick={onOpen}
+    />
+  );
+}
+
+/** "MCNs — Coming soon" for everyone the pilot doesn't include. Sorted last. */
+function McnPlaceholder() {
+  const { rights, resolving } = useMyMcnAccess();
+  if (resolving || (MCNS_CONFIGURED && rights.canOpen)) return null;
+  return <PlaceholderCard name="MCNs" icon={<Factory className="h-5 w-5" />} />;
+}
+
+/**
+ * Plant Map — shown to whoever can open it (people on Plant Map Roles and ARC
+ * admins until it goes live). A description card, no count: the Dashboard
+ * reads no layout.
+ *
+ * ajax-yellow is repeated on purpose: the Operations section already uses all
+ * four tones, and yellow pairs the map with Maintenance — the asset register
+ * whose machines it will show.
+ */
+function PlantMapCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyPlantMapAccess();
+  if (!PLANT_MAP_CONFIGURED || !rights.canOpen) return null;
+  return (
+    <TypeCard
+      name="Plant Map"
+      icon={<MapIcon className="h-5 w-5" />}
+      tone="ajax-yellow"
+      description="The plant's layouts drawn to scale — every machine, bench and rack where it stands."
+      to={"/operations/plant-map"}
+      onClick={onOpen}
+    />
+  );
+}
+
+/** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */
+function SalesPricingPlaceholder() {
+  const { rights } = useMyPricingAccess();
+  if (rights.canOpen) return null;
+  return <PlaceholderCard name="Pricing" icon={<Calculator className="h-5 w-5" />} />;
 }
 
 function PlaceholderCard({ name, icon }: { name: string; icon: React.ReactNode }) {

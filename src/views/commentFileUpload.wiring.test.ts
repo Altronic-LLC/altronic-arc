@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import BUILD_REQUEST from "./BuildRequestDetailView.tsx?raw";
 import COST_IMPACT from "./CostImpactNoticeDetailView.tsx?raw";
 import CUSTOMER_NOTE from "./CustomerNoteDetailView.tsx?raw";
+import CUSTOMER_QUOTE from "./CustomerQuoteDetailView.tsx?raw";
 import ECN from "./EcnDetailView.tsx?raw";
 import EIR from "./EirDetailView.tsx?raw";
 import FAIT from "./FaitDetailView.tsx?raw";
@@ -14,7 +15,11 @@ import MAINTENANCE from "./MaintenanceDetailView.tsx?raw";
 import OPERATIONS from "./OperationsDetailView.tsx?raw";
 import PANEL_ORDER from "./PanelOrderDetailView.tsx?raw";
 import MRB from "./MrbDetailView.tsx?raw";
+import MCN from "./McnDetailView.tsx?raw";
 import PANEL_TASK from "./PanelTaskDetailView.tsx?raw";
+import PRICING_REQUEST from "./PricingRequestDetailView.tsx?raw";
+import QUOTE from "./QuoteDetailView.tsx?raw";
+import SCN from "./ScnDetailView.tsx?raw";
 import SUPPLIER from "./SupplierDetailView.tsx?raw";
 
 // =============================================================================
@@ -24,8 +29,9 @@ import SUPPLIER from "./SupplierDetailView.tsx?raw";
 // thumbnail, and only uploads it on submit IF the parent passed `uploadFile`.
 // With no prop the comment posts as plain text and the screenshot is silently
 // gone — nothing on screen says so, and a type check can't catch it, because
-// the prop has to be optional: `CustomerNoteDetailView` and
-// `FeatureRequestDetailView` have no list-item attachment store to upload to.
+// the prop has to be optional: `CustomerNoteDetailView` has no list-item
+// attachment store to upload to. (`FeatureRequestDetailView` was the other
+// exemption until 2026-11-05, when the same silent drop was reported there.)
 //
 // FAIT was the only one of eleven views that passed it. EIRs and nine others
 // did not, which is what "screenshots are not saving as attachments to EIR and
@@ -40,15 +46,12 @@ import SUPPLIER from "./SupplierDetailView.tsx?raw";
 /**
  * Views that deliberately pass NO `uploadFile`, with the reason.
  *
- * Both lists have a Communication column but NO list-item attachment store in
- * `api/attachments.ts` (no `AttachmentParent` entry, and neither page renders
- * an `AttachmentsSection`), so there is nowhere for a pasted file to go.
- * Giving either one comment attachments means adding its parent config first.
+ * Customer Notes has a Communication column but NO list-item attachment store
+ * in `api/attachments.ts` (no `AttachmentParent` entry, and the page renders
+ * no `AttachmentsSection`), so there is nowhere for a pasted file to go.
+ * Giving it comment attachments means adding its parent config first.
  */
-const NO_ATTACHMENT_STORE = new Set([
-  "CustomerNoteDetailView.tsx",
-  "FeatureRequestDetailView.tsx",
-]);
+const NO_ATTACHMENT_STORE = new Set(["CustomerNoteDetailView.tsx"]);
 
 /**
  * Every detail view that renders a comment thread.
@@ -61,16 +64,21 @@ const VIEWS: { name: string; source: string }[] = [
   { name: "BuildRequestDetailView.tsx", source: BUILD_REQUEST },
   { name: "CostImpactNoticeDetailView.tsx", source: COST_IMPACT },
   { name: "CustomerNoteDetailView.tsx", source: CUSTOMER_NOTE },
+  { name: "CustomerQuoteDetailView.tsx", source: CUSTOMER_QUOTE },
   { name: "EcnDetailView.tsx", source: ECN },
   { name: "EirDetailView.tsx", source: EIR },
   { name: "FaitDetailView.tsx", source: FAIT },
   { name: "FeatureRequestDetailView.tsx", source: FEATURE_REQUEST },
   { name: "GrayMarketRequestDetailView.tsx", source: GRAY_MARKET },
   { name: "MaintenanceDetailView.tsx", source: MAINTENANCE },
+  { name: "McnDetailView.tsx", source: MCN },
   { name: "MrbDetailView.tsx", source: MRB },
   { name: "OperationsDetailView.tsx", source: OPERATIONS },
   { name: "PanelOrderDetailView.tsx", source: PANEL_ORDER },
   { name: "PanelTaskDetailView.tsx", source: PANEL_TASK },
+  { name: "PricingRequestDetailView.tsx", source: PRICING_REQUEST },
+  { name: "QuoteDetailView.tsx", source: QUOTE },
+  { name: "ScnDetailView.tsx", source: SCN },
   { name: "SupplierDetailView.tsx", source: SUPPLIER },
 ];
 

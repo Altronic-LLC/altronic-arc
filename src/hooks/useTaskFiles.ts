@@ -23,7 +23,7 @@ import {
 import { useProjects } from "@/hooks/useTasks";
 import type { Task } from "@/types/task";
 
-const FOLDERS_KEY = ["project-files", "folders"] as const;
+export const FOLDERS_KEY = ["project-files", "folders"] as const;
 const filesKey = (taskId: number) => ["project-files", "for-task", taskId] as const;
 const listAttachmentsKey = (taskId: number) =>
   ["list-attachments", "task", taskId] as const;

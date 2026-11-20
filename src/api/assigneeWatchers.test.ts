@@ -51,7 +51,7 @@ describe("assignees become watchers", () => {
 
   it("on a panel task", async () => {
     const task = await createPanelTask({ title: "Watch me" });
-    await setPanelTaskAssigned(task.id, AMY);
+    await setPanelTaskAssigned(task.id, [AMY]);
 
     expect(names((await getPanelTask(task.id))!.watchers)).toContain("Amy Adams");
   });

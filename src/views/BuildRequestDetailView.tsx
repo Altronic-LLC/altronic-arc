@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
@@ -16,7 +16,6 @@ import {
 import {
   useAddBuildRequestComment,
   useBuildRequest,
-  useBuildRequestStatusChoices,
   useBuildRequestItems,
   useBuildRequests,
   useEditBuildRequestComment,
@@ -26,7 +25,6 @@ import {
   useSetBuildRequestWatchers,
   useUpdateBuildRequestFields,
 } from "@/hooks/useBuildRequests";
-import { withCurrentChoice } from "@/api/columnChoices";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
@@ -44,6 +42,10 @@ import { BuildRequestItemCard } from "@/components/BuildRequestItemCard";
 import { BuildRequestItemFormModal } from "@/components/BuildRequestItemFormModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
+import { LinkedDiscussion } from "@/components/LinkedDiscussion";
+import { BuildRequestTaskField } from "@/components/BuildRequestTaskField";
+import { earlierLinkedComments } from "@/lib/buildRequestTaskLink";
+import { taskLabel } from "@/lib/buildRequestFromTask";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { PersonMultiField } from "@/components/PersonMultiField";
@@ -55,10 +57,15 @@ import { mergePeople } from "@/lib/people";
 import { parseIsoDate, toIsoDate } from "@/lib/dateInput";
 import { DateField } from "@/components/DateField";
 import { YesNoField } from "@/components/YesNoField";
-import { canPressProduction, productionButtonState } from "@/lib/buildRequestProduction";
+import {
+  canPressProduction,
+  completeReviewerEmails,
+  productionButtonState,
+} from "@/lib/buildRequestProduction";
 import { nameList, parseRecipientList } from "@/lib/recipientList";
 import {
   BUILD_REQUEST_COMPLETE_REVIEWERS,
+  BUILD_REQUEST_FINAL_ALERTS,
   BUILD_REQUEST_PRODUCTION_ALERTS,
 } from "@/api/config";
 
@@ -77,11 +84,10 @@ export function BuildRequestDetailView() {
   const { isAdmin, isResolving: adminResolving } = useAdminAccess();
   const myEmails = useCurrentUserEmails();
   const { data: br, isLoading } = useBuildRequest(brId);
-  const { data: liveStatuses = [] } = useBuildRequestStatusChoices();
   const { data: allBrs = [] } = useBuildRequests();
   const { data: allItems = [] } = useBuildRequestItems();
   const { data: projects = [] } = useProjects();
-  const { data: tasks = [] } = useTasks();
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const { data: admins = [] } = useAdmins();
 
   const updateFields = useUpdateBuildRequestFields();
@@ -146,6 +152,11 @@ export function BuildRequestDetailView() {
         ? tasks.find((t) => t.id === br.taskReferenceLookupId) ?? null
         : null,
     [br, tasks],
+  );
+  // The task's comments from before the link — shown, not copied (#58).
+  const earlierTaskComments = useMemo(
+    () => (linkedTask && br ? earlierLinkedComments(linkedTask.comments, br.comments) : []),
+    [linkedTask, br],
   );
 
   useEffect(() => {
@@ -248,11 +259,19 @@ export function BuildRequestDetailView() {
             <ProductionHandoff
               state={withAccessCheck(
                 productionButtonState(br, items, {
-                  permitted: canPressProduction(br, { isAdmin, myEmails }),
+                  permitted: canPressProduction(br, {
+                    isAdmin,
+                    myEmails,
+                    completeReviewers: completeReviewerEmails(BUILD_REQUEST_COMPLETE_REVIEWERS),
+                  }),
                 }),
-                adminResolving && !canPressProduction(br, { isAdmin: false, myEmails }),
+                adminResolving &&
+                  !canPressProduction(br, {
+                    isAdmin: false,
+                    myEmails,
+                    completeReviewers: completeReviewerEmails(BUILD_REQUEST_COMPLETE_REVIEWERS),
+                  }),
               )}
-              status={br.status}
               brLabel={br.brNo || `#${br.id}`}
               pending={updateFields.isPending}
               onPress={(targetStatus) => patch({ BRStatus: targetStatus })}
@@ -268,7 +287,7 @@ export function BuildRequestDetailView() {
               </h2>
               <button
                 onClick={() => setShowAddPart(true)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
               >
                 <Plus className="h-4 w-4" />
                 Add Part
@@ -309,8 +328,19 @@ export function BuildRequestDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`buildRequest:${brId}`}
               />
             </div>
+            {linkedTask && (
+              <LinkedDiscussion
+                recordLabel={taskLabel(linkedTask)}
+                to={`/task/${linkedTask.id}`}
+                comments={earlierTaskComments}
+                currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
+              />
+            )}
           </div>
         </div>
 
@@ -321,20 +351,9 @@ export function BuildRequestDetailView() {
                 growing to its widest child (e.g. a long project chip). A bare
                 `grid` uses an auto column, which overflows the card. */}
             <div className="grid grid-cols-1 gap-4">
-              <SideField label="Status">
-                <select
-                  value={br.status}
-                  onChange={(e) => patch({ BRStatus: e.target.value })}
-                  className="select"
-                >
-                  {withCurrentChoice(liveStatuses, br.status).map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </SideField>
-
+              {/* No Status dropdown (BusinessIT#31): the production buttons
+                  above and on each part move the status. It still shows as
+                  the badge in the header. */}
               {br.status === "Blocked" && (
                 <SideField label="Blocked Reason">
                   <select
@@ -459,16 +478,9 @@ export function BuildRequestDetailView() {
                 />
               </SideField>
 
-              {br.taskReferenceLookupId != null && (
-                <SideField label="Task Reference" icon={<Link2 />}>
-                  <Link
-                    to={`/task/${br.taskReferenceLookupId}`}
-                    className="text-sm text-accent underline-offset-2 hover:underline"
-                  >
-                    {linkedTask ? linkedTask.numberedTitle || linkedTask.title : `Task #${br.taskReferenceLookupId}`}
-                  </Link>
-                </SideField>
-              )}
+              <SideField label="Task Reference" icon={<Link2 />}>
+                <BuildRequestTaskField br={br} tasks={tasks} tasksLoading={tasksLoading} />
+              </SideField>
 
               <SideField label="Customer" icon={<Building2 />}>
                 <input
@@ -557,26 +569,17 @@ export function BuildRequestDetailView() {
  */
 function ProductionHandoff({
   state,
-  status,
   brLabel,
   pending,
   onPress,
 }: {
   state: ReturnType<typeof productionButtonState>;
-  status: string;
   brLabel: string;
   pending: boolean;
   onPress: (targetStatus: string) => void;
 }) {
-  if (!state.action || !state.targetStatus) {
-    // Production Complete is waiting on review; Complete is done. No button.
-    if (status !== "Production Complete") return null;
-    return (
-      <p className="mt-3 text-xs text-fg-muted" data-testid="production-handoff-note">
-        {state.hint}
-      </p>
-    );
-  }
+  // Complete is the end of the line — no button.
+  if (!state.action || !state.targetStatus) return null;
 
   const targetStatus = state.targetStatus;
   const blocked = !state.allowed || pending;
@@ -586,7 +589,9 @@ function ProductionHandoff({
     const who =
       targetStatus === "Ready for Production"
         ? `${nameList(parseRecipientList(BUILD_REQUEST_PRODUCTION_ALERTS), "the production team")}, the assigned engineer, the requestor and the watchers will be emailed.`
-        : `${nameList(parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS), "the reviewer")} will be asked to review it and set it to Complete, and the watchers will be told.`;
+        : targetStatus === "Complete"
+          ? `${nameList(parseRecipientList(BUILD_REQUEST_FINAL_ALERTS), "production")}, the assigned engineer, the requestor and the watchers will be emailed. A task waiting on this build request can then be completed.`
+          : `${nameList(parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS), "the reviewer")} will be asked to review it and set it to Complete, and the watchers will be told.`;
     const ok = window.confirm(`Set ${brLabel} to ${targetStatus}?
 
 ${who}`);
@@ -603,7 +608,7 @@ ${who}`);
         className={
           blocked
             ? "inline-flex cursor-not-allowed items-center justify-center gap-1.5 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm font-medium text-fg-muted"
-            : "inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+            : "inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
         }
       >
         <CheckCircle2 className="h-4 w-4" />
@@ -611,6 +616,13 @@ ${who}`);
       </button>
       {!state.allowed && (
         <span className="text-xs text-fg-muted" data-testid="production-handoff-reason">
+          {state.hint}
+        </span>
+      )}
+      {/* Pressing it is the last step of submitting the request — say so
+          once every part is ready, so nobody leaves it parked (Ray, 2026-10-10). */}
+      {state.allowed && targetStatus === "Ready for Production" && (
+        <span className="text-xs font-medium text-accent" data-testid="production-handoff-prompt">
           {state.hint}
         </span>
       )}
@@ -678,7 +690,7 @@ function InlineTitle({ value, onSave }: { value: string; onSave: (next: string) 
           setEditing(false);
         }
       }}
-      className="w-full rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-2xl"
+      className="w-full rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-2xl"
     />
   );
 }

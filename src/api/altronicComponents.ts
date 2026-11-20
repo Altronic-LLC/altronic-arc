@@ -19,7 +19,7 @@ import {
   reuseRecordHtml,
 } from "@/lib/partLifecycle";
 import { appendComment, parseCommunication } from "@/lib/communicationParser";
-import { MOCK_ALTRONIC_COMPONENTS } from "@/data/altronicPartsMockData";
+import { MOCK_ALTRONIC_COMPONENTS, MOCK_FULL_SURFACE_MOUNT_COMPONENTS } from "@/data/altronicPartsMockData";
 import { archiveDatasheet } from "./datasheets";
 import {
   COMMUNICATION_MISSING,
@@ -28,7 +28,9 @@ import {
   StaleApprovalError,
   communicationAvailable,
   createItem,
+  listHasRows,
   patchItem,
+  readByPrefixes,
   readItem,
   readWholeList,
   rowsForTitle,
@@ -54,11 +56,16 @@ export const ALTRONIC_COMPONENT_SELECT =
   "Title,Category,Description,MfgName,MfgNumber,RatingA,RatingB,RatingC,TempMin,TempMax," +
   "Tolerance,Footprint,Notes,HasDataSheet,SignOffStatus,LegacySource,Attachments";
 
-let mockStore: AltronicComponent[] = MOCK_ALTRONIC_COMPONENTS.map(clone);
+// The browser demo also gets full 701 and 711 lists, to show New part
+// overflowing into 712. Not under Vitest — tests expect 701 to have room.
+let mockStore: AltronicComponent[] = [
+  ...MOCK_ALTRONIC_COMPONENTS,
+  ...(import.meta.env.MODE === "test" ? [] : MOCK_FULL_SURFACE_MOUNT_COMPONENTS),
+].map(clone);
 
 /** Test hook: put the mock store back to its fixtures. */
-export function __resetAltronicComponentsMockStore() {
-  mockStore = MOCK_ALTRONIC_COMPONENTS.map(clone);
+export function __resetAltronicComponentsMockStore(rows: AltronicComponent[] = MOCK_ALTRONIC_COMPONENTS) {
+  mockStore = rows.map(clone);
 }
 
 function clone(c: AltronicComponent): AltronicComponent {
@@ -77,6 +84,41 @@ export async function listAltronicComponents(): Promise<AltronicComponent[]> {
   if (USE_MOCK) return mockDelay(mockStore.map(clone).sort(byPartNumber));
   const items = await readWholeList(listId(), ALTRONIC_COMPONENT_SELECT);
   return items.map(toAltronicComponent).sort(byPartNumber);
+}
+
+/**
+ * The components on these three-digit lists only (a category's lists, so a
+ * search from 711 still finds a 701 part), in part-number order. Deleted
+ * numbers included, like `listAltronicComponents`.
+ */
+export async function listAltronicComponentsInLists(prefixes: string[]): Promise<AltronicComponent[]> {
+  const wanted = new Set(prefixes);
+  if (USE_MOCK) {
+    return mockDelay(
+      mockStore.filter((c) => wanted.has(partPrefix(c.partNumber) ?? "")).map(clone).sort(byPartNumber),
+    );
+  }
+  const items = await readByPrefixes(listId(), ALTRONIC_COMPONENT_SELECT, prefixes);
+  return items
+    .map(toAltronicComponent)
+    .filter((c) => wanted.has(partPrefix(c.partNumber) ?? ""))
+    .sort(byPartNumber);
+}
+
+/** Does SharePoint hand this caller any Component List row at all? (See `listHasRows`.) */
+export async function altronicComponentListHasRows(): Promise<boolean> {
+  if (USE_MOCK) return mockDelay(mockStore.length > 0);
+  return listHasRows(listId());
+}
+
+/** One component, read fresh — deleted ones too. Null when it isn't on the list. */
+export async function findAltronicComponent(id: number): Promise<AltronicComponent | null> {
+  if (USE_MOCK) {
+    const found = mockStore.find((c) => c.id === id);
+    return mockDelay(found ? clone(found) : null);
+  }
+  const item = await readItem(listId(), id, ALTRONIC_COMPONENT_SELECT);
+  return item ? toAltronicComponent(item) : null;
 }
 
 async function getComponent(id: number): Promise<AltronicComponent> {

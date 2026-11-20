@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
 import {
+  buildEirClosedEmails,
   buildEirResolvedEmails,
   buildEirResponseAcceptedEmails,
   buildEirResponseNotAcceptedEmails,
@@ -274,5 +275,51 @@ describe("Response Not Accepted", () => {
   it("escapes the actor's name", () => {
     const emails = build({ actor: { displayName: "<b>x</b>", email: "x@y.com" } });
     expect(emails[0].headlineHtml).not.toContain("<b>x</b>");
+  });
+});
+
+// BusinessIT#44: closing an EIR tells the review group (Glenn, Brandon,
+// Sheila) as well as the watchers / engineer / reporter, who already get the
+// generic status note — so those are de-duped out of this one.
+describe("Closed", () => {
+  function build(over: Partial<Parameters<typeof buildEirClosedEmails>[0]> = {}) {
+    return buildEirClosedEmails({
+      target: TARGET,
+      recipients: [GLENN, BRANDON, SHEILA],
+      actor: SARAH,
+      ...over,
+    });
+  }
+
+  it("goes to the configured group", () => {
+    expect(build().map((e) => e.email)).toEqual([GLENN.email, BRANDON.email, SHEILA.email]);
+  });
+
+  it("says it was closed, and by whom", () => {
+    const email = build()[0];
+    expect(email.subject).toBe(`${TARGET.title} — closed`);
+    expect(email.headlineHtml).toContain("Sarah Shaffer");
+    expect(email.headlineHtml).toContain("Closed");
+  });
+
+  it("drops anyone the generic status note already reached", () => {
+    const out = build({ alreadyNotified: [{ ...BRANDON, email: "Brandon.Mirto@altronic-llc.com" }] });
+    expect(out.map((e) => e.email)).toEqual([GLENN.email, SHEILA.email]);
+  });
+
+  it("leaves the actor off their own close", () => {
+    expect(build({ actor: SHEILA }).map((e) => e.email)).toEqual([GLENN.email, BRANDON.email]);
+  });
+
+  // The de-dupe runs BEFORE the actor fallback, so the fallback can't bring
+  // back somebody the generic note already told.
+  it("sends nothing when everyone else was already told", () => {
+    expect(
+      build({ actor: SHEILA, alreadyNotified: [GLENN, BRANDON, SHEILA] }),
+    ).toEqual([]);
+  });
+
+  it("skips a recipient with no mailbox", () => {
+    expect(build({ recipients: [NO_MAILBOX, GLENN] }).map((e) => e.email)).toEqual([GLENN.email]);
   });
 });

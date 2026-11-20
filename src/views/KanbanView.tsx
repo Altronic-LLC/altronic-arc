@@ -14,7 +14,8 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
-import { useProjects, useSetStatus, useTasks } from "@/hooks/useTasks";
+import { useProjects, useSetStatus, useTaskListWithPreview } from "@/hooks/useTasks";
+import { TaskListPreviewNotice } from "@/components/TaskListPreviewNotice";
 import { filterSearch, useFilters } from "@/hooks/useFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { STATUSES, type Status, type Task } from "@/types/task";
@@ -25,7 +26,8 @@ import { TaskFormModal } from "@/components/TaskFormModal";
 import { pushToast } from "@/components/Toast";
 import { statusColor } from "@/components/atoms";
 import { applyFilters, collectPeople } from "@/lib/taskFilters";
-import { canCompleteTask } from "@/lib/taskGraph";
+import { canCompleteTask, type LinkedBuildRequests } from "@/lib/taskGraph";
+import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { withPerson } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/cn";
@@ -45,8 +47,8 @@ export type TaskStatusDropPlan =
  * Returns `null` for a drop that changes nothing (outside a column, onto the
  * column it's already in, or a card that has since vanished), the write to
  * make, or a refusal to show the user — a parent dragged onto Complete with
- * any open (non-Complete) child task, per `canCompleteTask` in
- * `taskGraph.ts`. Refusing here means the caller never calls the mutation,
+ * any open (non-Complete) child task, or a task with an open linked build
+ * request (BusinessIT#2), per `canCompleteTask` in `taskGraph.ts`. Refusing here means the caller never calls the mutation,
  * so the card stays in its original column for free: @dnd-kit itself moves
  * nothing, only the mutation's optimistic `onMutate` patch would, and that
  * patch never runs.
@@ -55,10 +57,12 @@ export function planTaskStatusDrop({
   activeId,
   overId,
   tasks,
+  linked,
 }: {
   activeId: string | number;
   overId: string | number | null;
   tasks: Task[];
+  linked?: LinkedBuildRequests;
 }): TaskStatusDropPlan | null {
   if (overId === null) return null;
 
@@ -76,7 +80,7 @@ export function planTaskStatusDrop({
   if (!target || target === task.status) return null;
 
   if (target === "Complete") {
-    const gate = canCompleteTask(task);
+    const gate = canCompleteTask(task, linked);
     if (!gate.allowed) return { refusal: gate.hint };
   }
 
@@ -86,10 +90,15 @@ export function planTaskStatusDrop({
 export function KanbanView() {
   const navigate = useNavigate();
   const { search } = useLocation();
-  const { data: tasks = [], isLoading } = useTasks();
+  // The most recently changed tasks show while the full list downloads. A
+  // drop is held until it has: a status write cancels the full download in
+  // flight (see snapshotAndPatch), and its optimistic patch would land on a
+  // list that isn't there yet, so the card wouldn't move.
+  const { data: tasks = [], isLoading, preview } = useTaskListWithPreview();
   const { data: projects = [] } = useProjects();
   const [filters, setFilters] = useFilters();
   const setStatus = useSetStatus();
+  const { data: buildRequests = [], isLoading: buildRequestsLoading } = useBuildRequests();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   // Kanban is only offered on tablets wider than an iPad mini. Below that we
@@ -140,10 +149,12 @@ export function KanbanView() {
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null);
+    if (preview) return;
     const plan = planTaskStatusDrop({
       activeId: event.active.id,
       overId: event.over?.id ?? null,
       tasks,
+      linked: { buildRequests, resolving: buildRequestsLoading },
     });
     if (!plan) return;
     if ("refusal" in plan) {
@@ -174,7 +185,7 @@ export function KanbanView() {
       <div className="flex items-start justify-end gap-3">
         <button
           onClick={() => setShowNewTask(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">New Task</span>
@@ -183,6 +194,8 @@ export function KanbanView() {
       </div>
 
       <FilterBar filters={filters} onChange={setFilters} projects={projects} people={people} />
+
+      {preview && <TaskListPreviewNotice shown={tasks.length} board />}
 
       <DndContext
         sensors={sensors}
@@ -201,6 +214,7 @@ export function KanbanView() {
                 status={status}
                 tasks={tasksByStatus[status]}
                 onOpen={(id) => navigate(`/task/${id}`)}
+                dragDisabled={preview}
               />
             ))}
           </div>
@@ -222,9 +236,10 @@ interface ColumnProps {
   status: Status;
   tasks: Task[];
   onOpen: (id: number) => void;
+  dragDisabled?: boolean;
 }
 
-function Column({ status, tasks, onOpen }: ColumnProps) {
+function Column({ status, tasks, onOpen, dragDisabled = false }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
     <div className="flex w-72 shrink-0 flex-col sm:w-80">
@@ -250,7 +265,7 @@ function Column({ status, tasks, onOpen }: ColumnProps) {
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
-            <KanbanCard key={t.id} task={t} onOpen={onOpen} />
+            <KanbanCard key={t.id} task={t} onOpen={onOpen} dragDisabled={dragDisabled} />
           ))}
         </SortableContext>
         {tasks.length === 0 && (

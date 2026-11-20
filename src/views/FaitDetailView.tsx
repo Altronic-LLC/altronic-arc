@@ -288,6 +288,8 @@ export function FaitDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`fait:${faitId}`}
                 uploadFile={uploadFaitCommentFile}
               />
             </div>

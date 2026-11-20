@@ -118,7 +118,7 @@ export function NameAttachmentDialog({ file, onConfirm, onCancel }: NameAttachme
       role="dialog"
       aria-modal="true"
       aria-labelledby="name-attachment-heading"
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-xs sm:items-center sm:p-4"
       {...overlayDismiss}
     >
       <div className="flex w-full max-w-sm flex-col bg-bg shadow-2xl sm:max-h-[90vh] sm:rounded-lg">
@@ -171,7 +171,7 @@ export function NameAttachmentDialog({ file, onConfirm, onCancel }: NameAttachme
                   confirm();
                 }
               }}
-              className="min-w-0 flex-1 bg-transparent text-sm text-fg placeholder:text-fg-muted focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent text-sm text-fg placeholder:text-fg-muted focus:outline-hidden"
             />
             {/* Extension is fixed — the user names the file, not the type. */}
             <span className="shrink-0 text-sm text-fg-muted">{extension}</span>
@@ -190,7 +190,7 @@ export function NameAttachmentDialog({ file, onConfirm, onCancel }: NameAttachme
             type="button"
             onClick={confirm}
             disabled={trimmed.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Attach
           </button>

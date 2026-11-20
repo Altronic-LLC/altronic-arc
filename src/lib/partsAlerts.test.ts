@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SAP_ACTIONS,
   buildCorrectionRequestEmails,
+  buildLinkedListsFullEmails,
   buildNewComponentEmails,
   buildNewPartForSapEmails,
   buildPartEditedEmails,
@@ -18,6 +19,36 @@ const glenn = { displayName: "Glenn Terry", email: "glenn.terry@altronic-llc.com
 const brandon = { displayName: "Brandon Mirto", email: "brandon.mirto@altronic-llc.com" };
 const sheila = { displayName: "Sheila Horn", email: "sheila.horn@altronic-llc.com" };
 const chandana = { displayName: "Chandana Ramisetty", email: "chandana.ramisetty@altronic-llc.com" };
+
+describe("buildLinkedListsFullEmails", () => {
+  it("asks the SAP admins for the next linked list, naming the full ones", () => {
+    const emails = buildLinkedListsFullEmails({
+      category: "Surface Mount",
+      lists: ["701", "711", "712"],
+      description: "CAPACITOR - CERAMIC",
+      recipients: [sheila],
+      actor: glenn,
+    });
+    expect(emails.map((e) => e.email)).toEqual([sheila.email]);
+    expect(emails[0].subject).toBe("Surface Mount parts lists are full: 701, 711 and 712");
+    expect(emails[0].headlineHtml).toContain("Glenn Terry");
+    expect(emails[0].headlineHtml).toContain("Please create the next linked Surface Mount list");
+    // ARC knows the linked lists by number, so the new one has to be added there too.
+    expect(emails[0].headlineHtml).toContain("ARC needs the new list number added");
+    expect(emails[0].detailHtml).toContain("CAPACITOR - CERAMIC");
+  });
+
+  it("still reaches an SAP admin who asked herself", () => {
+    const emails = buildLinkedListsFullEmails({
+      category: "Through Hole",
+      lists: ["601", "611"],
+      description: "",
+      recipients: [sheila],
+      actor: sheila,
+    });
+    expect(emails.map((e) => e.email)).toEqual([sheila.email]);
+  });
+});
 
 describe("buildNewComponentEmails", () => {
   it("asks the reviewing engineers to review a new component", () => {

@@ -29,6 +29,7 @@ function entry(over: Partial<MrbEntry> = {}): MrbEntry {
     pricePerUnit: null,
     pricePerIssue: null,
     notes: "",
+    panelDepartment: false,
     comments: [],
     watchers: [],
     dataFormat: "Current",

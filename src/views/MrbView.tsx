@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronDown, ClipboardX, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ClipboardX, Download, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
 import { useMrbEntries } from "@/hooks/useMrb";
 import type { MrbEntry } from "@/types/task";
 import { MRB_DISPOSITIONS, MRB_WHERE_CAUSED } from "@/types/task";
@@ -23,6 +23,7 @@ import { dayLabel, type SortColumn } from "@/lib/tableSort";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { MrbFormModal } from "@/components/MrbFormModal";
+import { MrbExportModal } from "@/components/MrbExportModal";
 import { MrbArchiveChip, MrbDispositionChip } from "@/components/mrbAtoms";
 import { cn } from "@/lib/cn";
 
@@ -117,6 +118,9 @@ const MRB_COLUMNS: SortColumn<MrbEntry>[] = [
     noFilter: true,
   },
   { key: "whereCaused", label: "Where Caused", value: (e) => e.whereCaused },
+  // BusinessIT#71. Yes / No, so the value menu offers exactly what the cell
+  // shows, and a sort groups the panel department's entries together.
+  { key: "panelDepartment", label: "Panel", value: (e) => panelLabel(e) },
   { key: "disposition", label: "Disposition", value: (e) => e.disposition },
   {
     key: "mrbDate",
@@ -127,11 +131,51 @@ const MRB_COLUMNS: SortColumn<MrbEntry>[] = [
   },
 ];
 
+/** The Panel department flag as the list shows it. */
+function panelLabel(entry: MrbEntry): "Yes" | "No" {
+  return entry.panelDepartment ? "Yes" : "No";
+}
+
+/** `?panel=` — only the panel department's entries, or only everyone else's. */
+const PANEL_FILTER_OPTIONS = [
+  { value: "yes", label: "Panel department only" },
+  { value: "no", label: "Not panel department" },
+];
+
+/**
+ * Per-column classes, shared by the header and the cell so they can't
+ * disagree about whether a column is showing.
+ *
+ * **The table fits the page without scrolling sideways** (Tim, 2026-11-11).
+ * Three things do it:
+ *  - Description takes whatever width is LEFT (`w-full` on the header,
+ *    `max-w-0` on the cell) and truncates — it is the long free text, and
+ *    the full value is in its tooltip and on the entry.
+ *  - Vendor and Where Caused truncate at a fixed width, with a tooltip.
+ *  - Below `xl` (1280px) the two columns least needed to pick a row —
+ *    Altronic Part Number and Where Caused — are hidden. They are still on
+ *    the phone card, the entry page and the export.
+ * Padding is `px-3` rather than the header's default `px-4`.
+ */
+const COLUMN_CLASS: Record<string, string> = {
+  sapNumber: "px-3",
+  oldPartNumber: "hidden px-3 xl:table-cell",
+  description: "w-full px-3",
+  vendor: "px-3",
+  quantity: "px-3",
+  pricePerIssue: "px-3",
+  whereCaused: "hidden px-3 xl:table-cell",
+  panelDepartment: "px-3",
+  disposition: "px-3",
+  mrbDate: "px-3",
+};
+
 export function MrbView() {
   const navigate = useNavigate();
   const { data: entries = [], isLoading } = useMrbEntries();
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
@@ -139,12 +183,16 @@ export function MrbView() {
   const vendor = params.get("vendor") ?? "";
   const cause = params.get("cause") ?? "";
   const year = params.get("year") ?? "";
+  const panelParam = params.get("panel") ?? "";
+  // Anything other than yes / no in the URL is ignored, never a filter that
+  // matches nothing.
+  const panel = panelParam === "yes" || panelParam === "no" ? panelParam : "";
   const tab = (params.get("tab") as MrbTab) || "needs";
 
   // How many of the four filters are actually narrowing the list. Drives the
   // badge on the toggle, and forces the panel open so a filter can never be
   // both active and invisible — including one that arrived in the URL.
-  const activeFilterCount = [q, vendor, cause, year].filter(Boolean).length;
+  const activeFilterCount = [q, vendor, cause, year, panel].filter(Boolean).length;
   const filtersOpen = filtersExpanded || activeFilterCount > 0;
 
   function setParam(key: string, value: string) {
@@ -181,9 +229,10 @@ export function MrbView() {
       if (vendor && entry.vendorName !== vendor) return false;
       if (cause && entry.whereCaused !== cause) return false;
       if (year && String(entry.mrbDate?.getUTCFullYear() ?? "") !== year) return false;
+      if (panel && entry.panelDepartment !== (panel === "yes")) return false;
       return matchesSearch(entry, tokens);
     });
-  }, [entries, q, vendor, cause, year, tab]);
+  }, [entries, q, vendor, cause, year, panel, tab]);
 
   // The money on screen, over everything the filters kept — not the capped
   // rows. A total that changes when you press "show all" is worthless.
@@ -205,7 +254,7 @@ export function MrbView() {
   // shouldn't keep hiding rows they went looking for.
   useEffect(() => {
     setShowAll(false);
-  }, [q, vendor, cause, year, tab]);
+  }, [q, vendor, cause, year, panel, tab]);
 
   const shown = showAll ? table.rows : table.rows.slice(0, INITIAL_ROWS);
 
@@ -215,7 +264,10 @@ export function MrbView() {
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-superior-blue/10 text-superior-blue">
           <ClipboardX className="h-5 w-5" />
         </span>
-        <div className="min-w-0 flex-1">
+        {/* The min-width makes the buttons WRAP below on a phone rather than
+            squeezing this text to one word per line (the Suppliers header
+            lesson). */}
+        <div className="min-w-[14rem] flex-1">
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
             Material Review Board
           </h1>
@@ -224,13 +276,25 @@ export function MrbView() {
             it and what was decided to do with it.
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
-        >
-          <Plus className="h-4 w-4" />
-          New Entry
-        </button>
+        {/* For the meeting: a date window as a printable PDF or a workbook.
+            It reads the whole register, not the tab or filters on screen. */}
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => setShowExport(true)}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-surface-2 disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
+          >
+            <Plus className="h-4 w-4" />
+            New Entry
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg bg-surface-2 p-1">
@@ -241,7 +305,7 @@ export function MrbView() {
             aria-pressed={tab === t.id}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              tab === t.id ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+              tab === t.id ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
             )}
           >
             {t.label}
@@ -295,7 +359,7 @@ export function MrbView() {
         role="search"
         aria-label="MRB filters"
         className={cn(
-          "grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid sm:grid-cols-4",
+          "grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid sm:grid-cols-3 lg:grid-cols-5",
           filtersOpen ? "grid" : "hidden",
         )}
       >
@@ -331,6 +395,17 @@ export function MrbView() {
             emptyLabel="Any year"
           />
         </Filter>
+        {/* A filter here as well as the column's own value menu: a phone has
+            no column headers, and this one lives in the URL, so a report
+            link can carry it. */}
+        <Filter label="Panel department">
+          <ChoiceSelect
+            value={panel}
+            onChange={(v) => setParam("panel", v)}
+            options={PANEL_FILTER_OPTIONS}
+            emptyLabel="Anyone"
+          />
+        </Filter>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -359,7 +434,7 @@ export function MrbView() {
           <LoadingTasks noun="the MRB register" />
         ) : filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-fg-muted">
-            {tab === "needs" && !q && !vendor && !cause && !year
+            {tab === "needs" && !q && !vendor && !cause && !year && !panel
               ? "Nothing is waiting on a disposition. Switch to Decided or Archive to see the rest."
               : "No entries match these filters."}
           </div>
@@ -368,7 +443,7 @@ export function MrbView() {
             {/* Two renderings of the SAME `shown` rows, split at `sm`
                 (640px). Nine columns don't fit a phone even truncated, and a
                 horizontally-scrolling table is miserable to use one-handed.
-                The QcCpu95View / QcTimeTrackingView shape.
+                The QcFormView / QcTimeTrackingView shape.
 
                 NOTE FOR TESTS: jsdom has no CSS breakpoints, so BOTH render
                 at once and every entry's text appears twice. Scope queries
@@ -391,6 +466,7 @@ export function MrbView() {
                       <SortableHeader
                         key={column.key}
                         label={column.label}
+                        className={COLUMN_CLASS[column.key]}
                         {...table.headerProps(column.key)}
                       />
                     ))}
@@ -411,6 +487,8 @@ export function MrbView() {
         )}
       </div>
 
+      {showExport && <MrbExportModal entries={entries} onClose={() => setShowExport(false)} />}
+
       {showNew && (
         <MrbFormModal
           onClose={() => setShowNew(false)}
@@ -425,7 +503,7 @@ export function MrbView() {
  * One entry on a phone.
  *
  * A real `<button>`, not a `<div>` — there is no competing action inside it,
- * so the whole card is the one tap target (the QcCpu95View call; QC Time
+ * so the whole card is the one tap target (the QcFormView call; QC Time
  * Tracking's card can't do this because it carries its own delete icon).
  *
  * Leads with the two identifiers and the disposition, because that is what
@@ -440,6 +518,7 @@ function EntryCard({ entry, onOpen }: { entry: MrbEntry; onOpen: () => void }) {
     ["Qty", formatQuantity(entry.quantity)],
     ["Cost", formatMoney(entry.pricePerIssue)],
     ["Where Caused", entry.whereCaused || "—"],
+    ["Panel department", panelLabel(entry)],
     ["MRB Date", formatSpDate(entry.mrbDate)],
   ];
   return (
@@ -479,12 +558,14 @@ function EntryCard({ entry, onOpen }: { entry: MrbEntry; onOpen: () => void }) {
 
 function Row({ entry, onOpen }: { entry: MrbEntry; onOpen: () => void }) {
   const archived = isArchivedMrbEntry(entry);
+  const cell = (key: string, extra = "") =>
+    cn("whitespace-nowrap py-2 text-fg-muted", COLUMN_CLASS[key], extra);
   return (
     <tr
       onClick={onOpen}
       className="cursor-pointer border-t border-border transition-colors hover:bg-surface-2"
     >
-      <td className="whitespace-nowrap px-4 py-2 font-medium text-fg">
+      <td className={cell("sapNumber", "font-medium text-fg")}>
         <span className="inline-flex items-center gap-1.5">
           <Link
             to={`/supply-chain/mrb/${entry.id}`}
@@ -499,33 +580,27 @@ function Row({ entry, onOpen }: { entry: MrbEntry; onOpen: () => void }) {
           )}
         </span>
       </td>
-      <td className="whitespace-nowrap px-4 py-2 text-fg-muted">
-        {entry.oldPartNumber || "—"}
-      </td>
-      <td
-        className="max-w-[20rem] truncate px-4 py-2 text-fg-muted"
-        title={entry.description || entry.reason}
-      >
+      <td className={cell("oldPartNumber")}>{entry.oldPartNumber || "—"}</td>
+      {/* `max-w-0` + the header's `w-full`: this column takes the width the
+          others leave, and truncates inside it. */}
+      <td className={cell("description", "max-w-0 truncate")} title={entry.description || entry.reason}>
         {entry.description || entry.reason || "—"}
       </td>
-      <td className="whitespace-nowrap px-4 py-2 text-fg-muted">
+      <td className={cell("vendor", "max-w-[11rem] truncate")} title={entry.vendorName}>
         {entry.vendorName || "—"}
       </td>
-      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg-muted">
-        {formatQuantity(entry.quantity)}
-      </td>
-      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg-muted">
-        {formatMoney(entry.pricePerIssue)}
-      </td>
-      <td className="whitespace-nowrap px-4 py-2 text-fg-muted">
+      <td className={cell("quantity", "tabular-nums")}>{formatQuantity(entry.quantity)}</td>
+      <td className={cell("pricePerIssue", "tabular-nums")}>{formatMoney(entry.pricePerIssue)}</td>
+      <td className={cell("whereCaused", "max-w-[9rem] truncate")} title={entry.whereCaused}>
         {entry.whereCaused || "—"}
       </td>
-      <td className="px-4 py-2">
+      <td className={cell("panelDepartment", entry.panelDepartment ? "font-medium text-fg" : "")}>
+        {panelLabel(entry)}
+      </td>
+      <td className={cn("py-2", COLUMN_CLASS.disposition)}>
         <MrbDispositionChip disposition={entry.disposition} archived={archived} />
       </td>
-      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg-muted">
-        {formatSpDate(entry.mrbDate)}
-      </td>
+      <td className={cell("mrbDate", "tabular-nums")}>{formatSpDate(entry.mrbDate)}</td>
     </tr>
   );
 }

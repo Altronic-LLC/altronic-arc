@@ -267,3 +267,48 @@ describe("the month / year pickers are theme-aware", () => {
     expect(within(dialog).getByLabelText("Year").className).toContain("text-fg");
   });
 });
+
+describe("buildYearOptions — earliestYear (the drawing registers)", () => {
+  it("reaches back to earliestYear when asked", () => {
+    const years = buildYearOptions({ currentYear: 2026, earliestYear: 1950 });
+    expect(Math.min(...years)).toBe(1950);
+    expect(years[0]).toBe(2026 + YEARS_FORWARD);
+    // Every year in between, with no gaps.
+    expect(years).toHaveLength(2026 + YEARS_FORWARD - 1950 + 1);
+  });
+
+  it("still folds in the value's own year, even older than earliestYear", () => {
+    const years = buildYearOptions({ currentYear: 2026, earliestYear: 1950 }, 1932);
+    expect(years).toContain(1932);
+    expect(years).toContain(1950);
+  });
+
+  it("never offers a year below MIN_YEAR, however early it is asked", () => {
+    const years = buildYearOptions({ currentYear: 2026, earliestYear: MIN_YEAR - 500 });
+    expect(Math.min(...years)).toBe(MIN_YEAR);
+  });
+
+  it("leaves the default window alone when earliestYear is unset or inside it", () => {
+    const plain = buildYearOptions(2026);
+    expect(buildYearOptions({ currentYear: 2026 })).toEqual(plain);
+    // Only ever WIDENS — an earliestYear inside the window narrows nothing.
+    expect(buildYearOptions({ currentYear: 2026, earliestYear: 2020 })).toEqual(plain);
+    expect(Math.min(...plain)).toBe(2026 - YEARS_BACK);
+  });
+
+  it("offers earliestYear in the rendered year dropdown, and the default doesn't", async () => {
+    const user = open();
+    const { unmount } = render(
+      <DateField value="" onChange={() => {}} aria-label="Old" earliestYear={1950} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Old" }));
+    const year = screen.getByRole("combobox", { name: "Year" });
+    expect(within(year).getByRole("option", { name: "1950" })).toBeInTheDocument();
+    unmount();
+
+    render(<DateField value="" onChange={() => {}} aria-label="Plain" />);
+    await user.click(screen.getByRole("button", { name: "Plain" }));
+    const plainYear = screen.getByRole("combobox", { name: "Year" });
+    expect(within(plainYear).queryByRole("option", { name: "1950" })).toBeNull();
+  });
+});

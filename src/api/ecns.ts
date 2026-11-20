@@ -1,8 +1,15 @@
-import { graphFetch, graphFetchAll } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_ECNS_LIST_ID, USE_MOCK } from "./config";
 import type { Ecn, EcnInput, GraphListItem } from "@/types/task";
 import { buildEcnCreateFields, compareEcns, toEcn } from "@/lib/ecnMapper";
-import { ECN_FIELDS, ECN_SELECT } from "@/lib/ecnFields";
+import { ECN_FIELDS, ECN_SELECT, ECN_SELECT_WITH_DISTRIBUTION } from "@/lib/ecnFields";
+import {
+  ECN_DISTRIBUTION_COLUMNS,
+  ECN_MULTI_CHOICE_COLUMNS,
+  orderDistribution,
+} from "@/lib/ecnDistribution";
+import { annotateMultiChoiceFields } from "@/lib/graphFields";
+import { parsePeopleLines } from "@/lib/peopleLines";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { MOCK_ECNS } from "@/data/ecnMockData";
 import { mockDelay } from "./mockLatency";
@@ -26,9 +33,67 @@ import { mockDelay } from "./mockLatency";
 // The read asks for `createdBy` explicitly alongside the field selection:
 // `submittedBy` is Graph's item-level creator, not a column, because the list
 // has no requester column to read.
+//
+// **The distribution columns may not exist yet** (BusinessIT#57).
+// `Distribution`, `DistributedTo` and `DistributedAt` are added by
+// scripts/create-ecn-distribution.ps1, which runs separately from a deploy —
+// and selecting a column a list hasn't got 400s the WHOLE read, which would
+// blank all 1,800 ECNs. So a read asks for them and, on a 400, retries once
+// without them and remembers (the MRB Watchers arrangement). Only a 400 is
+// retried: a throttle, a 401 or an outage must not read as "no distribution".
 // =============================================================================
 
 let mockStore: Ecn[] = MOCK_ECNS.map((e) => ({ ...e }));
+
+/**
+ * Does the ECN list have the distribution columns? `null` = not established
+ * yet; `false` once a read asking for them was refused and the slim read
+ * then succeeded.
+ */
+let distributionColumns: boolean | null = null;
+
+/** Whether distribution can be read or written at all. The UI asks before offering it. */
+export function ecnDistributionAvailable(): boolean {
+  return USE_MOCK || distributionColumns !== false;
+}
+
+/** Test seam: mock mode mutates a module-level array, which leaks between tests. */
+export function __resetEcnsForTests(): void {
+  mockStore = MOCK_ECNS.map((e) => ({ ...e }));
+  distributionColumns = null;
+}
+
+/**
+ * Run a read, retrying without the distribution columns if asking for them
+ * is refused as a bad request. Concludes they're missing only once the slim
+ * read SUCCEEDS — both failing means something else is wrong.
+ */
+async function withDistributionFallback<T>(read: (select: string) => Promise<T>): Promise<T> {
+  if (distributionColumns === false) return read(ECN_SELECT);
+  try {
+    const result = await read(ECN_SELECT_WITH_DISTRIBUTION);
+    distributionColumns = true;
+    return result;
+  } catch (err) {
+    if (distributionColumns !== null || !(err instanceof GraphError) || err.status !== 400) throw err;
+    const result = await read(ECN_SELECT);
+    distributionColumns = false;
+    console.warn(
+      "[ecns] The ECN list has no distribution columns yet — run scripts/create-ecn-distribution.ps1.",
+    );
+    return result;
+  }
+}
+
+/** Refuses a write naming a distribution column while the list hasn't got them. */
+function requireDistributionColumns(fields: Record<string, unknown>): void {
+  if (distributionColumns !== false) return;
+  if (ECN_DISTRIBUTION_COLUMNS.some((c) => c in fields)) {
+    throw new Error(
+      "ECN distribution isn't set up on the ECN list yet — run scripts/create-ecn-distribution.ps1.",
+    );
+  }
+}
 
 function requireListId(action: string): string {
   if (!SP_ECNS_LIST_ID) {
@@ -50,9 +115,11 @@ export async function listEcns(): Promise<Ecn[]> {
     return mockDelay([...mockStore].sort(compareEcns).map((e) => ({ ...e })));
   }
   const listId = requireListId("load ECNs");
-  const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.engineering}/lists/${listId}/items` +
-      `?$select=${ITEM_SELECT}&$expand=fields($select=${ECN_SELECT})&$top=999`,
+  const items = await withDistributionFallback((select) =>
+    graphFetchAll<GraphListItem>(
+      `/sites/${SITES.engineering}/lists/${listId}/items` +
+        `?$select=${ITEM_SELECT}&$expand=fields($select=${select})&$top=999`,
+    ),
   );
   return items.map(toEcn).sort(compareEcns);
 }
@@ -63,8 +130,8 @@ export async function getEcn(id: number): Promise<Ecn | null> {
     return mockDelay(found ? { ...found } : null);
   }
   try {
-    const item = await graphFetch<GraphListItem>(
-      `${itemPath(id)}?$select=${ITEM_SELECT}&$expand=fields($select=${ECN_SELECT})`,
+    const item = await withDistributionFallback((select) =>
+      graphFetch<GraphListItem>(`${itemPath(id)}?$select=${ITEM_SELECT}&$expand=fields($select=${select})`),
     );
     return toEcn(item);
   } catch {
@@ -89,6 +156,9 @@ export async function createEcn(input: EcnInput, actor?: { displayName: string; 
       comments: [],
       hasAttachments: false,
       values: { ...input.values },
+      distribution: orderDistribution(input.distribution ?? []),
+      distributedTo: [],
+      distributedAt: null,
       createdAt: now,
       modifiedAt: now,
     };
@@ -97,9 +167,16 @@ export async function createEcn(input: EcnInput, actor?: { displayName: string; 
   }
 
   const listId = requireListId("create the ECN");
+  const fields = buildEcnCreateFields(input);
+  // The ticks can't be stored on a list without the column — the ECN is
+  // still raised, rather than refused over its distribution.
+  if (distributionColumns === false) delete fields.Distribution;
   const created = await graphFetch<GraphListItem>(
     `/sites/${SITES.engineering}/lists/${listId}/items`,
-    { method: "POST", body: JSON.stringify({ fields: buildEcnCreateFields(input) }) },
+    {
+      method: "POST",
+      body: JSON.stringify({ fields: annotateMultiChoiceFields(fields, ECN_MULTI_CHOICE_COLUMNS) }),
+    },
   );
   return (await getEcn(parseInt(created.id, 10))) ?? toEcn(created);
 }
@@ -125,9 +202,11 @@ export async function updateEcnFields(
     return mockDelay({ ...next });
   }
 
+  requireDistributionColumns(fields);
+  // Distribution is MULTI-choice: a bare array is a bare 400 invalidRequest.
   await graphFetch(`${itemPath(id)}/fields`, {
     method: "PATCH",
-    body: JSON.stringify(fields),
+    body: JSON.stringify(annotateMultiChoiceFields(fields, ECN_MULTI_CHOICE_COLUMNS)),
   });
   const updated = await getEcn(id);
   if (!updated) throw new Error(`ECN ${id} disappeared after update`);
@@ -138,6 +217,13 @@ export async function updateEcnFields(
 function applyMockFields(next: Ecn, fields: Record<string, unknown>) {
   if ("Title" in fields) next.title = String(fields.Title ?? "");
   if ("field_2" in fields) next.logNo = String(fields.field_2 ?? "");
+  if ("Distribution" in fields) {
+    next.distribution = orderDistribution(Array.isArray(fields.Distribution) ? (fields.Distribution as string[]) : []);
+  }
+  if ("DistributedTo" in fields) next.distributedTo = parsePeopleLines(fields.DistributedTo);
+  if ("DistributedAt" in fields) {
+    next.distributedAt = typeof fields.DistributedAt === "string" ? new Date(fields.DistributedAt) : null;
+  }
   if ("ProjectReferenceLookupId" in fields) {
     const lookupId = fields.ProjectReferenceLookupId;
     next.parentProject =

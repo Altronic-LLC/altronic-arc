@@ -2,6 +2,10 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { CURRENT_VERSION } from "@/data/changelog";
+import { BuildRequestWorkflowDiagram } from "@/components/BuildRequestWorkflowDiagram";
+import { EirWorkflowDiagram } from "@/components/EirWorkflowDiagram";
+import { FaitWorkflowDiagram } from "@/components/FaitWorkflowDiagram";
+import { PartsApprovalWorkflowDiagram } from "@/components/PartsApprovalWorkflowDiagram";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -217,7 +221,7 @@ const SECTIONS: ManualSection[] = [
       "quick link buttons",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project. The page shows its cards straight away; a card still waiting on its SharePoint list says Loading… and can't be opened until its count arrives, and during a refresh each card keeps its last count, stays clickable and shows Updating.",
     render: () => (
       <>
         <P>
@@ -236,6 +240,15 @@ const SECTIONS: ManualSection[] = [
           manage these at <strong>Admin → Quick Links</strong>; the row only
           appears once a department has at least one configured, and clicking
           a button opens it in a new tab.
+        </P>
+        <P>
+          The cards appear as soon as the page opens. A card whose SharePoint
+          list is still loading says <strong>Loading…</strong> instead of a
+          number and can't be opened until its count arrives; cards that just
+          describe a tool can be opened straight away. When the data refreshes
+          (the Refresh button, or coming back after an edit), each card keeps
+          its last count, stays clickable and shows a small{" "}
+          <strong>Updating</strong> marker.
         </P>
         <P>
           Within a section you get one <strong>card per work type</strong>. Each
@@ -304,6 +317,70 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "my-agenda",
+    title: "My Agenda",
+    keywords: [
+      "agenda",
+      "my agenda",
+      "due date",
+      "due soon",
+      "overdue",
+      "reminder",
+      "reminders",
+      "upcoming",
+      "what's due",
+      "requested completion",
+      "badge",
+      "watching",
+    ],
+    searchText:
+      "My Agenda lists your Engineering tasks and EIRs that are overdue or coming due. Open it with the My Agenda button in the header; a red number on it counts your items overdue or due today. Items are grouped Overdue, Today, Tomorrow and each day after, and overdue items stay until they're done or re-dated. Tasks appear when you're assigned, they have a Due Date and aren't Complete. EIRs appear when you're an assigned engineer and they have a Requested Completion Date; Closed, EIR Not Accepted and Response Accepted EIRs are left out, and the LTB date isn't used. Look 7, 14, 30 or 90 days ahead, and include items you're watching; ARC remembers both. A list that can't load says so rather than showing nothing due.",
+    render: () => (
+      <>
+        <P>
+          <strong>My Agenda</strong> lists your Engineering tasks and EIRs
+          that are overdue or coming due. Open it with the{" "}
+          <strong>My Agenda</strong> button (calendar icon) in the header. A red
+          number on the button is how many of your items are overdue or due
+          today. The number doesn't appear until your tasks and EIRs have
+          loaded, and it doesn't appear at all when nothing is due.
+        </P>
+        <P>
+          Items are grouped as <strong>Overdue</strong> first, then{" "}
+          <strong>Today</strong>, <strong>Tomorrow</strong> and each day after.
+          An overdue item stays at the top until you complete it or change its
+          date. Click a row to open the task or EIR.
+        </P>
+        <UL>
+          <LI>
+            <strong>Tasks</strong> appear when you're one of the Assigned
+            people, the task has a Due Date, and it isn't Complete.
+          </LI>
+          <LI>
+            <strong>EIRs</strong> appear when you're an assigned engineer and
+            the EIR has a Requested Completion Date. EIRs that are Closed, EIR
+            Not Accepted or Response Accepted are left out, because there's
+            nothing left for the engineer to do on them. The LTB date isn't
+            used.
+          </LI>
+        </UL>
+        <P>
+          Use the buttons at the top to look <strong>7, 14, 30 or 90 days</strong>{" "}
+          ahead (14 is the default). Tick <strong>Include items I'm
+          watching</strong> to add things you watch but aren't assigned to;
+          those rows are marked <strong>Watching</strong>. The header number
+          only counts items assigned to you. ARC remembers both choices in
+          this browser, and the page address carries them, so you can share a
+          link to the same view.
+        </P>
+        <P>
+          If the task list or the EIR list can't load, the page says which one
+          and offers a retry. It never shows that list as having nothing due.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "list-view",
     title: "Task List view",
     group: "Tasks",
@@ -322,9 +399,15 @@ const SECTIONS: ManualSection[] = [
       "quotes",
       "show all",
       "slow",
+      "loading",
+      "recently updated",
+      "sort by",
+      "engineering and operations",
+      "operations tasks",
+      "combined task list",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page. While every task is loading, the List and Kanban show the 200 most recently updated tasks with a note, Kanban cards can't be dragged, and New Task waits so the new task is numbered correctly.",
     render: () => (
       <>
         <P>
@@ -349,7 +432,35 @@ const SECTIONS: ManualSection[] = [
             </a>
             ).
           </LI>
+          <LI>
+            <strong>Sort by</strong> — above the rows: Created, Due date,
+            Title, Status or Department. The arrow beside it flips the order.
+          </LI>
         </UL>
+        <H3>Seeing Operations tasks alongside</H3>
+        <P>
+          At the top of the list, switch from <strong>Engineering</strong> to{" "}
+          <strong>Engineering + Operations</strong> to see both departments'
+          tasks in one list. Each row is marked with its department, and
+          clicking it opens that task's own page — edits happen there. The
+          Operations task list has the same switch the other way round; see{" "}
+          <a href="#operations-tasks" className="text-accent underline-offset-2 hover:underline">
+            Operations Tasks
+          </a>{" "}
+          for how the combined status pills and the Department filter work.
+          The combined view is a list only — the Kanban board still shows one
+          department.
+        </P>
+        <H3>While the list is loading</H3>
+        <P>
+          Loading every task takes several seconds. While it does, the List and
+          the Kanban board show the <strong>200 most recently updated tasks</strong>{" "}
+          with a note saying the rest are loading, and fill in the moment they
+          arrive. Until then the counts and filters cover only those tasks,
+          Kanban cards can't be dragged, and the New Task form waits before
+          creating — a new task's number is worked out from every task in its
+          project.
+        </P>
         <H3>How search works (all lists)</H3>
         <P>
           The Search box behaves the same on every list — Tasks, EIRs,
@@ -410,7 +521,7 @@ const SECTIONS: ManualSection[] = [
       "change status",
     ],
     searchText:
-      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. Kanban is only available on tablets larger than an iPad mini and on desktop — on phones the Kanban option is hidden and links open the List view instead.",
+      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. Kanban is only available on tablets larger than an iPad mini and on desktop — on phones the Kanban option is hidden and links open the List view instead. ARC remembers whether you last picked List or Kanban, like the theme: pick Kanban once and the Dashboard card and the Departments menu open the board for you from then on, until you pick List again. The same goes for EIRs (List or Board) and Operations tasks. It is remembered per browser.",
     render: () => (
       <>
         <P>
@@ -430,6 +541,13 @@ const SECTIONS: ManualSection[] = [
             <strong>Click a card</strong> to open the task detail page.
           </LI>
           <LI>The same filter bar from the List view applies here too.</LI>
+          <LI>
+            <strong>ARC remembers your pick</strong>, like the theme. Press
+            Kanban once and the Dashboard card and the Departments menu open
+            the board for you from then on, until you press List again. EIRs
+            (List or Board) and Operations tasks remember theirs the same way.
+            It is remembered per browser, and a phone always opens the list.
+          </LI>
         </UL>
       </>
     ),
@@ -477,7 +595,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists. The Create Build Request button raises a build request from the task: the form opens prefilled with the task's name and project, the Task Reference locked to that task, and the task's whole discussion copied into the new request's comments with each comment's original author and time kept. Afterwards the task page shows a Build Request chip with the request's number and status, and the build request page shows the task it came from. The button stays available so a task can raise a second request if the first was cancelled. Once linked, the task and the build request share one conversation: a comment on either appears on both, and a comment on a part within the build request appears on both marked as coming from that part, with a link that opens the part so a reply lands in the original thread. A copied comment keeps its original author and time. Each side emails its own watchers, so watching both still means one email per comment.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Changing a task's Parent Project renumbers it: the task takes the next number in the new project, for example T3-0017-EMI sweep moved to 0042 becomes T7-0042-EMI sweep, and the Edit form shows the new number before you save. Editing the title keeps the number and changes only the text after it; the number is shown beside the title box and can't be typed over. An EIR whose Task Reference named the old title is updated to the new one, so its Linked Task card still finds the task, and Undo puts the old project and number back. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, the Edit form, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The same goes for a task with a linked build request that isn't Complete yet: it can be closed once the build request is Complete, which means every part on it is done. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists. The Create Build Request button raises a build request from the task: the form opens prefilled with the task's name and project, the Task Reference locked to that task, and the task's whole discussion copied into the new request's comments with each comment's original author and time kept. Afterwards the task page shows a Build Request chip with the request's number and status, and the build request page shows the task it came from. The button stays available so a task can raise a second request if the first was cancelled. Once linked, the task and the build request share one conversation: a comment on either appears on both, and a comment on a part within the build request appears on both marked as coming from that part, with a link that opens the part so a reply lands in the original thread. A copied comment keeps its original author and time. Each side emails its own watchers, so watching both still means one email per comment.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -502,7 +620,9 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Assigned / Watchers</strong> — searchable dropdowns of
             team members. Multi-select; pick everyone who should be on this
-            task.
+            task. Tick <strong>Add myself as an assignee</strong> under
+            Assigned to put yourself on it in one click; untick it to take
+            yourself off.
           </LI>
           <LI>
             <strong>Description, Software Revision</strong> — free-text
@@ -523,6 +643,19 @@ const SECTIONS: ManualSection[] = [
           where <em>n</em> is the count of existing tasks under that project +
           1, and the project ref is the four-character code prefix (e.g.{" "}
           <code>0017</code> for "0017-AMP-5000 Refresh").
+        </P>
+        <P>
+          <strong>Changing the project renumbers the task.</strong> Pick a
+          different Parent Project — in the sidebar or the Edit form — and the
+          task takes the next number in that project:{" "}
+          <code>T3-0017-EMI sweep</code> moved to 0042 becomes{" "}
+          <code>T7-0042-EMI sweep</code>. The Edit form shows the new number
+          before you save, and the toast after a sidebar change names it, with
+          Undo. <strong>Editing the title keeps the number</strong> and
+          changes only the text after it — the number sits beside the title
+          box and can't be typed over. If the task was promoted from an EIR,
+          that EIR's Task Reference is updated to the new title, so its Linked
+          Task card still finds the task.
         </P>
         <H3>Editing a task</H3>
         <P>
@@ -732,6 +865,14 @@ const SECTIONS: ManualSection[] = [
           first, then come back and mark the parent complete.
         </P>
         <P>
+          A task with a linked <strong>build request</strong> that isn&apos;t
+          Complete can&apos;t be completed either — every way of completing
+          it, the Edit form included, says which build request is holding
+          it and what status it&apos;s at. A build request is only Complete
+          once every part on it is Production Complete and it has been
+          reviewed, so finish the build first.
+        </P>
+        <P>
           If the task was promoted from an EIR (it shows a{" "}
           <strong>From EIR</strong> link at the top), completing it from the
           detail page first asks for the <strong>final resolution</strong>.
@@ -842,6 +983,10 @@ const SECTIONS: ManualSection[] = [
       "notify someone",
       "send email to teammate",
       "reply",
+      "replies",
+      "reply to comment",
+      "threaded",
+      "indent",
       "attachment",
       "attach file",
       "screenshot",
@@ -858,7 +1003,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead. A half-written comment is kept if you navigate away — look something up in another task and come back, and the draft is still there; it survives a refresh, a closed tab and a browser restart too. A restored draft says so, with Discard and Keep, is forgotten once you post or after a week, and does not keep attachments. The same applies to the title and description on new task and other create forms; editing an existing record does not use drafts. Drafts are per browser and per device. Pasting a web address into a comment or a description makes it a clickable link automatically — no formatting needed, and it works in plain text as well as rich text. This applies to comments and descriptions already saved, so older ones are clickable too. Only a full http:// or https:// address becomes a link, so part numbers and references like QMP-4.3 are left alone, and a full stop or bracket ending the sentence stays outside the link.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Every comment has a Reply button: the reply is posted indented directly under that comment instead of at the top of the thread, starts with a line naming who it answers, and emails that person even if they aren't watching. Replies are one level deep, so replying to a reply adds to the same thread. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead. A half-written comment is kept if you navigate away — look something up in another task and come back, and the draft is still there; it survives a refresh, a closed tab and a browser restart too. A restored draft says so, with Discard and Keep, is forgotten once you post or after a week, and does not keep attachments. The same applies to the title and description on new task and other create forms; editing an existing record does not use drafts. Drafts are per browser and per device. Pasting a web address into a comment or a description makes it a clickable link automatically — no formatting needed, and it works in plain text as well as rich text. This applies to comments and descriptions already saved, so older ones are clickable too. Only a full http:// or https:// address becomes a link, so part numbers and references like QMP-4.3 are left alone, and a full stop or bracket ending the sentence stays outside the link.",
     render: () => (
       <>
         <P>
@@ -890,6 +1035,29 @@ const SECTIONS: ManualSection[] = [
           clock and then shown in your local time, so a thread between people
           in different time zones still reads in order.
         </P>
+        <H3>Replying to a comment</H3>
+        <P>
+          Every comment has a <strong>Reply</strong> button. It opens a reply
+          box directly under that comment, and your reply is shown{" "}
+          <strong>indented beneath it</strong> instead of at the top of the
+          thread, so the conversation stays together. Replies read oldest
+          first, top to bottom. A new reply also{" "}
+          <strong>moves its whole conversation to the top</strong> of the
+          comments, because the comments are ordered by each conversation's
+          latest activity — so the newest thing said is always near the top,
+          even when it answers an older comment. A reply starts with a short line saying who and
+          what it answers ("↪ Replying to Matthew Traina: …"), which is also
+          what you see in SharePoint and the old Power Apps form. Replies are
+          one level deep: replying to a reply adds to the same thread, and its
+          opening line names the person you answered. The reply box works like
+          the main one — @-mentions, attachments, rich text, Ctrl+Enter, and a
+          half-written reply is kept if you navigate away. Cancel closes it.
+          The person you reply to is emailed "Name replied to your comment",
+          even if they aren't watching, and isn't added as a watcher. Everyone
+          who would hear about a new comment still does. If the comment a reply
+          answered has been removed, the reply shows as an ordinary comment
+          with its opening line intact.
+        </P>
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
           the item automatically (unless they already are) — tasks, EIRs,
@@ -910,7 +1078,13 @@ const SECTIONS: ManualSection[] = [
           loop. The email says why it reached you: mentioned, assigned to you, or
           watching. A comment that is only attached files, with no text, is
           emailed too, and reads as "Name added an attachment" with the file
-          names listed. You're
+          names listed. Everyone notified for the same reason gets the same
+          email, with each person blind-copied — you won't see who else it
+          went to, and it starts "Hello," rather than with your name. If it
+          reaches only you, it still greets you by name. Moving around ARC
+          while it sends is fine, but closing or reloading the tab straight
+          after posting stops it, so your browser asks before it lets you leave
+          with email still going out. You're
           never emailed for your own comment, unless you @-mention yourself. To stop
           watching, the mentioned user removes themselves from the
           Watchers field on the detail sidebar. (Heads-up: a fresh
@@ -952,9 +1126,10 @@ const SECTIONS: ManualSection[] = [
           folder before the comment posts, and a clickable hyperlink to
           each file is inlined into the comment body — same routing
           described in the Attachments section below. On an{" "}
-          <strong>EIR</strong> comment, attachments are still in-session
-          previews only (legacy behaviour; the EIR attachment migration is
-          on the backlog).
+          <strong>EIR</strong> (and the other record types), a comment's files
+          are saved as attachments on that record, so they're in its
+          Attachments card too. Several files go up one after another, never
+          all at once — SharePoint can mix up two arriving together.
         </P>
         <H3>Formatting a comment — the Rich text button</H3>
         <P>
@@ -1057,11 +1232,11 @@ const SECTIONS: ManualSection[] = [
         <H3>Sending and confirmation</H3>
         <P>
           Press{" "}
-          <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">
+          <kbd className="rounded-sm border border-border bg-bg px-1 py-0.5 text-[10px]">
             Ctrl
           </kbd>
           +
-          <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">
+          <kbd className="rounded-sm border border-border bg-bg px-1 py-0.5 text-[10px]">
             Enter
           </kbd>{" "}
           to send, or click <strong>Send</strong>. Comments appear in the
@@ -1226,9 +1401,14 @@ const SECTIONS: ManualSection[] = [
       "operations kanban",
       "operations list view",
       "pmo",
+      "engineering and operations",
+      "combined task list",
+      "all tasks",
+      "scope",
+      "sort by",
     ],
     searchText:
-      "Operations Tasks is the second department wired into ARC after Engineering, backed by the Operations Task List and Operations Projects lists on the Altronic_PMO SharePoint site. Same flow as Engineering tasks — List and Kanban views, a detail page, comments with @-mentions, watchers, attachments, and the Description checklist — with a few real differences: Assigned is a single person (not multiple), Status is Backlog/WIP/On Hold/Complete/Canceled, Priority is Low/Med/High, there's a Task Type field instead of Category, plus a Location field (shop-floor area) and an Equipment picker that Engineering tasks don't have. Reach it from the Dashboard's Operational Tasks card or the Departments dropdown's Operations group.",
+      "Operations Tasks is the second department wired into ARC after Engineering, backed by the Operations Task List and Operations Projects lists on the Altronic_PMO SharePoint site. Changing a task's Project Ref renumbers it to the next Task {code}-{n} under the new project's code. Same flow as Engineering tasks — List and Kanban views, a detail page, comments with @-mentions, watchers, attachments, and the Description checklist — with a few real differences: Assigned is a single person (not multiple), Status is Backlog/WIP/On Hold/Complete/Canceled, Priority is Low/Med/High, there's a Task Type field instead of Category, plus a Location field (shop-floor area) and an Equipment picker that Engineering tasks don't have. Reach it from the Dashboard's Operational Tasks card or the Departments dropdown's Operations group. Switch the list from Operations to Operations + Engineering to see both departments' tasks in one list, each marked with its department and opening its own task page; the status pills group both into Not started / In progress / On hold / Complete / Canceled, Department replaces the Project filter, and Sort by orders the list by Created, Due date, Title, Status or Department.",
     render: () => (
       <>
         <P>
@@ -1244,6 +1424,13 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Assigned is a single person</strong>, not a list — pick
             one person from the dropdown instead of adding several.
+          </LI>
+          <LI>
+            <strong>The task number follows the project.</strong> Numbers read{" "}
+            <code>Task 0035-4</code>. Changing a task's Project Ref gives it
+            the next number under the new project's code, and the Edit form
+            shows the new number before you save. A project with the same
+            four-digit code keeps the number it has.
           </LI>
           <LI>
             <strong>Status</strong> is Backlog / WIP / On Hold / Complete /
@@ -1278,6 +1465,45 @@ const SECTIONS: ManualSection[] = [
           difference: Operations tasks only support list-item attachments
           (no project-folder mirroring) — same as EIRs today.
         </P>
+        <H3>Seeing Engineering tasks alongside</H3>
+        <P>
+          At the top of the Operations task list, switch from{" "}
+          <strong>Operations</strong> to{" "}
+          <strong>Operations + Engineering</strong> to see both departments'
+          tasks in one list. Each row is marked with its department, and
+          clicking it opens that task's own page — edits happen there, just as
+          they would from the department's own list. The switch is in the
+          page address, so a link to the combined list opens it that way. The
+          Engineering task list has the same switch the other way round
+          (Engineering + Operations).
+        </P>
+        <UL>
+          <LI>
+            The status pills group both departments' statuses into{" "}
+            <strong>Not started</strong>, <strong>In progress</strong>,{" "}
+            <strong>On hold</strong>, <strong>Complete</strong> and{" "}
+            <strong>Canceled</strong> (Engineering's Blocked counts as On hold).
+            Each row still shows its own real status.
+          </LI>
+          <LI>
+            The two departments use different project lists, so the Project
+            filter is replaced by a <strong>Department</strong> filter here.
+            Assigned, Search, Created By and Watching work across both.
+          </LI>
+          <LI>
+            <strong>Sort by</strong> orders the list by Created, Due date,
+            Title, Status or Department; the arrow beside it flips the
+            direction. It works on the Operations-only list too.
+          </LI>
+          <LI>
+            The combined view is a list only for now — the Kanban boards still
+            show one department each.
+          </LI>
+          <LI>
+            If you don't have access to the other department's task list, the
+            combined view says so and still shows your own department's tasks.
+          </LI>
+        </UL>
         <H3>Operations Projects</H3>
         <P>
           Operations tasks reference their own project list — Operations
@@ -1685,7 +1911,7 @@ const SECTIONS: ManualSection[] = [
       "requires shutdown",
     ],
     searchText:
-      "Maintenance Schedules is the PM library - the recurring rules that produce what the Maintenance Calendar projects. A schedule carries instructions, the machine, a category and priority, a frequency (an interval plus Days, Weeks, Months, Years or Hours), a first due date or a first due reading, an assignee and watchers, an estimated time, grace days, lead time days, and the Requires Shutdown and LOTO Required flags. Schedule Basis is the setting that decides where the next occurrence comes from: Fixed takes the next due date from the DUE date, so an annual certification stays on its date even when it is done three weeks late; Floating takes it from the COMPLETION date, so a 90-day filter change restarts from when it was actually done; Hourmeter has no date at all - it is due at a run-hours READING off the asset's hourmeter. An Hourmeter schedule is due when the asset's Current Machine Hours reaches Next Due Hours, which is the reading of the last completion plus the interval. The PM library shows it as Due at 5,200 hrs, now 5,043 hrs, 157 to go, and it only appears on the calendar on the day the reading actually passes the target - there is no estimated date, because guessing one from average usage would invent a figure nobody measured. If the asset has no hourmeter reading, or no asset is linked at all, the library says CAN'T TELL rather than showing it as not due: a schedule in that state can never come due. If the asset's row has not been edited in long enough for a whole interval to have gone by, the library warns that the reading may be stale. Grace days and lead time days are in DAYS and do not apply to an Hourmeter schedule - it is due the moment the reading reaches the target - so both boxes are disabled with the reason on them. Logging a completion on an Hourmeter schedule asks for the hourmeter reading off the machine, and the next target is worked out from the reading it was actually done at. Skipping one cannot move its target. Grace days say how late a job can be before it counts as overdue; lead time days say how far ahead of the due date it starts appearing. Month arithmetic is calendar-correct - 31 January plus a month is 28 February, not 2 March. An overdue schedule sorts to the top, says how late it is, and never rolls forward by itself. There is no delete: a schedule is retired by turning Active off, which stops it projecting anything while every work order it ever produced still points at something real. You can also log a completion from here for a job done off a paper round rather than from the calendar. Creating, editing and retiring a schedule needs the Admin maintenance role; logging an occurrence needs Tech or Admin; reading the library is open to everyone. Where you cannot, the control is disabled with the reason on it, and on the calendar the day-cell plus button that seeds a new schedule is not offered at all.",
+      "Maintenance Schedules is the PM library - the recurring rules that produce what the Maintenance Calendar projects. A schedule carries instructions, the machine, a category and priority, a frequency (an interval plus Days, Weeks, Months, Years or Hours), a first due date or a first due reading, an assignee and watchers, an estimated time, grace days, lead time days, and the Requires Shutdown and LOTO Required flags. Schedule Basis is the setting that decides where the next occurrence comes from: Fixed takes the next due date from the DUE date, so an annual certification stays on its date even when it is done three weeks late; Floating takes it from the COMPLETION date, so a 90-day filter change restarts from when it was actually done; Hourmeter has no date at all - it is due at a run-hours READING off the asset's hourmeter. An Hourmeter schedule is due when the asset's Current Machine Hours reaches Next Due Hours, which is the reading of the last completion plus the interval. The PM library shows it as Due at 5,200 hrs, now 5,043 hrs, 157 to go, and it only appears on the calendar on the day the reading actually passes the target - there is no estimated date, because guessing one from average usage would invent a figure nobody measured. If the asset has no hourmeter reading, or no asset is linked at all, the library says CAN'T TELL rather than showing it as not due: a schedule in that state can never come due. If the asset's row has not been edited in long enough for a whole interval to have gone by, the library warns that the reading may be stale. Grace days and lead time days are in DAYS and do not apply to an Hourmeter schedule - it is due the moment the reading reaches the target - so both boxes are disabled with the reason on them. Logging a completion on an Hourmeter schedule asks for the hourmeter reading off the machine, and the next target is worked out from the reading it was actually done at. Skipping one cannot move its target. Grace days say how late a job can be before it counts as overdue; lead time days say how far ahead of the due date it starts appearing. Month arithmetic is calendar-correct - 31 January plus a month is 28 February, not 2 March. An overdue schedule sorts to the top, says how late it is, and never rolls forward by itself. There is no delete: a schedule is retired by turning Active off, which stops it projecting anything while every work order it ever produced still points at something real. You can also log a completion from here for a job done off a paper round rather than from the calendar. Creating, editing and retiring a schedule needs the Admin maintenance role; logging an occurrence needs Tech or Admin; reading the library is open to everyone. Where you cannot, the control is disabled with the reason on it, and on the calendar the day-cell plus button that seeds a new schedule is not offered at all. The email sent when a schedule's owner changes opens the PM library showing just that schedule, with a Show all schedules link back to the full list.",
     render: () => (
       <>
         <P>
@@ -1694,6 +1920,11 @@ const SECTIONS: ManualSection[] = [
           <strong>"what rules produce it"</strong> — it's where a recurring job
           is created, corrected, retired, and logged when somebody does it off a
           paper round rather than off the calendar.
+        </P>
+        <P>
+          The email sent when a schedule's owner changes opens the library
+          showing <strong>just that schedule</strong>, with a{" "}
+          <strong>Show all schedules</strong> link back to the full list.
         </P>
         <H3>Setting one up</H3>
         <P>
@@ -2261,6 +2492,957 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "harness-production-log",
+    title: "Harness Production Log",
+    group: "Harness",
+    keywords: [
+      "harness",
+      "harness production",
+      "harness log",
+      "harness production report",
+      "access database",
+      "wire harness",
+      "work order",
+      "wo number",
+      "part number",
+      "harness part numbers",
+      "add part number",
+      "request a part number",
+      "part number request",
+      "retire part number",
+      "rework",
+      "rework qty",
+      "built by",
+      "clock number",
+      "visual check",
+      "all years",
+      "imported",
+      "data quality",
+    ],
+    searchText:
+      "The Harness Production Log replaces the Access database that ran on the production PC. Each row is one harness build: production date, work order, part number, quantity, rework quantity, who built it (clock number or initials), who did the visual check, and comments. Reach it from the Harness Production Log card on the Dashboard or the Departments menu under Harness. Click New entry; the date defaults to today, and Production Date, Part Number and Qty are required. The part number is picked from a dropdown, never typed, so the same part is always spelled the same way. If a part number is missing, an ARC admin adds it on the Part numbers screen; anyone else presses Request a part number, under the Part Number box or on the Part numbers screen, which says whether the number is new, retired or already listed and emails the people chosen for part number requests on Who's notified. Built By and Visual Check suggest the clock numbers and initials used in the last 12 months, most-used first, whichever year you are viewing, but accept anything; a new one typed today is suggested from then on. Rework can't be more than the quantity. The log opens on the current year; the Year picker goes back to 2018 and has All years, for anyone. Filter by part number and by builder, or search work order, part, comments and import notes; filters live in the URL. Columns sort and filter from their headers. The totals line adds up the quantity built and reworked for everything matching. The table shows 200 rows with Show all. On a phone the log is cards. Anyone signed in can add and correct entries; only ARC admins can delete one. Rows imported from Access may show a small yellow i next to the part number: hover it, or open the row, to see what was tidied on import, such as a part number's spelling or a date that couldn't be read. The Harness Part Numbers screen lists every part number with how many entries use it. Anyone can see it; ARC admins can add, rename or retire a part number. There's no delete: retiring takes a part out of the New entry dropdown while every entry already using it keeps it, and it can be restored. Renaming changes what every entry using that part shows, so use it to fix a typo, not to turn it into a different part.",
+    render: () => (
+      <>
+        <P>
+          <strong>Harness Production Log</strong> replaces the Access database
+          that ran on the production PC. Each row is one harness build. Reach it
+          from the <strong>Harness Production Log</strong> card on the Dashboard,
+          or the <strong>Departments</strong> menu's Harness group.
+        </P>
+        <H3>Adding an entry</H3>
+        <P>
+          Click <strong>New entry</strong>. The date defaults to today.{" "}
+          <strong>Production Date</strong>, <strong>Part Number</strong> and{" "}
+          <strong>Qty</strong> are required.
+        </P>
+        <UL>
+          <LI>
+            <strong>The part number is picked, never typed</strong>, so the same
+            part is always spelled the same way. If it isn't in the list, an ARC
+            admin adds it on the <strong>Part numbers</strong> screen.
+          </LI>
+          <LI>
+            Anyone else presses <strong>Request a part number</strong> under the
+            Part Number box (or on the Part numbers screen). Type the number: it
+            says whether it's new, retired (the request asks for it to be
+            restored) or already on the list. Sending emails the people chosen
+            for part number requests on <strong>Who's notified</strong>, and
+            says who it went to.
+          </LI>
+          <LI>
+            <strong>Built By</strong> and <strong>Visual Check</strong> take a
+            clock number or initials. They suggest the values used in the last
+            12 months, most-used first, whichever year you're viewing, but
+            accept anything, including two people ("342/208"). A new one you
+            type is suggested to everyone from then on.
+          </LI>
+          <LI>Rework can't be more than the quantity built.</LI>
+        </UL>
+        <H3>Finding entries</H3>
+        <P>
+          The log opens on the <strong>current year</strong>. The{" "}
+          <strong>Year</strong> picker goes back to 2018 and has{" "}
+          <strong>All years</strong>, for everyone. Filter by part number and by
+          builder, or search work orders, part numbers, comments and import
+          notes. Every filter lives in the URL, so a link shows exactly what
+          you're looking at. Click a column heading to sort it or filter it by
+          value. The line above the table totals the quantity built and
+          reworked for everything matching, not just the 200 rows shown before{" "}
+          <strong>Show all</strong>. On a phone the log is a list of cards; tap
+          one to edit it.
+        </P>
+        <H3>Entries from the old database</H3>
+        <P>
+          Rows brought over from Access were tidied on the way in. Where
+          something was changed, such as a part number's spelling, a Waukesha
+          number swapped for ours, or a date that couldn't be read, a small
+          yellow <strong>i</strong> sits next to the part number. Hover it, or
+          open the row, to see what was changed and what was originally typed.
+        </P>
+        <H3>Editing and deleting</H3>
+        <P>
+          <strong>Anyone can add an entry and correct one</strong>: hover a row
+          for the pencil. Only <strong>ARC admins can delete</strong>, because an
+          edit leaves a corrected record and a delete leaves nothing.
+        </P>
+        <H3>Harness Part Numbers</H3>
+        <P>
+          The <strong>Part numbers</strong> button opens the list behind the
+          dropdown, with how many entries use each part. Anyone can see it;{" "}
+          <strong>ARC admins</strong> can add, rename or retire a part number.
+        </P>
+        <UL>
+          <LI>
+            <strong>There's no delete.</strong> <strong>Retire</strong> takes a
+            part out of the New entry dropdown, and every entry already using it
+            keeps it. Tick <em>Show retired</em> to see retired parts and restore
+            one.
+          </LI>
+          <LI>
+            <strong>Renaming</strong> changes what every entry using that part
+            shows. Use it to fix a typo, not to turn one part into another.
+          </LI>
+          <LI>A part number can only be on the list once.</LI>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: "crimp-height-checks",
+    title: "Crimp Height Checks",
+    group: "Harness",
+    keywords: [
+      "crimp",
+      "crimp height",
+      "crimp check",
+      "crimp verification",
+      "terminal crimp verification chart",
+      "mfgfrm 002",
+      "micrometer",
+      "bluetooth",
+      "terminal",
+      "applicator",
+      "wire gauge",
+      "crimp spec",
+      "crimp specs",
+      "out of spec",
+      "tolerance",
+      "mecal",
+      "who's notified",
+      "alert recipients",
+    ],
+    searchText:
+      "Crimp Height Checks replace the paper Terminal Crimp Verification Chart (MFGFRM 002) in the harness crimping area. Take three measurements at the start of a run, every 100 terminations and at the end of the run, and record each set as one check. Reach it from the Crimp Height Checks card on the Dashboard or the Departments menu under Harness. Click New check, pick the machine (the crimp press you're on, remembered for next time on that computer), then the terminal (each spec is a terminal, wire gauge and applicator; only that press's specs are offered, plus any with no machine set yet), pick Start, In process or End, enter your clock number and the three readings in inches. Press the orange button on the micrometer's U-WAVE Bluetooth adaptor and it types the reading and presses Enter, which moves to the next box; readings show to 5 decimals when the micrometer gives them. Each reading shows In spec, Low or High as it is entered, against the spec's crimp height plus or minus its tolerance; the limits themselves count as in spec. A reading that looks like millimetres is refused, and the form says so instead of calling the check out of spec: switch the micrometer to inches. Enter the work order the run is for, which is required, and the harness or assembly if you have it; both are searchable. A check saved before work orders were added can still be corrected without one. If any single reading is out of spec, saving emails the people chosen for out-of-spec checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins on both Harness logs and listed on the Admin page, shows who each Harness email goes to, out-of-spec checks, failed pull tests and part number requests; ARC admins add people from the staff directory or remove them, with no wait for a new version. A spec with no crimp height yet can't judge a check. Every check keeps the spec figures it was measured against, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log is cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec with the presses it runs on and how many checks used it; a spec can run on several presses, picked from the crimp machines in the asset list; anyone can see it, and ARC admins add, edit, retire or delete specs. A spec that has been used can't be deleted: retire it instead.",
+    render: () => (
+      <>
+        <P>
+          <strong>Crimp Height Checks</strong> replace the paper{" "}
+          <em>Terminal Crimp Verification Chart</em> (MFGFRM 002) in the harness
+          crimping area. As on the paper, take three measurements at the{" "}
+          <strong>start</strong> of a run, <strong>every 100 terminations</strong>,
+          and at the <strong>end</strong> of the run. Each set of three is one
+          check. Reach it from the <strong>Crimp Height Checks</strong> card on the
+          Dashboard, or the Departments menu under Harness.
+        </P>
+        <H3>Recording a check</H3>
+        <UL>
+          <LI>
+            Click <strong>New check</strong> and pick the{" "}
+            <strong>machine</strong>: the crimp press you're working on. ARC
+            remembers it for the next check on that computer.
+          </LI>
+          <LI>
+            Pick the <strong>terminal</strong>. Each choice is a terminal, wire
+            gauge and applicator, with its crimp height and tolerance shown
+            beside it. Only the specs for that press are offered, followed by
+            any spec that hasn't had a machine set yet (marked{" "}
+            <em>no machine set</em>).
+          </LI>
+          <LI>
+            Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
+            <strong>End</strong>, and enter your <strong>clock number</strong>.
+          </LI>
+          <LI>
+            Enter the <strong>three readings in inches</strong>. Close the
+            micrometer on the crimp and press the <strong>orange button</strong>{" "}
+            on its U-WAVE Bluetooth adaptor: the reading is typed in and Enter
+            moves to the next box. Readings show to 5 decimals (0.03875) when the
+            micrometer gives them.
+          </LI>
+          <LI>
+            Each reading shows <strong>In spec</strong>, <strong>Low</strong> or{" "}
+            <strong>High</strong> as it goes in. The limits themselves count as in
+            spec: .038 is in spec against .040 ± .002.
+          </LI>
+          <LI>
+            A reading that <strong>looks like millimetres</strong> is refused.
+            Switch the micrometer to inches and measure again.
+          </LI>
+          <LI>
+            Enter the <strong>work order</strong> the run is for (required) and
+            the <strong>harness or assembly</strong> if you have it. You can
+            search the log by either. A check saved before work orders were added
+            can still be corrected without one.
+          </LI>
+        </UL>
+        <H3>Out of spec</H3>
+        <P>
+          If <strong>any single reading</strong> is outside the spec, saving the
+          check <strong>emails the people chosen for out-of-spec checks</strong>,
+          and a message tells you how many people were emailed. If nobody has
+          been set up to receive these yet, the message asks you to tell your
+          supervisor. Correcting a check that was already out of spec doesn't
+          email them again.
+        </P>
+        <H3>Who's notified</H3>
+        <P>
+          The <strong>Who's notified</strong> button, shown to{" "}
+          <strong>ARC admins</strong> on both Harness logs (and listed on the
+          Admin page), shows who each Harness email goes to: out-of-spec crimp
+          checks, failed pull tests, and part number requests. ARC admins add people from the staff
+          directory and remove them. A change applies to the very next email.
+        </P>
+        <P>
+          A spec with <strong>no crimp height</strong> yet can't judge a check.
+          The check is still recorded and shows as <em>Not judged</em>.
+        </P>
+        <H3>The log</H3>
+        <P>
+          The log opens on the current year. Filter by terminal, show out-of-spec
+          checks only, or search; filters live in the URL. Columns sort and filter
+          from their headers, and on a phone the log is cards.{" "}
+          <strong>Anyone can record and correct a check</strong>; only{" "}
+          <strong>ARC admins can delete</strong> one.
+        </P>
+        <H3>Crimp specs</H3>
+        <P>
+          The <strong>Specs</strong> button lists every spec with the presses it
+          runs on and how many checks used it. Anyone can see it;{" "}
+          <strong>ARC admins</strong> add, edit, retire or delete specs.
+        </P>
+        <UL>
+          <LI>
+            There's one spec per terminal, applicator and wire gauge, because one
+            applicator can crimp several gauges, each to its own height.
+          </LI>
+          <LI>
+            A spec lists the <strong>machines</strong> it runs on, picked from
+            the crimp machines in the asset list (presses in a Harness location,
+            and the Schleuniger crimp center).
+            One spec can name several presses. A spec with no machine is offered
+            on every press until one is set.
+          </LI>
+          <LI>
+            <strong>Every check keeps the figures it was measured against</strong>,
+            so changing a spec never changes an old result.
+          </LI>
+          <LI>
+            A spec that has been used <strong>can't be deleted</strong>.{" "}
+            <strong>Retire</strong> it instead: it leaves the New check list, and
+            the checks already taken keep it.
+          </LI>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: "pull-tests",
+    title: "Pull Tests",
+    group: "Harness",
+    keywords: [
+      "pull test",
+      "pull tests",
+      "pull force",
+      "wire pull",
+      "mark-10",
+      "mark 10",
+      "wt-205",
+      "tester",
+      "usb",
+      "serial",
+      "machined pin",
+      "drivecom",
+      "terminal",
+      "wire gauge",
+      "minimum",
+      "ipc/whma-a-620",
+      "ipc",
+      "pull test spec",
+      "failed",
+      "how it failed",
+      "failure mode",
+      "wire broke",
+      "who's notified",
+    ],
+    searchText:
+      "Pull Tests log the pulls taken on the Mark-10 WT3-200 wire crimp pull tester, for the machined pins crimp height can't judge and for stamped terminals too. Reach it from the Pull Tests card on the Dashboard or the Departments menu under Harness. Click New test, pick the spec (a terminal and wire gauge with its minimum pull force, from the manufacturer or an industry standard such as IPC/WHMA-A-620), pick Start, In process or End, enter your clock number, and take the pulls the spec asks for at that point in the run: three unless the spec says otherwise, up to five. An industry-standard spec can cover any terminal on its gauge; then type the terminal you pulled. A standard can give several minimums for one gauge, such as machined contacts, crimp splices, or stamped and formed terminals; the spec's name says which, so pick the one for what you crimped. To read the tester straight into ARC, use Chrome or Edge on the computer the tester is plugged into by USB, with Mark-10's USB driver installed. Press Connect tester and pick the tester's port the first time; after that ARC reconnects by itself whenever the form opens. On the tester, use Peak mode, turn on Break Detection, and under Auto Settings tick Enabled, RS232/USB Output and Auto Zero, so it sends the peak each time a crimp lets go and zeroes itself for the next pull. A pull that never reaches 10 lbF doesn't count as a break, so nothing is sent: press DATA on the tester or Read now in ARC, then ZERO. Set the tester's Data Format to Numeric + Units. After each reading the cursor moves to the next empty pull box, then to How it failed. The baud rate in ARC must match the tester's. Each reading fills the next empty pull box and is marked from tester; an extra pull adds a box, up to five. The unit comes from the tester; a reading in a different unit from the pulls already taken is refused. You can always type pulls instead, and ARC records whether they were read by the tester, typed, or mixed. Each pull shows Holds or Below minimum; a pull exactly at the minimum passes, and readings in another unit are converted to the spec's unit first. Say how it failed, such as the wire broke or it pulled out of the crimp: pick an answer already used, most used first, or type a new one. Enter the work order the run is for, which is required. If any single pull is below the minimum, saving emails the people chosen for failed pull tests and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. ARC admins choose who is emailed on Who's notified. Every test keeps the minimum and the number of pulls it was judged by, so changing a spec later never changes an old result. The log opens on the current year; filter by terminal, show failed tests only, or search; columns sort and filter from their headers; on a phone the log is cards. Anyone signed in can record and correct a test; only ARC admins can delete one. The Specs screen lists every spec with how many pulls a test needs at Start, In process and End (1 to 5 each; blank means three) and how many tests used it; ARC admins add, edit, duplicate, retire or delete specs (Duplicate, or Start from an existing spec when adding, fills the form from that spec so you only change the terminal, gauge or reference and anything else that differs), and a spec that has been used can't be deleted: retire it instead.",
+    render: () => (
+      <>
+        <P>
+          <strong>Pull Tests</strong> log the pulls taken on the{" "}
+          <strong>Mark-10 WT3-200</strong> wire crimp pull tester: for the
+          machined pins that crimp height can't judge, and for stamped terminals
+          too. Reach it from the <strong>Pull Tests</strong> card on the
+          Dashboard, or the Departments menu under Harness.
+        </P>
+        <H3>Recording a test</H3>
+        <UL>
+          <LI>
+            Click <strong>New test</strong> and pick the <strong>spec</strong>: a
+            terminal and wire gauge with its <strong>minimum pull force</strong>,
+            from the manufacturer or an industry standard such as
+            IPC/WHMA-A-620.
+          </LI>
+          <LI>
+            An industry-standard spec can cover <strong>any terminal</strong> on
+            its gauge. Then type the terminal you pulled. A standard can give
+            several minimums for one gauge (IPC/WHMA-A-620 has machined
+            contacts by plating, crimp splices, and stamped and formed
+            terminals); the spec's name says which it is, so pick the one for
+            what you crimped.
+          </LI>
+          <LI>
+            Pick <strong>Start</strong>, <strong>In process</strong> or{" "}
+            <strong>End</strong>, enter your <strong>clock number</strong>, and
+            take the <strong>pulls the spec asks for</strong> at that point in
+            the run: three unless the spec says otherwise, and the form shows
+            how many once you pick Start, In process or End. Add more, up to
+            five, with <em>Add a pull</em>.
+          </LI>
+          <LI>
+            Each pull shows <strong>Holds</strong> or{" "}
+            <strong>Below minimum</strong>. A pull <strong>exactly at</strong>{" "}
+            the minimum passes. A reading in another unit is converted to the
+            spec's unit before it's judged.
+          </LI>
+          <LI>
+            Say <strong>how it failed</strong>: the wire broke, it pulled out of
+            the crimp, the terminal broke. Open the box to pick an answer
+            already used, most used first, or type a new one; a new answer is
+            offered the next time.
+          </LI>
+          <LI>
+            Enter the <strong>work order</strong> the run is for (required) and
+            the harness or assembly if you have it.
+          </LI>
+        </UL>
+        <H3>Reading the tester into ARC</H3>
+        <P>
+          ARC can read the pulls straight off the tester, so nobody copies a
+          number by hand. It needs <strong>Chrome or Edge</strong> on the
+          computer the tester is plugged into by USB, with Mark-10's USB driver
+          installed. On a phone or iPad, or in another browser, type the pulls
+          instead.
+        </P>
+        <UL>
+          <LI>
+            Press <strong>Connect tester</strong> and pick the tester's port the
+            first time. After that ARC <strong>reconnects by itself</strong>{" "}
+            whenever the form opens.
+          </LI>
+          <LI>
+            On the tester, use <strong>Peak</strong> mode, turn on{" "}
+            <strong>Break Detection</strong>, and under{" "}
+            <strong>Auto Settings</strong> tick <strong>Enabled</strong>,{" "}
+            <strong>RS232/USB Output</strong> and <strong>Auto Zero</strong>.
+            The tester then sends the <strong>peak</strong> each time a crimp lets
+            go and zeroes itself for the next pull. The reading lands in the next
+            empty pull box, marked <em>from tester</em>, and the cursor moves on
+            to the next empty box (then to <em>How it failed</em>), unless you're
+            typing in another field.
+          </LI>
+          <LI>
+            A pull that never reaches <strong>10 lbF</strong> doesn't count as a
+            break (5% of the tester's 200 lbF is the lowest threshold it allows),
+            so nothing is sent by itself. Press <strong>DATA</strong> on the
+            tester, or <strong>Read now</strong> in ARC, then{" "}
+            <strong>ZERO</strong>. Set the tester's Data Format to{" "}
+            <strong>Numeric + Units</strong> so ARC gets the unit too.
+          </LI>
+          <LI>
+            The <strong>baud rate</strong> in ARC must match the tester's{" "}
+            (Serial/USB Settings on the tester). ARC remembers it on that
+            computer.
+          </LI>
+          <LI>
+            The <strong>unit</strong> comes from the tester. A reading in a
+            different unit from the pulls already taken is refused, so switch
+            the tester back or clear the pulls.
+          </LI>
+          <LI>
+            Only one program can use the tester at a time. If Mark-10's own
+            software or another ARC tab has it open, close that first.
+          </LI>
+          <LI>
+            You can always type a pull, or correct one. ARC records whether a
+            test's pulls were read by the tester, typed, or mixed.
+          </LI>
+        </UL>
+        <H3>A failed test</H3>
+        <P>
+          If <strong>any single pull</strong> is below the minimum, saving the
+          test <strong>emails the people chosen for failed pull tests</strong>,
+          and a message tells you how many were emailed. If nobody is set up
+          yet, it asks you to tell your supervisor. ARC admins choose who is
+          emailed on <strong>Who's notified</strong>. Correcting a test that had
+          already failed doesn't email them again.
+        </P>
+        <H3>The log and the specs</H3>
+        <P>
+          The log opens on the current year. Filter by terminal, show failed
+          tests only, or search; columns sort and filter from their headers, and
+          on a phone the log is cards. <strong>Anyone can record and correct a
+          test</strong>; only <strong>ARC admins can delete</strong> one.
+        </P>
+        <P>
+          The <strong>Specs</strong> button lists every spec with how many
+          pulls a test needs at Start, In process and End, and how many tests
+          used it. <strong>ARC admins</strong> add, edit, retire or delete
+          specs, and set the <strong>pulls per test</strong> for each point
+          (1 to 5; blank means three). <strong>Duplicate</strong> (or{" "}
+          <em>Start from an existing spec</em> when adding) fills the form from
+          another spec, so you only change the terminal, gauge or reference and
+          anything else that differs.{" "}
+          <strong>Every test keeps the minimum and the pull count it was judged by</strong>, so
+          changing a spec never changes an old result, and a spec that has been
+          used can't be deleted: <strong>retire</strong> it instead.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "conformal-coating-checks",
+    title: "Conformal Coating Checks",
+    group: "Operations",
+    keywords: [
+      "conformal coating",
+      "coating",
+      "coating thickness",
+      "coating check",
+      "thickness",
+      "micrometer",
+      "mils",
+      "millimetres",
+      "mm",
+      "inches",
+      "uncoated",
+      "coated",
+      "shift",
+      "machine",
+      "operator",
+      "coating spec",
+      "coating specs",
+      "coated sides",
+      "out of spec",
+      "who's notified",
+      "alert recipients",
+    ],
+    searchText:
+      "Conformal Coating Checks log the coating thickness measured at the start of each shift. Reach it from the Conformal Coating Checks card on the Dashboard or the Departments menu under Operations. Click New check, pick the spec (if there is only one it is picked for you), enter the machine, the operator (your name is filled in), and the date and time it was measured (now, unless you change it). The Machine list shows the machines already used on checks; type to search the whole equipment list for one that hasn't been used yet, and once it's saved it joins the list. Operator works the same way with the staff directory. Choose whether you measured in Millimetres, the default, or Inches; ARC remembers your choice on that computer. Measure an uncoated board three times and a coated board three times. ARC averages each board, subtracts the uncoated average from the coated one, and divides by two when the spec says both sides are coated. A spec is entered in millimetres or inches, and the thickness is judged against its minimum and maximum in that unit, whichever unit the readings were taken in; the limits count as in spec. The thickness is shown in the spec's unit first, then the other unit and mils for reference. A reading that looks like the other unit is refused, so pick the right unit and save again. Enter moves to the next box, so a micrometer that types each reading and presses Enter works. If the coating is out of spec, saving emails the people chosen for out-of-spec coating checks and tells you how many were emailed; if nobody is set up, it asks you to tell your supervisor. The Who's notified button, shown to ARC admins and listed on the Admin page, shows who is emailed; ARC admins add people from the staff directory or remove them, with no wait for a new version. Every check keeps the spec figures it was judged by, so changing a spec later never changes an old result. The log opens on the current year; filter by machine, show out-of-spec checks only, or search; filters live in the URL. Columns sort and filter from their headers. On a phone the log and the Specs screen are cards. Anyone signed in can record and correct a check; only ARC admins can delete one. The Specs screen lists every spec, its limits in mm and in inches with mils for reference, the unit it was entered in, whether one side or both are coated, and how many checks used it; anyone can see it, and ARC admins add, edit, retire or delete specs, entering the limits in mm or inches; inch limits are three decimal places, like 0.001. A spec that has been used can't be deleted: retire it instead.",
+    render: () => (
+      <>
+        <P>
+          <strong>Conformal Coating Checks</strong> log the coating thickness
+          measured at the start of each shift. Reach it from the{" "}
+          <strong>Conformal Coating Checks</strong> card on the Dashboard or the
+          Departments menu under <strong>Operations</strong>.
+        </P>
+        <H3>Recording a check</H3>
+        <UL>
+          <LI>
+            Click <strong>New check</strong> and pick the <strong>spec</strong>. If
+            there is only one, it's picked for you.
+          </LI>
+          <LI>
+            Enter the <strong>machine</strong> and the <strong>operator</strong> (your
+            name is filled in), and check the <strong>date and time</strong>. They
+            start at now. The Machine list shows the machines already used on
+            checks. To use one that hasn't been, <strong>type</strong> to search the
+            whole equipment list; once it's saved it joins the list. Operator works
+            the same way, with the staff directory.
+          </LI>
+          <LI>
+            Choose <strong>Millimetres</strong> (the default) or{" "}
+            <strong>Inches</strong>. ARC remembers your choice on that computer.
+          </LI>
+          <LI>
+            Measure an <strong>uncoated board three times</strong> and a{" "}
+            <strong>coated board three times</strong>. Enter moves to the next box,
+            so a micrometer that types each reading and presses Enter works.
+          </LI>
+        </UL>
+        <H3>How the thickness is worked out</H3>
+        <P>
+          ARC averages each board and subtracts the uncoated average from the
+          coated one. When the spec says <strong>both sides</strong> are coated, it
+          halves the difference, because a micrometer across the board picks up
+          both coats. A spec is entered in <strong>millimetres or inches</strong>,
+          and the thickness is judged against its minimum and maximum{" "}
+          <strong>in that unit</strong>, whichever unit you measured in. The
+          limits themselves count as in spec. The thickness is shown in the
+          spec's unit first, then the other unit and{" "}
+          <strong>mils for reference</strong>.
+        </P>
+        <P>
+          A reading that looks like the other unit is refused: pick the right unit
+          and save again. If the coated board measures thinner than the uncoated
+          one, the form says so, so you can check the readings went in the right
+          boxes.
+        </P>
+        <H3>When it's out of spec</H3>
+        <P>
+          Saving an out-of-spec check emails the people chosen for out-of-spec
+          coating checks and tells you how many were emailed. If nobody is set up,
+          it asks you to tell your supervisor. The <strong>Who's notified</strong>{" "}
+          button, shown to ARC admins and listed on the Admin page, shows who is
+          emailed. ARC admins add people from the staff directory or remove them,
+          with no wait for a new version.
+        </P>
+        <H3>The log</H3>
+        <P>
+          The log opens on the current year. Filter by machine, show out-of-spec
+          checks only, or search; filters live in the URL. Columns sort and filter
+          from their headers, and on a phone the log is cards.{" "}
+          <strong>Anyone can record and correct a check</strong>; only{" "}
+          <strong>ARC admins can delete</strong> one.
+        </P>
+        <H3>Coating specs</H3>
+        <P>
+          The <strong>Specs</strong> button lists every spec: its limits in mm and
+          in inches (with mils for reference), the unit it was entered in, whether
+          one side or both sides are coated, and how many checks used it. Anyone
+          can see it, and on a phone it's a card per spec. <strong>ARC admins</strong>{" "}
+          add, edit, retire or delete specs,
+          entering the limits in mm or inches. Inch limits are three decimal
+          places, like 0.001.
+        </P>
+        <UL>
+          <LI>
+            <strong>Every check keeps the figures it was judged by</strong>, so
+            changing a spec never changes an old result.
+          </LI>
+          <LI>
+            A spec that has been used <strong>can't be deleted</strong>.{" "}
+            <strong>Retire</strong> it instead: it leaves the New check list, and the
+            checks already taken keep it.
+          </LI>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: "mcns",
+    title: "MCNs (Manufacturing Change Notices)",
+    group: "Operations",
+    keywords: [
+      "mcn",
+      "mcns",
+      "manufacturing change notice",
+      "mfgfrm-021",
+      "mwi-762",
+      "process change",
+      "equipment change",
+      "approve",
+      "approver",
+      "reject",
+      "reopen",
+      "implemented",
+      "distribution",
+      "distribution groups",
+      "manufacturing team",
+      "mcn settings",
+    ],
+    searchText:
+      "MCNs record changes to how product is made — a process, a material, a piece of equipment — replacing the MFGFRM-021 Word form and the old log list. Reach them from the MCNs card in the Operations part of the Dashboard or the Departments menu. Each MCN is one record: every box on MFGFRM-021 is a field, and supporting data is attached to it. ARC assigns the number, MCNyy###, the next one for the year. The register opens on open MCNs (Draft, Submitted, Approved); Implemented, Rejected and All are one click away. Search covers the number, process, departments, equipment, references and people. Columns sort and filter. Only the Manufacturing Team can raise an MCN with New MCN; it is saved as a Draft. Process is needed to save. Priority (Level 1 immediate, Level 2 by next build, Level 3 at convenience), the assigned engineer and the description are needed before it can be submitted. Departments are picked from the plant's department list; process and equipment are typed, as many lines as needed. Tick the distribution boxes. Supporting files can be attached on the New MCN form; they upload as soon as it is saved. On the MCN, each card has one Edit button. Submit for approval emails the approvers. The approver opens Approve and send: the people in the ticked distribution groups are listed, and the approver can remove anyone or add anyone from the staff directory, then approves and sends in one step; the record keeps who it was sent to and when. Reject needs a reason, and emails the originator and the assigned engineer. Once submitted the content is locked; once approved only the implementation details (date implemented, date codes or serial numbers affected) can change. To change anything else an approver reopens it to Draft, with a reason, and it goes through approval again; the reopen is recorded in the discussion. Mark implemented records the date and emails the people the approval went to. Everyone signed in can read MCNs, open attachments and comment; comments email watchers and anyone mentioned. MCNs are never deleted: a withdrawn change is rejected. MCN Settings, for MCN admins and ARC admins, lists the Manufacturing Team with who is a team member, an approver or an MCN admin, and the people in each of the eight distribution groups. While MCNs are being piloted only the team, the approvers and admins see them; everyone else sees MCNs — Coming soon.",
+    render: () => (
+      <>
+        <P>
+          <strong>MCNs</strong> record changes to how product is made — a process, a
+          material, a piece of equipment. They replace the MFGFRM-021 Word form and the old
+          log list (MWI-762). Reach them from the <strong>MCNs</strong> card in the
+          Operations part of the Dashboard, or the <strong>Departments</strong> menu.
+        </P>
+        <P>
+          Each MCN is one record: every box on MFGFRM-021 is a field, and supporting data is
+          attached to it. ARC assigns the number — <strong>MCNyy###</strong>, the next one
+          for the year.
+        </P>
+        <H3>The register</H3>
+        <UL>
+          <LI>It opens on open MCNs — Draft, Submitted and Approved. Implemented, Rejected and All are one click away.</LI>
+          <LI>Search covers the number, process, departments, equipment, the Requires… and Incorporate references, and people.</LI>
+          <LI>Every column sorts and filters from its header. On a phone the register is cards.</LI>
+          <LI>An approver sees <strong>Waiting for your approval</strong> with a count.</LI>
+        </UL>
+        <H3>Raising one</H3>
+        <P>
+          Only the Manufacturing Team sees <strong>New MCN</strong>. It is saved as a{" "}
+          <strong>Draft</strong>, and only Process is needed to save it. Before it can be
+          submitted it also needs a priority (Level 1 immediate, Level 2 by next build,
+          Level 3 at convenience), an assigned engineer and a description.
+        </P>
+        <UL>
+          <LI>Departments are picked from the plant's department list; process and equipment are typed, with as many lines as you need.</LI>
+          <LI>Tick the distribution boxes — they decide who the approver sends it to.</LI>
+          <LI>Add supporting files — a test report, photos — in the Attachments box on the form. They upload as soon as the MCN is saved; one that won't upload is named in a message so you can add it again from the MCN's Attachments card.</LI>
+          <LI>A half-written MCN survives navigating away (its files don't — add them again).</LI>
+        </UL>
+        <H3>Approval and after</H3>
+        <UL>
+          <LI><strong>Submit for approval</strong> emails the approvers. From then on the content is locked.</LI>
+          <LI><strong>Approve and send</strong> lists the people in the ticked distribution groups. The approver can remove anyone and add anyone from the staff directory, then approves and sends in one step. The MCN keeps who it went to, and when.</LI>
+          <LI><strong>Reject</strong> needs a reason, and emails the originator and the assigned engineer. A rejected MCN stays on record.</LI>
+          <LI>After approval only the <strong>Implementation</strong> card can change. To change anything else, an approver <strong>reopens it to Draft</strong> with a reason; it then goes through approval again, and the reopen is recorded in the discussion.</LI>
+          <LI><strong>Mark implemented</strong> records the date and the date codes or serial numbers affected, and emails the people the approval went to.</LI>
+        </UL>
+        <Tip>
+          Everyone signed in can read MCNs, open their attachments and comment. Comments
+          email the watchers and anyone you @-mention. MCNs are never deleted — a withdrawn
+          change is rejected.
+        </Tip>
+        <H3>MCN Settings</H3>
+        <P>
+          MCN admins and ARC admins see a <strong>Settings</strong> tab. It lists the
+          Manufacturing Team — who is a team member (raises and edits), an approver
+          (approves, rejects, reopens) and an MCN admin — and the people in each of the eight
+          distribution groups. A change applies to the next approval, not to MCNs already
+          sent.
+        </P>
+        <P>
+          While MCNs are being piloted, only the team, the approvers and admins can see them;
+          everyone else sees <strong>MCNs — Coming soon</strong>.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "plant-map",
+    title: "Plant Map",
+    group: "Operations",
+    keywords: [
+      "plant map",
+      "plant layout",
+      "floor plan",
+      "layout",
+      "walls drawing",
+      "svg",
+      "machine layout",
+      "overlap",
+      "keep-out",
+      "aisle",
+      "plant map roles",
+    ],
+    searchText:
+      "The Plant Map shows the plant's layouts drawn to scale over each building's walls drawing, with every machine, bench and rack where it stands. Reach it from the Plant Map card in the Operations part of the Dashboard or the Departments menu. Each layout version is a row on the Layouts list: Draft, Published or Superseded. Columns sort and filter. Open one to see it drawn; scroll to zoom, drag the floor to pan, turn labels on or off, and click an item on the plan or in the list below it to see its symbol, size, rotation and where it stands. Editors choose Edit layout on a draft; on a published layout Edit starts a new draft version or opens the existing one. Each building has a tab on the Layouts list. In the editor draw aisles and no-go areas with the Aisle and No-go tools (A, N), label, move, resize and turn them; anything standing in one is flagged by name. Drag symbols from the palette onto the plan, drag items to move them (snapping to the grid, or lining up with a nearby item or area's edge or centre with a dotted guide line; Alt to place freely), drag the round handle to turn and a corner to resize, set exact values, lock, duplicate, remove and link an item to its equipment-register asset. Arrows nudge, R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z undoes, Ctrl+S saves. Save draft saves; leaving with unsaved changes asks first. The placement check lists anything that overlaps another item, sits on a wall, column, aisle, dock, door swing, electrical clearance or other keep-out area, and outlines it in red (an item outside the building, such as an extinguisher or an exit, is fine); a symbol that isn't a rectangle, such as an L-shaped bench, is checked by its real outline. A draft can have problems; a Plant Map admin publishes it with Publish once there are none, and the version it replaces becomes Superseded. Publishing also saves a drawing of the whole plan and a table of every item and area for Power BI, listed under Files for Power BI on the layout's page. Some layouts have layers, such as Safety (extinguishers, fire exits, medical, severe-weather shelters): tick a layer, or one of its groups, under Layers to show it; a layer can start hidden, hidden items are still checked for problems, and picking a hidden item from a list shows its layer. In the editor an item's Layer and Group are set in the panel on the right, and a new copy of a symbol joins the layer its other copies are on. New layer under Layers makes a layer; each layer can be renamed, given groups, set to start hidden, and removed once nothing is on it. A Plant Map admin can delete a draft or superseded version (never the published one); its walls drawing is deleted too only when no other layout uses it, and both go to the SharePoint recycle bin. Editors start a new layout with New layout: a name, an area, and the building. An existing building reuses its walls drawing and can start with its aisles and no-go areas; a new building needs its walls drawing as an SVG in inches, which is reviewed before it's saved: confirm the building's size, see what ARC can and can't check, and choose which of its keep-outs become editable aisles and no-go areas. A drawing ARC can't use is refused with the reason. Floor markings and zones never count as overlapping. The Symbols tab shows the symbol library; a Plant Map admin adds a symbol from an SVG, a DXF saved from CAD (its size is read from it) or a picture ARC traces to an outline, with its name, category, real footprint, and whether it is solid, can be turned and can be resized. Replace on a symbol saves a new version; layouts keep the version they were drawn with until Update symbols (or Use v2 on one item) in a draft moves them to the latest. Retire takes a symbol off the palette (layouts that use it keep it); Restore brings it back. Only the people on the Plant Map Roles list see the Plant Map at all — viewers look, editors also build layouts, and Plant Map admins also publish, manage symbols and the list; ARC admins manage the list from the Admin page.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Plant Map</strong> shows the plant's layouts drawn to scale over each
+          building's walls drawing, with every machine, bench and rack where it stands. Reach
+          it from the <strong>Plant Map</strong> card in the Operations part of the Dashboard,
+          or the <strong>Departments</strong> menu.
+        </P>
+        <H3>Layouts</H3>
+        <UL>
+          <LI>Each version of a layout is its own row: <strong>Draft</strong>, <strong>Published</strong> or <strong>Superseded</strong>. Every column sorts and filters from its header.</LI>
+          <LI>A tab across the top for each building narrows the list to that building's layouts.</LI>
+          <LI>Open one to see it drawn. Scroll the mouse wheel (or use the + button) to zoom where the pointer is, and click and drag the floor to pan; names appear as items get big enough on screen. Turn them off with <strong>Show labels</strong>, and click an item — on the plan or in the list below it — to see its symbol, size, rotation and where it stands.</LI>
+        </UL>
+        <H3>Layers</H3>
+        <P>
+          Some layouts carry <strong>layers</strong> — sets of items shown and hidden together,
+          such as <strong>Safety</strong>: fire extinguishers, fire exits, medical (first aid,
+          AEDs, eye wash) and severe-weather shelters. Tick a layer under <strong>Layers</strong>{" "}
+          beside the plan to show it, or tick and untick its groups one at a time; the number
+          beside each is how many items it holds. A layer can start hidden, as Safety does. What
+          you show and hide is yours alone and isn't saved. Everything else on the plan is the
+          base plan and is always shown.
+        </P>
+        <UL>
+          <LI>Hidden items are still checked: a problem on a hidden layer is still listed, and picking it shows its layer.</LI>
+          <LI>The list of items has a <strong>Layer</strong> column, and picking a hidden item from it shows that layer.</LI>
+          <LI>In the editor, the panel on the right sets an item's <strong>Layer</strong> and <strong>Group</strong> (<strong>Base plan</strong> for none). A symbol whose other copies are all on one layer and group goes there when you add it — a new extinguisher joins the others. Hidden items can't be picked or moved on the plan, and nothing lines up with them.</LI>
+          <LI>In the editor, <strong>New layer</strong> under <strong>Layers</strong> makes a layer. Beside each layer and group: the pencil renames it, + adds a group, and the bin removes it — only once nothing is on it, so move its items off first. <strong>Starts hidden</strong> decides how it opens for everyone. All of it is saved with the draft, and Ctrl+Z undoes it.</LI>
+        </UL>
+        <H3>The placement check</H3>
+        <P>
+          Every layout is checked against its walls drawing. Anything that overlaps another
+          item, sits on a wall, a column or a keep-out area (an aisle, a dock, a door swing,
+          electrical clearance, an exit route) is outlined in red and listed beside the
+          plan. Floor markings and zones never count as overlapping. An item may sit outside
+          the building, such as a fire extinguisher or an emergency exit on an outside wall;
+          it is still checked against walls and other items there. A symbol that isn't a rectangle, such as an L-shaped bench, is checked
+          by its real outline, so something tucked into its corner doesn't count as an
+          overlap. A draft can have problems; it can't be published until they're fixed.
+        </P>
+        <H3>Publishing</H3>
+        <P>
+          A Plant Map admin publishes a draft with <strong>Publish</strong> on its page. The button
+          stays greyed out, saying why, until the placement check finds nothing wrong — and the
+          check runs again as it publishes. Publishing asks first: the draft becomes the{" "}
+          <strong>Published</strong> layout, and the version that was published before becomes{" "}
+          <strong>Superseded</strong>. A published layout can't be changed; <strong>Edit as a new
+          draft</strong> starts the next version. Nobody is emailed.
+        </P>
+        <H3>Files for Power BI</H3>
+        <P>
+          Publishing also saves two files in the Plant Layout Files library, under{" "}
+          <strong>published</strong>: a drawing of the whole plan (an SVG with the walls, the aisles
+          and no-go areas, and every item with its symbol), and a table of every item and area (a
+          CSV with its position and size in inches, its layer, its symbol and the equipment-register
+          asset it's linked to). Each item has the same id in both, so a report can colour the
+          drawing from the table. There are two copies of each: one for the version, kept as it
+          was, and a <strong>current</strong> one that every publish of that layout replaces —
+          point a Power BI report at the current files. They're listed under{" "}
+          <strong>Files for Power BI</strong> on the layout's page, to open in SharePoint or
+          download. If they couldn't be saved when the layout was published, or the layout was
+          published before they existed, a Plant Map admin presses{" "}
+          <strong>Save files for Power BI</strong> there.
+        </P>
+        <H3>Deleting a layout</H3>
+        <P>
+          A Plant Map admin can delete a <strong>Draft</strong> or <strong>Superseded</strong> version
+          with <strong>Delete</strong> on its page; the published version can't be deleted. Several
+          layouts often share one walls drawing — every version of a layout, and every layout in the
+          same building — so the drawing is deleted too only when no other layout uses it, and the
+          confirmation says which. Both go to the SharePoint recycle bin, where they can be restored
+          for 93 days.
+        </P>
+        <H3>Editing a layout</H3>
+        <P>
+          Editors see <strong>Edit layout</strong> on a draft. On a published layout the
+          button starts a new draft version (or opens the draft that already exists) — a
+          published layout itself is never changed.
+        </P>
+        <UL>
+          <LI>Drag a symbol from the palette on the left onto the plan. A preview follows the pointer and turns red where the item won't fit. Clicking a symbol drops one in the middle of the view.</LI>
+          <LI>Drag an item to move it; it snaps to the grid chosen under <strong>Snap</strong> (hold Alt to place it freely). When its edge or centre comes close to another item's or area's, across or down, it snaps into line and a dotted guide shows what it lined up with — handy for rows of desks and machines. Symbols dragged in from the palette line up the same way. Drag the round handle to turn it in 15° steps (Shift for single degrees). Drag a corner to resize it, where the symbol allows.</LI>
+          <LI>The panel on the right sets the label, the exact position, size and rotation, and links the item to its asset in the equipment register. <strong>Lock</strong> stops an item being moved by accident.</LI>
+          <LI>Keys: arrows nudge (Shift for one inch), R turns 90°, Ctrl+D duplicates, Delete removes, Ctrl+Z and Ctrl+Shift+Z undo and redo, Ctrl+S saves. Scroll to zoom where the pointer is; click and drag empty floor (or drag with the middle button) to pan.</LI>
+          <LI><strong>Aisle</strong> and <strong>No-go</strong> in the toolbar (or A and N) draw an area: drag a rectangle on the plan. Give it a label, and move, resize or turn it like equipment. Machines and benches can't stand in one — anything that does is flagged by the area's name; floor zones can. The walls drawing's own keep-outs can't be changed here.</LI>
+          <LI>The placement check updates as you drag. Nothing is saved until <strong>Save draft</strong>; leaving with unsaved changes asks first.</LI>
+        </UL>
+        <H3>Starting a layout</H3>
+        <P>
+          Editors see <strong>New layout</strong>: pick the building — or type a new name, which
+          starts a new building with its own tab — and give it a name and an area. A building
+          that already has layouts uses the walls drawing it already has, so there is nothing
+          to upload, and the new layout starts with that building's aisles and no-go areas
+          (untick the box to leave them out). Choose <strong>Upload a different drawing</strong>{" "}
+          if the building has changed. A new building needs its walls drawing — an SVG exported
+          from CAD, in inches, with a viewBox of the building's size. A drawing ARC can't use is
+          refused with the reason. A drawing it can use is shown for review before anything is
+          saved: the walls and columns ARC will check against are highlighted, anything it can't
+          check is listed, and you tick to confirm the building's size (every symbol is drawn to
+          scale against it). Its keep-out areas are listed too — ticked ones come off the drawing
+          and start as aisles and no-go areas on the layout, which you can label, move and resize
+          later; unticked ones stay part of the drawing. Door swings stay by default. The new layout starts with no equipment on it.
+        </P>
+        <Tip>
+          The check can only see walls, columns and keep-outs drawn as rectangles in groups
+          named walls, columns and keepout. A drawing without them still shows; the check
+          then only finds items overlapping each other or the layout's own areas.
+        </Tip>
+        <H3>Symbols</H3>
+        <P>
+          The <strong>Symbols</strong> tab shows the library a layout is built from — every machine,
+          bench, rack and desk, by category, at its real size. Search it by name or category.
+        </P>
+        <UL>
+          <LI>
+            A Plant Map admin adds one with <strong>Add symbol</strong>: pick the drawing, give it a
+            name, a category and its real width and depth in inches, and say whether it is solid or a
+            floor marking, can be turned and can be resized. The preview shows the symbol exactly as it
+            will be saved.
+          </LI>
+          <LI>
+            The drawing can be an SVG; a DXF saved from CAD — its real size is read from it, and text,
+            dimensions and hatching are left out; or a picture (PNG or JPG) of the machine seen from
+            above, which ARC traces to an outline — move the threshold until it looks right. A DWG has
+            to be saved as a DXF first, and a PDF exported as SVG or DXF, or saved as a picture.
+          </LI>
+          <LI>
+            The drawing is fitted into the footprint, keeping its proportions or stretched, and a small
+            notch marks the front (the bottom edge), so you can see which way it faces once turned.
+          </LI>
+          <LI>
+            A solid symbol that isn't a rectangle — an L-shaped bench, a machine with an open bay — can
+            have an <strong>outline</strong>: under <strong>Placement check</strong> choose{" "}
+            <strong>Only an outline I draw</strong> and click its corners in order around the solid
+            part on the preview (or type them as x,y pairs in inches). Then something standing in the
+            gap isn't counted as overlapping it. A new drawing or a new size clears the outline.
+          </LI>
+          <LI>
+            A <strong>label</strong> symbol, such as an area-label pill, has each item's own label
+            written inside it, sized to fit and turned the right way up — tick <strong>A label</strong>{" "}
+            on the form. Change an item's label in the editor to change what it says.
+          </LI>
+          <LI>
+            A Plant Map admin changes a symbol with <strong>Replace</strong> on its card. This saves a
+            new version (v2, v3 …): change its name, category or settings, or pick a new drawing — the
+            footprint can only change with a new drawing. The library and the palette show only the
+            latest version.
+          </LI>
+          <LI>
+            Layouts keep the version they were drawn with, so a published layout never changes when a
+            symbol is replaced. In a draft, the editor says how many items use an older version:
+            <strong> Update symbols</strong> moves them all to the latest, or <strong>Use v2</strong> in
+            the panel on the right moves one. Each keeps where it stands; one still at the old size takes
+            the new size, and one you resized keeps its size. It's an ordinary change — undo it, or save
+            the draft and publish it.
+          </LI>
+          <LI>
+            <strong>Retire</strong> on a symbol's card takes it off the palette, after a confirmation
+            that says which layouts use it. Those layouts keep it, drawn as it is, and the editor says
+            so when one of its items is picked. Nothing is deleted: tick <strong>Show retired</strong>{" "}
+            and press <strong>Restore</strong> to bring it back.
+          </LI>
+        </UL>
+        <H3>Roles</H3>
+        <P>
+          Only the people on the Plant Map Roles list see the Plant Map at all — anyone else
+          has no card on the Dashboard and no menu entry. <strong>Viewers</strong> look;{" "}
+          <strong>editors</strong> also start layouts and edit drafts; <strong>Plant Map
+          admins</strong> also publish layouts, manage the symbol library and choose who is on
+          the list, from the <strong>Roles</strong> tab. ARC admins manage the list too, from the
+          Admin page, without being on it themselves.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "reports",
+    title: "Reports",
+    group: "Reports",
+    keywords: [
+      "reports",
+      "dashboard chart",
+      "kpi",
+      "teradyne fpy",
+      "digital qc fpy",
+      "ignition qc fpy",
+      "fpy",
+      "first pass yield",
+      "yield",
+      "boards tested",
+      "boards failed",
+      "units tested",
+      "units failed",
+      "board test chart",
+      "power bi",
+      "trend",
+      "stacked bar",
+      "kiosk",
+      "kiosk view",
+      "cycle dashboards",
+      "monitor",
+      "fullscreen",
+      "updated time",
+      "last refreshed",
+      "auto refresh",
+      "passed count",
+      "defect breakdown",
+      "donut chart",
+      "defect categories",
+      "trend arrow",
+      "vs last month",
+      "month over month",
+      "failure rate",
+    ],
+    searchText:
+      "Reports is a small area of fixed dashboards — a handful of numbers people want live inside ARC, available for testing (it isn't in the top nav yet). Unlike Power BI, which still covers deeper or more flexible reporting, each one here is a fixed chart, not something you build yourself. Six reports today — a trend chart and a Defect Breakdown donut for each of Teradyne, Digital QC and Ignition QC. Each trend chart is a stacked bar per month (units passed at the bottom, with its own count labelled inside the blue segment, units failed capped on top, the total height is Units Tested) with a First Pass Yield percentage line over it, for the trailing three calendar months, always ending at the current month. Each Defect Breakdown is a donut chart for the latest month only: the center shows that month's total units tested, and the ring is segmented by defect category, with a legend naming each category's count and share. Teradyne Board Test & FPY and Teradyne Defect Breakdown read the Teradyne Log, grouping defects by their canned remark. Digital QC and Ignition QC's reports read the Digital QC and Ignition QC Defect Logs, grouping defects by their 14 fixed named categories. A month with nothing tested yet shows no FPY line rather than a misleading 0%; a month with nothing failed shows a plain empty donut state instead of an empty ring. Every report leads with this month's figure so far and a green or red arrow comparing it with last month in percentage points: FPY on the trend charts, failure rate on the Defect Breakdowns, where falling is green. It compares rates, not counts, and waits until 50 units are tested this month (or a quarter of last month's total if fewer). Each report refreshes itself automatically every couple of minutes and shows an Updated time in the lower-right corner. The kiosk view is a chrome-less, larger, fullscreen-friendly page that cycles through all six reports on its own — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, fading between them, with the kiosk's donut shown much larger and its legend smaller than on the ordinary report page. Meant for a spare monitor, and available for testing.",
+    render: () => (
+      <>
+        <P>
+          <strong>Reports</strong> holds a small set of fixed KPI dashboards.
+          It's available for testing and isn't in the top nav yet. Power BI
+          still covers deeper,
+          build-it-yourself reporting off these same SharePoint lists; Reports
+          is for the handful of numbers worth having live inside ARC itself.
+        </P>
+        <P>
+          Six reports today — a <strong>trend chart</strong> and a{" "}
+          <strong>Defect Breakdown</strong> donut for each of Teradyne,
+          Digital QC and Ignition QC. Every report shows an{" "}
+          <strong>"Updated"</strong> time in the lower-right corner, since
+          each refreshes itself automatically every couple of minutes without
+          needing a click.
+        </P>
+        <P>
+          Each trend chart is a stacked bar per month —{" "}
+          <strong>units passed</strong> at the bottom,{" "}
+          <strong>units failed</strong> capped on top, so the bar's full
+          height is Units Tested — with a{" "}
+          <strong>First Pass Yield (FPY%)</strong> line over it, always
+          showing the trailing three calendar months, ending at the current
+          month. Above each bar, <strong>Total:</strong> gives the units
+          tested that month, with <strong>Failed:</strong> (in red) directly
+          below it. A month with nothing tested yet shows no point on the FPY
+          line for that month, rather than a misleading 0%.
+        </P>
+        <P>
+          Each Defect Breakdown is a <strong>donut chart</strong> for the
+          latest month only — the center shows that month's total units
+          tested, and the ring is segmented by defect category, with a
+          legend beside it naming each category's count and share of what
+          failed. A month with nothing failed shows a plain "No defects
+          logged" message instead of an empty ring.
+        </P>
+        <H3>The trend vs last month</H3>
+        <P>
+          Every report leads with <strong>this month's figure so far</strong>{" "}
+          and an arrow showing how it compares with last month, in
+          percentage points. The trend charts show FPY. The Defect
+          Breakdowns show the <strong>failure rate</strong>, the share of
+          units that failed. A <strong>green</strong> arrow means better and
+          a <strong>red</strong> one means worse, so a falling failure rate
+          is green.
+        </P>
+        <P>
+          It compares rates, not counts. This month isn't over, so it has
+          always tested fewer units than last month, and that isn't a drop.
+          Early in the month the arrow waits until 50 units are tested, or
+          a quarter of last month's total if that's fewer. Until then it
+          says how many have been tested so far. If nothing was tested last
+          month, it says there's nothing to compare with.
+        </P>
+        <H3>Teradyne Board Test & FPY / Teradyne Defect Breakdown</H3>
+        <P>
+          Off the same Teradyne Log data the Teradyne Log screen already
+          uses — there's nothing new to fill in. The Defect Breakdown groups
+          that month's failures by their canned remark.
+        </P>
+        <H3>Digital QC Board Test & FPY / Digital QC Defect Breakdown</H3>
+        <P>
+          Off the same Digital QC Defect Log data the Digital QC screen
+          already uses, merged across every product family. The Defect
+          Breakdown groups that month's failures by the log's 14 fixed
+          defect categories.
+        </P>
+        <H3>Ignition QC Board Test & FPY / Ignition QC Defect Breakdown</H3>
+        <P>
+          Off the same Ignition QC Defect Log data the Ignition QC screen
+          already uses, merged across every product family. The Defect
+          Breakdown groups that month's failures by the log's 14 fixed
+          defect categories.
+        </P>
+        <H3>Kiosk view</H3>
+        <P>
+          The kiosk view is a chrome-less page (no header, no nav, no Back button) that cycles
+          through all six reports on its own, one minute each, with a fade
+          between them — a trend chart, then that source's Defect Breakdown,
+          for each of Teradyne, Digital QC and Ignition QC in turn. Every
+          chart is shown larger than on its normal page, each trend chart
+          shows the passed count inside its blue segment, and each Defect
+          Breakdown's donut fills most of the screen with a large,
+          easy-to-read legend beside it. A small Fullscreen button in the corner puts the browser
+          itself into fullscreen. It's meant for a monitor or kiosk display
+          and is available for testing.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "panel-orders",
     title: "Panel Orders",
     group: "Panels",
@@ -2278,9 +3460,16 @@ const SECTIONS: ManualSection[] = [
       "panel team",
     ],
     searchText:
-      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. The Open pill counts everything not Shipped. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
+      "Panel Orders, Panel Tasks, Panel Engineering Capacity and the Panel Project Dashboard are in live testing with the panel Super Users; until they open, everyone else sees them as Coming soon. Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. An order's page opens read-only: the Edit button on each section — the title, Order, Customer and Order Notes — opens its fields, and Save changes saves them; Cancel leaves the order as it was. Watch, watchers, comments, attachments and ticking an Order Notes checklist still work straight away. The Project Reference on an order is a link to that project's Panel Project Dashboard. Create standard tasks, ticked by default, also creates the order's standard tasks — Drawing Creation, BOM Creation, SOO Creation and Programming — on its project with their usual hours, assigned to the order's engineer or to nobody if none is picked; they wait in the Panel Engineering Capacity backlog to be scheduled, and the engineer gets one email listing them. The standard tasks run in order: the first starts as New and the rest wait as Awaiting Pre-Req, and when one is Completed (or Canceled) the next becomes Ready and the people assigned to it get an email. Putting the order On Hold puts its open tasks On Hold - Internal, and taking it off hold puts each back where it was. Orders and their tasks have a SAP # field, separate from the Sales Order; the tasks start with the order's. An order also has a Drawing Number, the panel's drawing (for example 5900-FLX36-V2-007), which the search covers. Orders moved from the old Panel Job Dashboard carry the drawing number they had there, and are linked to the Panel Project Reference whose DWG NO matches it when exactly one does. Changing the order's engineer later doesn't move the tasks. An order's page lists its tasks, and Create standard tasks there adds any it's missing. A panel Manager, Admin or Super User, or an ARC admin, changes the standard tasks on the Standard tasks screen. The Open pill counts everything not Shipped. The list opens on active orders; finished orders moved from the old Panel Job Dashboard list are Archived, and the Active / Archived / All switch shows them. An archived order's page says it was moved and shows the date it was created on the old list. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
     render: () => (
       <>
+        <P>
+          <strong>Live testing:</strong> Panel Orders, Panel Tasks, Panel
+          Engineering Capacity and the Panel Project Dashboard are being tested
+          by the panel Super Users. Until they open, everyone else sees them as{" "}
+          <strong>Coming soon</strong> on the Dashboard and in the Departments
+          menu.
+        </P>
         <P>
           <strong>Panel Orders</strong> is the Panels department's first ARC
           feature — the panel production team's view of panel sales orders,
@@ -2301,6 +3490,21 @@ const SECTIONS: ManualSection[] = [
           orders are the ones where you're the assigned engineer or a
           watcher.
         </P>
+        <P>
+          The list opens on <strong>Active</strong> orders. Finished orders
+          moved over from the old <em>Panel Job Dashboard</em> list are{" "}
+          <strong>Archived</strong> and stay out of the way until you pick{" "}
+          <strong>Archived</strong> or <strong>All</strong> above the status
+          pills. An archived order's page says it came from the old list and
+          shows the date it was created there. Moved orders keep the{" "}
+          <strong>Drawing Number</strong> they had on the old list, and are
+          linked to their <strong>Project Reference</strong> when the drawing
+          number names exactly one panel project; the rest are left without a
+          project for you to set. Archived orders don't count
+          on the Dashboard card, aren't offered when linking a BOM to an
+          order, and don't offer to create standard tasks. The list shows
+          the first 150 orders; <strong>Show all</strong> brings in the rest.
+        </P>
         <H3>Creating an order</H3>
         <P>
           Click <strong>New Panel Order</strong>. Title is required;
@@ -2310,17 +3514,77 @@ const SECTIONS: ManualSection[] = [
           edited later from the detail page. New orders start as{" "}
           <strong>Submitted</strong> and you're auto-added as a watcher.
         </P>
+        <H3>Standard tasks</H3>
+        <P>
+          <strong>Create standard tasks</strong>, ticked by default on the New
+          Panel Order form, also creates the order's tasks — what Wrike's New
+          Production Order form and blueprint did: <strong>Drawing
+          Creation</strong>, <strong>BOM Creation</strong>,{" "}
+          <strong>SOO Creation</strong> and <strong>Programming</strong>, each
+          with its usual hours, on the order's project and linked to the
+          order. If you pick an <strong>Engineer Assigned</strong>, every task
+          is assigned to them, and they get one email listing them all; leave
+          it blank and the tasks are unassigned. Either way they have no dates
+          yet, so they wait in the Panel Engineering Capacity backlog to be
+          dragged onto a day. Any task can be reassigned on its own later, and
+          changing the order's engineer afterwards doesn't move them. Each
+          task also starts with the order's <strong>SAP #</strong>.
+        </P>
+        <P>
+          The tasks run <strong>in order</strong>, as in Wrike: Drawing
+          Creation starts as <strong>New</strong> and the others wait as{" "}
+          <strong>Awaiting Pre-Req</strong>. When a task is set to{" "}
+          <strong>Completed</strong> (or <strong>Canceled</strong>), the next
+          one becomes <strong>Ready</strong> and the people assigned to it get
+          an email saying it's ready to start. It keeps whoever it was assigned
+          to. A waiting task's page says which tasks it's waiting for. A task
+          somebody has already started isn't changed.
+        </P>
+        <P>
+          Setting the order to <strong>On Hold</strong> puts each of its open
+          tasks <strong>On Hold - Internal</strong>, and the task's page says
+          what it will go back to. Setting the order to any other status takes
+          them off hold, each back to the status it had. Completed and Canceled
+          tasks aren't touched, and a task you moved yourself while the order
+          was on hold keeps what you gave it.
+        </P>
+        <P>
+          The order's page has a <strong>Tasks</strong> card listing them.
+          For an order made before this, or one whose tasks didn't all save,{" "}
+          <strong>Create standard tasks</strong> there adds only the ones it's
+          missing. A panel Manager, Admin or Super User, or an ARC admin,
+          changes the list itself — the tasks' names, types, hours and order —
+          on the <strong>Standard tasks</strong> screen, from the button on
+          Panel Orders. A change applies to new orders; tasks already created
+          keep what they were given.
+        </P>
         <H3>The detail page</H3>
         <P>
-          Everything is edited in place: the title inline, the sidebar's
-          Status / Project Reference / Engineer / order-number / customer
-          fields directly, and <strong>Order Notes</strong> as an editable
-          card that supports the same <code>- [ ]</code> checklists as a
-          task Description — checked boxes record who and when, unchecking
-          asks "Are you sure?", and toggles email the watchers and engineer.
-          Comments (with @-mentions and auto-watch), Watchers, and file
-          attachments work exactly like tasks and EIRs. Status changes and
-          engineer changes send the same email alerts other departments get.
+          An order's page opens <strong>read-only</strong>, so reading an
+          order can't change it by accident. Each section has its own{" "}
+          <strong>Edit</strong> button: the title, <strong>Order</strong>{" "}
+          (Status, Project Reference, Engineer Assigned, Sales Order, SAP #,
+          Drawing Number, Purchase Order), <strong>Customer</strong> (Customer, Customer
+          Reference, Customer Contact Email) and <strong>Order Notes</strong>.
+          Edit opens that section's fields; <strong>Save changes</strong>{" "}
+          saves only what you changed, and <strong>Cancel</strong> leaves the
+          order as it was.
+        </P>
+        <P>
+          The <strong>Project Reference</strong> — in the sidebar and on the
+          chip above the title — is a link to that project's{" "}
+          <strong>Panel Project Dashboard</strong>, with every order, task
+          and comment on the project.
+        </P>
+        <P>
+          <strong>Order Notes</strong> support the same <code>- [ ]</code>{" "}
+          checklists as a task Description — ticking a box works without
+          pressing Edit, records who and when, unchecking asks "Are you
+          sure?", and toggles email the watchers and engineer. Watch,
+          Watchers, comments (with @-mentions and auto-watch) and file
+          attachments work straight away, exactly like tasks and EIRs. Status
+          changes and engineer changes send the same email alerts other
+          departments get.
         </P>
         <H3>Admin lists</H3>
         <P>
@@ -2334,6 +3598,76 @@ const SECTIONS: ManualSection[] = [
           Engineer, Admin, Viewer) — one row per user per role. Roles don't
           lock any panel order fields yet; they're recorded now so
           field-level permissions can be switched on later.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-project-dashboard",
+    title: "Panel Project Dashboard",
+    group: "Panels",
+    keywords: [
+      "panel project dashboard",
+      "panel project",
+      "project dashboard",
+      "project reference",
+      "panel project reference",
+      "panel overview",
+    ],
+    searchText:
+      "The Panel Project Dashboard is the level above Panel Orders and Panel Tasks: everything on one Panel Project Reference in one place. Reach it from the Dashboard's Panel Project Dashboard card, the Departments menu's Panels group, or the Project Reference link on any Panel Order. The first screen lists every project with its customer, type, how many orders it has, how many orders and tasks are still open, and when anything on it last changed; it opens on the most recent activity, sorts and filters by column, searches, and can show only projects with open orders or tasks. The list also counts each project's customers, and on a phone it's cards with a Sort by picker. Open a project to see its details, its orders, its tasks, the BOMs on its orders (for the panel team), and every comment posted on any of its orders or tasks, newest first, each saying where it was posted. A task counts when its project is this one or it was raised for one of the project's orders. A project whose orders are for several customers shows a pill per customer with its order count; clicking one narrows the page to that customer's orders, the tasks raised for them, their BOMs and their comments, and the choice is kept in the link. Tasks tied to no order are hidden while a customer is picked, and the page says how many. The dashboard is read-only: every order, task, BOM and comment links to its own page, where it's changed, and Open in Panel Orders and Open in Panel Tasks open those lists filtered to the project.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Panel Project Dashboard</strong> is the level above
+          Panel Orders and Panel Tasks: everything on one{" "}
+          <strong>Panel Project Reference</strong> in one place. Reach it from
+          its card on the Dashboard, the <strong>Departments</strong>{" "}
+          menu's Panels group, or the <strong>Project Reference</strong> link
+          on any Panel Order.
+        </P>
+        <H3>The project list</H3>
+        <P>
+          One row per project: its customer and type, how many orders it
+          has, how many orders and tasks are still open, and when anything
+          on it last changed. It opens on the most recent activity; click a
+          column heading to sort or filter, search across the project
+          number, description, customer and DWG number, and tick{" "}
+          <strong>Only projects with open orders or tasks</strong> to hide
+          finished ones.
+        </P>
+        <H3>One project</H3>
+        <P>
+          A project's page shows its details, then its{" "}
+          <strong>Orders</strong>, its <strong>Tasks</strong>, the{" "}
+          <strong>BOMs</strong> on its orders (for the panel team, like the
+          BOM Builder), and the <strong>Discussion</strong> — every comment
+          on any of its orders or tasks, newest first, each saying which
+          order or task it was posted on. A task belongs to the project when
+          its Project Reference is this project, or when it was raised for
+          one of the project's orders.
+        </P>
+        <P>
+          A repeat panel is often built for several customers. When a
+          project's orders are for more than one, a{" "}
+          <strong>Customers</strong> row shows a pill per customer with its
+          number of orders. Click one to narrow the whole page — orders, the
+          tasks raised for them, BOMs and discussion — to that customer;
+          click it again, or <strong>All customers</strong>, to see
+          everything. The choice is in the link, so it can be shared. Tasks
+          tied to no order have no customer, so they're hidden while a
+          customer is picked, and the Tasks card says how many.
+        </P>
+        <P>
+          On a phone the lists are cards, with a <strong>Sort by</strong>{" "}
+          picker in place of the column headings.
+        </P>
+        <P>
+          The dashboard is <strong>read-only</strong>. Every order, task, BOM
+          and comment links to its own page, and that's where it's changed or
+          replied to. <strong>Open in Panel Orders</strong> and{" "}
+          <strong>Open in Panel Tasks</strong> open those lists filtered to
+          the project.
         </P>
       </>
     ),
@@ -2354,7 +3688,7 @@ const SECTIONS: ManualSection[] = [
       "panel work",
     ],
     searchText:
-      "Panel Tasks is the panel team's task list on the ALTRONICPANELTEAM SharePoint site — drawings, SOOs, quotes, and administrative work. Each task has a title, status (Pending, In Process, On Hold, Complete), a Task Type (Drawings, SOO, Quote, Administrative), a single Assigned person, a project reference picked from the same Panel Project Reference list panel orders use, a Description that supports checklists, watchers, attachments, and comments with @-mentions. Reach it from the Dashboard's Panel Tasks card or the Departments dropdown's Panels group. Create with New Panel Task; new tasks start Pending and you're auto-added as a watcher. The Open pill counts everything not Complete. Status changes, assignee changes, comments, and checklist toggles send email like the other departments.",
+      "Panel Tasks is the panel team's task list on the ALTRONICPANELTEAM SharePoint site — drawings, SOOs, quotes, and administrative work. Each task has a title, a status from the panel team's Panel Workflow (New, Pending Scheduling, Ready, In Progress, Revision Needed, Awaiting Pre-Req, Possible Support, Completed, On Hold - Approval, On Hold - Internal, Canceled — grouped Active, On Hold, Completed, Canceled), a Task Type (Drawings, SOO, Quote, Administrative), a single Assigned person, a project reference picked from the same Panel Project Reference list panel orders use, a Description that supports checklists, watchers, attachments, and comments with @-mentions. Reach it from the Dashboard's Panel Tasks card or the Departments dropdown's Panels group. Create with New Panel Task; new tasks start New and you're auto-added as a watcher. The Open pill counts everything not Completed or Canceled; the other pills count each group. Status changes, assignee changes, comments, and checklist toggles send email like the other departments. A task also has a SAP # field. A Panel Order's standard tasks run in order: a task waiting its turn is Awaiting Pre-Req, its page names what it waits for, and it becomes Ready when those are done.",
     render: () => (
       <>
         <P>
@@ -2367,8 +3701,13 @@ const SECTIONS: ManualSection[] = [
         <H3>The task list</H3>
         <P>
           Status pills sit above the list — <strong>Open</strong> counts
-          everything not yet Complete, and one pill each for Pending, In
-          Process, On Hold, and Complete. The filter bar adds Project
+          everything not yet Completed or Canceled, then one pill per status
+          group: <strong>Active</strong> (New, Pending Scheduling, Ready, In
+          Progress, Revision Needed, Awaiting Pre-Req, Possible Support),{" "}
+          <strong>On Hold</strong> (On Hold - Approval, On Hold - Internal),{" "}
+          <strong>Completed</strong> and <strong>Canceled</strong>. These are
+          the panel team's Panel Workflow from Wrike, grouped the way Wrike
+          groups them. The filter bar adds Project
           Reference, Assigned, and the multi-keyword Search; all filters live
           in the URL so a filtered view is shareable. The Dashboard card's
           click-through carries your <em>mine</em> scope as a dismissible chip
@@ -2377,9 +3716,18 @@ const SECTIONS: ManualSection[] = [
         <H3>Creating &amp; working a task</H3>
         <P>
           Click <strong>New Panel Task</strong>. Only the title is required;
-          Task Type, Assigned person, project reference, and description are
-          optional and editable later. New tasks start as{" "}
-          <strong>Pending</strong> and you're auto-added as a watcher. On the
+          Task Type, Assigned, project reference, and description are
+          optional and editable later. A task can have{" "}
+          <strong>more than one person assigned</strong>; Panel Engineering
+          Capacity splits its hours evenly between them. The types are
+          Drawings, BOM, SOO, Programming, Quote and Administrative.{" "}
+          <strong>Work Type</strong> (Production Order, Non-Production,
+          Improvement / Internal) and <strong>Priority</strong> (High, Medium,
+          Low) are the panel team's Wrike fields: pick them as pills on the
+          form or in the task page's sidebar, see them as chips on the list,
+          and filter the list by either. A Panel Order's standard tasks are
+          Production Order. New tasks start as{" "}
+          <strong>New</strong> and you're auto-added as a watcher. On the
           detail page everything edits in place — the title inline, the
           sidebar's Status / Task Type / Project Reference / Assigned fields
           directly, and the <strong>Description</strong> as a card that
@@ -2389,6 +3737,251 @@ const SECTIONS: ManualSection[] = [
           department. Panel tasks share the <em>Panel Project Reference</em>{" "}
           list with panel orders, and admins manage it at{" "}
           <code>/admin/panel-projects</code>.
+        </P>
+        <H3>Scheduling a task</H3>
+        <P>
+          A task also has a <strong>Start date</strong>, a{" "}
+          <strong>Due date</strong> and <strong>Estimated hours</strong>, on
+          the New Panel Task form and in the task page's sidebar. With an
+          assignee, both dates and the hours, the task appears on{" "}
+          <strong>Panel Engineering Capacity</strong>; the sidebar says whether it's
+          there and, if not, what's missing.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-capacity",
+    title: "Panel Engineering Capacity & Panel Time Off",
+    group: "Panels",
+    keywords: [
+      "capacity",
+      "workload",
+      "overloaded",
+      "wrike",
+      "time off",
+      "vacation",
+      "pto",
+      "where am i",
+      "estimated hours",
+      "backlog",
+      "company holiday",
+      "holiday",
+      "amber",
+      "engineer",
+    ],
+    searchText:
+      "Panel Engineering Capacity shows each panel engineer's task hours day by day or week by week against 8 hours a day less time off. Everyone with the Engineer role on Panel User Roles gets a row, and so does anyone an ARC admin sets On capacity for there; a task assigned only to people without a row waits in the backlog until it's dragged onto one. A task's estimated hours are spread evenly over the working days, Monday to Friday, between its start and due dates, and split evenly between its assignees. Blue is up to 85% of capacity, amber over 85%, red over 100%; a week is red if any day in it is. A panel Super User or an ARC admin can change where amber starts. A company holiday takes the day off everyone. Click a person to see their task bars, click a day to see the tasks behind it. Hover a bar for its hours a day and total. In Days view, plan by dragging: move a bar, drag an end to change a date, drag a bar onto another person, or drag a backlog task onto a person and a day. Nothing saves until Save changes, which is when the assignment emails go out; Discard throws the plan away. Tasks with no assignee, dates or hours wait in the backlog with the reason. Complete tasks don't count. Panel Time Off records who is out, the first and last day, and hours off each day; a whole day off moves the person's task hours to the days around it, a part day lowers that day's capacity. A panel Super User or an ARC admin can mark an entry as a company holiday, with no person; it applies to everyone. Both are for people on Panel User Roles and ARC admins; Viewers can look but not change time off.",
+    render: () => (
+      <>
+        <P>
+          <strong>Panel Engineering Capacity</strong> answers "who on the panel team
+          is overloaded, and when". Each row is an engineer, each column a day
+          (or, with <strong>Weeks</strong>, a week), and each cell is the
+          hours their tasks need that day against 8 hours, less any time off.
+          Reach it from the Dashboard card or the Departments menu's Panels
+          group; <strong>Today</strong> and the arrows move through the
+          weeks.
+        </P>
+        <H3>How the hours are worked out</H3>
+        <P>
+          A task's estimated hours are spread evenly over the working days
+          (Monday to Friday) from its start date to its due date. With more
+          than one person assigned, the hours are split evenly between them,
+          as Wrike does — a 20-hour task for two people is 10 hours each, each
+          share spread over that person's own days. A cell is{" "}
+          <strong>blue</strong> up to 85% of the day's capacity,{" "}
+          <strong>amber</strong> over 85%, and <strong>red</strong> over 100%,
+          marked with a "!". In week view a week is red if any day in it is,
+          because a full week can still hide one overloaded day. Completed and
+          Canceled tasks don't count.
+        </P>
+        <P>
+          Only people with the <strong>Engineer</strong> role on Panel User
+          Roles get a row. A task whose assignees include an engineer shows on
+          that engineer's row, at their share; a task assigned only to people
+          who aren't engineers waits in the backlog, saying so, until it's
+          dragged onto one. An ARC admin can give someone without the
+          Engineer role a row too, by setting <strong>On capacity</strong> to
+          Yes on their row in Admin → Panel User Roles.
+        </P>
+        <P>
+          Where amber starts is shown above the grid. A panel{" "}
+          <strong>Super User</strong> or an ARC admin can press{" "}
+          <strong>Change</strong> beside it and set a whole percentage from 50
+          to 100; it changes for everyone.
+        </P>
+        <H3>Seeing what's behind a number</H3>
+        <P>
+          Click a person's name to see their tasks as bars across the days
+          they span, or <strong>Expand all</strong> for everyone. Click a cell
+          to list the tasks behind its hours. Tasks with no assignee, no dates
+          or no estimated hours can't be placed, so they wait in the{" "}
+          <strong>Backlog</strong> under the grid, each with what's missing.
+        </P>
+        <H3>Planning on the grid</H3>
+        <P>
+          Hover a task bar to see its hours a day, its total and its dates.
+          In <strong>Days</strong> view you can plan by dragging:
+        </P>
+        <ul className="mb-3 ml-5 list-disc space-y-1 text-sm text-fg">
+          <li>Drag a bar to move the task; drag its left or right end to change the start or due date.</li>
+          <li>
+            Drag a bar onto another person's row to hand that person's part of the task over —
+            the other assignees stay on it.
+          </li>
+          <li>
+            Drag a <strong>Backlog</strong> task onto a person and a day to assign it to
+            them and schedule it — grab it anywhere on its row except the title, which opens the task. A
+            task with no dates starts that day and runs as many days as its hours
+            need at 8 a day; one with dates keeps its length.
+          </li>
+        </ul>
+        <P>
+          <strong>Nothing is saved while you plan.</strong> The cells
+          recalculate as you go and changed tasks are outlined; a bar at the
+          top counts the unsaved changes. Press{" "}
+          <strong>Save changes</strong> to save them all, which is when the
+          assignment emails go out (one per newly assigned task, with its
+          due date), or <strong>Discard</strong> to throw the plan away.
+          If you leave the page before saving, the plan is kept in this
+          browser and comes back next time, marked "kept from your last
+          visit" (for up to a week; anything since finished or saved
+          elsewhere drops out). Escape cancels a drag. The total hours never change, so a longer task has
+          fewer hours a day. Dragging works with a mouse; on a phone or
+          tablet, change the task on its own page. Viewers can't drag.
+        </P>
+        <H3>Panel Time Off</H3>
+        <P>
+          <strong>Panel Time Off</strong> is the panel team's own "Where am
+          I?". Add who is out, the first and last day, and the hours off each
+          day (blank means the whole day). A whole day off moves that
+          person's task hours onto the days around it and shows as "Off"; a
+          part day only lowers that day's capacity. On a computer it's a month
+          calendar, like Where Am I?: each time off shows on every day it
+          covers, with the hours for a part day. Click a day's date to see
+          everyone off that day in a panel beside the calendar, or the{" "}
+          <strong>+</strong> on a day (or the empty part of it) to add time off
+          starting that day; click an entry to change or remove it.{" "}
+          <strong>List</strong> shows the same entries as a table, opening on
+          what's current or coming up; tick <strong>Show past</strong> for the
+          rest. A phone shows the list.
+        </P>
+        <P>
+          A panel <strong>Super User</strong> or an ARC admin also sees{" "}
+          <strong>Company holiday</strong> on the form. Ticking it drops the
+          person: the entry is everyone's, shows first on its days as
+          "Company holiday", and takes the day off every engineer on the
+          capacity grid. Anyone else sees a company holiday but can't change
+          it.
+        </P>
+        <H3>Who can use them</H3>
+        <P>
+          Both are for people on <strong>Panel User Roles</strong> and for ARC
+          admins, who add people there (Admin → Panel User Roles). Anyone with
+          a role can look; a Viewer can't add or change time off. Changing
+          where amber starts and entering company holidays is for a panel
+          Super User or an ARC admin.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-bom-builder",
+    title: "Panel SAP BOM Builder",
+    group: "Panels",
+    keywords: [
+      "bom",
+      "bill of materials",
+      "sap bom",
+      "bom builder",
+      "kit",
+      "kits",
+      "parts list",
+      "panel parts database",
+      "cluster",
+      "item number",
+      "copy for sap",
+      "cogs",
+      "cost",
+      "do not quote",
+      "dnq",
+    ],
+    searchText:
+      "The Panel SAP BOM Builder picks parts and kits from the panel parts list and turns them into SAP-ready BOM lines — Item, L, Qty and SAP # — to copy into SAP. Reach it from the Dashboard card or the Departments menu's Panels group; it's for people on Panel User Roles and ARC admins. It starts as a limited preview: until it opens to the panel team, only panel Super Users can use it and everyone else sees Coming soon. Parts are grouped by cluster and category; search covers SAP #, MFG #, description and category, and the Preferred only, Standard only and Hide Do-Not-Quote chips narrow the list. Click a Qty if used figure to use it. Picking a kit adds every component at its per-kit quantity; picking one of its parts as well adds extras on top. Quantities of the same SAP # are added together onto one line. Item numbers band by cluster: cluster 0 runs 10, 20, 30, and cluster 1 starts at 1000, cluster 2 at 2000, stepping by 10. A kit component with no SAP # is listed in red to enter in SAP by hand, as is an SAP # that isn't on the parts list. Copy for SAP copies the lines; SAP takes about 28 rows per paste, so a longer BOM is copied in numbered blocks, each ticked once copied. CSV downloads the BOM named after the Panel System #. Cost is SAP's current cost, read from SAP for you; if your account can't read SAP costs, cost is hidden. Save BOM keeps a BOM with its Panel System #, notes and, optionally, its Panel Order — which can be added later; saved BOMs are listed under Saved BOMs and on the Panel Order's page. Changes you haven't saved are kept in this browser and come back with a notice. A panel Super User or an ARC admin keeps the parts and kits up to date on Parts & kits; a part or kit that's no longer used is retired rather than deleted.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Panel SAP BOM Builder</strong> builds the SAP bill of
+          materials for a control panel. Pick parts and kits from the panel
+          parts list, set the quantities, and copy SAP-ready lines —{" "}
+          <strong>Item, L, Qty, SAP #</strong> — straight into SAP. Reach it
+          from the Dashboard card or the Departments menu's Panels group. It's
+          for the panel team: anyone on Panel User Roles, and ARC admins.
+        </P>
+        <Tip>
+          <strong>It starts as a limited preview.</strong> Until it opens to
+          the panel team, only panel <strong>Super Users</strong> can use it;
+          everyone else sees it as <strong>Coming soon</strong> on the
+          Dashboard and in the Departments menu.
+        </Tip>
+        <H3>Picking parts and kits</H3>
+        <P>
+          The left column lists the ten clusters; the middle column shows
+          their parts and kits by category. Search covers SAP #, MFG #,
+          description and category, and the <strong>Preferred only</strong>,{" "}
+          <strong>Standard only</strong> and <strong>Hide Do-Not-Quote</strong>{" "}
+          chips narrow the list (Do Not Quote parts are hidden until you ask,
+          unless one is already on the BOM). Use − and + or type a quantity;
+          click a <strong>Qty if used</strong> figure to use it.
+        </P>
+        <P>
+          Picking a <strong>kit</strong> adds every component at its per-kit
+          quantity. Picking one of its parts as well adds extras on top — the
+          two are added together onto one line.
+        </P>
+        <H3>The SAP BOM</H3>
+        <P>
+          The right column is the BOM as SAP will take it: one line per SAP #,
+          in parts-list order. Item numbers band by cluster — cluster 0 runs
+          10, 20, 30…, cluster 1 starts at 1000, cluster 2 at 2000, and so on,
+          stepping by 10. Anything that can't be pasted is listed in red to{" "}
+          <strong>enter in SAP by hand</strong>: a kit component with no SAP #,
+          or an SAP # that isn't on the parts list.
+        </P>
+        <P>
+          <strong>Copy for SAP</strong> copies the lines. SAP takes about 28
+          rows per paste, so a longer BOM is copied in numbered blocks — paste
+          each in order; each is ticked once copied, and the ticks clear if the
+          BOM changes. <strong>CSV</strong> downloads the BOM, named after the
+          Panel System #.
+        </P>
+        <Tip>
+          <strong>Cost is SAP's current cost</strong>, read from SAP for you —
+          an estimate, not a quote price. If your account can't read SAP
+          costs, the cost columns are hidden and the screen says so.
+        </Tip>
+        <H3>Saving a BOM</H3>
+        <P>
+          Enter the <strong>Panel System #</strong> and press{" "}
+          <strong>Save BOM</strong>. You can pick its{" "}
+          <strong>Panel Order</strong> now or later; a saved BOM is listed
+          under <strong>Saved BOMs</strong> and on its Panel Order's page,
+          where <strong>New BOM</strong> starts one already pointed at the
+          order and <strong>Link a saved BOM</strong> attaches one saved
+          without an order. Open a saved BOM to change it, copy it into SAP
+          again, or <strong>Save as new</strong> for a copy. If the parts or
+          kits have changed since a BOM was saved, it says so. Changes you
+          haven't saved are kept in this browser and come back with a notice.
+          Viewers can build and copy a BOM but not save one.
+        </P>
+        <H3>Keeping the parts and kits up to date</H3>
+        <P>
+          <strong>Parts &amp; kits</strong> lists everything the builder
+          offers. A panel <strong>Super User</strong> or an ARC admin adds and
+          changes parts and kits there; a part or kit that's no longer used is
+          set to <strong>Active: No</strong> rather than deleted, so it leaves
+          the picker but stays on any BOM that uses it.
         </P>
       </>
     ),
@@ -2686,11 +4279,26 @@ const SECTIONS: ManualSection[] = [
       "controlled form",
       "altmode",
       "firing angle",
-      "varispark",
+      "at spec",
+      "n/a",
+      "oven",
+      "95c",
       "evs",
+      "export",
+      "pdf",
+      "blank form",
+      "print",
+      "get-1",
+      "ge transportation",
+      "ecu",
+      "log sheet",
+      "work order",
+      "series x",
+      "qcfrm-035",
+      "controller",
     ],
     searchText:
-      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the sections and fields that apply to the unit's Altronic Part Number, entered at the top — the paper form has several variants (CPU-95, CPU-95C, Varispark, EVS, and a combined 16/18/20-cylinder sheet) and typing the part number picks the matching one automatically, including which firing-angle cylinder grid and which voltage/current set to show. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports.",
+      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the checks and fields that apply to the unit's Altronic Part Number, entered at the top: its firing-angle cylinder rows (8, 16, 18 or 20), and its own checks — CPU-95C (791955-16), EVS (791963-16A, 791963-16E), 791956-16, and the higher peak volts of the 791952-18 and 791962-18. Each check is answered Yes, No or N/A; blank means not answered yet. Firing angles: answer All firing actuals at spec — Yes leaves the actuals blank; otherwise type an actual only for a cylinder that was off. Record the oven ON and OFF date and time, SAP Number and Memory No. in the form. The Post Test Inspection points are on every unit. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports. Export the paper form as a PDF: Blank form on the list downloads an empty QCFRM-012 REV 2 sheet plus the Post Test Inspection page — pick the unit beside it (8/16/18/20 cylinder, 791952/62-18, 791956-16, CPU-95C, EVS) for only that unit's lines, the rest printed N/A, or leave it empty for every variant; Export on an open test sheet downloads it filled in (the saved sheet, only the fields its part number uses). A check prints a tick for Yes and the words for No or N/A; an at-spec firing column prints as a line; the oven ON/OFF prints on the first ON/OFF line; CPU-95C and EVS checks the sheet has no line for, and any flagged defects, are listed above Comments; long comments continue on a last page. GET-1, the GE Transportation Log Sheet (Quality Control Inspection), at /qc-forms/get-1: one log sheet per GE ECU — serial number, part number (ECU), fifteen Yes/No/N/A checks, ship firmware revision, a work order for each of twelve boards (681 105-3, not the printed 105-2), QC inspector, date and notes. Deviation, Flange, Tested and SFI go in Notes; search covers notes and board work orders. Complete once inspector and date are in. QCFRM-035, the Series X Controller GE Transportation Log Sheet, at /qc-forms/series-x: one log sheet per Series X controller (17FM850A1, 17FM850A2) — the same fifteen checks as GET-1, ship firmware revision, a work order for each of eleven boards (681 105-3, not the printed 105-2; there is no VD board), QC inspector, date and notes. Turbo CC test, Tested and SFI go in Notes.",
     render: () => (
       <>
         <P>
@@ -2706,20 +4314,131 @@ const SECTIONS: ManualSection[] = [
           clicking a row opens the form.
         </P>
         <Tip>
-          The paper form has several variants — CPU-95, CPU-95C, Varispark,
-          EVS, and a combined 16/18/20-cylinder sheet. Enter the unit's{" "}
+          Every CPU-95 unit is tested on this one sheet. Enter the unit's{" "}
           <strong>Altronic Part Number</strong> at the top of the form and it
-          automatically shows only the sections that apply to that variant —
-          the matching startup/final voltage set and the correct
-          16, 18, or 20-cylinder firing-angle grid. Only{" "}
+          shows only what applies: the right number of firing-angle rows (8,
+          16, 18 or 20 cylinders) and the unit's own checks — the CPU-95C
+          (791955-16), the EVS (791963-16A and 791963-16E), the four
+          "On 791956-16" checks, and the 140/160/180 V peak volts of the
+          791952-18 and 791962-18. Only{" "}
           <strong>Serial / Unit Number</strong> is required to save; the rest
           fills in as the test proceeds.
         </Tip>
+        <UL>
+          <LI>
+            <strong>Checks</strong> are answered <strong>Yes</strong>,{" "}
+            <strong>No</strong> or <strong>N/A</strong> (doesn't apply to this
+            unit). A check left blank has not been answered yet.
+          </LI>
+          <LI>
+            <strong>Firing angles.</strong> On a new sheet, entering the
+            Altronic Part Number fills in its standard TEST spec for every
+            cylinder; change any cylinder that is a special case, and a typed
+            spec is kept even if the part number is corrected. A part number
+            with no standard (a customer sheet, say) leaves the specs for you
+            to type. An existing sheet with blank specs has a{" "}
+            <strong>Fill standard specs</strong> link that fills just the
+            blanks. If every cylinder fired at spec, answer <strong>All firing actuals at
+            spec</strong> Yes and the actual boxes go away. Otherwise type an
+            actual only for a cylinder that was off — a blank actual is at
+            spec.
+          </LI>
+          <LI>
+            <strong>Oven Burn-in</strong> takes the date and time the unit went
+            in and came out. A re-run in the oven is written on the printed
+            sheet by hand.
+          </LI>
+          <LI>
+            The <strong>Post Test Inspection</strong> points are on every
+            unit.
+          </LI>
+        </UL>
         <P>
           Any signed-in user can create or edit a test sheet. There is no
           delete — each row is a signed, dated test record, the same
           "correct with an edit" rule as FAIT and Visit Reports.
         </P>
+        <P>
+          <strong>Exporting the paper form.</strong> Both exports download a
+          PDF of the paper sheet (FORM QCFRM-012 REV 2, the combined
+          16/18/20-cylinder sheet), followed by the Post Test Inspection page,
+          which is used for every unit:
+        </P>
+        <UL>
+          <LI>
+            <strong>Blank form</strong>, on the list, gives an empty sheet to
+            fill in by hand. Pick the unit in the box beside it — 8, 16, 18 or
+            20 cylinder, the 791952/62-18, the 791956-16, the CPU-95C or the
+            EVS — for a sheet with only that unit's firing rows and its own
+            checks, its standard firing specs printed in, and the lines it
+            doesn't use printed N/A. Leave the box empty
+            for one sheet with every variant's lines.
+          </LI>
+          <LI>
+            <strong>Export</strong>, at the bottom of an open test sheet, gives
+            that sheet filled in, with only the fields that apply to its part
+            number. It exports the <em>saved</em> sheet, so save first to
+            include changes you've just made.
+          </LI>
+        </UL>
+        <Tip>
+          ARC keeps one firing-angle spec and one actual per cylinder, the
+          TEST figures, so the SHIP columns stay blank; all actuals at spec
+          prints as a line down the actual column. A check prints a tick for
+          Yes and the words for No or N/A. The oven ON and OFF go on the first
+          ON/OFF line; the second is left for a re-run, by hand. The CPU-95C
+          and EVS checks this sheet has no line for, and any defects flagged,
+          are listed above Comments. Comments too long for the sheet carry on
+          to a page at the end.
+        </Tip>
+        <P>
+          <strong>GET-1</strong>, the GE Transportation Log Sheet (Quality
+          Control Inspection), is at <code>/qc-forms/get-1</code> — one{" "}
+          <strong>log sheet</strong> per GE ECU. Scan or type the{" "}
+          <strong>Serial Number</strong> and <strong>Part Number (ECU)</strong>,
+          answer the fifteen inspection checks Yes, No or N/A, type the ship
+          firmware revision if you have it, then a work order for each of the
+          twelve boards, the QC inspector, the date and any notes.
+        </P>
+        <UL>
+          <LI>
+            The 681 105 board is recorded as <strong>681 105-3</strong>, the
+            board actually fitted — the paper still prints 105-2.
+          </LI>
+          <LI>
+            Write Deviation, Flange, Tested or SFI in <strong>Notes</strong>;
+            the search box covers notes and every board work order.
+          </LI>
+          <LI>
+            A sheet is <strong>Complete</strong> once the QC inspector and date
+            are filled in. <strong>Blank form</strong> and{" "}
+            <strong>Export</strong> print the GET-1 Rev 3 page; N/A and No are
+            written beside a check's box.
+          </LI>
+        </UL>
+        <P>
+          <strong>QCFRM-035</strong>, the Series X Controller GE Transportation
+          Log Sheet, is at <code>/qc-forms/series-x</code> — one{" "}
+          <strong>log sheet</strong> per Series X controller (17FM850A1,
+          17FM850A2). It works the same way as GET-1: the same fifteen checks,
+          the ship firmware revision, then a work order for each of its eleven
+          boards, the QC inspector, the date and any notes.
+        </P>
+        <UL>
+          <LI>
+            The 681 105 board is recorded as <strong>681 105-3</strong>, as
+            operators now write it — the paper still prints 105-2. The paper's
+            &ldquo;No populated VD board.&rdquo; line has nothing to fill in.
+          </LI>
+          <LI>
+            Leave a board's work order blank if it isn't fitted; write Turbo CC
+            test, Tested or SFI in <strong>Notes</strong>.
+          </LI>
+          <LI>
+            <strong>Blank form</strong> and <strong>Export</strong> print the
+            QCFRM-035 Rev 0 page.
+          </LI>
+        </UL>
       </>
     ),
   },
@@ -2764,7 +4483,7 @@ const SECTIONS: ManualSection[] = [
       "psr notification",
     ],
     searchText:
-      "Potting Sample Log at /coils/potting-sample-log, under Departments > Coils. Click Add entry to open the entry form (a modal on desktop, a full screen on a phone) and record a potting sample's date, volume and weight. The date/time defaults to the current moment each time you open the form and the volume to 125, so a normal sample is just the weight plus Save entry; Cancel backs out without saving anything. The current Lower and Upper Spec Limits show above the table, and any saved sample outside them is flagged in red in the table as Below lower limit or Above upper limit. Saving an out-of-limit sample automatically emails everyone on the Coil PSR Notification List with the entry's date, volume and weight and both spec limits. Manage lists opens the two reference lists: Spec Limits at /coils/potting-limits and the PSR Notification List at /coils/psr-notifications, where you add or remove people by name and email. Both are editable by any signed-in user, the same as the Teradyne reference lists.",
+      "Potting Sample Log at /coils/potting-sample-log, under Departments > Coils. Click Add entry to open the entry form (a modal on desktop, a full screen on a phone) and record a potting sample's date, volume and weight. The date/time defaults to the current moment each time you open the form and the volume to 125, so a normal sample is just the weight plus Save entry; Cancel backs out without saving anything. The current Lower and Upper Spec Limits show above the table, and any saved sample outside them is flagged in red in the table as Below lower limit or Above upper limit. Saving an out-of-limit sample automatically emails everyone on the Coil PSR Notification List with the entry's date, volume and weight and both spec limits. The email uses the standard ARC layout with no button, and everyone on the list is in To, so Reply all reaches the whole list to discuss it. If the email can't be sent, ARC says so on screen; the sample is saved either way. Manage lists opens the two reference lists: Spec Limits at /coils/potting-limits and the PSR Notification List at /coils/psr-notifications, where you add or remove people by name and email. Both are editable by any signed-in user, the same as the Teradyne reference lists.",
     render: () => (
       <>
         <P>
@@ -2803,6 +4522,13 @@ const SECTIONS: ManualSection[] = [
           entry's date, volume and weight alongside both spec limits, so the
           reader can see how far out it landed without opening ARC. Nothing is
           sent for a sample inside the limits.
+        </P>
+        <P>
+          It uses the standard ARC email layout, with no button because
+          everything is in the email. <strong>Everyone on the list is in To</strong>,
+          so <strong>Reply all</strong> reaches the whole list to discuss the
+          sample. If the email can't be sent, ARC says so on screen; the sample
+          is saved either way.
         </P>
         <H3>Manage lists</H3>
         <P>
@@ -3017,6 +4743,80 @@ const SECTIONS: ManualSection[] = [
           Optional role gating exists behind{" "}
           <strong>Admin → Open Orders Roles</strong> and can be switched on later
           if the weekly run needs restricting to named people.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "sales-documentation",
+    title: "Sales Documentation",
+    group: "Customer Service / Sales",
+    keywords: [
+      "sales documentation",
+      "altronic documentation",
+      "main channel",
+      "documents",
+      "folder",
+      "upload",
+      "brand guidelines",
+    ],
+    searchText:
+      "Sales Documentation at /sales/documentation, under Departments > Customer Service / Sales: Altronic's documentation folder, Main Channel in the Documents library of the ALTRONICSALESTEAM/AltronicDocumentation SharePoint site, with its whole folder tree. Open folders, create subfolders with New folder, upload files (drag and drop, several at once), edit Word, Excel and PowerPoint files in the browser with Edit in Office, download, rename and delete files and folders. Deleted items go to the site's recycle bin for 93 days. Your SharePoint permissions on the folder decide what you can change.",
+    render: () => (
+      <>
+        <P>
+          <strong>Sales Documentation</strong>, under Customer Service / Sales
+          in the Departments menu and on the Sales Dashboard, is Altronic's
+          documentation folder (Main Channel in the Altronic Documentation
+          site's Documents library) inside ARC. Every folder and file in it is
+          there, as it is in SharePoint.
+        </P>
+        <P>
+          It works exactly like Supply Chain Files and the SCN Documents
+          library: click a folder to go into it, <strong>New folder</strong>{" "}
+          makes a subfolder, <strong>Upload files</strong> adds files (or drop
+          them on the list), <strong>Edit in Office</strong> opens Word, Excel
+          and PowerPoint files in the browser and saves straight back,{" "}
+          <strong>Download</strong> saves a copy, and every file and folder has
+          Rename and Delete. A deleted item goes to the Altronic Documentation
+          site's recycle bin and can be restored for 93 days. What you can
+          change is decided by your SharePoint permissions on that folder.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "application-photos",
+    title: "Application Photos",
+    group: "Customer Service / Sales",
+    keywords: ["application photos", "photos", "pictures", "camera", "take photo", "ipad", "phone", "upload", "folder"],
+    searchText:
+      "Application Photos at /sales/application-photos, under Departments > Customer Service / Sales: the Sales team's photo storehouse, General/A-Application Photos in the Documents library of the ALTRONICSALESTEAM SharePoint site, with its whole folder tree. Open folders, create subfolders with New folder, upload photos or any file (drag and drop, several at once), download, rename and delete files and folders. On a phone or iPad, Take photo opens the camera and saves the picture straight into the folder you are in, named by the date and time it was taken; Upload files there also lets you pick from the photo library. Open shows a photo in SharePoint. Deleted items go to the site's recycle bin for 93 days. Your SharePoint permissions on the folder decide what you can change.",
+    render: () => (
+      <>
+        <P>
+          <strong>Application Photos</strong>, under Customer Service / Sales
+          in the Departments menu and on the Sales Dashboard, is the Sales
+          team's photo storehouse — the A-Application Photos folder in the
+          ALTRONICSALESTEAM Documents library (Documents › General), with
+          every folder and picture in it.
+        </P>
+        <P>
+          It works like Sales Documentation: click a folder to go into it,{" "}
+          <strong>New folder</strong> makes a subfolder,{" "}
+          <strong>Upload files</strong> adds photos (or drop them on the list),{" "}
+          <strong>Open</strong> shows a photo in SharePoint,{" "}
+          <strong>Download</strong> saves a copy, and every photo and folder
+          has Rename and Delete. A deleted item goes to the ALTRONICSALESTEAM
+          site's recycle bin and can be restored for 93 days.
+        </P>
+        <P>
+          <strong>On a phone or iPad</strong>, <strong>Take photo</strong>{" "}
+          opens the camera. The picture is saved straight into the folder you
+          have open, named by the date and time it was taken — for example
+          "Photo 2026-10-19 14-52-03.jpg" — so it can be found later. Upload
+          files there also lets you choose from the photo library. What you
+          can change is decided by your SharePoint permissions on the folder.
         </P>
       </>
     ),
@@ -3249,6 +5049,352 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "sales-pricing",
+    title: "Pricing",
+    group: "Customer Service / Sales",
+    keywords: [
+      "pricing",
+      "price",
+      "price request",
+      "pricing request",
+      "list price",
+      "customer price",
+      "distributor discount",
+      "gross margin",
+      "base gm",
+      "target gm",
+      "cost",
+      "mpg",
+      "material price group",
+      "comparables",
+      "family",
+      "added to sap",
+      "awaiting sap",
+      "new product pricing",
+      "new product",
+      "worksheet",
+      "sub-assembly",
+      "bom",
+      "csv",
+      "quantity breaks",
+      "customer quote",
+      "sales quote",
+      "quotation",
+      "price confirmation",
+      "pricing roles",
+      "requester",
+      "pricing manager",
+      "pricing admin",
+    ],
+    searchText:
+      "Pricing at /sales/pricing, under Departments > Customer Service / Sales, backed by six lists on the ALTRONICSALESTEAM SharePoint site. It is being reviewed before it opens to everyone; until then only the reviewer can open it and everyone else sees Pricing as Coming soon. Access comes from the Pricing Roles list: requester, manager or admin, each including the one before, or New Products only, which opens New Product Pricing and nothing else; with no role you have no access. A requester raises a pricing request with New request: the Altronic part number, the SAP part number if known, a description, notes and the customer picked from SAP. ARC looks the part up in SAP: if it is there the request is Submitted and the pricing managers are emailed; if not it is Awaiting SAP and the pricing admins are emailed to set it up, and an admin presses Added to SAP to move it on. The first time a manager opens a Submitted request it moves to In Review. The manager sees cost, the distributor discount (SAP's for the material price group, else 34%), and comparables for the same MPG and the same six-digit family (a manager can type the MPG when SAP has none), and types a target GM or a list price; a list worked out from a GM is rounded to the whole dollar, and answers Leave as Contact Factory? Yes or No, which is saved with the price for the requester to see. The customer's discount comes from their customer group — on the part, else on its material price group, else 34% — and comes off the list, beside the distributor discount that sets the list. A requester can enter either part number and ARC looks the part up as they type and fills in the other. The customer is found by sold-to number or by name as you type, and the customer group fills in with it. Pricing it sets Priced and emails the requester and watchers; the requester sees the final price only, never cost or margin. A manager can reopen a priced request; earlier prices are kept in the price history. Requests are cancelled, never deleted. Any role can download a customer PDF of a priced request. New Product Pricing prices a product not yet in SAP from its sub-assemblies and standalone parts, each with an Altronic and an SAP part number: choose sub-assemblies or parts to start with, add components from a CSV (Part Number and/or SAP Part Number, Description, Current Cost, Qty), one at a time or several pasted at once, each looked up in SAP as you type to bring in its description and cost, add parts the same way, one or several at once, attach files to each, comment and watch the worksheet, adjust any cost, set overhead, a target GM or list price and up to three quantity breaks. The page is a draft until you Save (the current revision) or Save as new revision (with a note); earlier revisions are read-only. Collapse any sub-assembly, part or own selling price, or all at once, and export the worksheet to Excel. Sell a sub-assembly or part separately to give it its own price and quantity breaks, and keep an SAP comparison of existing parts with their list, cost and base GM as a reference. A Calculator on the Pricing bar gives a quick customer price from COGS (typed, or SAP's current cost and description for an SAP part number, by plant) and a GM or a manual price, with prices at round GMs in 5s from 10 below to 20 above, and copies the results; nothing is saved. Customer Quotes are numbered SQ-YYYY-####-R#, built from worksheets, SAP parts, priced requests and free lines, an SAP part line starting from the customer's group discount, each line showing its SAP part number and an optional customer part number, with the header and lines editable while Draft, with a PDF that never shows cost or margin and New revision for changes after it is sent. Managers and admins only for Customer Quotes; New Product Pricing also for the New Products role. While SAP data isn't connected you type the cost and customer yourself.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Customer Service / Sales → Pricing</strong>{" "}
+          (<code>/sales/pricing</code>) is where Sales asks for a price on a
+          part and a pricing manager sets it. It also prices new products that
+          aren't in SAP yet and builds customer quotes. The tabs across the top
+          are <strong>Requests</strong>, <strong>New Products</strong>,{" "}
+          <strong>Customer Quotes</strong> and <strong>Roles</strong> — you
+          see only the ones your role can use.
+        </P>
+        <Tip>
+          Pricing is being reviewed before it opens to everyone. Until
+          then only the reviewer can open it, and everyone else sees{" "}
+          <strong>Pricing Requests — Coming soon</strong> on the Dashboard and
+          in the Departments menu.
+        </Tip>
+        <H3>Who can do what</H3>
+        <P>
+          Access comes from the <strong>Pricing Roles</strong> list.
+          Requester, Manager and Admin each include the one before, and{" "}
+          <strong>with no role you have no access</strong>.
+        </P>
+        <UL>
+          <LI>
+            <strong>Requester</strong> — raise requests, see every request and
+            its final price, comment, watch, attach files and download the
+            customer PDF.
+          </LI>
+          <LI>
+            <strong>Manager</strong> — also sees cost, margin, comparables and
+            the price history; sets and changes prices; works New Product
+            Pricing and Customer Quotes.
+          </LI>
+          <LI>
+            <strong>Admin</strong> — also confirms a part was{" "}
+            <strong>Added to SAP</strong> and manages the Roles tab.
+          </LI>
+          <LI>
+            <strong>New Products only</strong> — sees and works New Product
+            Pricing worksheets, and nothing else in Pricing: no requests,
+            customer quotes or calculator. The Pricing card opens straight on
+            New Products.
+          </LI>
+        </UL>
+        <P>
+          Cost and margin aren't just hidden on screen: they live on SharePoint
+          lists a requester has no permission to open. An ARC admin can manage
+          the Roles tab but gets no pricing access from that alone.
+        </P>
+        <H3>Raising a request</H3>
+        <P>
+          Press <strong>New request</strong> and enter the{" "}
+          <strong>Altronic part number</strong> or the{" "}
+          <strong>SAP part number</strong> — whichever you know; ARC looks the
+          part up as you type and fills in the other one — plus a description,
+          notes and the <strong>customer</strong>. Find the customer by typing
+          in <strong>Sold-to #</strong> or <strong>Customer name</strong> and
+          picking from the list; the other box and the{" "}
+          <strong>Customer group</strong> fill in. ARC checks the part in SAP
+          again when you submit:
+        </P>
+        <UL>
+          <LI>
+            <strong>Found</strong> — the request is <strong>Submitted</strong>,
+            SAP's part number and description are filled in, and the pricing
+            managers are emailed. You get a receipt.
+          </LI>
+          <LI>
+            <strong>Not in SAP</strong> — the request is{" "}
+            <strong>Awaiting SAP</strong> and the pricing admins are emailed to
+            set the part up. When they have, an admin presses{" "}
+            <strong>Added to SAP</strong> and it moves on to Submitted.
+          </LI>
+        </UL>
+        <P>
+          The list opens on the open requests — Awaiting SAP, Submitted and In
+          Review — with Priced, Cancelled and All a pill away. The first time a
+          manager opens a Submitted request it moves to{" "}
+          <strong>In Review</strong>, so you can see somebody has picked it up.
+          You can withdraw your own request until it's priced; a request is{" "}
+          <strong>cancelled with a reason, never deleted</strong>.
+        </P>
+        <H3>Setting a price (managers)</H3>
+        <P>
+          A manager sees the pricing panel on the request: the{" "}
+          <strong>cost</strong>, the <strong>distributor discount</strong>{" "}
+          (SAP's for the part's material price group, or the standard 34% when
+          SAP has none), and two comparison panels — other parts in the{" "}
+          <strong>same MPG</strong> and in the <strong>same family</strong>{" "}
+          (the first six digits of the Altronic number), each with its average
+          base GM. Every figure starts from SAP and can be changed; the price
+          history records whether each came from SAP or was typed. When SAP
+          has no material price group for the part, type one in the{" "}
+          <strong>Material price group</strong> box to compare against that
+          group and use its discount; it is saved on the request.
+        </P>
+        <UL>
+          <LI>
+            Type a <strong>target GM</strong> and ARC works out the list price,{" "}
+            <strong>rounded to the whole dollar</strong>, and shows the margin
+            you actually get after rounding. Or type a{" "}
+            <strong>list price</strong> and it's used as typed.
+          </LI>
+          <LI>
+            <strong>Base GM</strong> is the margin at the distributor price
+            (list less the distributor discount), the same way every
+            comparable is measured.
+          </LI>
+          <LI>
+            The <strong>customer discount</strong> comes off the list price to
+            give the <strong>customer price</strong>, and is SAP's for the
+            customer's group: their discount on this part if SAP has one,
+            otherwise on its material price group, otherwise the standard 34%
+            (34% too when there's no customer). It sits beside the distributor
+            discount, which sets the list price — so the list is the same for
+            every customer. Both can be typed over, and the result shows the{" "}
+            <strong>customer GM</strong> beside the base GM.
+          </LI>
+          <LI>
+            Answer <strong>Leave as Contact Factory?</strong> Yes or No before
+            you set the price — it's required. The answer is saved on the
+            request with the price, so the requester sees it, and it's in
+            their email.
+          </LI>
+        </UL>
+        <P>
+          Pricing it sets the request to <strong>Priced</strong> and emails the
+          requester and the watchers. The requester sees the final list,
+          discount and customer price — never the cost or margin. A manager
+          can <strong>Reopen to re-price</strong> a priced request to change the price;
+          every earlier pricing stays in the price history. Once priced,
+          anyone can download a <strong>Customer PDF</strong> confirming the
+          price.
+        </P>
+        <Tip>
+          SAP data isn't connected to ARC yet. Until it is, you type the cost
+          and the customer yourself and there are no comparables — nothing is
+          blocked, and the price history records the figures as typed.
+        </Tip>
+        <H3>New Product Pricing (managers)</H3>
+        <P>
+          <strong>New Products</strong> prices a product that isn't in SAP yet.
+          Start a worksheet with <strong>New worksheet</strong>. A new
+          worksheet asks what goes into the product: choose{" "}
+          <strong>Add a sub-assembly</strong> or <strong>Add parts</strong>{" "}
+          (it can have both). Sub-assemblies and parts each get their own
+          section once they have something in them. Each one has an{" "}
+          <strong>Altronic part number</strong> and an{" "}
+          <strong>SAP part number</strong>, and so does each component.
+        </P>
+        <UL>
+          <LI>
+            Add a sub-assembly's components with <strong>Upload CSV</strong>{" "}
+            (columns <strong>Part Number</strong> and/or{" "}
+            <strong>SAP Part Number</strong>, <strong>Description</strong>,{" "}
+            <strong>Current Cost</strong> and <strong>Qty</strong>), with{" "}
+            <strong>Add component</strong>, or with <strong>Add several</strong>{" "}
+            (paste a column of SAP or Altronic part numbers), or any mix. A file missing a
+            column is refused and says which; a bad row is reported and the
+            rest import. ARC records when and by whom. Every component can be
+            edited or removed.
+          </LI>
+          <LI>
+            <strong>Add part</strong> adds a single part that isn't a
+            sub-assembly — looked up in SAP, or typed with its own cost.{" "}
+            <strong>Add several parts</strong> takes a pasted list and adds
+            each number as a part of its own.
+          </LI>
+          <LI>
+            Type either part number on a new component or part and ARC looks
+            it up in SAP as you type — an SAP number as soon as all ten digits
+            are in — and fills in the other number, the description and SAP's
+            cost as the base cost. A description you typed yourself is kept.
+            Pasted numbers are looked up the same way; one SAP doesn't have is
+            still added, for you to fill in its description and cost, and one
+            already there is skipped. A number SAP couldn't be checked for just
+            then stays in the box — press <strong>Add</strong> to try it
+            again.
+          </LI>
+          <LI>
+            Press the arrow beside a sub-assembly or part to{" "}
+            <strong>collapse</strong> it to one line showing its numbers and
+            extended cost; press it again to open it.
+          </LI>
+          <LI>
+            Each line shows its <strong>base cost</strong> (from the CSV, from
+            SAP, or typed) beside an <strong>adjusted cost</strong> you can
+            type. The adjusted cost is used when set; clear it to go back.
+            Totals show both.
+          </LI>
+          <LI>
+            <strong>Uploading again replaces the CSV lines</strong> but keeps
+            your adjustments for any part still on the sheet and every
+            component you added by hand, and tells you what changed.
+          </LI>
+          <LI>
+            Each saved sub-assembly or part has its own{" "}
+            <strong>Files</strong> section; a new revision carries the files
+            across.
+          </LI>
+          <LI>
+            The worksheet has its own <strong>comments</strong> (with
+            @-mentions) and <strong>watchers</strong>.
+          </LI>
+        </UL>
+        <P>
+          Each sub-assembly and part has an optional{" "}
+          <strong>Overhead %</strong>, added to its own cost. Then set a target GM,
+          a list price, or a{" "}
+          <strong>customer price</strong> — the distributor price, from which
+          ARC works the list price back — and up to three <strong>quantity breaks</strong> — each a % off list,
+          rounded to the dollar, showing the margin at that quantity.
+        </P>
+        <P>
+          <strong>The page is a draft until you save.</strong>{" "}
+          <strong>Save</strong> overwrites the current revision;{" "}
+          <strong>Save as new revision</strong> asks what changed and keeps the
+          current revision exactly as it was. Earlier revisions open
+          read-only from the history. ARC asks before you leave with unsaved
+          changes. The <strong>Excel</strong> button downloads the worksheet.
+          Press the arrow beside a sub-assembly, a part or a row's own selling
+          price to fold it to one line; <strong>Collapse all</strong> and{" "}
+          <strong>Expand all</strong> fold or open every sub-assembly and part
+          at once.
+        </P>
+        <P>
+          <strong>Price calculator.</strong> The <strong>Calculator</strong>{" "}
+          button on the Pricing bar (every pricing role) works out a quick
+          customer price. Type an SAP part number and, as soon as all 10
+          digits are in, it brings in the part's current cost and description
+          from SAP — each new number
+          replaces the description — and, when the part is stocked at more
+          than one plant, pick the plant whose cost you want. Or type the
+          cost (COGS) yourself. Then the GM
+          you want or a price you have in mind. It shows the customer price,
+          its GM and profit — a price worked out from a GM is rounded up to
+          the cent, so it never earns less than the GM you asked for — and
+          the price at round GMs — 25%, 30%, 35% and so
+          on — from 10 points below to 20 above, with your own price in place.{" "}
+          <strong>Copy results</strong> puts it all on your clipboard, ready
+          to paste into an email or a spreadsheet. Nothing is saved.
+        </P>
+        <P>
+          Colour tells you what a figure is across Pricing:{" "}
+          <strong>green</strong> is a selling price (list, customer price,
+          margin, breaks and a quote's total), <strong>blue</strong> is
+          reference from SAP or comparable parts, and plain boxes are cost.
+        </P>
+        <P>
+          <strong>Sell a sub-assembly or part separately.</strong> Press{" "}
+          <strong>Sell … separately</strong> on a row to give it its own price —
+          a target GM, a list price or a customer price — and up to three
+          quantity breaks. It is priced on one of that row at its own cost and
+          overhead, at the worksheet's distributor discount unless you type a
+          different one for the row. The product price below is unaffected, so
+          one worksheet can price the whole product, a few parts on their own,
+          or both. It is saved with the revision, and Customer Quotes can add
+          that row as its own line.
+        </P>
+        <P>
+          <strong>SAP comparison</strong> keeps a list of existing SAP parts on
+          the worksheet as a reference: type or paste their SAP part numbers
+          (a column copied from Excel works) and each shows its list price,
+          distributor discount and price, cost and base GM, read from SAP every
+          time the page opens. Adding or removing a part is saved straight away.
+        </P>
+        <H3>Customer Quotes (managers)</H3>
+        <P>
+          <strong>Customer Quotes</strong> are numbered{" "}
+          <code>SQ-2026-0001-R1</code>. Press <strong>New quote</strong> and pick the customer, then add lines from
+          a <strong>New Product worksheet</strong>, an existing{" "}
+          <strong>SAP part</strong>, a <strong>priced request</strong>, or a{" "}
+          <strong>free line</strong> for freight, tooling or NRE. Each line
+          shows the discount it is priced at, and you can change it: an SAP
+          part starts from the customer's group discount (on the part, else
+          its material price group, else 34%); a New Product line starts from
+          the worksheet's distributor discount. A line shows its <strong>SAP part number</strong>{" "}
+          when it has one, and takes an optional{" "}
+          <strong>customer part number</strong>; both print on the PDF.
+        </P>
+        <UL>
+          <LI>
+            While the quote is a Draft, the <strong>Edit</strong> button on the
+            Customer card changes the customer, contact and validity.
+          </LI>
+          <LI>
+            A worksheet line stays on the revision it was priced from. When the
+            worksheet moves on, the line says so and offers{" "}
+            <strong>Update to R#</strong>.
+          </LI>
+          <LI>
+            Lines can be changed only while the quote is a{" "}
+            <strong>Draft</strong>. Once it's Sent, Won, Lost or Expired, use{" "}
+            <strong>New revision</strong>, which copies it to the next R number
+            and leaves the sent one as it was.
+          </LI>
+          <LI>
+            The <strong>PDF</strong> shows customer prices, quantities and
+            quantity breaks only — never cost, margin, list price or discount.
+          </LI>
+          <LI>Quotes have comments with @-mentions, watchers and attachments.</LI>
+        </UL>
+      </>
+    ),
+  },
+  {
     id: "faits",
     title: "FAITs",
     group: "Supply Chain",
@@ -3263,9 +5409,11 @@ const SECTIONS: ManualSection[] = [
       "fait sign off", "sign-off chain", "sqe sign off", "eng sign off",
       "kam sign off", "sqe reviewers", "sqe failed", "this is with sqe",
       "this is with eng", "this is with kam", "auto advance status",
+      "workflow", "process", "diagram", "flowchart", "notify initiator",
+      "oem impact",
     ],
     searchText:
-      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT emails everyone watching it plus that same intake list, de-duplicated so nobody gets two. The three sign-offs run as a chain: assigning an engineer or a KAM emails them a heads-up that says no action is required yet; moving a FAIT to This is with SQE emails the configured SQE reviewers (default Jerrod Waldron) asking for the SQE sign-off; approving the SQE sign-off emails the assigned engineer and moves the Status to This is with ENG; approving the Eng sign-off emails the KAM and moves the Status to This is with KAM, but only when a KAM sign-off is needed - with no KAM the chain finishes at the engineer and the FAIT is ready to close. An SQE sign-off set to Failed sends the FAIT back to whoever raised it and does not advance the status. The status moves itself as the sign-offs land; a Status you pick yourself in the same edit wins, re-saving a recorded sign-off asks nobody twice, and editing the sign-offs on a closed FAIT never reopens it. FAITs cannot be deleted from ARC.",
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. A workflow diagram shows the whole process: the initiator raises the FAIT (Open); Supply Chain receives the part and assigns the engineer and KAM, then sends it to SQE; SQE signs off (This is with ENG), or fails it back to the initiator; the engineer signs off (This is with KAM, only when OEM Impact is Yes and a KAM is assigned); the KAM signs off; and ticking Notify Initiator closes the FAIT once every sign-off it owes is Approved. With OEM Impact set to No, no KAM sign-off is owed and the KAM fields are hidden. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Pending EIR Review & Response, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT emails everyone watching it plus that same intake list, de-duplicated so nobody gets two. The three sign-offs run as a chain: assigning an engineer or a KAM emails them a heads-up that says no action is required yet; moving a FAIT to This is with SQE emails the configured SQE reviewers (default Jerrod Waldron) asking for the SQE sign-off; approving the SQE sign-off emails the assigned engineer and moves the Status to This is with ENG; approving the Eng sign-off emails the KAM and moves the Status to This is with KAM, but only when a KAM sign-off is needed - with no KAM the chain finishes at the engineer and the FAIT is ready to close. An SQE sign-off set to Failed sends the FAIT back to whoever raised it and does not advance the status. The status moves itself as the sign-offs land; a Status you pick yourself in the same edit wins, re-saving a recorded sign-off asks nobody twice, and editing the sign-offs on a closed FAIT never reopens it. FAITs cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -3291,6 +5439,13 @@ const SECTIONS: ManualSection[] = [
             project and what's being requested.
           </LI>
         </UL>
+        <H3>The workflow at a glance</H3>
+        <P>
+          A FAIT moves through these steps. Each says who takes it, the status
+          it lands in, and who is emailed; the side boxes show where a step can
+          go instead. The sections below explain each one in detail.
+        </P>
+        <FaitWorkflowDiagram />
         <H3>Working one through</H3>
         <P>
           The FAIT itself is five cards — <strong>Part</strong>,{" "}
@@ -3312,8 +5467,9 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           <strong>Status</strong> moves a FAIT along its own workflow: Open,
-          FAIT Part Received, with SQE, with Engineering, with the KAM, Closed.
-          Pick the new one and it's written straight away, and everyone
+          FAIT Part Received, with SQE, with Engineering, with the KAM,
+          Pending EIR Review &amp; Response (waiting on an EIR to be answered),
+          Closed. Pick the new one and it's written straight away, and everyone
           watching plus the initiator, engineer and KAM are emailed that it
           changed.
         </P>
@@ -3399,6 +5555,18 @@ const SECTIONS: ManualSection[] = [
             the reason in <strong>SQE Approval Notes</strong>.
           </LI>
           <LI>
+            A KAM sign-off is owed only when <strong>OEM Impact</strong> is Yes
+            and a KAM is assigned. With OEM Impact set to No, the KAM fields are
+            hidden and the chain always finishes at the engineer.
+          </LI>
+          <LI>
+            Ticking <strong>Notify Initiator</strong> on the Sign-off card
+            closes the FAIT and tells the initiator — but it won't save until
+            every sign-off the FAIT owes is Approved. The last sign-off can be
+            in the same save: an engineer can approve and tick Notify
+            Initiator together.
+          </LI>
+          <LI>
             <strong>Closing</strong> a FAIT emails everyone watching it, plus
             the intake list who were told it needed picking up. Nobody on both
             lists gets two emails.
@@ -3442,7 +5610,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set and answered on the request once it is decided. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the SAP P/N), request date, the part manufacturer (required) and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set; Engineering answers it on the request's Engineering card, where it is the first field and changes through that card's Edit button. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Changing Testing Required or any Engineering or Production field emails Alexandra Russell and the request's watchers with what changed. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, part manufacturer, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -3459,16 +5627,18 @@ const SECTIONS: ManualSection[] = [
         <H3>Raising a request</H3>
         <P>
           <strong>New Request</strong> asks only for what's known at the start:
-          the <strong>Title</strong> (the Altronic assembly number), the{" "}
+          the <strong>Title</strong> (the SAP P/N), the{" "}
           <strong>request date</strong>, and the purchasing details — vendor,
-          quantity, PO number, part numbers. The <strong>Log No.</strong>{" "}
-          (<code>GMR_2026-004</code>) is assigned on save; you never type it.
+          quantity, PO number, part numbers. <strong>Part Manufacturer</strong>{" "}
+          is required — the request won&apos;t save without it. The{" "}
+          <strong>Log No.</strong> (<code>GMR_2026-004</code>) is assigned on
+          save; you never type it.
         </P>
         <P>
           <strong>Testing Required</strong> is on the form but optional — that
           call is made later in the workflow, so leave it on{" "}
-          <strong>Not set</strong> and answer it on the request itself once it's
-          decided.
+          <strong>Not set</strong>. Engineering answers it on the request&apos;s{" "}
+          <strong>Engineering</strong> card once it&apos;s decided.
         </P>
         <P>
           You're recorded as the requestor and start watching it, so you hear
@@ -3477,8 +5647,8 @@ const SECTIONS: ManualSection[] = [
         <P>
           Raising a request also emails <strong>Katie Fleming</strong>,{" "}
           <strong>Alexandra Russell</strong> and <strong>Glenn Terry</strong> —
-          the people who pick a new request up — with the assembly number,
-          vendor and PO details you filled in. You aren't emailed about your own
+          the people who pick a new request up — with the SAP P/N,
+          part manufacturer, vendor and PO details you filled in. You aren't emailed about your own
           request. Being on that list isn't the same as watching: they press{" "}
           <strong>Watch</strong> on a request to follow its comments and
           changes.
@@ -3495,10 +5665,21 @@ const SECTIONS: ManualSection[] = [
           are written, so four teams can fill in their parts without waiting
           for each other or overwriting each other's columns.
         </P>
+        <P>
+          Changing <strong>Testing Required</strong>, or any field on the{" "}
+          <strong>Engineering</strong> or <strong>Production</strong> card,
+          emails <strong>Alexandra Russell</strong> and everyone watching the
+          request. The email lists each field that changed, old value to new.
+          Re-saving a card without changing anything sends nothing, and you
+          aren't emailed about your own change. Edits to the Request,
+          Purchasing and Inspection cards don't send this email.
+        </P>
         <UL>
           <LI>
-            <strong>Request Status</strong>, <strong>Testing Required</strong>{" "}
-            and the two dates live in the sidebar, along with the watchers.
+            <strong>Request Status</strong> and the two dates live in the
+            sidebar, along with the watchers. <strong>Testing Required</strong>{" "}
+            is the first field on the <strong>Engineering</strong> card, and
+            changes through that card&apos;s Edit button.
           </LI>
           <LI>
             <strong>Comments</strong> work exactly as they do on a task or an
@@ -3550,7 +5731,7 @@ const SECTIONS: ManualSection[] = [
       "quarantine",
     ],
     searchText:
-      "MRB — the Material Review Board register — at /supply-chain/mrb, under Supply Chain in the Departments menu, backed by the MRB Data list on the Altronic_PMO SharePoint site. An MRB entry records nonconforming material: the part, how much of it, why it was rejected, where the problem was caused, and what the board decided to do with it. The list opens on Needs disposition — live entries where the disposition is blank or still To be Determined — with tabs for Decided, Archive and All, each carrying its count. Archive holds several thousand rows of history imported from the old Excel workbooks; they are kept so they stay searchable but they are not live entries and nothing there is waiting on a decision. The list leads with the SAP Number and the Altronic Part Number side by side — the field SharePoint calls Old Part Number — so an entry can be found by either. Filter by Vendor, Where Caused or Year, and the search box matches every field including the Reason text and the comments. The header line shows the total cost of whatever is on screen. Columns sort and filter like the other registers. On a phone the list is a set of tappable cards rather than a wide table, and the Search and filters panel starts collapsed so the entries fill the screen — it opens on a tap, and opens by itself with a count whenever a filter is already narrowing the list. New Entry asks for the SAP Number, MRB date and Reason; Where Caused and Disposition are optional, and leaving Disposition blank is what puts the entry in the Needs disposition queue. Price Per Issue fills itself in as Price Per Unit times Quantity and can be typed over if the invoice disagrees. An entry's detail page reads, with one Edit button per card — Part, Nonconformance, Cost — and Save changes writes only the fields you touched. Archive rows show an extra read-only card with the columns that came from the source workbook, and that card only appears on archive rows. Entries carry attachments, a Discussion thread with @-mentions, and watchers: mentioning someone emails them and starts them watching, and watchers are emailed about later comments. A screenshot pasted into a comment is saved as an attachment. The thread is called Discussion rather than Comments because this list already has a Comments field inside the Nonconformance card, which is a plain notes box on the record that notifies nobody. There is no assignee on this list, so comments reach watchers and anyone mentioned. MRB entries cannot be deleted from ARC.",
+      "MRB — the Material Review Board register — at /supply-chain/mrb, under Supply Chain in the Departments menu, backed by the MRB Data list on the Altronic_PMO SharePoint site. An MRB entry records nonconforming material: the part, how much of it, why it was rejected, where the problem was caused, and what the board decided to do with it. The list opens on Needs disposition — live entries where the disposition is blank or still To be Determined — with tabs for Decided, Archive and All, each carrying its count. Archive holds several thousand rows of history imported from the old Excel workbooks; they are kept so they stay searchable but they are not live entries and nothing there is waiting on a decision. The list leads with the SAP Number and the Altronic Part Number side by side — the field SharePoint calls Old Part Number — so an entry can be found by either. Filter by Vendor, Where Caused, Year or Panel department, and the search box matches every field including the Reason text and the comments. The header line shows the total cost of whatever is on screen. Columns sort and filter like the other registers. On a phone the list is a set of tappable cards rather than a wide table, and the Search and filters panel starts collapsed so the entries fill the screen — it opens on a tap, and opens by itself with a count whenever a filter is already narrowing the list. New Entry asks for the SAP Number, MRB date and Reason; Where Caused and Disposition are optional, and leaving Disposition blank is what puts the entry in the Needs disposition queue. Panel department is a Yes/No that starts at No — set it to Yes when the entry came from the panel department, so those entries can be sorted and filtered in the register and print as their own Panels table in the meeting export. The export can also be Needs disposition only, leaving the Decided section out. Price Per Issue fills itself in as Price Per Unit times Quantity and can be typed over if the invoice disagrees. An entry's detail page reads, with one Edit button per card — Part, Nonconformance, Cost — and Save changes writes only the fields you touched. Archive rows show an extra read-only card with the columns that came from the source workbook, and that card only appears on archive rows. Entries carry attachments, a Discussion thread with @-mentions, and watchers: mentioning someone emails them and starts them watching, and watchers are emailed about later comments. A screenshot pasted into a comment is saved as an attachment. The thread is called Discussion rather than Comments because this list already has a Comments field inside the Nonconformance card, which is a plain notes box on the record that notifies nobody. There is no assignee on this list, so comments reach watchers and anyone mentioned. MRB entries cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -3588,6 +5769,14 @@ const SECTIONS: ManualSection[] = [
           Quantity as you type; type over it if the invoice says something
           different, and it stops following.
         </P>
+        <P>
+          <strong>Panel department</strong> is a Yes / No that starts at{" "}
+          <strong>No</strong>. Set it to Yes when the entry came from the panel
+          department, so the panel team&rsquo;s entries can be sorted and
+          filtered — in the register&rsquo;s <strong>Panel</strong> column, the{" "}
+          <strong>Panel department</strong> filter, and the meeting export. It
+          can be changed later on the <strong>Nonconformance</strong> card.
+        </P>
         <Tip>
           Leave <strong>Disposition</strong> blank until the board actually
           decides. That is what puts the entry in the{" "}
@@ -3615,13 +5804,18 @@ const SECTIONS: ManualSection[] = [
           The list leads with the <strong>SAP Number</strong> and the{" "}
           <strong>Altronic Part Number</strong> side by side, so an entry can
           be found by either. Filter by <strong>Vendor</strong>,{" "}
-          <strong>Where Caused</strong> or <strong>Year</strong>; the search
+          <strong>Where Caused</strong>, <strong>Year</strong> or{" "}
+          <strong>Panel department</strong>; the search
           box matches every field, so a part number, a failure mode or a
           vendor all find the entry. The line above
           the table totals the cost of everything currently shown, so narrowing
           to one vendor or one year answers &ldquo;what did this cost
           us?&rdquo; directly. Columns sort and filter like the other
-          registers.
+          registers. The table fits the screen without scrolling sideways:
+          long descriptions and vendor names are shortened (hover one for the
+          full text), and on a narrower screen the Altronic Part Number and
+          Where Caused columns are hidden — they are still on the entry
+          itself and in the export.
         </P>
         <P>
           <strong>On a phone</strong> the list is a set of tappable cards
@@ -3638,6 +5832,44 @@ const SECTIONS: ManualSection[] = [
           are shown exactly as they are stored — ARC never recalculates an
           existing record. Some imported rows carry partial credits or
           rounding that never followed that rule.
+        </Tip>
+
+        <H3>Exporting for the MRB meeting</H3>
+        <P>
+          Press <strong>Export</strong> at the top of the register before the
+          meeting. Pick the <strong>MRB dates</strong> to cover — Last 7 days,
+          Last 30 days, This month, This year, or your own From and To — and a
+          format: <strong>PDF</strong> to print, or <strong>Excel</strong> to
+          sort and filter. The dialog shows how many entries and how much cost
+          will go in before you press Export.
+        </P>
+        <P>
+          The export has two sections: <strong>Needs disposition</strong>{" "}
+          first, then the entries in those dates that were already{" "}
+          <strong>Decided</strong>. Each is oldest first, with a cost total.
+          On the PDF the undecided rows leave the Disposition blank, so the
+          board&rsquo;s decision can be written in by hand.
+          Each section is split into a <strong>Main plant</strong> table and a{" "}
+          <strong>Panels</strong> table, using each entry&rsquo;s Panel
+          department; in the Excel workbook that is a{" "}
+          <strong>Plant</strong> column you can filter on. Pick{" "}
+          <strong>Needs disposition only</strong> under What to export to leave
+          the Decided section and the Disposition column out and print just
+          the backlog.
+        </P>
+        <P>
+          The PDF is laid out to fit on as few pages as it can: dates print as
+          mm/dd/yy, the Altronic Part Number column is headed{" "}
+          <strong>Old Material</strong>, every column except Reason stays on
+          one line, and each row is only as tall as its Reason needs.
+        </P>
+        <Tip>
+          By default every entry still needing a disposition is included,
+          even one older than the dates you picked — an undecided entry from
+          last quarter is exactly what the meeting should look at. Untick{" "}
+          <strong>Include every entry still needing a disposition</strong> to
+          keep strictly to the dates. Archive entries are never exported, and
+          the export ignores the tab and filters on screen.
         </Tip>
 
         <H3>Discussion and watchers</H3>
@@ -3731,7 +5963,9 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             <strong>Assigned Buyer</strong>, <strong>Point of Contact</strong>{" "}
-            and <strong>Watchers</strong> — also save immediately.
+            and <strong>Watchers</strong> — also save immediately. Whoever
+            you make the Assigned Buyer is added to Watchers too; removing the
+            buyer leaves them watching until they press Unwatch.
           </LI>
           <LI>
             <strong>Primary Supply Focus</strong> and a{" "}
@@ -3742,13 +5976,26 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Four <strong>performance</strong> figures — Supplier Performance
             Rate, Quality Performance, Logistical Performance and All
-            Deliveries — with an <strong>Edit scores</strong> button beneath
-            them. A figure nobody has recorded yet reads{" "}
-            <strong>Not recorded</strong> rather than 0, and the panel shows
-            even when all four are empty, so a supplier's first scores can be
-            entered.
+            Deliveries. They come from <strong>SAP</strong>, matched on the
+            supplier's BP number, with SAP's <strong>A / B / C</strong>{" "}
+            class and the year they cover ("From SAP · 2026"). SAP's figures
+            can't be edited in ARC.
+          </LI>
+          <LI>
+            When SAP has no figures for a supplier, the scores entered in
+            ARC show instead, with an <strong>Edit scores</strong> button
+            beneath them. The same happens if SAP can't be read, and the
+            panel says why. A figure nobody has recorded reads{" "}
+            <strong>Not recorded</strong> rather than 0.
           </LI>
         </UL>
+        <P>
+          The supplier list shows the same: a <strong>Performance</strong>{" "}
+          column and a <strong>Class</strong> column, both sortable. A score
+          marked <strong>*</strong> was entered in ARC because SAP has no
+          figures for that supplier. Reading SAP needs access to it in
+          Fabric; without it, ARC's own scores show and the list says why.
+        </P>
         <H3>Contacts and Issues</H3>
         <P>
           Two sections further down the page, each scoped to the supplier
@@ -3866,6 +6113,536 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "scns",
+    title: "SCNs (Supply Chain Notices)",
+    group: "Supply Chain",
+    keywords: [
+      "scn",
+      "scns",
+      "supply chain notice",
+      "scn dashboard",
+      "scn documents",
+      "documents library",
+      "obsolete",
+      "obsolescence",
+      "obs",
+      "phase out",
+      "eecr",
+      "end of life",
+      "last time buy",
+      "ltb",
+      "lts expires",
+      "ltb expires",
+      "old number",
+      "preliminary reviews",
+      "secondary review",
+      "project status",
+      "sign-off status",
+      "approval status",
+    ],
+    searchText:
+      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Project Reference, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Project Reference (picked from Engineering projects), Engineering task (picked from Engineering tasks), Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint, rename and delete files and folders. A deleted item goes to the SCN site's SharePoint recycle bin, restorable for 93 days.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → SCNs</strong>{" "}
+          (<code>/supply-chain/scns</code>) is the register of Supply Chain
+          Notices — one SCN per product or part that is being{" "}
+          <strong>obsoleted</strong> (OBS), <strong>phased out</strong>, raised
+          as an <strong>EECR</strong>, or simply notified. It opens from the
+          SCNs card on the Dashboard's Supply Chain section too.
+        </P>
+        <UL>
+          <LI>
+            The <strong>search box</strong> covers every field — type a part
+            number, a product, a customer or a word from the description.
+          </LI>
+          <LI>
+            The <strong>status pills</strong> narrow the list to one SCN
+            Status (WIP, CLOSED, Cancelled, On Hold, LTB in process, Customer
+            Phase Out). The counts are always over the whole list.
+          </LI>
+          <LI>
+            Filter by <strong>Category</strong> (OBS, PHASE OUT, EECR,
+            Notification) and by <strong>Year</strong>.
+          </LI>
+          <LI>
+            Click a <strong>column header's label</strong> to filter on its
+            values, and its <strong>arrow</strong> to sort — the same headers
+            as every other list in ARC. The list opens newest SCN# first.
+          </LI>
+          <LI>
+            On a phone the list is a stack of cards rather than a table.
+          </LI>
+        </UL>
+        <H3>Raising an SCN</H3>
+        <P>
+          <strong>New SCN</strong> asks for the <strong>Product</strong>, a{" "}
+          <strong>Description</strong> and an <strong>Approval Status</strong>{" "}
+          (Approved or Denied) — those three are required. Category, Assigned
+          to, Owner, Customer, Old Number, SAP Number and Part Description can
+          be filled in now or later. The <strong>SCN#</strong> is assigned
+          for you (the form shows the number it will get), the Year is filled
+          in from it, and a new SCN starts as <strong>WIP</strong>. A
+          half-written form survives navigating away.
+        </P>
+        <H3>Working one through</H3>
+        <P>
+          An SCN is four cards — <strong>Notice</strong> (product, category,
+          description, customer), <strong>Parts</strong> (old number, SAP
+          number, drawing number, part description, ECN),{" "}
+          <strong>Review</strong> and <strong>Outcome</strong> (final
+          disposition, sales history, LTS and LTB expiry dates, notes) — each
+          with one <strong>Edit</strong> button. Only the fields you change
+          are saved.
+        </P>
+        <P>
+          The <strong>Review</strong> card carries three checklists you tick
+          as the work is done: <strong>Preliminary Reviews</strong> (master
+          list, price list, where used, service team),{" "}
+          <strong>Secondary Review</strong> (service, master list, price list,
+          sales history) and <strong>Project Status</strong> (immediate,
+          analysis, inventory management and final obsolescence phases). The
+          card also holds the <strong>Sign-off status</strong> — the name of
+          whoever signed it off, as typed — and a Fixture Review date.
+        </P>
+        <P>
+          The sidebar holds the <strong>SCN Status</strong> and{" "}
+          <strong>Approval Status</strong> (each saves as soon as you pick),{" "}
+          <strong>Assigned to</strong> and <strong>Owner</strong> (both can
+          hold more than one person), the <strong>Watchers</strong>, who
+          raised it and its Year.
+        </P>
+        <P>
+          The sidebar is also where an SCN is tied to Engineering. Pick its{" "}
+          <strong>Project Reference</strong> from Engineering&apos;s project
+          references, and its <strong>Engineering task</strong> from
+          Engineering&apos;s tasks — each saves as soon as you pick and gives
+          you a link straight to that project or task. An older SCN that
+          pointed at a Planner board still shows that Planner link until you
+          pick an Engineering task for it.
+        </P>
+        <H3>Watching, comments and attachments</H3>
+        <UL>
+          <LI>
+            Whoever raises an SCN, is assigned to it or owns it{" "}
+            <strong>watches it automatically</strong>. Anyone else presses{" "}
+            <strong>Watch</strong>, or is added from the Watchers field.
+          </LI>
+          <LI>
+            Comments work as everywhere in ARC — <strong>@-mention</strong>{" "}
+            someone to pull them in (they start watching too), and a
+            screenshot pasted into a comment is saved as an attachment on the
+            SCN.
+          </LI>
+          <LI>
+            The <strong>Attachments</strong> card holds the SCN's files —
+            quotes, supplier letters, drawings. Drop a file on it or press
+            Add file.
+          </LI>
+        </UL>
+        <Tip>
+          SCNs can't be deleted from ARC — a notice is a controlled record of
+          what was decided about a part. One that no longer applies gets its{" "}
+          <strong>SCN Status set to Cancelled</strong>, which keeps the
+          history and takes it out of the working set.
+        </Tip>
+        <H3>Supply Chain Files</H3>
+        <P>
+          <strong>Supply Chain Files</strong>, under Supply Chain in the
+          Departments menu and on the Supply Chain Dashboard, is the team's
+          shared folder (General / Supply Chain Files on the Altronic_PMO
+          site) inside ARC. It works exactly like the SCN Documents library
+          below: click a folder to go into it, <strong>New folder</strong> makes
+          a subfolder, <strong>Upload files</strong> adds files (or drop them
+          on the list), <strong>Edit in Office</strong> opens Word, Excel and
+          PowerPoint files in the browser and saves straight back, and every
+          file and folder has Rename and Delete. A deleted item goes to the
+          Altronic_PMO site's recycle bin and can be restored for 93 days.
+          What you can change is decided by your SharePoint permissions on
+          that folder.
+        </P>
+        <H3>The SCN Documents library</H3>
+        <P>
+          The <strong>Documents</strong> button — on the SCNs list and on every
+          SCN — opens the SCN site's Documents library inside ARC. Click a
+          folder to go into it, and use the path above the list to come back
+          up; the address keeps the folder, so you can bookmark or share it.{" "}
+          <strong>New folder</strong> makes a subfolder where you are (Enter
+          creates it, Escape cancels). <strong>Upload files</strong> adds one
+          or several files — or drop them onto the list — and shows each
+          file's progress; a file with the same name as one already there is
+          saved alongside it with a number added, never over it.{" "}
+          <strong>Edit in Office</strong> opens a Word, Excel or PowerPoint
+          file in Office for the web, and your changes save straight back to
+          the folder; other files have <strong>Open</strong> instead, and every
+          file has a Download button. <strong>Open in SharePoint</strong>{" "}
+          takes you to the folder you're in.
+        </P>
+        <P>
+          Every file and folder has a <strong>Rename</strong> and a{" "}
+          <strong>Delete</strong> button. Rename selects the name without its
+          extension, so typing keeps the <code>.docx</code> or{" "}
+          <code>.xlsx</code>; it warns you if you change the extension, since
+          that can stop the file opening, and it won't let you use a name
+          something else in that folder already has. Delete asks you to
+          confirm; for a folder that still has things in it, it says how many
+          and you type the folder's name to confirm. A deleted file or folder
+          (with everything in it) goes to the SCN site's{" "}
+          <strong>recycle bin</strong> in SharePoint, where it can be restored
+          for 93 days.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "insourcing-quotes",
+    title: "Insourcing Quotes",
+    group: "Supply Chain",
+    keywords: [
+      "quotes",
+      "quote",
+      "insourcing",
+      "quoting",
+      "final assembly",
+      "assemblies",
+      "line items",
+      "material",
+      "labor",
+      "alternates",
+      "alternate",
+      "lead time",
+      "manufacturer",
+      "customer reference",
+      "customer notes",
+      "linked task",
+      "cost",
+      "margin",
+      "gross margin",
+      "target gm",
+      "sap part number",
+      "overhead",
+      "quantity breaks",
+      "price breaks",
+      "manual price",
+      "budgetary",
+      "quote pdf",
+      "ic quotes",
+      "revision",
+      "new rev",
+      "customer code",
+      "quote roles",
+      "viewer",
+      "quoter",
+      "manager",
+    ],
+    searchText:
+      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote and shows in the quotes list. A Customer type (Cooper, Arcline or External) is set on the quote and never prints. Each line can carry the customer's target price and estimated EAU; the Target & volume card shows our price against their target, a year's revenue at the EAU, its GM and GM in dollars (quoters and managers), and a free-text Project context — none of it prints. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. An Alternates table — a designator per row, up to three options, each a manufacturer, its part number and lead time, plus the reason for choosing the alternate — typed or pasted from Excel, prints on its own page of the PDF under Alternate 1, 2 and 3. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the Alternates table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → Insourcing Quotes</strong>{" "}
+          (<code>/sales/quotes</code>) takes the final cost of each part being
+          quoted — material, labor and overhead — and turns it into a selling
+          price. It is also where Sales, Engineering, Supply Chain and
+          Operations discuss the quote and agree it, beside the customer's
+          data package, ending in a PDF quote for the customer. Customers never
+          use the tool; they only receive the PDF.
+        </P>
+        <H3>Who can use it — the three roles</H3>
+        <P>
+          Access comes from the <strong>Quote Roles</strong> list, not from
+          your department. If you are not on it, the Insourcing Quotes card and
+          menu entry don't appear at all — ask a quote manager to add you.
+        </P>
+        <UL>
+          <LI>
+            <strong>Viewer</strong> — sees quotes, their lines and the selling
+            and break prices, and can comment, watch and attach files.
+          </LI>
+          <LI>
+            <strong>Quoter</strong> — everything a viewer can do, plus sees
+            and edits material, labor, overhead and margin, creates and edits
+            quotes and their lines, links tasks and projects, makes new revs,
+            and generates the PDF. Whoever enters labor (for example
+            Operations) needs the Quoter role.
+          </LI>
+          <LI>
+            <strong>Manager</strong> — everything a quoter can do, plus sets a
+            quote to <strong>Won</strong>, <strong>Lost</strong> or{" "}
+            <strong>Expired</strong>, creates and edits customers, and manages
+            the roles list (<strong>Roles</strong> tab). An ARC admin can also
+            manage the roles list, but being an admin doesn't give you access
+            to quotes.
+          </LI>
+        </UL>
+        <Tip>
+          A viewer doesn't see cost, overhead, target GM or margin anywhere on
+          screen — but that only hides them in ARC. The figures are still in
+          the SharePoint list, and the real protection is who SharePoint lets
+          read it. Don't rely on the viewer role to keep cost confidential.
+        </Tip>
+        <H3>Creating a customer</H3>
+        <P>
+          The <strong>Customers</strong> tab lists everyone ARC quotes to. Only
+          a manager adds or edits one. When you type the name, ARC proposes a
+          short <strong>customer code</strong> (for example <code>COO</code>)
+          from the first meaningful word. If that code is taken, ARC shows you
+          and offers the next few to choose from, or you can type your own — it
+          never quietly adds a digit, because a clash often means the customer
+          already exists. ARC also warns you if a customer with a similar name
+          is already on the list.
+        </P>
+        <P>
+          The code is fixed once the customer is created. Renaming the
+          customer later changes neither its code nor any quote number. A
+          customer you no longer quote to is <strong>retired</strong>, never
+          deleted, because its quotes still point at it. A quoter who needs a
+          new customer picks from the existing ones and asks a manager to add
+          it.
+        </P>
+        <P>
+          A customer's <strong>Customer notes</strong> — payment terms, who
+          quotes go to, how they want lengths quoted — show on every quote for
+          that customer, and under the customer picker when you start a new
+          one. They are internal and never print.
+        </P>
+        <H3>Creating a quote</H3>
+        <P>
+          Press <strong>New quote</strong>, pick the customer, and fill in the
+          contact, how many days the quote is valid (30 by default) and
+          whether it is <strong>budgetary</strong>. Add a{" "}
+          <strong>Customer reference / description</strong> — the customer's
+          RFQ number, or a few words on what is being quoted. It prints on the
+          quote under the customer, and shows in the quotes list, where the
+          search finds it too. Pick the <strong>Customer type</strong> —
+          Cooper, Arcline or External; it is internal and never prints. The
+          quotes list shows it in its own column, and the{" "}
+          <strong>Customer type</strong> filter narrows the list to one type
+          (or to quotes with none set). ARC
+          numbers it for you —{" "}
+          <code>IQ-COO-0042-R1</code> is customer code COO, quote 42, rev 1.
+          The running number is shared by every customer, so two quotes can
+          never get the same number. A new quote starts as{" "}
+          <strong>Draft</strong>.
+        </P>
+        <H3>Adding lines</H3>
+        <P>
+          A quote holds one or more <strong>line items</strong> — the parts the
+          customer would buy. Press <strong>Add line</strong> and enter its
+          <strong>Part Number</strong>, SAP and customer part numbers, a description, the quantity
+          quoted, and the part's <strong>final</strong> cost of one:
+        </P>
+        <UL>
+          <LI>
+            <strong>Material</strong> — what the material for one costs.
+          </LI>
+          <LI>
+            <strong>Labor</strong> — what building one costs. It can be left
+            blank and filled in later by whoever owns it; blank counts as
+            nothing.
+          </LI>
+          <LI>
+            <strong>Overhead</strong> — a percent of the material cost, 18% on
+            a new line unless you change it.
+          </LI>
+        </UL>
+        <P>
+          Then set the line's <strong>target gross margin</strong>, up to three
+          quantity breaks, and an optional manual price. The form shows the
+          material, overhead, labor and total cost, and the price they give.
+        </P>
+        <P>
+          SAP part numbers are entered as <strong>####-####-##</strong> — ten
+          digits, like 1003-0114-40. The dashes go in as you type, and a SAP #
+          that isn't ten digits won't save. Leave it blank if the part has no
+          SAP number yet.
+        </P>
+        <P>
+          The worksheet shows each line with its price, quantity quoted,
+          Subtotal and quantity breaks, and underneath, for quoters and
+          managers, its material, overhead, labor, total cost, target gross
+          margin, price, the margin actually achieved, and markup. Lines can be
+          removed while you build the quote. Discuss a line in the
+          quote's <strong>Discussion</strong>, and keep supplier quotes and
+          drawings in the quote's attachments.
+        </P>
+        <P>
+          Each line also takes the customer's <strong>target price</strong> for
+          one and their <strong>estimated EAU</strong> (estimated annual usage,
+          units a year). Both are optional and internal — they never print.
+        </P>
+        <H3>Target &amp; volume</H3>
+        <P>
+          The <strong>Target &amp; volume</strong> card, right under the quote details,
+          shows each line's price against the customer's target — how much
+          above or below, in dollars and percent — and what a year at their
+          EAU is worth in revenue. Our price is the line's unit price at its
+          quoted quantity, the same price as its Subtotal. Quoters and
+          managers also see the GM % and the GM in dollars a year. The totals
+          add up only the lines that have an EAU, and the card says how many
+          are left out.
+        </P>
+        <P>
+          The <strong>Project context</strong> at the bottom of the card is a
+          free-text note on the project — who it's for, why, the timing. A
+          quoter or manager writes it with <strong>Edit</strong>. Everyone can
+          read it; it never prints.
+        </P>
+        <Tip>
+          Quotes built before 29 October 2026 broke a final assembly into
+          components. ARC no longer shows those components — open the line and
+          enter its final material and labor cost to price it again.
+        </Tip>
+        <H3>Linked work</H3>
+        <P>
+          The <strong>Linked work</strong> panel on the right links the quote
+          to an <strong>Engineering task</strong> and{" "}
+          <strong>project</strong> and an <strong>Operations task</strong> and{" "}
+          <strong>project</strong> — pick each from its list. A linked task has
+          an <strong>Open</strong> link straight to it. Only a quoter or
+          manager can change a link; everyone can see them. Links never print.
+        </P>
+        <H3>Turning a won quote into a task</H3>
+        <P>
+          Once a quote is <strong>Won</strong>, a quoter or manager sees{" "}
+          <strong>Create task</strong> at the top of the quote. Pick{" "}
+          <strong>Engineering</strong> or <strong>Operations</strong>, the
+          task's title and its parent project (it starts on the project
+          already under Linked work, and sets the task's number), then press{" "}
+          <strong>Create task</strong>. ARC opens the new task.
+        </P>
+        <P>
+          The task gets the quote's whole discussion, with each comment's
+          original author and time, its watchers, its attachments, and a
+          description naming the quote, the customer, the project context and
+          the lines. The quote records the task and project under Linked work
+          and posts a note naming the new task number, and the quote's
+          watchers are emailed. A quote can have one Engineering task and one
+          Operations task.
+        </P>
+        <P>
+          From then on the quote and the task share one conversation: a
+          comment on either is copied to the other, with a line saying where it
+          was posted and a link to reply there. A comment on a task always goes
+          to the quote's latest revision. The task shows a{" "}
+          <strong>From quote</strong> link back to the quote. A task picked by
+          hand under Linked work is only a link — its comments are not shared.
+        </P>
+        <H3>Alternates</H3>
+        <P>
+          The <strong>Alternates</strong> card holds a table for the customer.
+          Each row has up to three options side by side — each a{" "}
+          <strong>manufacturer</strong>, its <strong>part number</strong> and
+          its <strong>lead time</strong> — and a free-text{" "}
+          <strong>reason for choosing the alternate</strong>. Press{" "}
+          <strong>Edit</strong> to type rows, or{" "}
+          <strong>Paste from Excel</strong>: copy the cells in your working
+          spreadsheet — the Designator, then Manufacturer, Mfr part #, Lead time
+          three times across, then the reason — and paste them in. Include the
+          header row and ARC reads it to tell whether there is a Designator
+          column; without one, a sheet with no Designator column works too.
+          Rows are added below the rows already there. On the PDF each row
+          shows its designator, then Alternate 1, 2 and 3. The table
+          prints on its own page after the quote; with no rows, there is no
+          extra page.
+        </P>
+        <H3>How pricing works</H3>
+        <UL>
+          <LI>
+            Every line has a <strong>Quantity quoted</strong> — one unless you
+            change it. The line's <strong>Subtotal</strong> is that quantity at
+            the unit price of the quantity break it falls in, and the
+            quote's <strong>Total</strong> adds up every line's Subtotal.
+          </LI>
+          <LI>
+            A line's <strong>total cost</strong> is its material, plus the
+            overhead on the material, plus labor. Labor carries no overhead.
+          </LI>
+          <LI>
+            The line's <strong>target gross margin</strong> turns that total
+            cost into <strong>one price</strong>, rounded to the cent.
+          </LI>
+          <LI>
+            The quote's overall margin is <strong>weighted</strong> by money
+            across its lines, not averaged.
+          </LI>
+          <LI>
+            <strong>Quantity breaks</strong> (up to three) are set on the line:
+            each break gives a percentage off the base price at that quantity.
+            Cost doesn't change, so the margin at each break is lower, and the
+            worksheet shows it.
+          </LI>
+          <LI>
+            A <strong>manual price</strong> replaces the calculated one (you can
+            leave the target gross margin blank then), and the worksheet marks
+            it as manual so it is never mistaken for the calculated price. The
+            margin is recalculated from the price you entered.
+          </LI>
+          <LI>
+            Prices and costs show to the cent. A unit cost you typed with more
+            precision — a $0.0123 part — shows as you entered it.
+          </LI>
+        </UL>
+        <H3>Changing a quote — new rev or update in place</H3>
+        <UL>
+          <LI>
+            <strong>New revision</strong> copies the quote forward as the next rev
+            (R1 becomes R2), with its lines, customer reference, alternates,
+            linked work, comments and attachments. The earlier rev is left exactly as it was sent. If
+            something doesn't copy across, ARC tells you what.
+          </LI>
+          <LI>
+            Editing the header, a line or the alternates updates the current
+            rev in place, without a new number. If that rev has already been{" "}
+            <strong>Sent</strong>, ARC asks first — <strong>Update anyway</strong>,
+            or create the next rev — so the choice is deliberate.
+          </LI>
+        </UL>
+        <P>
+          The quote list shows the latest rev of each quote. Tick{" "}
+          <strong>Show earlier revisions</strong> to list the older ones too, and
+          a quote's page links to its other revs.
+        </P>
+        <H3>Generating and saving the PDF</H3>
+        <P>
+          <strong>Generate PDF</strong> builds the customer's quote and
+          downloads it to your computer — nothing is saved anywhere else. The
+          PDF shows the quote number with its rev, the date and expiry, the
+          customer, and — under <strong>Prepared by</strong> — your name and
+          email, since you generated it, so the customer knows who to
+          contact. Each line runs across the full width of the page: its part
+          number and description in a grey band with the SAP and customer
+          part numbers under them, then the quantity quoted, unit price and
+          Subtotal, and the volume pricing when the line has quantity breaks.
+          The Total comes after the last line, then the quote notes, and the
+          Alternates table on a page of its own. Your customer reference prints
+          under the customer. It never shows material, labor, overhead, cost,
+          margin, discounts or customer notes.
+        </P>
+        <P>
+          <strong>Save PDF to folder</strong> saves the PDF to the{" "}
+          <strong>General/IC Quotes</strong> folder in the Altronic_PMO
+          Documents library. ARC never overwrites a saved quote: if the name is
+          already there, the new file is saved alongside it with a number
+          added. When you mark a quote Sent, ARC offers to save it. The{" "}
+          <strong>Saved PDFs</strong> panel on the quote lists every PDF saved
+          for it, from every rev, newest first, so an earlier rev's quote is
+          always one click away.
+        </P>
+        <Tip>
+          The <strong>budgetary text</strong> (filled in with the standard
+          non-binding wording when you tick Budgetary, and editable) and the{" "}
+          <strong>quote notes</strong>, the customer reference and the
+          Alternates table print on the customer's quote, word for word — the form says so
+          beside each. Comments, attachments, customer notes, the customer
+          type, target prices, EAU and the project context are internal and
+          never print.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "where-am-i",
     title: "Where Am I?",
     group: "Engineering",
@@ -3884,7 +6661,7 @@ const SECTIONS: ManualSection[] = [
       "absence",
     ],
     searchText:
-      "Where Am I? at /engineering/where-am-i, under Engineering — the team's out-of-office calendar, backed by the Where am I? list on the Altronic Engineering SharePoint site. Each entry is a line of text and a day: who you are and what you're doing (\"Sarah - half day vacation\"). On a computer it's a month grid: click a day to add yourself, click an entry to edit or remove it, arrows and Today move between months. On a phone the grid is replaced by an upcoming agenda grouped by day — Today, Tomorrow, then dates — because seven columns can't be read at phone width. Adding lets you set a Through date, which creates one entry per day (the list stores a single date per row), capped at 60 days. Anyone signed in can add, edit and remove entries, including other people's. The search box matches names and reasons.",
+      "Where Am I? at /engineering/where-am-i, under Engineering — the team's out-of-office calendar, backed by the Where am I? list on the Altronic Engineering SharePoint site. Each entry is a line of text and a day: who you are and what you're doing (\"Sarah - half day vacation\"). On a computer it's a month grid: click a day to add yourself, click an entry to edit or remove it, arrows and Today move between months. Each week grows to fit its busiest day, showing up to six entries per day and then \"+N more\". Click a day's date to open a day panel on the right with all of that day's entries in full, previous and next day arrows, and Add to this day; clicking the same date again, Escape or the X closes it, and the page address keeps the chosen day. On a phone the grid is replaced by an upcoming agenda grouped by day — Today, Tomorrow, then dates — because seven columns can't be read at phone width. Adding lets you set a Through date, which creates one entry per day (the list stores a single date per row), capped at 60 days. Anyone signed in can add, edit and remove entries, including other people's. The search box matches names and reasons.",
     render: () => (
       <>
         <P>
@@ -3913,6 +6690,18 @@ const SECTIONS: ManualSection[] = [
           <LI>
             The arrows move a month at a time, and <strong>Today</strong> jumps
             back.
+          </LI>
+          <LI>
+            Each week grows to fit its busiest day. A day shows up to six
+            entries; past that it says <strong>+N more</strong>.
+          </LI>
+          <LI>
+            <strong>Click a day's date</strong> (the strip at the top of the
+            day) to open that day on the right: every entry in full, arrows to
+            step to the previous or next day, and <strong>Add to this
+            day</strong>. Click an entry there to edit it. Click the same date
+            again, press Escape or use the X to close it. The page address keeps the day, so you can share a
+            link to it.
           </LI>
         </UL>
         <H3>Away for more than a day</H3>
@@ -3987,9 +6776,13 @@ const SECTIONS: ManualSection[] = [
       "eir kanban",
       "drag eir",
       "eir columns",
+      "workflow",
+      "process",
+      "diagram",
+      "flowchart",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Each row in the list shows the date the EIR was raised, next to its EIR number, with the full timestamp on hover. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed. When an EIR is raised without a project reference, Sheila Horn is emailed asking her to add one; once it has a project reference, Glenn Terry and Brandon Mirto are asked to assign an engineer. When an EIR's status becomes Response Accepted, Sheila Horn and Ray White are emailed asking for it to be closed. When it becomes Response Not Accepted, the assigned engineers are asked to revisit and give a more detailed response; if no engineer is assigned the request goes to the assigners instead. When an EIR's Resolution becomes Resolved, Glenn Terry and Brandon Mirto are emailed asking them to review it and decide whether the response is accepted. The At Risk Parts view ignores the status pills entirely and lists every active at-risk part, open or closed. Only Sheila Horn and Ray White can change an EIR's Project Reference: for everyone else the field shows a padlock and the assigned projects read-only. Anyone can still set a project when first raising an EIR. An EIR raised with a project reference already on it skips the first step. Changing the project later doesn't re-send the request.",
+      "A workflow diagram shows the whole EIR process: the reporter raises the EIR (Under Review); Sheila Horn or Ray White adds the project reference; the assigners pick an engineer; the engineer writes the Engineering Response and sets Resolution to Resolved, or promotes the EIR to a task; the assigners accept the response (Response Accepted) or send it back (Response Not Accepted, back to the engineer); and it is closed. The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. A promoted EIR's Linked Task card shows the exact task it was promoted into; because task numbers repeat across projects, a short Task Reference like T188 that fits several tasks links none of them and lists them to pick from. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year), taken when Create is pressed; if two EIRs are saved with the same number at once, the later one moves to the next free number. The EIR Log No. is calculated from it. Each row in the list shows the date the EIR was raised, next to its EIR number, with the full timestamp on hover. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR); every Project Reference on the EIR is added to the task's Related Projects. After promoting, comments are shared: a comment on the EIR is copied to its task and a comment on the task is copied to the EIR, each marked Posted on EIR or Posted on task with a link back, and the other side's watchers are emailed. Older promoted EIRs, including the old Power App's, were linked and had their threads merged once. Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed. When an EIR is raised without a project reference, Sheila Horn is emailed asking her to add one; once it has a project reference, Glenn Terry and Brandon Mirto are asked to assign an engineer. When an EIR's status becomes Response Accepted, Sheila Horn and Ray White are emailed asking for it to be closed. When it becomes Response Not Accepted, the assigned engineers are asked to revisit and give a more detailed response; if no engineer is assigned the request goes to the assigners instead. When an EIR's Resolution becomes Resolved, Glenn Terry and Brandon Mirto are emailed asking them to review it and decide whether the response is accepted. The At Risk Parts view ignores the status pills entirely and lists every active at-risk part, open or closed. Only Sheila Horn and Ray White can change an EIR's Project Reference: for everyone else the field shows a padlock and the assigned projects read-only. Anyone can still set a project when first raising an EIR. An EIR raised with a project reference already on it skips the first step. Changing the project later doesn't re-send the request. Only Glenn Terry, Brandon Mirto, Sheila Horn and Ray White can change an EIR's Status or Assigned engineers, on the detail page or by dragging on the board; for everyone else both fields are locked. Completing a promoted task still closes its EIR whoever completes it. When an EIR is set to Closed, Glenn Terry, Brandon Mirto and Sheila Horn are emailed as well as the watchers, assigned engineers and reporter.",
     render: () => (
       <>
         <P>
@@ -3999,6 +6792,14 @@ const SECTIONS: ManualSection[] = [
           Temporary Deviation — and progress through their own status workflow
           separate from tasks.
         </P>
+        <H3>The workflow at a glance</H3>
+        <P>
+          An EIR moves through these steps. Each says who takes it, the status
+          it lands in, and who is emailed; the side boxes show where a step can
+          go instead, including a rejected response going back to the
+          engineer. The sections below explain each one in detail.
+        </P>
+        <EirWorkflowDiagram />
         <H3>List view</H3>
         <P>
           <strong>View tabs</strong> at the top group EIRs by triage stage:
@@ -4049,6 +6850,20 @@ const SECTIONS: ManualSection[] = [
           pick a project on the New EIR form, the same way the other restricted
           fields work. The lock applies to changing it afterwards.
         </P>
+        <H3>Who can change the status and the assigned engineer</H3>
+        <P>
+          <strong>Only Glenn Terry, Brandon Mirto, Sheila Horn and Ray White can
+          change an EIR's Status or its Assigned engineers.</strong> For
+          everybody else both fields show a padlock and their current values
+          read-only, and dragging a card on the board to another column is
+          refused with a message saying who can move it. Ask one of them if an
+          EIR needs to move on or needs an engineer.
+        </P>
+        <P>
+          One exception: completing the task an EIR was promoted into still
+          closes the EIR, whoever completes the task — that's the workflow
+          finishing, not a hand edit.
+        </P>
         <H3>Alerts on a status change</H3>
         <P>
           Two status changes raise a request rather than just a notification.
@@ -4060,6 +6875,14 @@ const SECTIONS: ManualSection[] = [
           <strong>assigned engineers</strong>, asking them to revisit and give a
           more detailed response; if no engineer is assigned, the request goes to
           the assigners instead so it doesn't land nowhere.
+        </P>
+        <P>
+          Setting an EIR to <strong>Closed</strong> emails{" "}
+          <strong>Glenn Terry</strong>, <strong>Brandon Mirto</strong> and{" "}
+          <strong>Sheila Horn</strong>, on top of the usual status note to the
+          watchers, the assigned engineers and the reporter. Nobody gets two
+          emails about the same close: anyone already told by the status note
+          is left off the second one.
         </P>
         <P>
           Whoever made the change is left off their own alert — an engineer who
@@ -4097,11 +6920,19 @@ const SECTIONS: ManualSection[] = [
           <strong>Subject</strong>, <strong>Description</strong>,{" "}
           <strong>Reporter</strong> (pre-filled to you),{" "}
           <strong>Requested Priority</strong>, and <strong>Request Type</strong>{" "}
-          (defaults to "EIR"). The Purchasing section also takes EAU, Current
-          Stock, Current Price, MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
+          (defaults to "EIR"). The Purchasing section also takes EAU, Initial
+          Stock, Initial Cost (the stock and cost when the EIR is raised), MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
           Risk Part Level, Technical Priority, Altronic Part Number, and Where
-          Used. Project Reference, Assigned Engineers, and attachments are set
-          from the detail page after creation — <strong>Assigned</strong> is a
+          Used. You can also add <strong>attachments</strong> — click Add file
+          or drag files onto the Attachments card. They upload as soon as the
+          EIR is saved, one at a time, and the form shows which file is going
+          up. The EIR opens only once SharePoint has confirmed the EIR and every
+          file, so you never land on a half-saved one. Keep the tab open until
+          then; the browser asks first if you try to refresh or close it. If a
+          file doesn't make it, the EIR is still saved and a message names the
+          file to add again from its Attachments card. Project
+          Reference and Assigned Engineers are set from the detail page after
+          creation — <strong>Assigned</strong> is a
           dropdown with a search box, so type a few letters of a name rather
           than scanning the whole staff list; the people already assigned show
           as chips you can remove one at a time.
@@ -4116,13 +6947,25 @@ const SECTIONS: ManualSection[] = [
           <strong>EIR Log No.</strong> column is calculated from EIR No, so it
           follows the same format automatically — you never type it in.
         </P>
+        <P>
+          The number is taken from the EIRs list at the moment you press{" "}
+          <strong>Create</strong>, not when you opened the form, so leaving the
+          form open while you write doesn't matter. If someone else saves the
+          same number a moment before you, your EIR moves to the next free
+          number on its own; the number in the confirmation message is the one
+          it kept.
+        </P>
         <H3>Detail page</H3>
         <P>
-          The main column shows the EIR No header, request-type chip,
-          Description, Engineering Response (with its own inline editor), Part
-          Details (Where Used, MFG, MFG P/N, Altronic Part Number, EAU, Current
-          Stock, Current Price, Buyer Code — all editable inline by clicking),
-          and the comments thread. Like a task's Description, the EIR's
+          The main column shows the EIR No in large type at the top, the
+          request-type chip, Description, Engineering Response (with its own
+          inline editor), Part Details (Where Used, MFG, MFG P/N, Altronic Part
+          Number, EAU, Initial Stock, Initial Cost, Current Stock, Current
+          Cost, Buyer Code — all editable inline by clicking), and the comments
+          thread. Initial Stock and Initial Cost are the figures from when the
+          EIR was raised; Current Stock and Current Cost are kept up to date by
+          Supply Chain, and only people with the Supply Chain role can change
+          them. Like a task's Description, the EIR's
           Description can hold a custom checklist — click{" "}
           <strong>Turn into checklist</strong> while editing it; see{" "}
           <em>Working with tasks → Custom checklists in the Description</em>{" "}
@@ -4171,8 +7014,18 @@ const SECTIONS: ManualSection[] = [
           row with the numbered title on the left and the task's current
           status badge on the right, identical in feel to the Child Tasks
           card on the task detail. Hit <strong>Edit</strong> in the card
-          header to type a new reference (e.g. <code>T115</code>) or paste a
-          Power Apps task URL; the app extracts the task ID either way.
+          header to type a new reference or paste a link to the task —
+          either its ARC address or an old Power Apps task URL.
+        </P>
+        <P>
+          When an EIR is promoted, the new task's full number is written
+          back to the EIR and the Linked Task card shows that exact task.
+          Task numbers start again in every project, so <code>T188</code>{" "}
+          can be several different tasks: a short reference like that links
+          only when exactly one task carries it. If several do, the card lists
+          them all and you pick the right one, which saves that task's full
+          number. Adding the project code (<code>T188-321</code>), the full
+          numbered title, or a link to the task always links the right one.
         </P>
         <P>
           <strong>Promoting an EIR to a task.</strong> Click the{" "}
@@ -4183,7 +7036,10 @@ const SECTIONS: ManualSection[] = [
           the EIR's title). Pick the parent project — defaulted from the EIR's
           Project Reference when it has one, and <strong>required</strong>:
           it sets the task's number prefix, so <strong>Create task</strong>{" "}
-          stays disabled until a project is chosen. Then click{" "}
+          stays disabled until a project is chosen. Every <strong>Project Reference</strong> on the EIR is also
+          added to the new task's <strong>Related Projects</strong>, so an EIR
+          that covers several projects keeps all of them; the window lists
+          them under <em>Related projects</em> before you create the task. Then click{" "}
           <strong>Create task</strong>. The new task carries over the
           EIR's title, description, project, watchers, and attachments, and
           its whole comment thread is copied across with each comment tagged{" "}
@@ -4192,10 +7048,24 @@ const SECTIONS: ManualSection[] = [
           EIR, and this EIR's Resolution, Linked Task card, and "Promoted to
           task" badge all update to point at the new task. Promoting is
           one-time — an EIR already marked promoted won't re-open the window.
-          If the link back, the carried-over discussion, or the copied
-          attachments couldn't be saved, a warning names what didn't make it
+          If the carried-over discussion or the copied attachments couldn't be
+          saved, a warning names what didn't make it
           across so you know to add it by hand — the task itself still gets
           created either way.
+        </P>
+        <P>
+          <strong>One conversation, after promoting.</strong> From then on a
+          comment posted on the EIR is copied to its task, and a comment
+          posted on the task is copied to the EIR, the same way a task and its
+          build request share their comments. Each copy starts with{" "}
+          <em>"Posted on EIR …"</em> or <em>"Posted on task …"</em> and a link
+          back to the original, so you reply where the conversation started.
+          The copy notifies the other record's watchers too, but nobody gets
+          the same comment twice. Comments are only copied between an EIR and
+          its own task: a build request's comments reach the task, not the EIR
+          behind it. EIRs promoted before this existed, including ones promoted
+          by the old Power App, were linked up and had their two threads merged
+          once, so their history appears on both sides.
         </P>
         <P>
           <strong>Closing the loop.</strong> When someone marks the promoted
@@ -4289,7 +7159,7 @@ const SECTIONS: ManualSection[] = [
       "tag folder",
     ],
     searchText:
-      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). At the top level, New project folder creates a folder and tags it with its project, so files uploaded from a task on that project land in it automatically; a project that already has a folder is marked and can't be given a second one. Deleting is done in SharePoint itself.",
+      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). At the top level, New project folder creates a folder and tags it with its project, so files uploaded from a task on that project land in it automatically; a project that already has a folder is marked and can't be given a second one. Each top-level project folder has a pencil button to fix its name or its project tag (for example to correct a typo): change what is wrong and Save changes. A project that already has a different folder can't be picked, and the Miscellaneous folder can't be edited. Deleting is done in SharePoint itself.",
     render: () => (
       <>
         <P>
@@ -4318,6 +7188,11 @@ const SECTIONS: ManualSection[] = [
             <strong>New project folder</strong> — at the top level, create a
             folder for a project. Pick the project and the name fills itself in
             to match; both stay editable.
+          </LI>
+          <LI>
+            <strong>Edit (pencil)</strong> — on a top-level folder, rename it
+            or change which project it is tagged with. Only what you change is
+            saved. Miscellaneous has no pencil.
           </LI>
         </UL>
         <P>
@@ -4374,9 +7249,15 @@ const SECTIONS: ManualSection[] = [
       "n/a",
       "flagged",
       "sign off checklist",
+      "distribution",
+      "distribution list",
+      "distribution groups",
+      "sign-off status",
+      "send now",
+      "please provide serial numbers",
     ],
     searchText:
-      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Admins can delete a notice from its page — for a duplicate or one entered by mistake — and are asked to confirm first; a superseded ECN should still be revised rather than deleted. Nobody else sees the Delete button. Every ECN also carries the Cross-Functional ECN Checklist (Form# MFGFRM-038) at the bottom of its page: all 84 review steps across the form's ten sections, filled out in ARC rather than on paper. A new ECN gets its checklist automatically; an ECN raised before this existed gets one from the Create checklist button. The card shows how many steps are answered with a progress bar; open it and each section expands to its own steps. Each step is marked Complete, N/A or Flagged, with a Findings / comments box beside it. Mark a step N/A when it does not apply to this ECN — that is what lets a finished checklist reach 100% on an ECN that never touches chemicals or CSA files — and Flagged when it needs a department review before release. Steps carry the form's own two markers: Must be on ECN means details have to appear on the notice, and Needs department review mirrors the form's review column. Changes save on their own a moment after you stop typing or click away, so there is no Save button. Who is involved? (RACI) opens the form's role matrix as reference — 32 roles across nine departments, with the R/A/C/I legend; steps that have a RACI assigned show a RACI link that opens the matrix at that step. The RACI is reference only and is never stored against an ECN.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, whether the notice is on hold, and Serial numbers. Setting Serial numbers to Waiting shows the notices that still need their serial numbers: every notice whose Serial Numbers field says 'Please provide serial numbers', whatever its In House Stock and whatever else the field holds; and any notice whose In House Stock is set to modify stock (Engineering - Modify stock or Operations - Stock modified) with the Serial Numbers field empty or only asking for them in other words. Recorded shows the notices that have serial numbers on file and aren't waiting; entries such as N/A, Not a serialized product or See R1 count as recorded. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. Distribution: every ECN has a Distribution list, the same ten roles as the DISTRIBUTION block on the paper form (CAD Department, VP Operations Eng., Quality Manager, Logistics Manager, Production Director, Sales, Op. Program Manager, Purchasing Manager, SHE Coordinator, Panel Plant). A new ECN starts with the seven the paper form ticks, VP Operations Eng. through Purchasing Manager; untick or add any before raising it, or later from the Distribution card's Edit button. The first time the ECN's Sign-off status is filled in, everyone in the ticked roles is emailed the ECN — not the person who filled it in — and the card then shows who it went to and when. Editing the sign-off afterwards sends nothing more. The card shows who each ticked role reaches and warns about a role nobody is set up for. If a signed-off ECN was never sent, because nobody was set up at the time or the email failed, the card has a Send now button. Who is in each role is set by ARC admins on the Distribution groups screen, from the button on the ECN list; anyone can view it there. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Admins can delete a notice from its page — for a duplicate or one entered by mistake — and are asked to confirm first; a superseded ECN should still be revised rather than deleted. Nobody else sees the Delete button. Every ECN also carries the Cross-Functional ECN Checklist (Form# MFGFRM-038) at the bottom of its page: all 84 review steps across the form's ten sections, filled out in ARC rather than on paper. A new ECN gets its checklist automatically; an ECN raised before this existed gets one from the Create checklist button. The card shows how many steps are answered with a progress bar; open it and each section expands to its own steps. Each step is marked Complete, N/A or Flagged, with a Findings / comments box beside it. Mark a step N/A when it does not apply to this ECN — that is what lets a finished checklist reach 100% on an ECN that never touches chemicals or CSA files — and Flagged when it needs a department review before release. Steps carry the form's own two markers: Must be on ECN means details have to appear on the notice, and Needs department review mirrors the form's review column. Changes save on their own a moment after you stop typing or click away, so there is no Save button. Who is involved? (RACI) opens the form's role matrix as reference — 32 roles across nine departments, with the R/A/C/I legend; steps that have a RACI assigned show a RACI link that opens the matrix at that step. The RACI is reference only and is never stored against an ECN.",
     render: () => (
       <>
         <P>
@@ -4404,8 +7285,18 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Filter by <strong>project</strong>, by <strong>In House Stock</strong>,
             by whether the <strong>drawings</strong> are complete or
-            outstanding, and by <strong>on hold</strong>. The filters live in
-            the address bar, so a filtered view can be shared.
+            outstanding, by <strong>on hold</strong>, and by{" "}
+            <strong>Serial numbers</strong>. The filters live in the address
+            bar, so a filtered view can be shared.
+          </LI>
+          <LI>
+            <strong>Serial numbers → Waiting</strong> lists the notices that
+            still need serial numbers: <strong>every</strong> notice whose
+            Serial Numbers field says <em>Please provide serial numbers</em>,
+            whatever its In House Stock, plus any notice that modifies stock
+            and has no serial numbers recorded yet.{" "}
+            <strong>Recorded</strong> lists the ones with serial numbers on
+            file that aren't waiting.
           </LI>
         </UL>
 
@@ -4464,6 +7355,38 @@ const SECTIONS: ManualSection[] = [
           comment too, mention them again: a mention notifies once, it doesn't
           subscribe anyone.
         </Tip>
+
+        <H3>Distribution</H3>
+        <P>
+          Every ECN has a <strong>Distribution</strong> list — the ten roles
+          on the paper form's DISTRIBUTION block. A new ECN starts with the
+          seven the paper form ticks (<strong>VP Operations Eng.</strong>{" "}
+          through <strong>Purchasing Manager</strong>); untick or add any on
+          the New ECN form, or later from the Distribution card's{" "}
+          <strong>Edit</strong> button.
+        </P>
+        <UL>
+          <LI>
+            <strong>The first time Sign-off status is filled in</strong>,
+            everyone in the ticked roles is emailed the ECN (not the person
+            who filled it in). The card then says who it went to and when.
+            Changing the sign-off afterwards sends nothing more.
+          </LI>
+          <LI>
+            The card shows who each ticked role reaches, and warns about a
+            role nobody is set up for — that role won't be emailed.
+          </LI>
+          <LI>
+            If a signed-off ECN was never sent (nobody was set up yet, or the
+            email failed), the card has a <strong>Send now</strong> button.
+          </LI>
+          <LI>
+            Who is in each role is set by <strong>ARC admins</strong> on the{" "}
+            <strong>Distribution groups</strong> screen, from the button on
+            the ECN list. Anyone can look at it. A change applies to the next
+            ECN signed off, not to ones already sent.
+          </LI>
+        </UL>
 
         <H3>The Cross-Functional ECN Checklist</H3>
         <P>
@@ -4565,9 +7488,12 @@ const SECTIONS: ManualSection[] = [
       "sk_num",
       "ventura",
       "record a change",
+      "sheet date",
+      "drawing completed",
+      "log book date",
     ],
     searchText:
-      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone. Open a CAD drawing and click Work Sheet to print FORM #E006, the Drawing Work Sheet that accompanies a drawing until release: it opens in a new tab already filled in from the register, laid out for 8.5 x 11 portrait, with the print dialog open so you can print it or Save as PDF. It prints everything the register holds — including the Entered By / By initials and all sixteen change slots, both of which the old form left off — plus the sections that exist only on paper: Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the Print Distribution block, all left blank to fill in by hand. The Work Sheet is CAD only.",
+      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. On CAD the two main dates are labelled Drawing Completed and Sheet Date; a new drawing's Sheet Date starts at today and can be changed. The Log Book Date is read-only: older drawings still show it on their panel, but it is no longer entered or printed. Every date in the drawing registers, including the change log, can be picked back to 1950 for documenting older drawings. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one; it opens newest sketch number first, and a new sketch's number is filled in with the next free one, which you can change before saving. Every register's columns can be sorted, and short columns like Size and Rev can be filtered. Reading and searching are open to everyone. Open a CAD drawing and click Work Sheet to print FORM #E006, the Drawing Work Sheet that accompanies a drawing until release: it opens in a new tab already filled in from the register, laid out for 8.5 x 11 portrait, with the print dialog open so you can print it or Save as PDF. It prints the Sheet Date and Drawing Completed dates, the Entered By / By initials and all sixteen change slots — both of which the old form left off — without the slot number, and with a narrow Date Changed column to leave room for the ECN #. The Log Book Date is not printed; its line is left blank. It also prints the sections that exist only on paper: Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the Print Distribution block, all left blank to fill in by hand. The Work Sheet is CAD only.",
     render: () => (
       <>
         <P>
@@ -4627,6 +7553,26 @@ const SECTIONS: ManualSection[] = [
           The <strong>New Drawing</strong> field is no longer on the add or edit
           form; existing values still show on the drawing's panel.
         </P>
+        <H3>CAD dates</H3>
+        <P>
+          A CAD drawing's two main dates are <strong>Drawing Completed</strong>{" "}
+          and <strong>Sheet Date</strong> (SharePoint still calls them
+          DateCompleted and DrawingDATE). When you add a drawing, its{" "}
+          <strong>Sheet Date starts at today</strong> — change it if the sheet
+          is dated otherwise. Editing a drawing never changes a date you didn't
+          touch.
+        </P>
+        <P>
+          The <strong>Log Book Date</strong> is <strong>read-only</strong>. Older
+          drawings still show theirs on the drawing's panel, but it's no longer on
+          the add or edit form and isn't printed.
+        </P>
+        <P>
+          Every date in the drawing registers — including the change log's — can
+          be picked <strong>back to 1950</strong> from the year drop-down, so an
+          older drawing can be documented with its real dates. (Elsewhere in ARC
+          the year list covers the last thirty years.)
+        </P>
 
         <H3>Printing the Drawing Work Sheet</H3>
         <P>
@@ -4637,12 +7583,16 @@ const SECTIONS: ManualSection[] = [
           <em>Save as PDF</em>. It's laid out for 8.5 × 11 portrait.
         </P>
         <P>
-          It prints <strong>everything the register holds</strong>, including two
-          things the old form left off: the <strong>Entered By</strong> and{" "}
-          <strong>By</strong> initials, and the <strong>second half of the change
-          history</strong> (revisions 9–16). All sixteen slots are printed, in the
-          two columns the paper form uses, numbered so you can tell slot 4 from the
-          fourth line down on a drawing with gaps.
+          It prints the drawing's <strong>Sheet Date</strong> and{" "}
+          <strong>Drawing Completed</strong> date, and two things the old form
+          left off: the <strong>Entered By</strong> and <strong>By</strong>{" "}
+          initials, and the <strong>second half of the change history</strong>{" "}
+          (revisions 9–16). All sixteen slots are printed, in the two columns the
+          paper form uses — with <strong>no slot number</strong>, since it read
+          like the revision and isn't, and a narrow <strong>Date Changed</strong>{" "}
+          column that leaves the ECN # room. The <strong>Log Book Date</strong>{" "}
+          isn't printed; its line is left blank so the rest of the form stays
+          where it was.
         </P>
         <P>
           The rest of the form is <strong>deliberately blank</strong> — Prototype /
@@ -4662,6 +7612,21 @@ const SECTIONS: ManualSection[] = [
           The sketch register has <strong>no change log</strong> — the list simply
           doesn't have those columns. It carries a sketch number, V code and
           Ventura reference instead, and the table and detail panel show those.
+        </P>
+        <P>
+          It opens <strong>newest sketch number first</strong>. When you add a
+          sketch, <strong>Sketch No. is filled in with the next free
+          number</strong> — one past the highest in the register. You can change
+          it before saving; if the number you type is already used, the form
+          says which sketch has it, but still lets you save.
+        </P>
+        <H3>Sorting and filtering</H3>
+        <P>
+          Every register's columns can be sorted: click the arrows beside a
+          column heading, and click again to reverse it. Short columns such as
+          Size, Rev or Ventura also have a filter — click the heading's name to
+          pick the values to show. CAD, CCC and CEC open with the most recently
+          dated drawings first until you choose a column.
         </P>
         <H3>Who can change what</H3>
         <P>
@@ -4784,6 +7749,10 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
       "approve",
       "approval",
+      "approval workflow",
+      "workflow",
+      "diagram",
+      "flowchart",
       "new part",
       "parts roles",
       "reviewing engineer",
@@ -4797,7 +7766,7 @@ const SECTIONS: ManualSection[] = [
       "sil cat",
     ],
     searchText:
-      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. A part's page and a single list load just what they show, in about a second; Global Search, the Parts Book counts and New part need every part number, so they take longer the first time, and New part leaves the number blank until both lists have loaded. Export components downloads the Component List as a CSV. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. A workflow diagram shows both approval paths, the sign-off status at each step, and who is emailed. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
     render: () => (
       <>
         <P>
@@ -4817,6 +7786,20 @@ const SECTIONS: ManualSection[] = [
           <strong>Parts Book</strong>. You never need to know which of the two
           SharePoint lists a part is on; ARC works that out from the number.
         </P>
+        <P>
+          The labels on the tiles follow <strong>EWI-005</strong> (Component/Document
+          Part Number Guidelines). A Parts Book is named by its product code (the
+          300 book is <strong>Altronic III Ignition</strong>). EWI-005 leaves 8
+          unused, so the 800 book is called <strong>Special Products</strong>. A
+          list is labelled by
+          its second digit, the assembly level, and its third digit, the device type
+          (list 309 is <strong>Components / Hardware · Wire Diagram / Sales
+          Drawing</strong>). Hover over a tile, or a list's subtitle, to see each
+          digit in the EWI's own words. Where EWI-005 doesn't assign a device type,
+          only the assembly level is shown. Older part numbers predate the
+          guideline, so not every part in a list will match its label. The HCO
+          lists keep their Through Hole, Surface Mount and SIL labels.
+        </P>
         <H3>Finding a part</H3>
         <P>
           On the landing page, pick a <strong>Parts Book</strong> (100 to 900) to
@@ -4833,9 +7816,25 @@ const SECTIONS: ManualSection[] = [
           when you don't know where a part lives.
         </P>
         <P>
+          <strong>Export components</strong>, beside it, downloads the whole
+          Altronic Component List as a CSV file — every component except
+          deleted numbers, with every field a component's page shows. Excel
+          may drop a leading zero (a footprint like 0603) when it opens the
+          file; open it through Data → From Text to keep those as text.
+        </P>
+        <P>
           From inside a list, the <strong>Parts Book</strong> link at the top
           (for example <strong>700 Parts Book</strong>) takes you back to that
           book's lists, so you can move to the next list without starting over.
+        </P>
+        <P>
+          <strong>How fast it opens.</strong> A part's page, and a single list,
+          load just what they show, usually in about a second. Global Search,
+          the Parts Book's counts and <strong>New part</strong> need every part
+          number on both lists, so they take longer the first time — about ten
+          seconds, more when SharePoint is busy — and are quick after that.
+          While New part waits, it says so and leaves the number blank rather
+          than guess at the next free one.
         </P>
         <P>
           <strong>On a phone</strong>, opening a Parts Book hides the other books
@@ -4941,8 +7940,8 @@ const SECTIONS: ManualSection[] = [
           the setting right.
         </P>
         <P>
-          To add a datasheet, choose the PDF under <strong>Datasheet</strong> on
-          the New Part form. It's saved as the part number (for example{" "}
+          A datasheet is optional. To add one with a new part, choose the PDF under{" "}
+          <strong>Datasheet</strong> on the New Part form. It's saved as the part number (for example{" "}
           <code>604613.pdf</code>) once the part is added, whatever the file was
           called, and a component's Has Data Sheet is set to Yes for you. A part
           with no datasheet shows <strong>Upload datasheet</strong> on its page
@@ -5006,12 +8005,24 @@ const SECTIONS: ManualSection[] = [
           new list's first.
         </P>
         <P>
+          The component lists are <strong>linked</strong>: 701, 711 and 712 for
+          Surface Mount, and 601 and 611 for Through Hole. When the list you open
+          is full, the form fills in the next free number from the next linked
+          list instead and says so — on a full 701 and 711 you get a 712 number,
+          with a note that 701 and 711 are full. When every linked list in the
+          category is full, the form offers{" "}
+          <strong>Ask the SAP admin for the next list</strong>, which emails them
+          to create one.
+        </P>
+        <P>
           Fields marked * are required, following the old app's rules. On a Part
           List part that's everything except Mfg Part #, Manufacturer, Date
           Drawing, Drawing Size and Notes; SAP # is left for the SAP admin. On a
           component it's everything except Notes, plus any rating that doesn't
-          apply to that kind of part. ARC won't accept a number that's already
-          taken or that doesn't start with the list you're adding to.
+          apply to that kind of part. The datasheet PDF is optional — add it now
+          or later from the part's page. ARC won't accept a number that's already taken
+          or that doesn't start with the list you're adding to (or, on a
+          component list, one of the linked lists after it).
         </P>
         <H3>Describing a new component</H3>
         <P>
@@ -5057,6 +8068,11 @@ const SECTIONS: ManualSection[] = [
           never really used.
         </P>
         <H3>Approvals</H3>
+        <P>
+          A new part goes through these steps before it's Approved. Each says
+          who takes it, the sign-off status it lands in, and who is emailed.
+        </P>
+        <PartsApprovalWorkflowDiagram />
         <P>
           A new <strong>component</strong> goes to the reviewing engineers, who get
           an email listing every field, with each rating named for that kind of
@@ -5134,9 +8150,13 @@ const SECTIONS: ManualSection[] = [
       "production complete",
       "build request production complete",
       "production hand-off",
+      "workflow",
+      "process",
+      "diagram",
+      "flowchart",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
+      "Build Requests ask manufacturing to build parts. A workflow diagram shows the whole process: the requestor raises the request, which starts as Pending Submission while it is worked on; the engineer adds parts, prepares each one and presses Mark as Ready for Production on it; once every part is ready a note says Ready for Production needs pressing now, and the assigned engineer presses it on the request to submit it to production; Amanda Hoagland moves each part to In Production and then Production Complete, presses Build Request Production Complete, and Sheila Horn reviews the request and presses Mark Build Request Complete. There is no Status dropdown: these buttons move the request along. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part. A request raised from the Build Requests list must name its task too: pick one (the request's project's tasks are listed first), or pick Create a task for this, which creates the task in the request's project and links them. A request with no task says so on its page and offers Link to a task, where you can pick a task or Create a task for this; a linked one has Change, which asks you to confirm before moving it to another task, a new one included. Anyone signed in can link or move one. The list's Not linked to a task box shows only the requests with no task, each marked No task. Comments made on the task or the request before they were linked are not copied: each page shows the other's earlier comments in a collapsed Earlier discussion panel, read-only, with a link to reply where they were posted.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review the request; she (or an admin) then presses Mark Build Request Complete, available while every part is still Production Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. A task the request was raised from can't be marked Complete until the request is Complete. The list opens on Open requests and its search covers open requests; tick Search all build requests beside the search box to search every request whatever its status, Complete included.",
     render: () => (
       <>
         <P>
@@ -5148,6 +8168,14 @@ const SECTIONS: ManualSection[] = [
           time, requestor, engineer, customer) and any number of{" "}
           <strong>parts</strong> underneath it.
         </P>
+        <H3>The workflow at a glance</H3>
+        <P>
+          A request moves through these steps. The two production buttons stay
+          locked until every part has reached the status shown, and each step
+          says who takes it and who is emailed. The sections below explain each
+          step in detail.
+        </P>
+        <BuildRequestWorkflowDiagram />
         <H3>Creating a request</H3>
         <P>
           Click <strong>New Build Request</strong> on the list page. Give it a
@@ -5157,6 +8185,15 @@ const SECTIONS: ManualSection[] = [
           Quoted Ship Date field, and Type <strong>Sample (A-D)</strong>{" "}
           reveals the Sample Phase. You're set as the Requestor and a watcher
           automatically. The request opens ready for parts.
+        </P>
+        <P>
+          Every new request names its <strong>Task</strong>, so the people
+          working from tasks see it. Pick the task from the list (tasks in the
+          request&apos;s project come first), or pick{" "}
+          <strong>Create a task for this</strong>: ARC creates a task with the
+          request&apos;s name in its first project reference, assigned to the
+          engineer if you picked one, and links the two. Pick a project
+          reference first — the new task is numbered within its project.
         </P>
         <P>
           You can also raise one <strong>from a task</strong>: the{" "}
@@ -5178,13 +8215,51 @@ const SECTIONS: ManualSection[] = [
           watching both the task and the request still means one email per
           comment.
         </P>
+        <H3>Linking a request to a task later</H3>
+        <P>
+          A request with no task says <em>Not linked to a task</em> under Task
+          Reference on its page, with a picker to link it — pick a task, or{" "}
+          <strong>Create a task for this</strong> to make one in the
+          request&apos;s first project reference and link it. Tick{" "}
+          <strong>Not linked to a task</strong> on the Build Requests list to
+          see only those requests; each is marked <strong>No task</strong>. A
+          linked request has a <strong>Change</strong> button, and moving it
+          to another task asks you to confirm first: new comments will be
+          copied to the new task, and that task can&apos;t be marked Complete
+          until the request is. Anyone signed in can link or move a request.
+        </P>
+        <P>
+          Comments made <strong>before</strong> the two were linked stay where
+          they were posted — nothing is copied. Instead each page has a
+          collapsed <strong>Earlier discussion</strong> panel under its
+          comments showing the other one&apos;s earlier comments, read-only,
+          with a link to reply where they were posted. From the moment they are
+          linked, new comments are shared as usual.
+        </P>
         <H3>Adding and editing parts</H3>
         <P>
           On the detail page, click <strong>Add Part</strong> and enter the
           part number, quantity, drawing info, and Part Type. Each part shows
           as a collapsible card — click it to expand and edit everything
-          inline: WO No (filled by manufacturing), Part Status, Disposition,
-          and the multi-select Assembly / Operations / Testing pickers.
+          inline: WO No (filled by manufacturing), Disposition, and the
+          multi-select Assembly / Operations / Testing pickers. A part&apos;s
+          status is not a dropdown — it moves through buttons (below).
+        </P>
+        <H3>Moving a part through production</H3>
+        <P>
+          Next to <strong>Print part</strong>, each part has a red{" "}
+          <strong>Mark as Ready for Production</strong> button. Press it only
+          when everything for that part is ready: every checklist box ticked
+          for a PCB or Harness part, or for any other part its Part Number,
+          Qty, Part Description, Part Type and Disposition filled in. Until
+          then the button is greyed and says what&apos;s left. After that,
+          Amanda Hoagland (or an ARC admin) takes the part through
+          production: <strong>Mark as In Production</strong>, then{" "}
+          <strong>Put On Hold</strong> or{" "}
+          <strong>Mark as Production Complete</strong>; a part on hold can go
+          back into production or straight to Production Complete. Each step
+          changes the part&apos;s Part Status, and the request&apos;s own
+          production hand-off waits on those statuses.
         </P>
         <H3>Part-Type checklists</H3>
         <P>
@@ -5225,7 +8300,10 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Handing a request to production</H3>
         <P>
-          The request header carries a production button with two stages:
+          The request header carries a production button with three stages.
+          There is no Status dropdown: these buttons, and the ones on each
+          part, move a request along. Its status shows as the badge at the
+          top.
         </P>
         <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
           <li>
@@ -5233,13 +8311,24 @@ const SECTIONS: ManualSection[] = [
             request has at least one part and every part&apos;s Part Status
             is Ready for Production (or already Production Complete).
             Pressing it sets the request&apos;s status to Ready for
-            Production.
+            Production. This is the last step of submitting the request: a
+            new request starts as <strong>Pending Submission</strong> while it
+            is being worked on, and once every part is ready a note beside the
+            button says it needs pressing now.
           </li>
           <li>
             <strong>Build Request Production Complete</strong> — the same
             button, once the request is Ready for Production. It is available
             when every part is Production Complete, and sets the request to
             Production Complete.
+          </li>
+          <li>
+            <strong>Mark Build Request Complete</strong> — the same button,
+            once the request is Production Complete. Sheila Horn (the
+            reviewer) or an ARC admin presses it after reviewing the request.
+            Every part must still be Production Complete. It sets the
+            request to <strong>Complete</strong>, and a task the request was
+            raised from can then be completed.
           </li>
         </ul>
         <P>
@@ -5250,18 +8339,14 @@ const SECTIONS: ManualSection[] = [
           admin, and <strong>Build Request Production Complete</strong> is for{" "}
           <strong>Amanda Hoagland</strong> or an ARC admin — the engineer hands
           the build to production, and production signs off that it&apos;s
-          done. Anyone else sees it greyed with the reason. Once the
-          request is Production Complete the button goes away — Sheila Horn
-          reviews the request and sets its status to <strong>Complete</strong>.
+          done. <strong>Mark Build Request Complete</strong> is for Sheila
+          Horn or an ARC admin. Anyone else sees it greyed with the reason.
+          Once the request is Complete the button goes away.
         </P>
         <P>
-          The <strong>Status</strong> picker follows the same rule: you
-          can&apos;t move a request to Ready for Production or Production
-          Complete from the picker before its parts are ready, or unless
-          you&apos;re allowed to take that step (the assigned engineer or an
-          admin for Ready for Production; Amanda Hoagland or an admin for
-          Production Complete). Other status changes
-          work as before.
+          Blocked, On Hold and Information Needed can no longer be set from
+          ARC. Older requests may still show them; change them in SharePoint
+          if you need to.
         </P>
         <P>Each step sends email (never to the person who took the step):</P>
         <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
@@ -5311,10 +8396,16 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Finding requests</H3>
         <P>
-          The list page has status pills (Open = everything not Complete),
-          filters for Project / Engineer / Requestor, and the standard
-          all-fields search — <strong>searching a part number finds its build
-          request</strong>, even though parts don't appear in the list. Rush
+          The list page opens on <strong>Open</strong> requests (everything
+          not Complete), with status pills to pick one status, filters for
+          Project / Engineer / Requestor, and the standard all-fields search —{" "}
+          <strong>searching a part number finds its build request</strong>, even
+          though parts don&apos;t appear in the list. The search covers what the
+          pills show, so it normally searches open requests. Tick{" "}
+          <strong>Search all build requests</strong> beside the search box to
+          search every request whatever its status, Complete included; if a
+          search finds nothing open, the list tells you how many requests in
+          other statuses match. Rush
           requests show a red Rush chip. The Dashboard's Build Requests card
           counts open requests (Mine = you're the requestor or the engineer).
         </P>
@@ -5357,7 +8448,7 @@ const SECTIONS: ManualSection[] = [
       "reorder quick links",
     ],
     searchText:
-      "Admins manage several things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks, Panel Projects and Panel User Roles, and Quick Links (/admin/quick-links) — button links shown above each department's cards on the Dashboard, grouped by department, reordered with up/down arrows within their own department, and shown to everyone signed in even though only admins can manage them. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+      "Admins manage several things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), where a duplicate project can be deleted once nothing points at it any more, EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks, Panel Projects and Panel User Roles, and Quick Links (/admin/quick-links) — button links shown above each department's cards on the Dashboard, grouped by department, reordered with up/down arrows within their own department, and shown to everyone signed in even though only admins can manage them. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
     render: () => (
       <>
         <P>
@@ -5403,6 +8494,16 @@ const SECTIONS: ManualSection[] = [
           project moves to the matching table automatically.
         </P>
         <P>
+          To <strong>delete a project</strong> — usually a duplicate — hover it
+          and click the <strong>bin</strong>. ARC first checks the tasks, EIRs,
+          ECNs, test sheets, build requests, build request parts, FAITs and
+          project folders for anything still pointing at that project. If any
+          do, it lists how many and won&apos;t delete: move them to the project
+          you&apos;re keeping (change their Project Reference), then delete the
+          duplicate. Deleting a project that&apos;s still in use would leave
+          those records pointing at a project that no longer exists.
+        </P>
+        <P>
           The existing projects are split into tables by their project number —
           laid out as a 2×2 grid of quadrants on computer screens and stacked one
           below another on smaller screens, sorted by project title descending in
@@ -5436,8 +8537,9 @@ const SECTIONS: ManualSection[] = [
           EIR fields. Add a user, then tick <strong>Engineer</strong> (lets them
           edit an EIR's <strong>Engineering Response</strong> and{" "}
           <strong>Technical Priority</strong>) and/or <strong>Supply Chain</strong>{" "}
-          (lets them edit <strong>Buyer Code</strong>, <strong>Risk Part</strong>,
-          and <strong>Risk Part Level</strong>). A user can hold both. Everyone
+          (lets them edit <strong>Buyer Code</strong>, <strong>Risk Part</strong>,{" "}
+          <strong>Risk Part Level</strong>, <strong>LTB Date</strong>,{" "}
+          <strong>Current Stock</strong> and <strong>Current Cost</strong>). A user can hold both. Everyone
           signed in can still edit every other EIR field — only those are gated.
           The checkboxes save instantly; remove a user to drop all their EIR roles.
           The page lists what each role unlocks, so you can see what you're
@@ -5733,9 +8835,14 @@ const SECTIONS: ManualSection[] = [
       "who gets emailed",
       "wrong email address",
       "bounced email",
+      "outlook conversation",
+      "conversation view",
+      "group emails",
+      "email thread",
+      "email subject",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself. Intake alerts go to a fixed configured list rather than an item's watchers: an EIR raised with no project reference asks the project-reviewer list (default Sheila Horn, Ray White) to add one; a project reference landing on an EIR with none asks the assigner list (default Glenn Terry, Brandon Mirto) to assign an engineer. An EIR reaching Response Accepted asks the response-accepted list (default Sheila Horn, Ray White) to close it; Response Not Accepted asks the assigned engineers to revisit, or the assigner list if none are assigned. An EIR's Resolution reaching Resolved asks the assigner list (default Glenn Terry, Brandon Mirto) to review it and decide whether the response is accepted. A new gray market request emails the intake list (default Katie Fleming, Alexandra Russell, Glenn Terry); a new FAIT emails its own intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming). Being on an intake list is not the same as watching the item, and the person who triggered it is left off their own alert unless that would leave nobody. FAIT status changes email its watchers plus its initiator, assigned engineer and KAM. The FAIT sign-off chain adds its own: being assigned as a FAIT's engineer or KAM emails you a heads-up that explicitly says no action is required yet; a FAIT reaching This is with SQE emails the configured SQE reviewer list (default Jerrod Waldron, VITE_FAIT_SQE_REVIEWERS - a separate list from the FAIT intake one); an approved SQE sign-off emails the assigned engineer, an approved Eng sign-off emails the KAM where one is needed, and either falls back to the SQE reviewers when that person is not assigned; a Failed SQE sign-off emails whoever raised the FAIT. Closing a FAIT emails everyone watching plus the intake list, de-duplicated so nobody gets two. Maintenance work orders follow the same rules as tasks: commenting, @-mentioning, assigning and changing a status emails the watchers and the assignee, and you start watching a work order you create, are assigned or are @-mentioned on. Time-based maintenance reminders — what is due soon, what has gone overdue — do NOT come from ARC: a Power Automate flow outside ARC sends those and maintains the Due Status column. ARC only sends the immediate emails, the ones caused by somebody doing something. Admins can check every configured list's addresses against the staff directory at Admin -> Notification recipients, which flags an address with no real mailbox before it fails silently.",
+      "Every email about one item carries the item's own name as its subject, so Outlook groups them into one conversation; what happened is the preview line under it. A quote component's comments join the quote's conversation and an EIR promotion email joins the EIR's. Renaming an item starts a new conversation. Emails that aren't about one item keep their own subjects. A task, EIR or build request email is laid out in three blocks under the greeting: the item (with its parent task above a task, or the linked task above a build request, as a link), What's new (who did what, then the comment or the change), and the description. The description is cut at 600 characters, with a Read the full description in ARC link when it is cut; a build request, which has no description, shows its product, type, sample phase, quoted ship date and customer instead. The subject stays the item's own name - the parent is never added to it. Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. Every email about a part names its build request as well as its part number (for example 672255-01 on BR_2026-0081 — CPU-95 controller retrofit), because one part number can be on several open build requests. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter: the email shows the EIR, names the new task as a link, and its button opens the task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself. Intake alerts go to a fixed configured list rather than an item's watchers: an EIR raised with no project reference asks the project-reviewer list (default Sheila Horn, Ray White) to add one; a project reference landing on an EIR with none asks the assigner list (default Glenn Terry, Brandon Mirto) to assign an engineer. An EIR reaching Response Accepted asks the response-accepted list (default Sheila Horn, Ray White) to close it; Response Not Accepted asks the assigned engineers to revisit, or the assigner list if none are assigned. An EIR's Resolution reaching Resolved asks the assigner list (default Glenn Terry, Brandon Mirto) to review it and decide whether the response is accepted. A new gray market request emails the intake list (default Katie Fleming, Alexandra Russell, Glenn Terry), and a change to a request's Testing Required or to its Engineering or Production fields emails Alexandra Russell plus the request's watchers; a new FAIT emails its own intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming). Being on an intake list is not the same as watching the item, and the person who triggered it is left off their own alert unless that would leave nobody. FAIT status changes email its watchers plus its initiator, assigned engineer and KAM. The FAIT sign-off chain adds its own: being assigned as a FAIT's engineer or KAM emails you a heads-up that explicitly says no action is required yet; a FAIT reaching This is with SQE emails the configured SQE reviewer list (default Jerrod Waldron, VITE_FAIT_SQE_REVIEWERS - a separate list from the FAIT intake one); an approved SQE sign-off emails the assigned engineer, an approved Eng sign-off emails the KAM where one is needed, and either falls back to the SQE reviewers when that person is not assigned; a Failed SQE sign-off emails whoever raised the FAIT. Closing a FAIT emails everyone watching plus the intake list, de-duplicated so nobody gets two. Maintenance work orders follow the same rules as tasks: commenting, @-mentioning, assigning and changing a status emails the watchers and the assignee, and you start watching a work order you create, are assigned or are @-mentioned on. Time-based maintenance reminders — what is due soon, what has gone overdue — do NOT come from ARC: a Power Automate flow outside ARC sends those and maintains the Due Status column. ARC only sends the immediate emails, the ones caused by somebody doing something. Admins can check every configured list's addresses against the staff directory at Admin -> Notification recipients, which flags an address with no real mailbox before it fails silently.",
     render: () => (
       <>
         <P>
@@ -5758,6 +8865,66 @@ const SECTIONS: ManualSection[] = [
             "assigned" note beats the broadcast).
           </LI>
         </UL>
+
+        <H3>One Outlook conversation per item</H3>
+        <P>
+          Every email about the same item — comments, mentions, replies, status
+          and assignment changes, sign-off requests — carries{" "}
+          <strong>the item's own name as its subject</strong> (for example{" "}
+          <em>EIR_2026-0245 — Pump seal supplier change</em>), so Outlook
+          groups them into <strong>one conversation</strong> with conversation
+          view turned on. What happened ("Status changed…", "Ray commented…")
+          is the preview line under the subject, and the email itself reads
+          the same as before.
+        </P>
+        <UL>
+          <LI>
+            A quote component's comments join the <strong>quote's</strong>{" "}
+            conversation, and the email saying an EIR was promoted joins the{" "}
+            <strong>EIR's</strong>.
+          </LI>
+          <LI>
+            <strong>Renaming an item starts a new conversation</strong> from
+            that point, because the subject changes with it. Earlier emails
+            stay in the old one.
+          </LI>
+          <LI>
+            Emails that aren't about one item — a request for a new parts list,
+            "parts lists are full", Report issue — keep their own subjects.
+          </LI>
+        </UL>
+
+        <H3>What a task, EIR or build request email shows</H3>
+        <P>
+          Under the greeting, an email about a task, an EIR or a build request
+          is laid out in three blocks, so you can tell what it's about without
+          opening ARC:
+        </P>
+        <UL>
+          <LI>
+            <strong>The item</strong> — its number and title. A task with a
+            parent shows <em>Parent task: T12-321-…</em> above its own name,
+            and a build request shows the <em>Task</em> it's linked to; both
+            are links.
+          </LI>
+          <LI>
+            <strong>What's new</strong> — who did what, then the comment, the
+            status change or the request. What changed always comes before the
+            description.
+          </LI>
+          <LI>
+            <strong>Description</strong> — the task's or EIR's description,
+            cut at 600 characters with a <strong>Read the full description in
+            ARC</strong> link when it's longer. A build request has no
+            description, so this block shows its product, type, sample phase,
+            quoted ship date and customer instead.
+          </LI>
+        </UL>
+        <P>
+          The subject doesn't change: it stays the item's own name, so the
+          conversation holds together. The email for a promoted EIR shows the
+          EIR, names the new task as a link, and its button opens the task.
+        </P>
 
         <H3>Maintenance work orders, and what ARC does not send</H3>
         <P>
@@ -5913,6 +9080,11 @@ const SECTIONS: ManualSection[] = [
               "New gray market request: … — Please pick it up",
             ],
             [
+              "A gray market request's Testing Required, Engineering or Production fields change",
+              "The configured change list (default Alexandra Russell) + the request's watchers (minus you)",
+              "Gray market request updated: … — each field, old → new",
+            ],
+            [
               "A FAIT is raised",
               "The configured intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming)",
               "New FAIT: … — Please pick it up",
@@ -5953,7 +9125,7 @@ const SECTIONS: ManualSection[] = [
               "FAIT closed: …",
             ],
             [
-              "A save of yours fails to reach SharePoint (after automatic retries)",
+              "A save of yours fails to reach SharePoint (after automatic retries) — not for attachments, which say so on their card",
               "Just you — a recovery copy so your work isn't lost",
               "ARC couldn't save your change — here's what you entered",
             ],
@@ -5961,6 +9133,26 @@ const SECTIONS: ManualSection[] = [
               "A task promoted from an EIR is completed",
               "The EIR's watchers + assignees + reporter",
               "Status changed on … + Resolution changed on … (the EIR is set Closed / Resolved)",
+            ],
+            [
+              "An MCN is submitted for approval",
+              "The MCN approvers (from MCN Settings) — an approver who submitted it is still asked",
+              "MCN submitted for approval …",
+            ],
+            [
+              "An MCN is approved",
+              "The people the approver chose to send it to (minus the approver)",
+              "MCN approved …",
+            ],
+            [
+              "An MCN is rejected",
+              "Its originator and assigned engineer, with the reason (minus you)",
+              "MCN rejected …",
+            ],
+            [
+              "An MCN is marked implemented",
+              "The same people the approval went to (minus you)",
+              "MCN implemented …",
             ],
           ]}
         />
@@ -6085,6 +9277,12 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             The person <strong>added</strong> → "You've been assigned to …".
+            On an Engineering or Operations task this email also shows the
+            task's{" "}
+            <strong>due date</strong> (or "No due date") and its{" "}
+            <strong>description</strong>, so you can see how urgent it is and
+            what it's about without opening the link. A long description is
+            cut short with "…", and checklist items show as boxes.
           </LI>
           <LI>
             The person <strong>removed</strong> → "You've been unassigned from
@@ -6114,7 +9312,9 @@ const SECTIONS: ManualSection[] = [
           <strong>watchers</strong> and <strong>reporter</strong> get an email
           (minus whoever did the promoting) with a button that opens the new
           task. Later, when that task is completed, the same followers hear about
-          it again as the EIR is closed out.
+          it again as the EIR is closed out. In between, a comment on either one
+          is copied to the other and emails that side's watchers, skipping
+          anyone the original comment already emailed.
         </P>
 
         <H3>If one of your saves fails</H3>
@@ -6277,7 +9477,7 @@ const SECTIONS: ManualSection[] = [
       "feedback",
     ],
     searchText:
-      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group. Raising a request emails whoever looks after them, so a suggestion does not sit unseen. Changing a request's status emails its watchers and the person who raised it — you watch your own request automatically — so you hear when yours moves to In Work or Completed. @-mentioning somebody in a comment emails them and adds them as a watcher, the same as everywhere else in ARC.",
+      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread, watchers and attachments, same as everywhere else in ARC — a screenshot pasted into a comment is saved to the request's attachments — so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group. Raising a request emails whoever looks after them, so a suggestion does not sit unseen. Changing a request's status emails its watchers and the person who raised it — you watch your own request automatically — so you hear when yours moves to In Work or Completed. @-mentioning somebody in a comment emails them and adds them as a watcher, the same as everywhere else in ARC. Ray White and Tim Webster see a GitHub column: ARC checks the BusinessIT repo for an issue already tracking each request and links to it, or offers Create issue, which opens the request as an ARC: BusinessIT issue in Backlog on the Business IT Tasks board. An existing issue that looks like the request can be linked instead. An Issue Status column shows the issue's board status (Backlog, In progress, In review, On Hold, Done). Connect GitHub once per browser with your own personal access token.",
     render: () => (
       <>
         <P>
@@ -6315,8 +9515,10 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Tracking a request</H3>
         <P>
-          Every request has its own page with a comment thread and watchers,
-          the same as a task or an EIR. Anyone signed in — not just an admin
+          Every request has its own page with a comment thread, watchers and
+          an Attachments card, the same as a task or an EIR. A file you
+          attach, paste or drop into a comment is saved to the request's
+          attachments and linked in the comment. Anyone signed in — not just an admin
           — can change a request's <strong>Status</strong> (Pending Review →
           In Work → Completed or Not Implementing),{" "}
           <strong>Priority</strong>, <strong>Department</strong> or{" "}
@@ -6348,6 +9550,40 @@ const SECTIONS: ManualSection[] = [
             the same as everywhere else in ARC.
           </LI>
         </UL>
+
+        <H3>Turning a request into a GitHub issue (Ray and Tim)</H3>
+        <P>
+          Ray White and Tim Webster see a <strong>GitHub</strong> column on the
+          list. ARC checks the BusinessIT repo's issues and shows the one
+          already tracking each request as a link (<strong>#27</strong>) that
+          opens it on GitHub. Where there is none, <strong>Create issue</strong>{" "}
+          opens the request as a BusinessIT issue titled "ARC: …", labelled
+          ARC, enhancement, its department and its priority, and puts it in{" "}
+          <strong>Backlog</strong> on the Business IT Tasks board. The issue
+          links back to the request. ARC asks you to confirm first.
+        </P>
+        <P>
+          An <strong>Issue Status</strong> column, right after Status, shows
+          where the linked issue sits on the Business IT Tasks board: Backlog,
+          In progress, In review, On Hold or Done. "Not on board" means the
+          issue exists but isn't on the board; a dash means the request has no
+          issue yet.
+        </P>
+        <P>
+          When an existing issue looks like the request (a similar title or
+          description, or it names the same requester), the row shows it as{" "}
+          <strong>Similar #12</strong> and the button reads{" "}
+          <strong>Link or create</strong>. Choosing <strong>Link</strong> adds
+          a link to the request at the bottom of that issue, so ARC recognises
+          it from then on. Use it for issues that were raised by hand.
+        </P>
+        <P>
+          The first time, click <strong>Connect GitHub</strong> and paste your
+          own GitHub personal access token. It needs access to the BusinessIT
+          repo with Issues read and write, plus Projects read and write for
+          the board. The token is saved in that browser only, so you connect
+          once on each computer. <strong>Disconnect</strong> removes it.
+        </P>
       </>
     ),
   },
@@ -6461,8 +9697,9 @@ const SECTIONS: ManualSection[] = [
           the top right of every page. It opens a small form where you can
           describe what went wrong. The app attaches every console error it
           has seen during your session — you don't need to open DevTools
-          yourself. The report is emailed to the app maintainer with you
-          CC'd, so you have a paper trail of exactly what was sent.
+          yourself. The report is emailed to the app maintainers with you
+          CC'd, so you have a paper trail of exactly what was sent. The form
+          shows who it will go to before you send it.
         </P>
         <P>
           When a new app version is deployed, a banner appears at the top of
@@ -6597,12 +9834,12 @@ export function ManualView() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder='Search the manual (e.g. "how do I mention someone")'
-            className="h-10 w-full rounded-md border border-border bg-bg pl-9 pr-9 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+            className="h-10 w-full rounded-md border border-border bg-bg pl-9 pr-9 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useDrawingLog } from "@/hooks/useDrawingLogs";
 import { CHANGE_SLOTS } from "@/lib/drawingLogMapper";
+import { DRAWING_LOG_FIELDS } from "@/lib/drawingLogFields";
 import { formatSpDate } from "@/lib/spDates";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import type { DrawingChange, DrawingLogEntry, DrawingLogKind } from "@/types/task";
@@ -12,11 +13,16 @@ import type { DrawingChange, DrawingLogEntry, DrawingLogKind } from "@/types/tas
 //
 // Two deliberate properties, both from Ray's marked-up copy (2026-07-30):
 //
-// 1. IT PRINTS EVERYTHING WE HOLD. The form Hoerbiger generates leaves out data
-//    that is in the register — the Entered By / By initials, and the second
-//    column of the change history (revisions 9-16). Those were annotated "in DB
-//    but doesn't print". So this sheet renders all 16 change slots and every CAD
-//    field, including the read-only ones.
+// 1. IT PRINTS WHAT THE REGISTER IS USED FOR. The form Hoerbiger generates
+//    leaves out data that is in the register — the Entered By / By initials, and
+//    the second column of the change history (revisions 9-16). Those were
+//    annotated "in DB but doesn't print". So this sheet renders all 16 change
+//    slots and the CAD fields people use.
+//
+//    With two deliberate exceptions (Ray/John, 2026-10-07, BusinessIT#32): the
+//    Log Book Date is read-only and NOT printed — its row is a blank spacer so
+//    nothing below moves — and the history tables carry no slot number, which
+//    confused people because it doesn't match the revision.
 //
 // 2. HALF THE FORM IS DELIBERATELY BLANK. Prototype / Preliminary / Production,
 //    the checked-approved / entered-in-system / to-mylar dates, and the whole
@@ -49,6 +55,14 @@ export function historyColumns(changes: DrawingChange[]): {
   const bySlot = new Map(changes.map((c) => [c.slot, c]));
   const slots = Array.from({ length: CHANGE_SLOTS }, (_, i) => bySlot.get(i + 1) ?? null);
   return { left: slots.slice(0, HISTORY_ROWS), right: slots.slice(HISTORY_ROWS) };
+}
+
+/**
+ * A CAD field's label, from the descriptors — so the sheet and the screen can't
+ * call one date two different things ("Sheet Date", "Drawing Completed").
+ */
+function cadLabel(key: string): string {
+  return DRAWING_LOG_FIELDS.cad.fields.find((f) => f.key === key)?.label ?? key;
 }
 
 /** A value for the form, or an empty string so the ruled line prints bare. */
@@ -136,7 +150,7 @@ export function PrintDrawingSheetView() {
       {/* --------------------------------------------------------- identifiers */}
       <div className="mt-2 grid grid-cols-[1.55fr_1fr] gap-x-6">
         <div>
-          <Row label="Date" value={text(entry, "drawingDate")} />
+          <Row label={cadLabel("drawingDate")} value={text(entry, "drawingDate")} />
           <Row label="Drawing Number" value={text(entry, "drawingNo")} />
           <Row label="CAD Drawing Number" value={text(entry, "cadNumber")} />
           <Row label="Drawing Title" value={text(entry, "drawingTitle")} />
@@ -159,8 +173,10 @@ export function PrintDrawingSheetView() {
 
       <div className="mt-1.5 grid grid-cols-[1.55fr_1fr] gap-x-6">
         <div>
-          <Row label="Log Book Entry Date" value={text(entry, "logBookDate")} />
-          <Row label="Date Completed" value={text(entry, "dateCompleted")} />
+          {/* Was "Log Book Entry Date". Removed (BusinessIT#32) but the space is
+              KEPT, so the paper form's layout below doesn't move. */}
+          <BlankRow />
+          <Row label={cadLabel("dateCompleted")} value={text(entry, "dateCompleted")} />
           <Row label="Date Checked/Approved" value="" />
           <Row label="Date Entered in Sys" value="" />
           <Row label="Date to Mylar" value="" />
@@ -226,8 +242,8 @@ export function PrintDrawingSheetView() {
       </div>
 
       <div className="mt-1 grid grid-cols-2 gap-x-6">
-        <HistoryColumn rows={left} firstSlot={1} />
-        <HistoryColumn rows={right} firstSlot={HISTORY_ROWS + 1} />
+        <HistoryColumn rows={left} />
+        <HistoryColumn rows={right} />
       </div>
 
       {/* -------------------------------------------------------------- footer */}
@@ -298,6 +314,15 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** A Row's height with nothing in it — holds the place of a removed field. */
+function BlankRow() {
+  return (
+    <div aria-hidden="true" data-testid="blank-row" className="leading-[1.4] text-[11pt]">
+      &nbsp;
+    </div>
+  );
+}
+
 function ColumnHeading({ children }: { children: React.ReactNode }) {
   return <div className="mb-0.5 text-[9.5pt] font-bold uppercase">{children}</div>;
 }
@@ -313,37 +338,50 @@ function Recipient({ label }: { label: string }) {
 }
 
 /**
- * Eight change rows. Slot numbers are printed small alongside, because the log is
- * a fixed sixteen slots and a correction is discussed as "slot 4", not "the
- * fourth one down" — a sparse log makes those different rows.
+ * Eight change rows. Still padded to a fixed eight (a grid of ruled lines), but
+ * with NO slot number (BusinessIT#32, 2026-10-07): people read it as the
+ * revision, which it isn't. Date Changed is a fixed width — "10/07/2026" at
+ * 8.5pt needs little — and ECN # takes the rest, since ECN numbers run long.
  */
-function HistoryColumn({
-  rows,
-  firstSlot,
-}: {
-  rows: Array<DrawingChange | null>;
-  firstSlot: number;
-}) {
+function HistoryColumn({ rows }: { rows: Array<DrawingChange | null> }) {
   return (
-    <table className="w-full border-collapse text-[8.5pt]">
+    // `table-fixed` + every row a FIXED height: the sheet must look the same
+    // with one revision or sixteen (BusinessIT#32). Without them an empty
+    // row's cells collapsed to nothing — they held a plain space, which the
+    // browser drops — so a short log printed as a squashed stack of border
+    // lines, and the columns shifted to fit whatever text happened to be in
+    // them. A long ECN is clipped rather than wrapped, since a wrap would make
+    // that one row taller than the rest.
+    <table className="w-full table-fixed border-collapse text-[8.5pt]">
       <thead>
         <tr className="border-b border-black text-[7.5pt] uppercase">
-          <th className="w-[0.2in] text-left font-bold">#</th>
-          <th className="text-left font-bold">Date Changed</th>
+          <th className="w-[0.85in] text-left font-bold">Date Changed</th>
           <th className="w-[0.5in] text-left font-bold">Rev #</th>
-          <th className="w-[0.85in] text-left font-bold">ECN #</th>
+          <th className="text-left font-bold">ECN #</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((change, i) => (
-          <tr key={firstSlot + i} className="border-b border-gray-300">
-            <td className="text-[7pt] text-gray-500">{firstSlot + i}</td>
-            <td>{change?.date ? formatSpDate(change.date) : " "}</td>
-            <td>{change?.rev || " "}</td>
-            <td>{change?.ecn || " "}</td>
+          <tr key={i} data-testid="history-row" className="h-[0.24in] border-b border-gray-300">
+            <HistoryCell>{change?.date ? formatSpDate(change.date) : ""}</HistoryCell>
+            <HistoryCell>{change?.rev ?? ""}</HistoryCell>
+            <HistoryCell>{change?.ecn ?? ""}</HistoryCell>
           </tr>
         ))}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * One history cell: bottom-aligned on its ruled line, one line only, and a
+ * NON-BREAKING space when empty — a plain space collapses and takes the row's
+ * height with it.
+ */
+function HistoryCell({ children }: { children: string }) {
+  return (
+    <td className="overflow-hidden text-ellipsis whitespace-nowrap align-bottom">
+      {children || "\u00a0"}
+    </td>
   );
 }

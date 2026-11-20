@@ -1,4 +1,8 @@
 import type { Person } from "@/types/task";
+import type { EmailThread } from "./emailThread";
+import type { EmailContext } from "./emailContext";
+import { looksLikeHtml, parseChecklistItems } from "./descriptionChecklist";
+import { htmlToPlainText } from "./htmlText";
 import { escapeHtml } from "./mentions";
 
 // =============================================================================
@@ -28,7 +32,13 @@ export interface AlertDetail {
 export interface ChangeEmail {
   email: string;
   displayName: string;
-  /** Plain-text subject line. */
+  /**
+   * What happened, in one line ("Status changed on …"). The SUBJECT of an email
+   * about an item is the item's title, so its emails group into one Outlook
+   * conversation (lib/emailThread.ts); this line then becomes the hidden preview
+   * Outlook shows under it. Only an email that isn't about one item is sent
+   * with this as its subject.
+   */
   subject: string;
   /** Intro sentence as trusted HTML (dynamic parts already escaped here). */
   headlineHtml: string;
@@ -63,11 +73,24 @@ export interface ChangeTarget {
     | "grayMarketRequest"
     | "fait"
     | "costImpactNotice"
+    | "scn"
     | "featureRequest"
     | "altronicPart"
-    | "altronicComponent";
+    | "altronicComponent"
+    | "pricingRequest"
+    | "mcn"
+    | "ecn"
+    | "crimpCheck"
+    | "coatingCheck"
+    | "pullTest"
+    | "harnessPartNumber"
+    | "scheduledMaintenance";
   id: number;
   title: string;
+  /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
+  thread?: EmailThread | null;
+  /** Parent / linked task, description or details — the three-block layout (lib/emailContext.ts). */
+  context?: EmailContext;
 }
 
 const NOUNS: Record<ChangeTarget["kind"], string> = {
@@ -82,9 +105,18 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   grayMarketRequest: "gray market request",
   fait: "FAIT",
   costImpactNotice: "cost impact notice",
+  scn: "SCN",
   featureRequest: "feature request",
   altronicPart: "part",
   altronicComponent: "component",
+  pricingRequest: "pricing request",
+  mcn: "MCN",
+  ecn: "ECN",
+  crimpCheck: "crimp height check",
+  coatingCheck: "conformal coating check",
+  pullTest: "pull test",
+  harnessPartNumber: "harness part number",
+  scheduledMaintenance: "PM schedule",
 };
 
 function nounFor(target: ChangeTarget): string {
@@ -205,9 +237,88 @@ export function buildChecklistToggleEmails(args: {
 }
 
 /**
+ * What the personal "You've been assigned" email says about the work itself,
+ * so the assignee can judge urgency and context without opening the link
+ * (David Markovitch, BusinessIT #5 / #6). Engineering and Operations tasks
+ * pass it; every other caller omits it and its email is unchanged.
+ */
+export interface AssignmentDetails {
+  dueDate: Date | null;
+  /**
+   * The raw stored Description — HTML or plain text, checklists included.
+   * Omitted when the email carries the description in its own block instead
+   * (an Engineering task's context, lib/emailContext.ts).
+   */
+  description?: string;
+}
+
+/**
+ * Longest description excerpt an email carries — the assignment email, and
+ * the Description block of every task / EIR email (BusinessIT#67). Long
+ * enough for a normal task's context; a multi-page spec stops here, with a
+ * "Read the full description in ARC" link, rather than burying the button.
+ * About two thirds of a phone screen, accepted (Tim, 2026-11-06): the email
+ * scrolls, and what changed is always above it.
+ */
+export const DESCRIPTION_EXCERPT_MAX_CHARS = 600;
+
+function formatDueDate(d: Date | null): string {
+  // Local getters, as the task page reads it — the sender's browser builds the
+  // email, and that's the same day the sender sees on screen.
+  if (!d || Number.isNaN(d.getTime())) return "No due date";
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * A description as readable plain text for an email: HTML stripped, and each
+ * `- [ ]` / `- [x]` checklist line shown as a box with its who/when stamp
+ * dropped (the stamp is working detail, not context). Capped at
+ * DESCRIPTION_EXCERPT_MAX_CHARS on a word boundary, ending "…".
+ */
+export function descriptionExcerpt(description: string): string {
+  const raw = description ?? "";
+  // A plain description goes through as typed: htmlToPlainText's tag strip
+  // would eat "< 5V … >" out of ordinary prose.
+  const plain = looksLikeHtml(raw) ? htmlToPlainText(raw) : raw.trim();
+  if (!plain) return "";
+
+  const lines = plain.split("\n");
+  for (const item of parseChecklistItems(plain) ?? []) {
+    lines[item.lineIndex] =
+      `${item.depth === 1 ? "    " : ""}${item.checked ? "☑" : "☐"} ${item.text.trim()}`;
+  }
+  const text = lines.join("\n").trim();
+  if (text.length <= DESCRIPTION_EXCERPT_MAX_CHARS) return text;
+
+  const cut = text.slice(0, DESCRIPTION_EXCERPT_MAX_CHARS);
+  const lastBreak = cut.search(/\s\S*$/);
+  // No whitespace in the back half means one enormous word — cut it mid-word
+  // rather than throwing most of the excerpt away.
+  const end = lastBreak > DESCRIPTION_EXCERPT_MAX_CHARS / 2 ? lastBreak : cut.length;
+  return `${cut.slice(0, end).trimEnd()}…`;
+}
+
+function assignmentDetailHtml(details: AssignmentDetails): string {
+  const due = `<div style="font-size:14px;"><strong>Due:</strong> ${escapeHtml(formatDueDate(details.dueDate))}</div>`;
+  const excerpt = descriptionExcerpt(details.description ?? "");
+  if (!excerpt) return due;
+  return (
+    due +
+    `<div style="font-size:14px;margin-top:12px;"><strong>Description</strong></div>` +
+    `<div style="font-size:14px;margin-top:4px;">${escapeHtml(excerpt).replace(/\n/g, "<br/>")}</div>`
+  );
+}
+
+/**
  * Alerts for an assignee change.
  *
- * - Each newly ADDED person gets a personal "You've been assigned…" email.
+ * - Each newly ADDED person gets a personal "You've been assigned…" email,
+ *   carrying the due date and description when `details` is passed.
  * - Each REMOVED person gets a personal "You've been unassigned…" email.
  * - Everyone else who cares (watchers + remaining assignees + reporter) gets a
  *   broadcast summarising what changed.
@@ -222,6 +333,7 @@ export function buildAssigneeChangeEmails(args: {
   actor: Person;
   watchers: Person[];
   reporter?: Person | null;
+  details?: AssignmentDetails;
 }): ChangeEmail[] {
   const prevKeys = new Set(args.prev.map(keyOf));
   const nextKeys = new Set(args.next.map(keyOf));
@@ -236,6 +348,7 @@ export function buildAssigneeChangeEmails(args: {
   const emails: ChangeEmail[] = [];
   // Emails handled personally — excluded from the broadcast to avoid doubles.
   const personalEmails = new Set<string>();
+  const assignedDetailHtml = args.details ? assignmentDetailHtml(args.details) : undefined;
 
   for (const p of added) {
     const email = p.email?.trim();
@@ -246,6 +359,7 @@ export function buildAssigneeChangeEmails(args: {
       displayName: p.displayName,
       subject: `You've been assigned to ${args.target.title}`,
       headlineHtml: `<strong>${actorName}</strong> assigned you to this ${noun}.`,
+      detailHtml: assignedDetailHtml,
     });
   }
   for (const p of removed) {
@@ -294,14 +408,17 @@ export function buildAssigneeChangeEmails(args: {
 
 /**
  * Alerts for promoting an EIR to a task. Recipients = the EIR's watchers +
- * reporter (minus the actor). The email links to the NEW TASK — callers send
- * these with a task-kind target so the callout + button open the task.
+ * reporter (minus the actor).
  *
- * `eirLabel` is the EIR number (or "EIR #id"); it appears in the copy so
- * recipients know which EIR spawned the task.
+ * Sent with an EIR target — the card is the EIR these people follow, and the
+ * email files under the EIR's conversation — and with the button pointed at
+ * the NEW task (`link`). The new task is named, as a link, in the headline.
+ * Until 2026-11-06 the card and button were the task's under the EIR's
+ * subject, which read as an email about some other item (BusinessIT#67).
  */
 export function buildPromotionEmails(args: {
   eirLabel: string;
+  task: { title: string; url: string };
   watchers: Person[];
   reporter?: Person | null;
   actor: Person;
@@ -311,13 +428,13 @@ export function buildPromotionEmails(args: {
   if (recipients.length === 0) return [];
 
   const actorName = escapeHtml(args.actor.displayName || "Someone");
-  const eir = escapeHtml(args.eirLabel);
+  const taskLink = `<a href="${escapeHtml(args.task.url)}" style="color:#CB2C30;font-weight:600;">${escapeHtml(args.task.title)}</a>`;
   return recipients.map((p) => ({
     email: p.email,
     displayName: p.displayName,
-    subject: `${args.eirLabel} was promoted to a task`,
-    headlineHtml: `<strong>${actorName}</strong> promoted EIR <strong>${eir}</strong> to a task.`,
+    subject: `${args.eirLabel} was promoted to task ${args.task.title}`,
+    headlineHtml: `<strong>${actorName}</strong> promoted this EIR to task ${taskLink}.`,
     detailHtml:
-      '<div style="font-size:14px;">A task has been created to carry this work forward — open it below.</div>',
+      '<div style="font-size:14px;">The work carries on there. Comments on either one are copied to the other.</div>',
   }));
 }

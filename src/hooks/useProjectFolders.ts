@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createProjectFolder,
   listProjectFolderEntries,
+  updateProjectFolder,
   uploadFileToFolder,
   type DriveEntry,
 } from "@/api/projectFiles";
@@ -61,6 +62,34 @@ export function useCreateProjectFolder() {
     onError: (err) => {
       const detail = err instanceof Error ? err.message : String(err);
       pushToast({ message: `Couldn't create the folder. ${detail.slice(0, 300)}`, variant: "error" });
+    },
+  });
+}
+
+/**
+ * Edit a top-level project folder — rename it and/or change its Project
+ * Reference (BusinessIT#25). Refreshes the root listing and the task-upload
+ * router's own folder cache, so a corrected tag routes uploads straight away.
+ * Any signed-in user, like creating one; SharePoint permissions are the boundary.
+ */
+export function useUpdateProjectFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      folderId,
+      changes,
+    }: {
+      folderId: string;
+      changes: { name?: string; projectLookupId?: number };
+    }) => updateProjectFolder(folderId, changes),
+    onSuccess: (entry) => {
+      qc.invalidateQueries({ queryKey: KEY() });
+      qc.invalidateQueries({ queryKey: ["project-files", "folders"] });
+      pushToast({ message: `Saved "${entry.name}".` });
+    },
+    onError: (err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      pushToast({ message: `Couldn't save the folder. ${detail.slice(0, 300)}`, variant: "error" });
     },
   });
 }

@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 
 export function buildRequestStatusColor(status: string): string {
   switch (status) {
-    case "Submitted":
+    case "Pending Submission":
       return "bg-superior-blue/15 text-superior-blue";
     case "In-process":
       return "bg-ajax-yellow/20 text-ajax-yellow";
@@ -57,6 +57,8 @@ export function partStatusColor(status: string | null): string {
     // "done" green and Ready for Production matches the request-level cyan.
     case "Ready for Production":
       return "bg-cyan-500/15 text-cyan-500";
+    case "In Production":
+      return "bg-teal-500/15 text-teal-500";
     case "Production Complete":
       return "bg-cooper-green/15 text-cooper-green";
     case "On Hold":
@@ -86,7 +88,7 @@ export function PartStatusBadge({ status }: { status: string | null }) {
 export function LeadFreeChip({ leadFree }: { leadFree: boolean }) {
   if (!leadFree) return null;
   return (
-    <span className="inline-flex items-center gap-1 rounded border border-cooper-green/40 bg-cooper-green/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cooper-green">
+    <span className="inline-flex items-center gap-1 rounded-sm border border-cooper-green/40 bg-cooper-green/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cooper-green">
       <Leaf className="h-3 w-3" />
       Lead Free
     </span>
@@ -99,7 +101,7 @@ export function LeadTimeChip({ leadTime }: { leadTime: string | null }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+        "inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
         leadTime === "Rush"
           ? "border-cooper-red/40 bg-cooper-red/10 text-cooper-red"
           : "border-border bg-surface-2 text-fg-muted",

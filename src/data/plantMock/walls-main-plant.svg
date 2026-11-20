@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2880 1680" data-building="Main Plant" data-units="in" data-schema="1">
+  <title>Main Plant (TEST PLAN, made-up, 240 ft x 140 ft)</title>
+  <g id="floor">
+    <rect id="floor-area" x="0" y="0" width="2880" height="1680" fill="#ffffff"/>
+  </g>
+  <g id="keepout">
+    <rect id="keepout-001" data-kind="door-swing" x="560" y="10" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-002" data-kind="door-swing" x="2200" y="1634" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-003" data-kind="door-swing" x="10" y="1354" width="36" height="72" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-008" data-kind="door-swing" x="620" y="1164" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-009" data-kind="door-swing" x="720" y="1260" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-010" data-kind="door-swing" x="90" y="1304" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-011" data-kind="door-swing" x="330" y="1304" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-012" data-kind="door-swing" x="560" y="1304" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-013" data-kind="door-swing" x="60" y="1440" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-014" data-kind="door-swing" x="240" y="1440" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-015" data-kind="door-swing" x="420" y="1440" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-016" data-kind="door-swing" x="600" y="1440" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-018" data-kind="door-swing" x="360" y="220" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+    <rect id="keepout-019" data-kind="door-swing" x="2484" y="1440" width="36" height="36" fill="#9ca3af" fill-opacity="0.10" stroke="#9ca3af" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="8 6"/>
+  </g>
+  <g id="walls" fill="#2b2f36">
+    <rect id="wall-001" x="0" y="0" width="560" height="10"/>
+    <rect id="wall-002" x="596" y="0" width="1404" height="10"/>
+    <rect id="wall-003" x="2144" y="0" width="736" height="10"/>
+    <rect id="wall-004" x="0" y="1670" width="2200" height="10"/>
+    <rect id="wall-005" x="2236" y="1670" width="644" height="10"/>
+    <rect id="wall-006" x="0" y="10" width="10" height="1344"/>
+    <rect id="wall-007" x="0" y="1426" width="10" height="244"/>
+    <rect id="wall-008" x="2870" y="10" width="10" height="290"/>
+    <rect id="wall-009" x="2870" y="420" width="10" height="120"/>
+    <rect id="wall-010" x="2870" y="660" width="10" height="120"/>
+    <rect id="wall-011" x="2870" y="900" width="10" height="770"/>
+    <rect id="wall-012" x="0" y="1197.5" width="620" height="5"/>
+    <rect id="wall-013" x="656" y="1197.5" width="69" height="5"/>
+    <rect id="wall-014" x="717.5" y="1200" width="5" height="60"/>
+    <rect id="wall-015" x="717.5" y="1296" width="5" height="374"/>
+    <rect id="wall-016" x="10" y="1337.5" width="80" height="5"/>
+    <rect id="wall-017" x="126" y="1337.5" width="204" height="5"/>
+    <rect id="wall-018" x="366" y="1337.5" width="194" height="5"/>
+    <rect id="wall-019" x="596" y="1337.5" width="124" height="5"/>
+    <rect id="wall-020" x="237.5" y="1200" width="5" height="140"/>
+    <rect id="wall-021" x="477.5" y="1200" width="5" height="140"/>
+    <rect id="wall-022" x="10" y="1437.5" width="50" height="5"/>
+    <rect id="wall-023" x="96" y="1437.5" width="144" height="5"/>
+    <rect id="wall-024" x="276" y="1437.5" width="144" height="5"/>
+    <rect id="wall-025" x="456" y="1437.5" width="144" height="5"/>
+    <rect id="wall-026" x="636" y="1437.5" width="84" height="5"/>
+    <rect id="wall-027" x="177.5" y="1440" width="5" height="230"/>
+    <rect id="wall-028" x="357.5" y="1440" width="5" height="230"/>
+    <rect id="wall-029" x="537.5" y="1440" width="5" height="230"/>
+    <rect id="wall-030" x="357.5" y="10" width="5" height="210"/>
+    <rect id="wall-031" x="357.5" y="256" width="5" height="44"/>
+    <rect id="wall-032" x="10" y="297.5" width="352" height="5"/>
+    <rect id="wall-033" x="2517.5" y="1380" width="5" height="60"/>
+    <rect id="wall-034" x="2517.5" y="1476" width="5" height="194"/>
+    <rect id="wall-035" x="2518" y="1377.5" width="352" height="5"/>
+  </g>
+  <g id="columns" fill="#2b2f36">
+    <rect id="col-001" x="353" y="353" width="14" height="14"/>
+    <rect id="col-002" x="713" y="353" width="14" height="14"/>
+    <rect id="col-003" x="1073" y="353" width="14" height="14"/>
+    <rect id="col-004" x="1433" y="353" width="14" height="14"/>
+    <rect id="col-005" x="1793" y="353" width="14" height="14"/>
+    <rect id="col-006" x="2153" y="353" width="14" height="14"/>
+    <rect id="col-007" x="2513" y="353" width="14" height="14"/>
+    <rect id="col-008" x="353" y="713" width="14" height="14"/>
+    <rect id="col-009" x="713" y="713" width="14" height="14"/>
+    <rect id="col-010" x="1073" y="713" width="14" height="14"/>
+    <rect id="col-011" x="1433" y="713" width="14" height="14"/>
+    <rect id="col-012" x="1793" y="713" width="14" height="14"/>
+    <rect id="col-013" x="2153" y="713" width="14" height="14"/>
+    <rect id="col-014" x="2513" y="713" width="14" height="14"/>
+    <rect id="col-015" x="353" y="1073" width="14" height="14"/>
+    <rect id="col-016" x="713" y="1073" width="14" height="14"/>
+    <rect id="col-017" x="1073" y="1073" width="14" height="14"/>
+    <rect id="col-018" x="1433" y="1073" width="14" height="14"/>
+    <rect id="col-019" x="1793" y="1073" width="14" height="14"/>
+    <rect id="col-020" x="2153" y="1073" width="14" height="14"/>
+    <rect id="col-021" x="2513" y="1073" width="14" height="14"/>
+    <rect id="col-022" x="1073" y="1433" width="14" height="14"/>
+    <rect id="col-023" x="1433" y="1433" width="14" height="14"/>
+    <rect id="col-024" x="1793" y="1433" width="14" height="14"/>
+    <rect id="col-025" x="2153" y="1433" width="14" height="14"/>
+  </g>
+  <g id="doors">
+    <path id="door-001" d="M560 10L560 46A36 36 0 0 0 596 10" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-002" d="M2200 1670L2200 1634A36 36 0 0 1 2236 1670" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-003" d="M10 1354L46 1354A36 36 0 0 1 10 1390" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-004" d="M10 1426L46 1426A36 36 0 0 0 10 1390" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <line id="door-005" x1="2000" y1="5" x2="2144" y2="5" stroke="#6b7280" stroke-width="3" stroke-dasharray="12 6"/>
+    <line id="door-006" x1="2875" y1="300" x2="2875" y2="420" stroke="#6b7280" stroke-width="3" stroke-dasharray="12 6"/>
+    <line id="door-007" x1="2875" y1="540" x2="2875" y2="660" stroke="#6b7280" stroke-width="3" stroke-dasharray="12 6"/>
+    <line id="door-008" x1="2875" y1="780" x2="2875" y2="900" stroke="#6b7280" stroke-width="3" stroke-dasharray="12 6"/>
+    <path id="door-009" d="M620 1200L620 1164A36 36 0 0 1 656 1200" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-010" d="M720 1260L756 1260A36 36 0 0 1 720 1296" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-011" d="M90 1340L90 1304A36 36 0 0 1 126 1340" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-012" d="M330 1340L330 1304A36 36 0 0 1 366 1340" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-013" d="M560 1340L560 1304A36 36 0 0 1 596 1340" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-014" d="M60 1440L60 1476A36 36 0 0 0 96 1440" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-015" d="M240 1440L240 1476A36 36 0 0 0 276 1440" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-016" d="M420 1440L420 1476A36 36 0 0 0 456 1440" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-017" d="M600 1440L600 1476A36 36 0 0 0 636 1440" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-018" d="M360 220L396 220A36 36 0 0 1 360 256" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+    <path id="door-019" d="M2520 1440L2484 1440A36 36 0 0 0 2520 1476" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  </g>
+  <g id="labels" fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <text x="120" y="1285" font-size="22">Men</text>
+    <text x="360" y="1285" font-size="22">Women</text>
+    <text x="600" y="1285" font-size="22">Break Room</text>
+    <text x="90" y="1580" font-size="22">Office 101</text>
+    <text x="270" y="1580" font-size="22">Office 102</text>
+    <text x="450" y="1580" font-size="22">Office 103</text>
+    <text x="630" y="1580" font-size="22">Office 104</text>
+    <text x="180" y="160" font-size="26">Tool Crib</text>
+    <text x="2700" y="1540" font-size="26">Maintenance</text>
+    <text x="1000" y="230" font-size="40">Machining</text>
+    <text x="1000" y="1150" font-size="40">Assembly</text>
+    <text x="2150" y="520" font-size="40">Shipping / Receiving</text>
+    <text x="2150" y="1320" font-size="40">Finishing</text>
+  </g>
+</svg>

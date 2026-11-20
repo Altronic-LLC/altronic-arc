@@ -337,7 +337,7 @@ function OptionRow({
                 value={newType}
                 onChange={(e) => setNewType(e.target.value)}
                 placeholder="Add a type…"
-                className="h-7 w-40 rounded-md border border-border bg-surface px-2 text-xs text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none"
+                className="h-7 w-40 rounded-md border border-border bg-surface px-2 text-xs text-fg placeholder:text-fg-muted focus:border-accent focus:outline-hidden"
                 aria-label={`New type for ${option.name}`}
                 disabled={busy}
               />
@@ -400,7 +400,7 @@ function AddOption({
           type="submit"
           disabled={!canEdit || add.isPending || !name.trim()}
           title={canEdit ? undefined : hint}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
           {kind === "Description" ? "Add description" : "Add SIL category"}

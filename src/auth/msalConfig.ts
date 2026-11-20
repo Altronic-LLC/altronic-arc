@@ -97,3 +97,42 @@ export const graphScopes = [
  * profile (name + email) across the tenant.
  */
 export const directoryScopes = ["User.ReadBasic.All"];
+
+/**
+ * Scope for Microsoft Fabric's API for GraphQL — READ-ONLY reference data
+ * (see `api/fabric.ts`). A different RESOURCE from Graph, so it is always a
+ * SEPARATE token, and deliberately NOT in `graphScopes`.
+ *
+ * Two independent reasons it must stay separate, and the first is structural:
+ *
+ *   1. Entra issues one token per RESOURCE. Mixing `User.Read` (Graph) with a
+ *      powerbi.api scope in a single request fails outright — it is not a
+ *      style preference, the request cannot be satisfied.
+ *   2. Like `directoryScopes`, it is requested lazily and SILENTLY, so a
+ *      tenant that hasn't consented can never break sign-in — the Fabric
+ *      lookup just reports itself unavailable.
+ *
+ * `GraphQLApi.Execute.All` is the exact, documented scope. Microsoft's own
+ * guidance says not to alter it or authentication fails, and it is narrower
+ * than the `user_impersonation` that Fabric's portal sample reaches for —
+ * that one is a legacy "act as this user across Power BI" scope which the
+ * Power BI resource doesn't reliably expose to a custom app registration
+ * ("scope user_impersonation doesn't exist on resource 00000009-…"). The
+ * sample gets away with it by borrowing Azure's own developer app. Don't
+ * copy it into ARC.
+ *
+ * Note the scope grants EXECUTE — queries and mutations alike; Fabric has no
+ * read-only variant of it. ARC's read-only guarantee therefore does not come
+ * from the scope, and both of these must hold instead:
+ *
+ *   1. The Fabric GraphQL API item exposes queries only, no mutations.
+ *   2. `api/fabric.ts` exports no write function, pinned by a test.
+ *
+ * Setup on ARC's app registration: API permissions → Power BI Service →
+ * Delegated → GraphQLApi.Execute.All. It is NOT flagged admin-consent-
+ * required, so a tenant permitting user consent will prompt each user once;
+ * a tenant-wide admin grant avoids that prompt for everybody. Separately,
+ * each user needs "Run Queries and Mutations" on the GraphQL API item in
+ * Fabric itself — an item permission, not an Entra one.
+ */
+export const fabricScopes = ["https://analysis.windows.net/powerbi/api/GraphQLApi.Execute.All"];

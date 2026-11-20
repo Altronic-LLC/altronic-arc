@@ -53,6 +53,7 @@ import { OperationsStatusBadge } from "@/components/operationsAtoms";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { FromQuoteLink } from "@/components/FromQuoteLink";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
@@ -290,7 +291,7 @@ export function OperationsDetailView() {
               <button
                 onClick={handleMarkComplete}
                 disabled={task.status === "Complete"}
-                className="inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-cooper-green/90 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-cooper-green/90 disabled:opacity-50"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 {task.status === "Complete" ? "Completed" : "Mark Complete"}
@@ -327,6 +328,7 @@ export function OperationsDetailView() {
               </button>
             </div>
 
+            <FromQuoteLink comments={task.comments} />
             {task.taskNumber && (
               <div className="mb-1 inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 font-mono text-xs font-semibold text-fg-muted">
                 {task.taskNumber}
@@ -383,6 +385,8 @@ export function OperationsDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`opsTask:${taskId}`}
               />
             </div>
           </div>
@@ -437,7 +441,7 @@ export function OperationsDetailView() {
                   onChange={(e) =>
                     handlePriorityChange((e.target.value || null) as OperationsPriority | null)
                   }
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 >
                   <option value="">Not set</option>
                   {OPERATIONS_PRIORITIES.map((p) => (
@@ -467,7 +471,7 @@ export function OperationsDetailView() {
                 <select
                   value={task.status}
                   onChange={(e) => handleStatusChange(e.target.value as OperationsStatus)}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 >
                   {OPERATIONS_STATUSES.map((s) => (
                     <option key={s} value={s}>
@@ -487,7 +491,7 @@ export function OperationsDetailView() {
                   onChange={(e) =>
                     handleTaskTypeChange((e.target.value || null) as OperationsTaskType | null)
                   }
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 >
                   <option value="">Not set</option>
                   {OPERATIONS_TASK_TYPES.map((t) => (
@@ -505,7 +509,7 @@ export function OperationsDetailView() {
                   onChange={(e) =>
                     handleLocationChange((e.target.value || null) as OperationsLocation | null)
                   }
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 >
                   <option value="">Not set</option>
                   {OPERATIONS_LOCATIONS.map((l) => (
@@ -521,7 +525,7 @@ export function OperationsDetailView() {
                 <select
                   value={task.parentProject?.lookupId ?? ""}
                   onChange={(e) => handleParentProjectChange(e.target.value)}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 >
                   <option value="">None</option>
                   {projects.map((p) => (
@@ -537,7 +541,7 @@ export function OperationsDetailView() {
                 <select
                   value={task.equipment?.lookupId ?? ""}
                   onChange={(e) => handleEquipmentChange(e.target.value)}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-hidden focus:ring-2 focus:ring-accent/20"
                 >
                   <option value="">None</option>
                   {equipment.map((eq) => (
@@ -585,7 +589,7 @@ function NewCommentsBanner({ comments, onShow }: { comments: Comment[]; onShow: 
       <span className="text-fg">{label}</span>
       <button
         onClick={onShow}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white shadow-xs transition-colors hover:bg-accent/90"
       >
         Show new
       </button>

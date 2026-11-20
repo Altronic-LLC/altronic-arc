@@ -12,15 +12,28 @@ function getInitialTheme(): Theme {
   return "light";
 }
 
-export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+/**
+ * @param override Force a theme, ignoring the stored preference — the
+ * Reports kiosk's `?theme=` URL flag is the one caller of this (there's no
+ * toggle button to reach on that chrome-less page, so a URL flag is the only
+ * way to pin its display). A forced theme is deliberately NOT written to
+ * localStorage: it's a display setting for that one page, not something
+ * that should silently change what the same browser shows everywhere else
+ * in ARC.
+ */
+export function useTheme(override?: Theme) {
+  const [theme, setTheme] = useState<Theme>(() => override ?? getInitialTheme());
+
+  useEffect(() => {
+    if (override) setTheme(override);
+  }, [override]);
 
   useEffect(() => {
     const root = document.documentElement;
     if (theme === "dark") root.classList.add("dark");
     else root.classList.remove("dark");
-    localStorage.setItem(STORAGE_KEY, theme);
-  }, [theme]);
+    if (!override) localStorage.setItem(STORAGE_KEY, theme);
+  }, [theme, override]);
 
   return {
     theme,

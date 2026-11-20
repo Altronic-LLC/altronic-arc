@@ -1,0 +1,15 @@
+{
+  "about": "Standard TEST firing-angle specs for QCFRM-012 (CPU-95), by Altronic Part Number. Read by src/lib/qcCpu95Fields.ts (the form and the blank sheet) and scripts/backfill-qc-cpu95-firing-specs.ps1. Angle for cylinder row i (0-based) = (floor(i/2) * pair + (i % 2) * offset) mod 360. 'cylinders' must match the unit's firing grid - a test checks it. A changed spec is a new value here; sheets already saved keep the spec they were tested to.",
+  "specs": [
+    { "partNumber": "791950-08", "offset": 90, "pair": 180, "cylinders": 8, "source": "2025 sheets: 0, 90, 180" },
+    { "partNumber": "791950-16", "offset": 45, "pair": 90, "cylinders": 16, "source": "2025 sheets: 0, 45, 90" },
+    { "partNumber": "791950-18", "offset": 50, "pair": 80, "cylinders": 18, "source": "2025 sheets: 0, 50, 80" },
+    { "partNumber": "791952-18", "offset": 50, "pair": 80, "cylinders": 18, "source": "2025 sheets: 0, 50, 80" },
+    { "partNumber": "791962-18", "offset": 50, "pair": 80, "cylinders": 18, "source": "Not on the 2025 sheets - the high-voltage twin of 791952-18 (Tim, 2026-10-21)" },
+    { "partNumber": "791955-16", "offset": 60, "pair": 90, "cylinders": 16, "source": "CPU-95C and 3516, both CAT16TST - pre-printed on the REV 2 workbook" },
+    { "partNumber": "791962-16G", "offset": 45, "pair": 90, "cylinders": 16, "source": "2025 sheets: 0, 45, 90" },
+    { "partNumber": "65.29001-7003", "offset": 45, "pair": 90, "cylinders": 16, "source": "2025 sheets: 0, 45, 90 (customer part number)" },
+    { "partNumber": "65.29001-7004", "offset": 45, "pair": 90, "cylinders": 16, "source": "2025 sheets: 0, 45, 90 (customer part number)" },
+    { "partNumber": "772059-1RKT", "offset": 45, "pair": 90, "cylinders": 16, "source": "2025 sheets: 0, 45, 90 (customer part number)" }
+  ]
+}

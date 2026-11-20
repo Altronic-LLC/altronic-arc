@@ -119,7 +119,7 @@ export function MaintenanceListView() {
         />
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">New Work Order</span>
@@ -234,7 +234,7 @@ function Pill({
       className={cn(
         "group relative flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
         active
-          ? "border-accent bg-accent text-white shadow-sm"
+          ? "border-accent bg-accent text-white shadow-xs"
           : "border-border bg-surface text-fg-muted hover:border-fg-muted hover:text-fg",
         emphasized && !active && "border-accent/40 text-fg",
       )}

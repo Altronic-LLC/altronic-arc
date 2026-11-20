@@ -3,6 +3,7 @@ import {
   addEirComment,
   createEir,
   editEirComment,
+  EirNumberUnconfirmedError,
   listEirs,
   setEirAssignedEngineers,
   setEirReporter,
@@ -10,7 +11,7 @@ import {
   updateEirFields,
   type CreateEirInput,
 } from "@/api/eirs";
-import { createTask, TaskFollowUpWriteError } from "@/api/tasks";
+import { createTask, setRelatedProjects, TaskFollowUpWriteError } from "@/api/tasks";
 import { copyAttachments } from "@/api/attachments";
 import type {
   Eir,
@@ -22,6 +23,7 @@ import type {
   Task,
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
+import { assertCanEditEirWorkflow, EirWorkflowNotPermittedError } from "./useEirWorkflowAccess";
 import { multiLookupField } from "@/lib/graphFields";
 import {
   commentNotifyRecipients,
@@ -29,6 +31,7 @@ import {
 } from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
+  fireEirClosedAlert,
   fireEirResolvedAlert,
   fireEirResponseAcceptedAlert,
   fireEirResponseNotAcceptedAlert,
@@ -39,7 +42,9 @@ import {
   notifyMentions,
 } from "@/api/email";
 import { eirTriageStage } from "@/lib/eirTriage";
+import { eirEmailContext, type EmailContext } from "@/lib/emailContext";
 import {
+  EIR_CLOSED,
   EIR_RESOLUTION_RESOLVED,
   EIR_RESPONSE_ACCEPTED,
   EIR_RESPONSE_NOT_ACCEPTED,
@@ -57,8 +62,10 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mergeTaskIntoList } from "@/lib/taskGraph";
+import { fanOutComment } from "@/hooks/useCommentMirror";
 
-const EIRS_KEY = ["eirs", "list"] as const;
+export const EIRS_KEY = ["eirs", "list"] as const;
 
 export function useEirs() {
   return useQuery({
@@ -142,11 +149,22 @@ export function useCreateEir() {
   return useMutation({
     // Whoever raises an EIR watches it, and so does any engineer assigned
     // on the form — see autoWatchers() in lib/people.ts.
-    mutationFn: (input: CreateEirInput) =>
-      createEir({
-        ...input,
-        watchers: autoWatchers(input.watchers, input.assignedEngineers, actor),
-      }),
+    mutationFn: async (input: CreateEirInput) => {
+      try {
+        return await createEir({
+          ...input,
+          watchers: autoWatchers(input.watchers, input.assignedEngineers, actor),
+        });
+      } catch (err) {
+        // The EIR exists; only the uniqueness check of its number failed.
+        // Treat it as created (alerts, cache, navigation) and say so.
+        if (err instanceof EirNumberUnconfirmedError) {
+          pushToast({ message: err.message, variant: "error" });
+          return err.eir;
+        }
+        throw err;
+      }
+    },
     onSuccess: (created, variables) => {
       qc.setQueryData<Eir[]>(EIRS_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: EIRS_KEY });
@@ -157,7 +175,7 @@ export function useCreateEir() {
       const engineers = variables.assignedEngineers ?? [];
       if (engineers.length > 0) {
         fireAssigneeChangeAlert({
-          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          target: eirEmailTarget(created),
           prev: [],
           next: engineers,
           actor,
@@ -176,7 +194,7 @@ export function useCreateEir() {
       });
       if (stage) {
         fireEirTriageAlert({
-          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          target: eirEmailTarget(created),
           stage,
           actor,
           projectTitle: projectTitleFor(qc, projectIds[0]),
@@ -188,7 +206,9 @@ export function useCreateEir() {
   });
 }
 
+// Same keys useTasks.ts owns; copied, since useTasks imports from this file.
 const TASK_LIST_KEY = ["tasks", "list"] as const;
+const PROJECTS_KEY = ["projects"] as const;
 
 export interface PromoteEirInput {
   eir: Eir;
@@ -220,6 +240,11 @@ export interface PromoteEirInput {
 export interface PromoteEirResult {
   task: Task;
   followUpWarning: string | null;
+}
+
+/** Two lists of lookup ids as one, de-duplicated, order kept. */
+function mergeProjectIds(existing: number[], added: number[]): number[] {
+  return [...new Set([...existing, ...added])];
 }
 
 export function usePromoteEirToTask() {
@@ -255,24 +280,40 @@ export function usePromoteEirToTask() {
           // failure (the discussion landed, the link didn't) still seeds the
           // cache with the real comment thread — see createTask.
           task = err.task;
-          const lostLink = err.failedFields.includes("EIRReference");
-          const lostComments = err.failedFields.includes("Communication");
-          const missing = lostLink
-            ? lostComments
-              ? "its link back to the EIR and the carried-over discussion"
-              : "its link back to the EIR"
-            : "the carried-over discussion";
-          // Name the recovery for whichever half was lost. The comments are
-          // the half nobody can reconstruct from memory, so say where they
-          // still are rather than just "by hand".
-          const fix = lostComments
-            ? `copy ${lostLink ? "the discussion" : "it"} across from ${
-                eir.eirNo || `EIR #${eir.id}`
-              }`
-            : "add the link by hand";
-          warnings.push(`${missing} couldn't be saved — ${fix}`);
+          // Only the carried-over discussion can fail now: the task's link
+          // back is derived from the EIR's Task Reference (see createTask).
+          // The comments are the half nobody can reconstruct from memory, so
+          // say where they still are rather than just "by hand".
+          warnings.push(
+            `the carried-over discussion couldn't be saved — copy it across from ${
+              eir.eirNo || `EIR #${eir.id}`
+            }`,
+          );
         } else {
           throw err;
+        }
+      }
+      // Every Project Reference on the EIR goes onto the task's Related
+      // Projects (Ray, 2026-10-08). The parent project is ONE pick — the first
+      // EIR project by default — so an EIR covering several projects (EIR_2026-
+      // 0270 had 321, 343 and 369) lost all but one. Its own write after the
+      // create, best-effort like the follow-ups above: the task exists either
+      // way, so a refusal is a warning naming what to add, never a failed
+      // promotion.
+      const eirProjects = eir.parentProjects.filter((p) => p.lookupId > 0);
+      if (eirProjects.length > 0) {
+        try {
+          task = await setRelatedProjects(
+            task.id,
+            mergeProjectIds((task.relatedProjects ?? []).map((r) => r.lookupId), eirProjects.map((p) => p.lookupId)),
+          );
+        } catch (err) {
+          console.error(`usePromoteEirToTask: related projects failed for EIR ${eir.id}`, err);
+          warnings.push(
+            `the EIR's project references couldn't be added — add ${eirProjects
+              .map((p) => p.title || `#${p.lookupId}`)
+              .join(", ")} under Related Projects by hand`,
+          );
         }
       }
       // Files live in TWO separate SP REST attachment stores (the EIR's and
@@ -308,6 +349,7 @@ export function usePromoteEirToTask() {
           id: eir.id,
           eirNo: eir.eirNo,
           title: eir.title,
+          description: eir.description,
           watchers: eir.watchers,
           reporter: eir.reporter,
         },
@@ -327,7 +369,13 @@ export function usePromoteEirToTask() {
       // navigation lands on a stale list that doesn't have the new task yet,
       // flashing "Task not found" until invalidateQueries' background
       // refetch catches up. Same fix, same reason, as useCreateTask's.
-      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? [task, ...old] : [task]));
+      // Through mergeTaskIntoList: the row came from a single-item read, so
+      // its project titles and the parent's child list are derived here.
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) =>
+        old
+          ? mergeTaskIntoList(old, task, qc.getQueryData<ProjectReference[]>(PROJECTS_KEY) ?? [])
+          : [task],
+      );
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
       qc.invalidateQueries({ queryKey: EIRS_KEY });
       if (followUpWarning) {
@@ -373,8 +421,26 @@ export function useUpdateEirFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateEirFields(id, fields),
+    mutationFn: async ({
+      id,
+      fields,
+      viaLinkedTask = false,
+    }: {
+      id: number;
+      fields: Record<string, unknown>;
+      /**
+       * The write closes the EIR because the task it was promoted to was
+       * completed. That is the workflow running, not somebody hand-editing
+       * Status, so it is exempt from the Status gate (BusinessIT#45).
+       */
+      viaLinkedTask?: boolean;
+    }) => {
+      // Only the named workflow editors may change Status — see
+      // lib/eirWorkflowEditors.ts. Asked here as well as on the controls, so
+      // a future screen can't write Status without it.
+      if ("Status" in fields && !viaLinkedTask) await assertCanEditEirWorkflow();
+      return updateEirFields(id, fields);
+    },
     onMutate: ({ id, fields }) =>
       snapshotAndPatch(qc, id, patchEir(id, (e) => applyFieldsLocally(e, fields))),
     onSuccess: (_data, { id, fields }, ctx) => {
@@ -391,11 +457,7 @@ export function useUpdateEirFields() {
       // so fire each independently. Recipients = watchers + assigned engineers
       // + reporter, minus the actor.
       if (ctx?.prevEir) {
-        const target = {
-          kind: "eir" as const,
-          id,
-          title: eirTargetTitle(ctx.prevEir),
-        };
+        const target = eirEmailTarget(ctx.prevEir);
         const recipients = {
           actor,
           watchers: ctx.prevEir.watchers,
@@ -425,6 +487,20 @@ export function useUpdateEirFields() {
           if (to !== from) {
             if (to === EIR_RESPONSE_ACCEPTED) {
               fireEirResponseAcceptedAlert({ target, actor });
+            }
+            if (to === EIR_CLOSED) {
+              // The review group, on top of the generic note above
+              // (BusinessIT#44). Anyone that note already reached is
+              // dropped, so nobody gets two emails about one close.
+              fireEirClosedAlert({
+                target,
+                actor,
+                alreadyNotified: [
+                  ...ctx.prevEir.watchers,
+                  ...ctx.prevEir.assignedEngineers,
+                  ...(ctx.prevEir.reporter ? [ctx.prevEir.reporter] : []),
+                ],
+              });
             }
             if (to === EIR_RESPONSE_NOT_ACCEPTED) {
               fireEirResponseNotAcceptedAlert({
@@ -532,8 +608,11 @@ export function useSetEirAssignedEngineers() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: ({ id, people }: { id: number; people: Person[] }) =>
-      setEirAssignedEngineers(id, people),
+    mutationFn: async ({ id, people }: { id: number; people: Person[] }) => {
+      // Assigning the engineer is a workflow-editor action (BusinessIT#45).
+      await assertCanEditEirWorkflow();
+      return setEirAssignedEngineers(id, people);
+    },
     onMutate: ({ id, people }) =>
       snapshotAndPatch(qc, id, patchEir(id, (e) => ({ ...e, assignedEngineers: people, modifiedAt: new Date() }))),
     onSuccess: (_d, { id, people }, ctx) => {
@@ -544,7 +623,7 @@ export function useSetEirAssignedEngineers() {
       });
       if (ctx?.prevEir) {
         fireAssigneeChangeAlert({
-          target: { kind: "eir", id, title: eirTargetTitle(ctx.prevEir) },
+          target: eirEmailTarget(ctx.prevEir),
           prev,
           next: people,
           actor,
@@ -553,9 +632,15 @@ export function useSetEirAssignedEngineers() {
         });
       }
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollback(qc, ctx);
-      pushToast({ message: "Couldn't update engineers — reverted.", variant: "error" });
+      pushToast({
+        message:
+          err instanceof EirWorkflowNotPermittedError
+            ? err.message
+            : "Couldn't update engineers — reverted.",
+        variant: "error",
+      });
     },
     onSettled: () => invalidate(qc),
   });
@@ -639,15 +724,22 @@ export function useAddEirComment() {
         void notifyMentions({
           recipients,
           sender: { displayName: comment.authorName, email: comment.authorEmail },
-          target: {
-            kind: "eir",
-            id: eir.id,
-            title: [eir.eirNo, eir.title].filter(Boolean).join(" — ") || eir.title,
-          },
+          target: eirEmailTarget(eir),
           commentExcerpt: eirCommentExcerpt(comment.bodyHtml),
           attachments: [],
         });
       }
+
+      // Copy it onto the task this EIR was promoted into, and notify THAT
+      // side's watchers minus whoever we just emailed (Ray, 2026-10-27).
+      // Best-effort: the comment is already written, so a failed mirror
+      // toasts rather than failing the post.
+      void fanOutComment({
+        qc,
+        source: { kind: "eir", id },
+        comment,
+        alreadyNotified: recipients,
+      });
     },
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
@@ -772,7 +864,7 @@ export function useEditEirComment() {
           void notifyMentions({
             recipients,
             sender: { displayName: prevComment.authorName, email: prevComment.authorEmail },
-            target: { kind: "eir", id: eir.id, title: eirTargetTitle(eir) },
+            target: eirEmailTarget(eir),
             commentExcerpt: eirCommentExcerpt(newBodyHtml),
             attachments: prevComment.attachments ?? [],
           });
@@ -793,8 +885,13 @@ export function useEditEirComment() {
 // =============================================================================
 
 /** Human-readable EIR label for email subjects/callouts ("EIR_2026-0042 — Title"). */
-function eirTargetTitle(e: Eir): string {
+export function eirTargetTitle(e: Eir): string {
   return [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title;
+}
+
+/** An EIR's email target: its title, and its description as the third block (BusinessIT#67). */
+export function eirEmailTarget(e: Eir): { kind: "eir"; id: number; title: string; context: EmailContext } {
+  return { kind: "eir", id: e.id, title: eirTargetTitle(e), context: eirEmailContext(e) };
 }
 
 /**
@@ -826,6 +923,8 @@ function applyFieldsLocally(
   if ("MFG" in fields) next.mfg = (fields.MFG as string) ?? "";
   if ("MFGP_x002f_N" in fields) next.mfgPartNumber = (fields.MFGP_x002f_N as string) ?? "";
   if ("Current_x0020_Price" in fields) next.currentPrice = (fields.Current_x0020_Price as string) ?? "";
+  if ("LatestStock" in fields) next.latestStock = (fields.LatestStock as string) ?? "";
+  if ("LatestCost" in fields) next.latestCost = (fields.LatestCost as string) ?? "";
   if ("Altronic_x0020_Part_x0020_Number" in fields)
     next.altronicPartNumber = (fields.Altronic_x0020_Part_x0020_Number as string) ?? "";
   if ("TaskReference" in fields) next.taskReference = (fields.TaskReference as string) ?? "";
@@ -882,6 +981,8 @@ function buildInverseFields(prev: Eir, fields: Record<string, unknown>): Record<
   if ("MFG" in fields) inv.MFG = prev.mfg;
   if ("MFGP_x002f_N" in fields) inv.MFGP_x002f_N = prev.mfgPartNumber;
   if ("Current_x0020_Price" in fields) inv.Current_x0020_Price = prev.currentPrice;
+  if ("LatestStock" in fields) inv.LatestStock = prev.latestStock;
+  if ("LatestCost" in fields) inv.LatestCost = prev.latestCost;
   if ("Altronic_x0020_Part_x0020_Number" in fields)
     inv.Altronic_x0020_Part_x0020_Number = prev.altronicPartNumber;
   if ("TaskReference" in fields) inv.TaskReference = prev.taskReference;
@@ -928,6 +1029,8 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
       case "MFG":
       case "MFGP_x002f_N":
       case "Current_x0020_Price":
+      case "LatestStock":
+      case "LatestCost":
       case "Altronic_x0020_Part_x0020_Number":
         return "Part details updated.";
       case "Requested_x0020_Completion_x0020":

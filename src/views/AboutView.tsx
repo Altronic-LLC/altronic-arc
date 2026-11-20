@@ -17,6 +17,8 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { DIRECTORY_KEY, useDirectoryDiagnostics } from "@/hooks/useDirectory";
 import { grantDirectoryAccess } from "@/api/directory";
 import { cn } from "@/lib/cn";
+import { ErDiagram } from "@/components/ErDiagram";
+import type { ErConnection, ErGroup, ErTable } from "@/lib/erLayout";
 // =============================================================================
 // About page — high-level system map.
 //
@@ -71,9 +73,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · My Agenda (your tasks + EIRs coming due) · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + one form engine; QCFRM-012 CPU-95, GET-1 GE ECU and QCFRM-035 Series X log sheets) · Panel QC Issue Tracker · Open Orders Report · Sales Documentation · Application Photos · Insourcing Quotes (list · worksheet · customers · roles) · Pricing (calculator on the Pricing bar · requests · request · new product worksheets · customer quotes · roles) · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Supply Chain Files · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useAgenda · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcForms · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useQuotes · useQuoteAssemblies · useQuoteCustomers · useQuoteRoles · useQuotePdf · usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useEcnDistributionGroups · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useSupplierPerformance · useCostImpactNotices · useScns · useScnDocuments · useSupplyChainFiles · useSalesDocumentation · useApplicationPhotos · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcForms · qcFormLists · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · quotes · quoteAssemblies · quoteCustomers · quoteRoles · quoteRevisions · quotePdfFiles · pricingRequests · pricingHistory · pricingRoles · pricingLookup (SAP via Fabric — the Calculator cost, the part lookup and the customer search are live, the rest not wired yet) · newProductPricing · newProductSubAssemblies · customerQuotes · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · ecnDistributionGroups · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · supplierPerformance (SAP via Fabric, read-only) · costImpactNotices · scns · driveLibrary · scnDocuments · supplyChainFiles · salesDocumentation · applicationPhotos · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -85,8 +87,18 @@ const SYSTEM_TIERS: Tier[] = [
         palette: "ui",
       },
       {
+        label: "Reports (lazy-loaded)",
+        hint: "ReportsView · TeradyneFpyReportView · TeradyneDefectBreakdownReportView · DigitalQcFpyReportView · DigitalQcDefectBreakdownReportView · IgnitionQcFpyReportView · IgnitionQcDefectBreakdownReportView · KioskReportsView — a small area of FIXED, code-defined KPI dashboards (a landing page + one card per registered report in lib/reports.ts — a trend chart AND a defect-breakdown donut for each of Teradyne, Digital QC and Ignition QC, six reports total), deliberately not a dashboard-builder UI. Every report shares components/ReportPageShell (a content-agnostic page shell — header, one card, \"Updated <time>\" note) plus either components/MonthlyFpyChart (a hand-rolled SVG stacked-bar-plus-FPY%-line chart) or components/DefectBreakdownDonut (a hand-rolled SVG donut for the latest month's total + category breakdown) — no charting library dependency either way. lib/monthlyYield is the shared month-bucketing + category-breakdown engine (MonthlyFpy, CategoryBreakdown, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown). Teradyne reads the Operations bundle's own Teradyne Log data (useTeradyneMonthlyFpy in hooks/useTeradyne.ts) via lib/teradyneFpy's batch-total-vs-defect-row split and remark-based defect grouping; Digital QC and Ignition QC instead fan out across 18 and 36 per-product-family SharePoint lists respectively (useAllDigitalQcRecords/useAllIgnitionQcRecords, via useQueries) since neither has one single list, grouping defects by 14 fixed named categories. KioskReportsView (/reports/kiosk) cycles all six on a 60s timer for an unattended monitor — trend chart then that source's Defect Breakdown, source by source — chrome-less the same way a /print route is. Own code-split chunk.",
+        palette: "ui",
+      },
+      {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView — useOperationsTasks · useTeradyne — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · McnsView · McnDetailView · McnSettingsView · PlantLayoutsView · PlantLayoutView · PlantLayoutEditView · PlantSymbolsView · PlantMapRolesView · CoatingChecksView · CoatingSpecsView · OperationsAlertRecipientsView — useOperationsTasks · useTeradyne · useMcns · useMcnRoles · usePlantLayouts · usePlantMapRoles · useCoatingChecks · useOperationsAlertRecipients — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · mcns · mcnRoles · plantLayouts · layoutComponents · plantLayoutFiles · plantMapRoles · coatingChecks · coatingSpecs · operationsAlertRecipients — lib/mcnWorkflow (Draft → Submitted → Approved → Implemented, or Rejected; content locks once submitted) · mcnRoles (member / approver / admin) · mcnAlerts · plantEditor (the layout editor's undo-able edits, snapping, placing) · plantGeometry (placed items as rotated rectangles or their real outlines; overlap, wall and keep-out checks) · plantSvg (walls drawings and symbols sanitised, drawn only as images) · plantPublishFiles (a published layout's composite SVG and tags CSV for Power BI) · plantSymbolImport (a new symbol from an SVG, a DXF or a traced picture) · plantMapRoles (editor / admin) · coatingCheck (coating thickness from three uncoated + three coated readings in mm or in, ÷ coated sides, judged in the spec's own unit; mm, in and mils shown) · coatingAlerts. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        palette: "ui",
+      },
+      {
+        label: "Harness department (lazy-loaded)",
+        hint: "HarnessProductionLogView · HarnessPartNumbersView · CrimpChecksView · CrimpSpecsView · PullTestsView · PullTestSpecsView · HarnessAlertRecipientsView — useHarnessProductionLog · useCrimpChecks · usePullTests · useMark10Tester · useHarnessAlertRecipients — api/harnessProductionLog · harnessPartNumbers · crimpChecks · crimpSpecs · crimpMachines (its own read of the asset register's presses — no Operations import) · pullTests · pullTestSpecs · mark10Serial (Web Serial, the tester over USB) · harnessAlertRecipients — lib/crimpCheck (limits inclusive, any reading out = out of spec) · crimpMachines (presses in a Harness location, plus SCHCC36S by name; a spec with no machine is offered on every press) · crimpAlerts · pullTest (a pull at the minimum passes) · mark10 · pullTestAlerts · harnessPartRequest. Who is emailed is a list ARC admins edit, not a variable. Moved out of Operations 2026-10-27; same PMO site, own menu group and Dashboard section.",
         palette: "ui",
       },
       {
@@ -110,8 +122,13 @@ const SYSTEM_TIERS: Tier[] = [
         palette: "ui",
       },
       {
+        label: "SCNs — Supply Chain Notices (lazy-loaded)",
+        hint: "ScnsView · ScnDetailView · ScnFormModal — useScns — api/scns — lib/scnFields (every column declared once, the grayMarketFields shape) · scnMapper · scnNumber (the YYYY-NNNN global sequence). The SCN Dashboard list lives on the SCN SUBSITE of ALTRONICSALESTEAM (a Sales site collection, so it shares salesTeam's grant — exactly like the CRM's OrderEntry subsite); the feature is Supply Chain's and appears under Supply Chain only. Routes /supply-chain/scns and /supply-chain/scn/:id. ScnDocumentsView (/supply-chain/scns/documents?folder=) — useScnDocuments — api/scnDocuments: a browser over the SCN subsite's default Documents library (Graph drive) — breadcrumb, new folder (conflictBehavior fail), upload (uploadToDriveTarget, rename), Edit in Office for the web, download, rename (PATCH, conflictBehavior fail) and delete (to the site recycle bin, 93 days).",
+        palette: "ui",
+      },
+      {
         label: "SRM Tool (lazy-loaded)",
-        hint: "SuppliersView · SupplierDetailView · SupplierContactRedirect · SupplierIssueRedirect — useSuppliers · useSupplierContacts · useSupplierIssues — api/suppliers · supplierContacts · supplierIssues. Own site (PMO). Suppliers List is the anchor; Contacts and Issue Tracker render as expandable inline cards on a supplier's own page, the same pattern Build Request Items use, because both need their own comment thread, watchers and attachments.",
+        hint: "SuppliersView · SupplierDetailView · SupplierContactRedirect · SupplierIssueRedirect — useSuppliers · useSupplierContacts · useSupplierIssues · useSupplierPerformance — api/suppliers · supplierContacts · supplierIssues · supplierPerformance. Own site (PMO); performance scores read from SAP through Fabric, matched on BP number, falling back to the scores typed into the list. Suppliers List is the anchor; Contacts and Issue Tracker render as expandable inline cards on a supplier's own page, the same pattern Build Request Items use, because both need their own comment thread, watchers and attachments.",
         palette: "ui",
       },
       {
@@ -125,8 +142,18 @@ const SYSTEM_TIERS: Tier[] = [
         palette: "ui",
       },
       {
+        label: "Insourcing Quotes (lazy-loaded)",
+        hint: "QuotesView · QuoteDetailView · QuoteCustomersView · QuoteRolesView · QuotesNav + the Quote form modals · QuoteLinksPanel (Engineering / Operations task and project links) · QuoteToTaskModal + useQuoteToTask + lib/quoteToTask (a Won quote → an Engineering / Operations task; the two then share one comment thread) · QuoteAlternatesCard (the page-two Alternates table — three manufacturer / part # / lead time options + a reason per row, pasted from Excel) — useQuotes · useQuoteAssemblies · useQuoteCustomers · useQuoteRoles · useQuotePdf — api/quotes · quoteAssemblies · quoteCustomers · quoteRoles · quoteRevisions (New rev: copies header, lines, comments and attachments) · quotePdfFiles (Save to folder, General/IC Quotes on the PMO library, rename on clash) — lib/quotePricing (a line's final material × (1 + overhead%) + labor; its ONE target GM prices it; breaks; WEIGHTED quote GM) · quoteMoney (2-decimal display) · sapPartNumber (####-####-##) · quoteRoles (viewer / quoter / manager; no role = no access) · quoteNumber (IQ-CODE-####-R#, global sequence) · quoteCustomerCode · quotePdfModel (the customer-facing shape that cannot carry cost) · quotePdf (jsPDF + AutoTable, dynamically imported) · quoteMapper. Routes /sales/quotes, /sales/quotes/:id, /sales/quotes/customers, /sales/quotes/roles. Four lists on Altronic_PMO; cost and margin are hidden from viewers in the UI only — SharePoint list permissions are the real boundary.",
+        palette: "ui",
+      },
+      {
+        label: "Pricing (lazy-loaded)",
+        hint: "PricingRequestsView · PricingRequestDetailView · NewProductPricingView · NewProductPricingDetailView · CustomerQuotesView · CustomerQuoteDetailView · PricingRolesView + pricingAtoms (PricingNav) · PricingWorkbench · PricingRequestFormModal · SapCustomerPicker · NewWorksheetFormModal · SubAssemblyCard · QuoteLineModal — usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes — api/pricingRequests · pricingHistory · pricingRoles · newProductPricing · newProductSubAssemblies · customerQuotes · pricingLookup (the ONE seam to SAP, the Fabric warehouse; cost, part and customer lookups live, the rest falls back to typed entry) — lib/pricingMath (list from target GM ÷ distributor discount, whole dollar; base GM at the distributor price; customer price = distributor price; MPG + family comparables; BOM cost; breaks) · pricingRoles (requester / manager / admin; no role = no access; the preview switch) · pricingHistory · pricingNumber · pricingMapper · pricingAlerts · pricingPdf (a model that cannot carry cost) · subAssemblyCsv · customerQuotes · worksheetExcel. Routes under /sales/pricing. Six lists on ALTRONICSALESTEAM with UNIQUE permissions — the cost lists ARE the boundary. In review behind VITE_PRICING_LIVE.",
+        palette: "ui",
+      },
+      {
         label: "Panels department (lazy-loaded bundle)",
-        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Own code-split chunk; no cross-department imports.",
+        hint: "PanelProjectsView · PanelProjectDashboardView (read-only, lib/panelProjectDashboard) · PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · PanelCapacityView · PanelTimeOffView · PanelTaskTemplatesView · PanelBomBuilderView · PanelBomsView · PanelBomPartsView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · usePanelTimeOff · usePanelOrderTasks · usePanelTaskTemplates · usePanelSettings · usePanelBom · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelTimeOff · panelTaskTemplates · panelSettings · panelBomParts · panelBoms · panelBomCosts (SAP cost via Fabric, read-only) · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Capacity runs on the SHARED lib/capacity + CapacityGrid through a Panels adapter (lib/panelCapacity), ready for Engineering/Operations. Own code-split chunk; no cross-department imports.",
         palette: "ui",
       },
     ],
@@ -136,7 +163,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice, SCN, Quote) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -162,7 +189,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "CoilPN / CoilOtherFaultList", hint: "Engineering site — editable reference lists for the Coil Defect Log part-number and Other-defect pickers", palette: "list" },
       { label: "CAD / CCC / CEC Drawings", hint: "Engineering site — drawing registers; a 16-slot change log across 48 CH_* columns", palette: "list" },
       { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
-      { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
+      { label: "Documents library", hint: "General/Project Folders/* on Engineering — task & comment files land here; plus the SCN subsite's Documents library, browsed from SCN Documents; plus General/Supply Chain Files on Altronic_PMO, browsed from Supply Chain Files (the same folder browser as SCN Documents, rooted at that folder); plus Main Channel in the ALTRONICSALESTEAM/AltronicDocumentation library, browsed from Sales Documentation (the same folder browser); plus General/A-Application Photos in the ALTRONICSALESTEAM library, browsed from Application Photos (the same folder browser, with a camera button on phones and iPads); plus General/IC Quotes on Altronic_PMO, where Insourcing Quotes saves a customer PDF on request (never overwritten, never created by ARC)", palette: "list" },
       { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks, EIRs, CSA Listings and more", palette: "list" },
       { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List. Carries a Maintenance Task Reference column: set when a task has been promoted to a CMMS work order, and non-empty means it can't be promoted again", palette: "list" },
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
@@ -173,13 +200,33 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Scheduled Maintenance", hint: "Altronic_PMO site — the recurring PM rules the calendar projects from. Fixed, Floating or Hourmeter basis, an interval + unit, grace and lead days. Hourmeter is due at a run-hours READING rather than a date (LastCompletedHours / NextDueHours, against the asset's CurrentMachineHours) and reaches the calendar only on the day the reading passes the target — grace and lead days are in DAYS and do not apply to it. No Communication column by design (a schedule is a rule; the conversation belongs on the work order it made) and no delete — a schedule is retired by clearing Active", palette: "list" },
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
+      { label: "Manufacturing Change Notices", hint: "Altronic_PMO site — one row per MCN (MFGFRM-021 as fields), with MCN Roles (who raises, approves, manages) and MCN Distribution Groups (who an approved MCN goes to) beside it", palette: "list" },
+      { label: "Plant Layouts", hint: "Altronic_PMO site — one row per VERSION of a plant layout: Draft, Published or Superseded, the whole layout as JSON in one column (one write per save; SharePoint has no transactions), and the drive id of its walls drawing. A Published row is never written — ARC re-reads before a save and refuses. A layout ARC can't parse is never written over", palette: "list" },
+      { label: "Layout Components / Plant Map Roles", hint: "Altronic_PMO site — the symbol library (SVG drawn to its real footprint in inches; added by a Plant Map admin from an SVG, a DXF or a traced picture; retired, never deleted; seeded from src/data/plantComponentSeed.json only while empty) and who may see and edit the Plant Map (viewer / editor / admin — nobody else sees it)", palette: "list" },
+      { label: "Plant Layout Files", hint: "Altronic_PMO site — a document library holding each layout's walls drawing (walls/…svg, in inches, never overwritten), and what Publish leaves for Power BI in published/: a composite SVG of the whole plan and a CSV of every item and area, per version and a current copy. Files rather than columns because a cleaned CAD export can pass a list column's 64,000-character limit", palette: "list" },
+      { label: "Coating Specs", hint: "Altronic_PMO site — conformal coating min / max thickness, stored in mm with the unit it was entered in (mm or in), and coated sides (1 or 2); ARC admins manage, delete only when unused", palette: "list" },
+      { label: "Coating Checks", hint: "Altronic_PMO site — three uncoated + three coated readings per check (mm or in), the thickness judged in the spec's unit and stored in mm, in and mils, the spec's figures copied on; read a year at a time on the indexed MeasuredAt", palette: "list" },
+      { label: "Operations Alert Recipients", hint: "Altronic_PMO site — who each Operations email goes to (out-of-spec coating checks); ARC admins pick people in ARC, no redeploy", palette: "list" },
+      { label: "Harness Production Log", hint: "Altronic_PMO site — one row per harness built, imported from the old Access database; read a year at a time on the indexed ProductionDate", palette: "list" },
+      { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
+      { label: "Crimp Specs", hint: "Altronic_PMO site — crimp height ± tolerance per terminal + applicator + wire gauge, and the presses it runs on (a multi lookup into the Altronic Equipment List); ARC admins manage, delete only when unused", palette: "list" },
+      { label: "Crimp Height Checks", hint: "Altronic_PMO site — three micrometer readings per check, the spec's figures copied on; read a year at a time on the indexed CheckedAt", palette: "list" },
+      { label: "Pull Test Specs", hint: "Altronic_PMO site — minimum pull force per terminal + gauge, a manufacturer's or an industry standard's (blank terminal = any); ARC admins manage", palette: "list" },
+      { label: "Pull Tests", hint: "Altronic_PMO site — up to five pulls per test off the Mark-10 WT3-200, the spec's minimum copied on; read a year at a time on the indexed TestedAt", palette: "list" },
+      { label: "Harness Alert Recipients", hint: "Altronic_PMO site — who each Harness email goes to (out-of-spec crimp checks, failed pull tests, part number requests); ARC admins pick people in ARC, no redeploy", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
       { label: "Coil-PottingLimit", hint: "Altronic_PMO site — two rows (Lower/Upper Spec Limit), editable by any signed-in user", palette: "list" },
       { label: "Coil PSR Notification List", hint: "Altronic_PMO site — email list for out-of-limit alerts, editable by any signed-in user", palette: "list" },
       { label: "Build Request Tracker", hint: "BR headers — status workflow, requestor/engineer, own comment thread", palette: "list" },
       { label: "Build Request Items", hint: "parts per BR (lookup to the Tracker) — checklists + per-part comment threads", palette: "list" },
       { label: "Panel Order Headers", hint: "ALTRONICPANELTEAM site — panel sales orders (status, SO/PO, engineer, own comment thread)", palette: "list" },
-      { label: "Panel Tasks", hint: "ALTRONICPANELTEAM site — panel team tasks (drawings, SOOs, quotes, admin), own comment thread", palette: "list" },
+      { label: "Panel Tasks", hint: "ALTRONICPANELTEAM site — panel team tasks (drawings, SOOs, quotes, admin), own comment thread; start/due dates + estimated hours feed Panel Engineering Capacity", palette: "list" },
+      { label: "Panel Time Off", hint: "ALTRONICPANELTEAM site — who on the panel team is out and for how many hours a day; lowers their capacity. A company holiday names nobody and applies to everyone", palette: "list" },
+      { label: "Panel Task Templates", hint: "ALTRONICPANELTEAM site — the standard tasks a new Panel Order raises (Wrike's blueprint), kept by the panel managers in ARC", palette: "list" },
+      { label: "Panel Settings", hint: "ALTRONICPANELTEAM site — one row per setting: today the Capacity view's amber threshold", palette: "list" },
+      { label: "Panel BOM Parts", hint: "ALTRONICPANELTEAM site — the BOM Builder's parts (SAP #, cluster, category, flags); NO cost — cost is SAP's, read through Fabric per viewer", palette: "list" },
+      { label: "Panel BOM Kits", hint: "ALTRONICPANELTEAM site — the BOM Builder's kits, components as JSON on each row", palette: "list" },
+      { label: "Panel BOMs", hint: "ALTRONICPANELTEAM site — saved BOMs: the picks and a snapshot of the SAP lines, optionally linked to a Panel Order", palette: "list" },
       { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
       { label: "QC Time Tracking", hint: "ALTRONICPANELTEAM site — hours QC spent per project; a simple log, no role gating, no delete, PerformedByPeople is multi-person", palette: "list" },
@@ -187,8 +234,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Where am I?", hint: "Engineering site — the team's out-of-office calendar. Two columns (Title, Date) and no end date, so a week away is a row per day; dates are stored at 06:00Z (US Central midnight)", palette: "list" },
       { label: "FAIT", hint: "Engineering site (a Supply Chain feature) — First Article Inspection Tests. 51 workflow columns spanning inspection and three sign-offs; Communication and Watchers were added for ARC in Aug 2026, Project Reference and attachments already existed", palette: "list" },
       { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
+      { label: "ECN Distribution Groups", hint: "Engineering site — who receives an ECN for each of the ten roles on its DISTRIBUTION block (Members = Name <email> lines). Matched to an ECN's ticked roles by name; ARC admins manage it", palette: "list" },
       { label: "ECN Checklists", hint: "Engineering site — the Cross-Functional ECN Checklist (Form# MFGFRM-038), one row per ECN, linked by a single EcnRef lookup. All 84 answers are one JSON column; the four item counts are real columns so SharePoint views can report on progress without parsing it", palette: "list" },
-      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the Altronic assembly no, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
+      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the SAP P/N, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
       { label: "MRB Data", hint: "Altronic_PMO site — the Material Review Board register. Every workflow column is called field_N (lib/mrbFields.ts decodes them); Title is the SAP Number; field_12 separates the 97 live entries from 2,863 rows of retained Excel history. No Communication, no Watchers, no person columns.", palette: "list" },
       { label: "Open Orders Report Customers", hint: "ALTRONICSALESTEAM site — who gets an individual open-orders workbook each week. Title is the sold-to account number; CustomerName is the customer-facing name the FILE is named from, because SAP truncates its own at 30 characters. IncludeCustomerMaterialNumber is a per-customer opt-in that adds the consolidated Customer Material Number column to THAT customer's workbook — unset reads as off, and the master always carries it", palette: "list" },
       { label: "Open Orders Roles", hint: "ALTRONICSALESTEAM site — same shape as EIR Roles; Title is an email and Roles is a CSV, today just \"report manager\". Gating is off until the list id is configured, so nobody is locked out before an admin populates it", palette: "list" },
@@ -201,68 +249,68 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Supplier Contact List", hint: "Altronic_PMO site — one row per person at a supplier, 566 rows; Title/FirstName/LastName are blank on every row seen so far — a contact is identified by email; Communication and Watchers were added for ARC on 2026-08-26; BPReference is a SINGLE lookup, so BOTH halves must be in the $select or every contact reads as belonging to no supplier", palette: "list" },
       { label: "Supplier Issue Tracker", hint: "Altronic_PMO site — near-empty (1 row at discovery); Status and Severity are UNCONFIGURED placeholder choices (\"Choice 1/2/3\") — update the consts once Supply Chain sets real values", palette: "list" },
       { label: "Cost Impact Portal", hint: "ALTRONICSALESTEAM site (a Supply Chain feature) — a purchased part's cost changed. Original Cost/New Cost are TEXT columns; Delta Cost is a genuine SharePoint calculated column despite that; no Watchers, so comments reach the submitter (createdBy) and anyone mentioned, same as ECNs", palette: "list" },
-      { label: "ARC Feature Requests", hint: "Engineering site — a place for any signed-in user to request a new ARC feature or change, separate from Report Issue. RequestedBy is a single-person column (Graph returns a bare RequestedByLookupId, resolved via the site directory), auto-filled to the submitter on create and never re-picked. No default list id — the screen reports itself as not configured until the setup script has run", palette: "list" },
-      { label: "CPU-95", hint: "Engineering site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form; ~200 columns across Header/Startup/Final/checklist/firing-angle/Current Loop/Defects/Sign-off, only some of which apply to a given unit depending on its Altronic Part Number (\"Altmode\", 0-6). No delete; any signed-in user can create/edit", palette: "list" },
+      { label: "SCN Dashboard", hint: "ALTRONICSALESTEAM/SCN subsite (a Supply Chain feature) — Supply Chain Notices: a product or part being obsoleted, phased out, or raised as an EECR. 142 rows, fetched whole. Several internal names LIE: Progress is the Product, Priority is the Category, PartsEffected is the Old Number, EOLExpires is LTS Expires — lib/scnFields.ts is the only place that translation lives. Title is the SCN# (YYYY-NNNN, a global 4-digit sequence since 2024, app-generated). Three multi-choice checkBoxes columns (Preliminary Reviews, Secondary Review, Project Status) need the Collection(Edm.String) annotation; AssignedTo and Owner are multi-person; Task List is a Hyperlink column ARC reads and never writes; Communication and Watchers exist but were empty on every row. No delete, no role gating.", palette: "list" },
+      { label: "Quotes", hint: "Altronic_PMO site (Insourcing Quotes) — the quote header. Title is the quote number IQ-CODE-####-R# with Enforce Unique Values (a simultaneous create is refused and ARC renumbers once); QuoteBase + Rev keep revs together, and a rev is a NEW row, the latest derived, never stored. CustomerRef is a single lookup. CustomerReference prints; CustomerType (Cooper / Arcline / External) and ProjectContext are internal; Alternates is JSON (the page-two table). Engineering / Operations task links are NUMBER columns (a task's item id), projects are TITLES — Graph can't write the old Hyperlink columns, which are left unread. Communication + Watchers; attachments carry the customer's data package and supplier quotes. No delete; no default list id", palette: "list" },
+      { label: "Quote Assemblies", hint: "Altronic_PMO site — one row per quote LINE with the part's FINAL cost: Cost (material), LaborCost, MaterialOverheadPct (% of material); QuoteRef single lookup; TargetGM is the line's ONE margin; PriceBreaks is JSON (up to three); ManualPrice overrides; TargetPrice and EstimatedEAU (internal) feed the Target & volume summary; CustomerPrice is stored for SharePoint views and recomputed by lib/quotePricing on every change. No comments, no attachments; deletable while drafting. (The old Quote Items component list is no longer read.)", palette: "list" },
+      { label: "Quote Customers", hint: "Altronic_PMO site — customers ARC quotes to; CustomerCode (2–5 characters) is generated, frozen at creation and Enforce Unique Values; CustomerNumber is TEXT to keep SAP leading zeros. Manager-only writes; retired via Active, never deleted", palette: "list" },
+      { label: "Quote Roles", hint: "Altronic_PMO site — Title = email, PersonName (never DisplayName), Roles CSV of viewer / quoter / manager. No role = no access; no default list id. Managed by a quote manager or an ARC admin, though an admin gets no quote access from it", palette: "list" },
+      { label: "Pricing Roles", hint: "ALTRONICSALESTEAM site (Sales Pricing) — Title = email, PersonName (never DisplayName), Roles CSV of requester / manager / admin. No role = no access. Managed by a pricing admin or an ARC admin, who gets no pricing access from it", palette: "list" },
+      { label: "Pricing Requests", hint: "ALTRONICSALESTEAM site — PR-YYYY-#### (unique). Awaiting SAP → Submitted → In Review → Priced (and Cancelled, never deleted). Every pricing role reads it, so it holds the FINAL price only — no cost, no margin. RequestedBy / PricedBy / AddedToSapBy are single-person; Communication + Watchers + attachments", palette: "list" },
+      { label: "Pricing History", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. One row per request (RequestRef, a single lookup): cost and its source, distributor discount and its source, target / base / customer GM, the MPG and family comparables summary, and History — a JSON array APPENDED on every pricing, never written over when it can't be parsed", palette: "list" },
+      { label: "New Product Pricing", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. NP-YYYY-#### worksheets for products not yet in SAP; overhead, discount, target GM, list price, PriceBreaks JSON, Rev, History JSON (one totals snapshot per revision), Communication and Watchers. RequestRef exists but ARC no longer sets it. Cancelled, never deleted", palette: "list" },
+      { label: "NP Sub-Assemblies", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. One row per sub-assembly or standalone part PER REVISION (WorksheetRef single lookup + Rev, Kind, Altronic # + SAP #); Lines JSON from a CSV, by hand or SAP (base cost kept, adjusted cost beside it); attachments per row, copied to a new revision. A new revision writes fresh rows; no default list id", palette: "list" },
+      { label: "Customer Quotes", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. SQ-YYYY-####-R# (unique); a revision is a new row sharing QuoteBase. Customer and Lines as JSON; lines editable only in Draft; the PDF never carries cost or margin. Communication + Watchers + attachments; no default list id", palette: "list" },
+      { label: "ARC Feature Requests", hint: "Engineering site — a place for any signed-in user to request a new ARC feature or change, separate from Report Issue. RequestedBy is a single-person column (Graph returns a bare RequestedByLookupId, resolved via the site directory), auto-filled to the submitter on create and never re-picked. Communication + Watchers + attachments (a comment's file lands there too). No default list id — the screen reports itself as not configured until the setup script has run", palette: "list" },
+      { label: "QCFRM-012 CPU-95 Test Sheets", hint: "PMO site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form (moved from the Engineering site's \"CPU-95\" list, 2026-10-21). ~150 readable columns: header, oven ON/OFF, start-up and final readings, Yes / No / N/A checks, 20 firing-angle slots with an at-spec check, Post Test Inspection, defects, sign-off. Which apply depends on the unit's Altronic Part Number — its cylinder grid and its variant (base, 791952/62-18, 791956-16, CPU-95C, EVS). No delete; any signed-in user can create/edit", palette: "list" },
+      { label: "GET-1 GE Transportation Log Sheets", hint: "PMO site — the list backing GET-1, the QC Forms Phase 1 pilot, built from scripts/data/qc-get1-columns.json. One row per GE ECU: serial, part number, 15 Yes / No / N/A checks, ship firmware revision, a work order per board (12), QC inspector, date, notes. No variants, no delete; any signed-in user can create/edit. No default list id", palette: "list" },
+      { label: "QCFRM-035 Series X Controller Log Sheets", hint: "PMO site — the list backing QCFRM-035 (Series X), built from scripts/data/qc-series-x-columns.json. One row per Series X controller: serial, part number, the same 15 Yes / No / N/A checks as GET-1 (same column names), ship firmware revision, a work order per board (11), QC inspector, date, notes. No variants, no delete; any signed-in user can create/edit. No default list id", palette: "list" },
     ],
   },
 ];
 
 // =============================================================================
-// Data model — drawn as a real ER diagram on a single SVG canvas.
-// Each table is positioned by hand on a 1280x880 canvas, with crow's-foot
-// connectors drawn between FK columns and their targets (one-end on the
-// PK side, many-end on the FK side).
+// Data model — an ER diagram, drawn and laid out by components/ErDiagram.tsx
+// and lib/erLayout.ts.
 //
-// To add a column or relationship: bump the row count in SCHEMA_TABLES,
-// adjust the table's `y` if it pushes neighbours, and add a row to
-// CONNECTIONS. The renderer computes port positions from row index.
+// Nothing here is positioned by hand. Each table names the GROUP (department)
+// it is drawn in, and the layout packs groups and tables so no two cards
+// overlap. To add a list: add its SCHEMA_TABLES entry with a `group` from
+// ER_GROUPS (and a `width` its longest column name fits in), then add each
+// foreign key to CONNECTIONS. A new department is a new ER_GROUPS entry —
+// groups are drawn in the order listed here.
 // =============================================================================
 
-type ColumnKind = "pk" | "field" | "fk";
+type SchemaTable = ErTable;
+type Connection = ErConnection;
 
-interface SchemaColumn {
-  name: string;
-  type: string;
-  kind: ColumnKind;
-  /** Where this FK points, e.g. "Project.id" or "Person.id[]". */
-  references?: string;
-}
+export const ER_GROUPS: ErGroup[] = [
+  { id: "engineering", label: "Engineering" },
+  { id: "core", label: "Shared across ARC" },
+  { id: "parts", label: "Parts List" },
+  { id: "operations", label: "Operations & maintenance" },
+  { id: "teradyne", label: "Teradyne" },
+  { id: "coating", label: "Conformal Coating (Operations)" },
+  { id: "harness", label: "Harness" },
+  { id: "panels", label: "Panels" },
+  { id: "qc", label: "Quality Control" },
+  { id: "sales", label: "Sales" },
+  { id: "supplyChain", label: "Supply Chain" },
+  { id: "quotes", label: "Insourcing Quotes" },
+  { id: "pricing", label: "Pricing" },
+];
 
-interface SchemaTable {
-  name: string;
-  /** SharePoint list display name (or "Concept" for shared/derived ones). */
-  source: string;
-  palette: PaletteKey;
-  columns: SchemaColumn[];
-  /** Top-left x position on the ER canvas. */
-  x: number;
-  /** Top-left y position on the ER canvas. */
-  y: number;
-  /** Card width. */
-  width: number;
-}
+/**
+ * Pointed at from half the diagram — their links are hidden until switched
+ * on, and always shown for the table being traced.
+ */
+export const ER_HUB_TABLES = ["Person", "Comment", "Attachment"];
 
-// ----- ER canvas geometry --------------------------------------------------
-const HEADER_HEIGHT = 50;
-const ROW_HEIGHT = 22;
-
-/** Compute the table's total rendered height. */
-function tableHeight(t: SchemaTable): number {
-  return HEADER_HEIGHT + t.columns.length * ROW_HEIGHT + 6;
-}
-
-/** Y coordinate of a column's center (used for connection endpoints). */
-function rowCenterY(t: SchemaTable, columnName: string): number {
-  const idx = t.columns.findIndex((c) => c.name === columnName);
-  return t.y + HEADER_HEIGHT + idx * ROW_HEIGHT + ROW_HEIGHT / 2;
-}
-
-const SCHEMA_TABLES: SchemaTable[] = [
+export const SCHEMA_TABLES: SchemaTable[] = [
   {
     name: "Project",
     source: "Projects list",
     palette: "entity",
-    x: 530, y: 20, width: 240,
+    group: "engineering", width: 240,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -272,7 +320,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Person",
     source: "Concept (User Info list)",
     palette: "shared",
-    x: 960, y: 20, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "displayName", type: "text", kind: "field" },
@@ -283,7 +331,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Task",
     source: "Project Task List",
     palette: "entity",
-    x: 20, y: 220, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -304,7 +352,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "EIR",
     source: "Engineering Information Request",
     palette: "entity",
-    x: 410, y: 220, width: 420,
+    group: "engineering", width: 420,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "eirNo", type: "text", kind: "field" },
@@ -315,6 +363,8 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "requestedPriority", type: "choice", kind: "field" },
       { name: "projectReferences", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "taskReference", type: "text", kind: "field" },
+      { name: "latestStock", type: "text", kind: "field" },
+      { name: "latestCost", type: "text", kind: "field" },
       { name: "reporter", type: "int", kind: "fk", references: "Person.id" },
       { name: "assignedEngineers", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
@@ -324,7 +374,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Admin",
     source: "Admins list",
     palette: "entity",
-    x: 960, y: 240, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email", type: "text", kind: "fk", references: "Person.email" },
@@ -335,7 +385,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "EirRole",
     source: "EIR Roles list",
     palette: "entity",
-    x: 960, y: 660, width: 290,
+    group: "engineering", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email", type: "text", kind: "fk", references: "Person.email" },
@@ -351,7 +401,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MaintenanceRole",
     source: "Maintenance Roles list (Altronic_PMO site)",
     palette: "entity",
-    x: 960, y: 820, width: 290,
+    group: "operations", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email", type: "text", kind: "fk", references: "Person.email" },
@@ -363,7 +413,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Comment",
     source: "Concept (Communication field)",
     palette: "shared",
-    x: 960, y: 380, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / OperationsTask / MaintenanceTask" },
       { name: "timestamp", type: "datetime", kind: "field" },
@@ -375,7 +425,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TestSheet",
     source: "Test Results",
     palette: "entity",
-    x: 20, y: 566, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -390,7 +440,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Attachment",
     source: "List-item attachments across entities (SP REST)",
     palette: "shared",
-    x: 960, y: 540, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / CsaListing / …" },
       { name: "fileName", type: "text", kind: "field" },
@@ -401,7 +451,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ProjectFolder",
     source: "Documents / General / Project Folders",
     palette: "shared",
-    x: 410, y: 540, width: 420,
+    group: "engineering", width: 420,
     columns: [
       { name: "id", type: "driveItemId", kind: "pk" },
       { name: "name", type: "text", kind: "field" },
@@ -413,7 +463,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ProjectFile",
     source: "Files inside a ProjectFolder",
     palette: "shared",
-    x: 20, y: 792, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "driveItemId", kind: "pk" },
       { name: "folderId", type: "driveItemId", kind: "fk", references: "ProjectFolder.id" },
@@ -432,7 +482,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "OperationsTask",
     source: "Operations Task List (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 1000, width: 380,
+    group: "operations", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -453,7 +503,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "OperationsProject",
     source: "Operations Projects (Altronic_PMO site)",
     palette: "entity",
-    x: 430, y: 1000, width: 260,
+    group: "operations", width: 260,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "projectNumber", type: "text", kind: "field" },
@@ -475,7 +525,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "AltronicEquipment",
     source: "Altronic Equipment List (Altronic_PMO site) — 378 assets",
     palette: "shared",
-    x: 720, y: 1000, width: 300,
+    group: "operations", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -516,7 +566,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     palette: "entity",
     // Moved up 60px when DepartmentRef / LocationRef were added, so the two
     // extra rows don't crowd BuildRequest below it.
-    x: 20, y: 1400, width: 380,
+    group: "operations", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "woNumber", type: "text", kind: "field" },
@@ -561,7 +611,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ScheduledMaintenance",
     source: "Scheduled Maintenance (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 1400, width: 340,
+    group: "operations", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -610,7 +660,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MaintenanceDepartment",
     source: "Maintenance Departments (Altronic_PMO site) — 9 values",
     palette: "shared",
-    x: 820, y: 1600, width: 320,
+    group: "operations", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -626,7 +676,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MaintenanceLocation",
     source: "Maintenance Locations (Altronic_PMO site) — 64 values",
     palette: "shared",
-    x: 820, y: 1780, width: 320,
+    group: "operations", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -638,7 +688,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "BuildRequest",
     source: "Build Request Tracker (Engineering site)",
     palette: "entity",
-    x: 20, y: 2170, width: 370,
+    group: "engineering", width: 370,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "brNo", type: "text", kind: "field" },
@@ -655,13 +705,16 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "projectReference", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "taskReference", type: "int", kind: "fk", references: "Task.id" },
       { name: "communication", type: "text", kind: "field" },
+      { name: "archived", type: "bool", kind: "field" },
+      { name: "legacySource", type: "text", kind: "field" },
+      { name: "legacyCreated", type: "date", kind: "field" },
     ],
   },
   {
     name: "BuildRequestItem",
     source: "Build Request Items (Engineering site)",
     palette: "entity",
-    x: 440, y: 2170, width: 380,
+    group: "engineering", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber", type: "text", kind: "field" },
@@ -687,12 +740,13 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelOrder",
     source: "Panel Order Headers (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 20, y: 2630, width: 380,
+    group: "panels", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
       { name: "salesOrder", type: "text", kind: "field" },
+      { name: "sapNumber", type: "text", kind: "field" },
       { name: "purchaseOrder", type: "text", kind: "field" },
       { name: "customerReference", type: "text", kind: "field" },
       { name: "customer", type: "choice", kind: "field" },
@@ -708,7 +762,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelProject",
     source: "Panel Project Reference (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 440, y: 2630, width: 280,
+    group: "panels", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (ref no)", type: "text", kind: "field" },
@@ -723,11 +777,12 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelUserRole",
     source: "Panel User Roles (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 2630, width: 280,
+    group: "panels", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "user", type: "int", kind: "fk", references: "Person.id" },
       { name: "role", type: "choice", kind: "field" },
+      { name: "onCapacity", type: "bool", kind: "field" },
       { name: "note (Title)", type: "text", kind: "field" },
     ],
   },
@@ -735,16 +790,111 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelTask",
     source: "Panel Tasks (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 2830, width: 300,
+    group: "panels", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
       { name: "taskType", type: "choice", kind: "field" },
+      { name: "workType", type: "choice", kind: "field" },
+      { name: "priority", type: "choice", kind: "field" },
       { name: "projectReference", type: "int", kind: "fk", references: "PanelProject.id" },
-      { name: "assigned", type: "int", kind: "fk", references: "Person.id" },
+      { name: "panelOrderRef", type: "int", kind: "fk", references: "PanelOrder.id" },
+      { name: "chainStep", type: "number", kind: "field" },
+      { name: "statusBeforeHold", type: "text", kind: "field" },
+      { name: "sapNumber", type: "text", kind: "field" },
+      { name: "assigned", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "description", type: "text", kind: "field" },
+      { name: "startDate", type: "date", kind: "field" },
+      { name: "dueDate", type: "date", kind: "field" },
+      { name: "estimatedHours", type: "number", kind: "field" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    name: "PanelTimeOff",
+    source: "Panel Time Off (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "teamMember", type: "int", kind: "fk", references: "Person.id" },
+      { name: "reason (Title)", type: "text", kind: "field" },
+      { name: "startDate", type: "date", kind: "field" },
+      { name: "endDate", type: "date", kind: "field" },
+      { name: "hoursPerDay", type: "number", kind: "field" },
+      { name: "companyHoliday", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelTaskTemplate",
+    source: "Panel Task Templates (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "task (Title)", type: "text", kind: "field" },
+      { name: "taskType", type: "choice", kind: "field" },
+      { name: "estimatedHours", type: "number", kind: "field" },
+      { name: "sortOrder", type: "number", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelSetting",
+    source: "Panel Settings (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 240,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "setting (Title)", type: "text", kind: "field" },
+      { name: "value", type: "text", kind: "field" },
+    ],
+  },
+
+  {
+    name: "PanelBomPart",
+    source: "Panel BOM Parts (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "sapPartNumber (Title)", type: "text", kind: "field" },
+      { name: "altronicPartNumber", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "cluster", type: "number", kind: "field" },
+      { name: "category", type: "text", kind: "field" },
+      { name: "standard / preferred / doNotQuote", type: "bool", kind: "field" },
+      { name: "qtyIfUsed", type: "number", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelBomKit",
+    source: "Panel BOM Kits (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "category", type: "text", kind: "field" },
+      { name: "components (JSON)", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelBom",
+    source: "Panel BOMs (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    group: "panels", width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "panelSystemNumber (Title)", type: "text", kind: "field" },
+      { name: "panelOrderRef", type: "int", kind: "fk", references: "PanelOrder.id" },
+      { name: "picks (JSON)", type: "text", kind: "field" },
+      { name: "bomLines (JSON)", type: "text", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
     ],
   },
 
@@ -755,7 +905,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CsaListing",
     source: "CSA Listings (Engineering site)",
     palette: "entity",
-    x: 1080, y: 3130, width: 300,
+    group: "engineering", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "fileNumber (Title)", type: "text", kind: "field" },
@@ -776,7 +926,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "AltronicPart",
     source: "Altronic Part List (Engineering site)",
     palette: "entity",
-    x: 800, y: 6440, width: 300,
+    group: "parts", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber (Title)", type: "text", kind: "field" },
@@ -801,7 +951,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "AltronicComponent",
     source: "Altronic Component List (Engineering site)",
     palette: "entity",
-    x: 1130, y: 6440, width: 300,
+    group: "parts", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber (Title)", type: "text", kind: "field" },
@@ -826,7 +976,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PartsRole",
     source: "Parts Roles (Engineering site)",
     palette: "entity",
-    x: 800, y: 6900, width: 300,
+    group: "parts", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email (Title)", type: "text", kind: "field" },
@@ -841,7 +991,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ComponentDescriptionOption",
     source: "Component Description Options (Engineering site)",
     palette: "entity",
-    x: 1140, y: 6900, width: 320,
+    group: "parts", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -860,7 +1010,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "DrawingLogEntry",
     source: "CAD / CCC / CEC Drawings (Engineering site)",
     palette: "entity",
-    x: 1080, y: 3420, width: 320,
+    group: "engineering", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (drawing no.)", type: "text", kind: "field" },
@@ -875,7 +1025,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SketchLogEntry",
     source: "Engineering Sketches (Engineering site)",
     palette: "entity",
-    x: 1080, y: 3660, width: 320,
+    group: "engineering", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -893,7 +1043,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "DigitalQc",
     source: "18 Digital QC product-family lists (Engineering site)",
     palette: "entity",
-    x: 440, y: 3420, width: 500,
+    group: "qc", width: 500,
     columns: [
       { name: "id", type: "text", kind: "pk" },
       { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
@@ -911,7 +1061,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "IgnitionQc",
     source: "36 Ignition QC product-family lists (Engineering site)",
     palette: "entity",
-    x: 990, y: 3420, width: 480,
+    group: "qc", width: 480,
     columns: [
       { name: "id", type: "text", kind: "pk" },
       { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
@@ -932,7 +1082,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneLogEntry",
     source: "Teradyne Log (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 3130, width: 380,
+    group: "teradyne", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived)", type: "text", kind: "field" },
@@ -955,7 +1105,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneProduct",
     source: "Teradyne Products (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 3130, width: 270,
+    group: "teradyne", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Product)", type: "text", kind: "field" },
@@ -967,7 +1117,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneEmployee",
     source: "Teradyne Employees (Altronic_PMO site)",
     palette: "entity",
-    x: 750, y: 3130, width: 290,
+    group: "teradyne", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived name)", type: "text", kind: "field" },
@@ -981,11 +1131,296 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneRemark",
     source: "Teradyne Remarks (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 3270, width: 270,
+    group: "teradyne", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
       { name: "idRem (remark no.)", type: "number", kind: "field" },
+    ],
+  },
+
+  // ---- Manufacturing Change Notices (Operations, Altronic_PMO site) ------------
+  {
+    name: "MCN",
+    source: "Manufacturing Change Notices (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "mcnNumber (Title, MCNyy###)", type: "text", kind: "field" },
+      { name: "process / priority / status", type: "text", kind: "field" },
+      { name: "originatedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "assignedEngineer", type: "int", kind: "fk", references: "Person.id" },
+      { name: "approvedBy (+ approvedDate)", type: "int", kind: "fk", references: "Person.id" },
+      { name: "description (rich text)", type: "text", kind: "field" },
+      { name: "scope (JSON: department, process, equipment)", type: "text", kind: "field" },
+      { name: "requires / incorporate (Yes/No + ref)", type: "choice", kind: "field" },
+      { name: "distribution (multi-choice)", type: "choice[]", kind: "field" },
+      { name: "distributedTo / distributedAt", type: "text", kind: "field" },
+      { name: "dateImplemented / affectedCodes", type: "date", kind: "field" },
+      { name: "operationsTask (OperationsTaskRef)", type: "int", kind: "fk", references: "OperationsTask.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "communication", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "McnRole",
+    source: "MCN Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (member / approver / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "McnDistributionGroup",
+    source: "MCN Distribution Groups (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "role (Title)", type: "text", kind: "field" },
+      { name: "members (Name <email> lines)", type: "text", kind: "field" },
+      { name: "sortOrder", type: "number", kind: "field" },
+    ],
+  },
+
+  // ---- Plant Map (Operations, Altronic_PMO site) -------------------------------
+  // A layout's placed items live in its LayoutJson, not in rows of their own,
+  // so the links below are to ids INSIDE that JSON — nothing in SharePoint
+  // enforces them.
+  {
+    name: "PlantLayout",
+    source: "Plant Layouts (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "building (the list's tabs)", type: "text", kind: "field" },
+      { name: "title / area", type: "text", kind: "field" },
+      { name: "layoutKey (groups versions)", type: "text", kind: "field" },
+      { name: "areas[] (LayoutJson: aisles, no-go areas)", type: "text", kind: "field" },
+      { name: "status (Draft / Published / Superseded)", type: "choice", kind: "field" },
+      { name: "version", type: "number", kind: "field" },
+      { name: "wallsFile (drive item id)", type: "text", kind: "field" },
+      { name: "items[].componentId (LayoutJson)", type: "int", kind: "fk", references: "LayoutComponent.id" },
+      { name: "items[].equipmentId (LayoutJson)", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "supersedesId", type: "int", kind: "fk", references: "PlantLayout.id" },
+    ],
+  },
+  {
+    name: "LayoutComponent",
+    source: "Layout Components (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title / componentKey / category", type: "text", kind: "field" },
+      { name: "svgMarkup", type: "text", kind: "field" },
+      { name: "footprintW / footprintD (in)", type: "number", kind: "field" },
+      { name: "collides / clearance", type: "bool", kind: "field" },
+      { name: "collisionPolygon (JSON points)", type: "text", kind: "field" },
+      { name: "isLabel / textBox (JSON)", type: "text", kind: "field" },
+      { name: "isActive", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "PlantMapRole",
+    source: "Plant Map Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 250,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (viewer / editor / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+
+  // ---- Harness Production Log (Operations, Altronic_PMO site) -----------------
+  // Replaced an Access database. Built By / Visual Check are clock numbers or
+  // initials as typed (no Person FK), the same reasoning as Teradyne's own
+  // employee list — shop-floor people, not ARC sign-ins.
+  {
+    name: "HarnessLogEntry",
+    source: "Harness Production Log (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "productionDate (indexed)", type: "date", kind: "field" },
+      { name: "workOrder", type: "text", kind: "field" },
+      { name: "part (PartNumber)", type: "int", kind: "fk", references: "HarnessPartNumber.id" },
+      { name: "quantity / reworkQuantity", type: "number", kind: "field" },
+      { name: "builtBy / visualCheck", type: "text", kind: "field" },
+      { name: "comments", type: "text", kind: "field" },
+      { name: "dataQualityNotes (import)", type: "text", kind: "field" },
+      { name: "legacySource (indexed)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "HarnessPartNumber",
+    source: "Harness Part Numbers (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 270,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Part Number)", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+
+  // ---- Conformal Coating Checks (Operations, Altronic_PMO site) ----------------
+  // BusinessIT#60 — the start-of-shift coating thickness check. Like crimp, a
+  // check COPIES its spec's figures as well as pointing at it.
+  {
+    name: "CoatingCheck",
+    source: "Coating Checks (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "measuredAt (indexed)", type: "date", kind: "field" },
+      { name: "machine / operator", type: "text", kind: "field" },
+      { name: "unit (mm / in)", type: "choice", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "CoatingSpec.id" },
+      { name: "specName / minMm / maxMm / specUnit / coatedSides (copied)", type: "number", kind: "field" },
+      { name: "uncoated1–3 / coated1–3 / averages", type: "number", kind: "field" },
+      { name: "thicknessMm / thicknessIn / thicknessMils", type: "number", kind: "field" },
+      { name: "outOfSpec", type: "bool", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "CoatingSpec",
+    source: "Coating Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Spec)", type: "text", kind: "field" },
+      { name: "minMm / maxMm (stored in mm)", type: "number", kind: "field" },
+      { name: "specUnit (entered in: mm / in)", type: "choice", kind: "field" },
+      { name: "coatedSides (1 or 2)", type: "number", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // Who the Operations emails go to — one row per person per alert. Email is
+    // text picked from the directory, not a Person column, so no FK.
+    name: "OperationsAlertRecipient",
+    source: "Operations Alert Recipients (Altronic_PMO site)",
+    palette: "entity",
+    group: "coating", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (name)", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "alert", type: "choice", kind: "field" },
+    ],
+  },
+
+  // ---- Crimp Height Checks (Harness, Altronic_PMO site) -----------------------
+  // BusinessIT#55 — the paper Terminal Crimp Verification Chart (MFGFRM 002).
+  // A check COPIES its spec's figures as well as pointing at it, so editing a
+  // spec never re-judges a check already taken.
+  {
+    name: "CrimpCheck",
+    source: "Crimp Height Checks (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "checkedAt (indexed)", type: "date", kind: "field" },
+      { name: "checkPoint", type: "choice", kind: "field" },
+      { name: "clockNumber / verifierClock", type: "text", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "CrimpSpec.id" },
+      { name: "terminal / wireGauge / applicator (copied)", type: "text", kind: "field" },
+      { name: "crimpHeight / tolerance (copied)", type: "number", kind: "field" },
+      { name: "reading1–3 / average", type: "number", kind: "field" },
+      { name: "outOfSpec", type: "bool", kind: "field" },
+      { name: "applicatorChange / harnessOrAssembly / workOrder / notes", type: "text", kind: "field" },
+      { name: "machineId (MachineRef)", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "machine (copied)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // Who the Harness emails go to — one row per person per alert. Email is
+    // text picked from the directory, not a Person column, so no FK.
+    name: "HarnessAlertRecipient",
+    source: "Harness Alert Recipients (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (name)", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "alert", type: "choice", kind: "field" },
+    ],
+  },
+  {
+    name: "CrimpSpec",
+    source: "Crimp Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Terminal)", type: "text", kind: "field" },
+      { name: "applicator / wireGauge", type: "text", kind: "field" },
+      { name: "manufacturerPartNumber", type: "text", kind: "field" },
+      { name: "crimpHeight / tolerance", type: "number", kind: "field" },
+      { name: "wire / insulation setting, table height", type: "text", kind: "field" },
+      { name: "machines (Machines)", type: "int[]", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+
+  // ---- Pull Tests (Harness, Altronic_PMO site) ------------------------------
+  // BusinessIT#64 — pulls on the Mark-10 WT3-200, read off it over USB. A test
+  // COPIES its spec's minimum as well as pointing at it, like a crimp check.
+  {
+    name: "PullTest",
+    source: "Pull Tests (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "testedAt (indexed)", type: "date", kind: "field" },
+      { name: "checkPoint / readingSource", type: "choice", kind: "field" },
+      { name: "specId (SpecRef)", type: "int", kind: "fk", references: "PullTestSpec.id" },
+      { name: "terminal / wireGauge / applicator", type: "text", kind: "field" },
+      { name: "minimumForce / specUnit / pullsRequired (copied)", type: "number", kind: "field" },
+      { name: "pull1–5 / lowestPull / forceUnit", type: "number", kind: "field" },
+      { name: "failed", type: "bool", kind: "field" },
+      { name: "howFailed", type: "text", kind: "field" },
+      { name: "clockNumber / harnessOrAssembly / workOrder / notes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "PullTestSpec",
+    source: "Pull Test Specs (Altronic_PMO site)",
+    palette: "entity",
+    group: "harness", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Terminal, blank = any)", type: "text", kind: "field" },
+      { name: "wireGauge / manufacturerPartNumber", type: "text", kind: "field" },
+      { name: "minimumForce / forceUnit", type: "number", kind: "field" },
+      { name: "pullsStart / pullsInProcess / pullsEnd (1–5, blank = 3)", type: "number", kind: "field" },
+      { name: "specSource / specReference", type: "choice", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
     ],
   },
 
@@ -994,7 +1429,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PottingSampleEntry",
     source: "Coil-PottingSampleLog (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 3760, width: 280,
+    group: "qc", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "date", type: "datetime", kind: "field" },
@@ -1006,7 +1441,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PottingLimits",
     source: "Coil-PottingLimit (Altronic_PMO site)",
     palette: "entity",
-    x: 330, y: 3760, width: 280,
+    group: "qc", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Lower/Upper Spec Limit)", type: "text", kind: "field" },
@@ -1017,7 +1452,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PsrNotificationPerson",
     source: "Coil PSR Notification List (Altronic_PMO site)",
     palette: "entity",
-    x: 640, y: 3760, width: 300,
+    group: "qc", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "displayName (Title)", type: "text", kind: "field" },
@@ -1030,10 +1465,10 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "GrayMarketRequest",
     source: "Gray Market Request (Altronic_PMO site)",
     palette: "entity",
-    x: 400, y: 3930, width: 340,
+    group: "supplyChain", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
-      { name: "title (assembly no)", type: "text", kind: "field" },
+      { name: "title (SAP P/N)", type: "text", kind: "field" },
       { name: "logNo (LogNo.Raw)", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
       { name: "requestDate (TodaysDate)", type: "date", kind: "field" },
@@ -1043,7 +1478,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "partsLocation", type: "person", kind: "field" },
       { name: "watchers", type: "person[]", kind: "field" },
       { name: "comments (Communication)", type: "text", kind: "field" },
-      { name: "values (30 columns)", type: "text", kind: "field" },
+      { name: "values (31 columns, incl. PartManufacturer)", type: "text", kind: "field" },
     ],
   },
   {
@@ -1057,7 +1492,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ECN",
     source: "ECN NEW (Engineering site)",
     palette: "entity",
-    x: 790, y: 3930, width: 330,
+    group: "engineering", width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "logNo (field_2)", type: "text", kind: "field" },
@@ -1066,6 +1501,23 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "comments (Communication)", type: "text", kind: "field" },
       { name: "hasAttachments", type: "bool", kind: "field" },
       { name: "values (9 field_N columns)", type: "text", kind: "field" },
+      { name: "distribution (multi-choice roles)", type: "choice", kind: "field" },
+      { name: "distributedTo (Name <email> lines)", type: "text", kind: "field" },
+      { name: "distributedAt", type: "datetime", kind: "field" },
+    ],
+  },
+  {
+    // BusinessIT#57. No FK: an ECN's ticked roles are matched to these rows
+    // by the role's NAME, the MCN Distribution Groups arrangement.
+    name: "EcnDistributionGroup",
+    source: "ECN Distribution Groups (Engineering site)",
+    palette: "entity",
+    group: "engineering", width: 250,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "role (Title)", type: "text", kind: "field" },
+      { name: "members (Name <email> lines)", type: "text", kind: "field" },
+      { name: "sortOrder", type: "number", kind: "field" },
     ],
   },
   {
@@ -1075,7 +1527,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "VisitReport",
     source: "Visit Reports (ALTRONICSALESTEAM site)",
     palette: "entity",
-    x: 20, y: 3930, width: 330,
+    group: "sales", width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "customerName (Title)", type: "text", kind: "field" },
@@ -1098,7 +1550,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CustomerNote",
     source: "Customer Notes (salesOrderEntry site)",
     palette: "entity",
-    x: 20, y: 4280, width: 300,
+    group: "sales", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "customerName (Title)", type: "text", kind: "field" },
@@ -1118,7 +1570,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CustomerContact",
     source: "Customer Contacts (salesOrderEntry site)",
     palette: "entity",
-    x: 350, y: 4280, width: 270,
+    group: "sales", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -1133,7 +1585,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SpecialPricingEntry",
     source: "Special Pricing (salesOrderEntry site)",
     palette: "entity",
-    x: 650, y: 4280, width: 260,
+    group: "sales", width: 260,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -1146,7 +1598,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CapacityEntry",
     source: "Capacity (salesOrderEntry site)",
     palette: "entity",
-    x: 940, y: 4280, width: 280,
+    group: "sales", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber (Title)", type: "text", kind: "field" },
@@ -1163,7 +1615,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Supplier",
     source: "Suppliers List (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 4630, width: 310,
+    group: "supplyChain", width: 310,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -1181,8 +1633,9 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "supplierIdentifier", type: "text", kind: "field" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "pointOfContactId", type: "int", kind: "fk", references: "SupplierContact.id" },
-      { name: "allDeliveries", type: "number", kind: "field" },
-      { name: "supplierPerformanceRate", type: "number", kind: "field" },
+      // The four scores are the FALLBACK — SAP's figures (Fabric, by BP #) win.
+      { name: "allDeliveries (if SAP has none)", type: "number", kind: "field" },
+      { name: "supplierPerformanceRate (if SAP has none)", type: "number", kind: "field" },
       { name: "logisticalPerformance (QualityPeformance)", type: "number", kind: "field" },
       { name: "qualityPerformance (QualityPerformance)", type: "number", kind: "field" },
     ],
@@ -1191,7 +1644,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SupplierContact",
     source: "Supplier Contact List (Altronic_PMO site)",
     palette: "entity",
-    x: 360, y: 4630, width: 280,
+    group: "supplyChain", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -1209,7 +1662,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SupplierIssue",
     source: "Supplier Issue Tracker (Altronic_PMO site)",
     palette: "entity",
-    x: 670, y: 4630, width: 280,
+    group: "supplyChain", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -1229,7 +1682,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CostImpactNotice",
     source: "Cost Impact Portal (ALTRONICSALESTEAM site)",
     palette: "entity",
-    x: 20, y: 5170, width: 340,
+    group: "supplyChain", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (part)", type: "text", kind: "field" },
@@ -1252,13 +1705,51 @@ const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
   {
+    // Supply Chain Notices. A standalone entity — ProjectReference is a plain
+    // TEXT column here, not a lookup, so there is no FK to Project; the three
+    // person columns are drawn as fields (same as GrayMarketRequest) rather
+    // than connectors to Person, which sits 5,000px above on this canvas.
+    //
+    // Four internal names lie about what they hold, so the real column is
+    // shown in brackets beside the domain name — lib/scnFields.ts is the one
+    // place that translation lives. Title is the app-generated SCN#, a global
+    // 4-digit sequence since 2024 (lib/scnNumber.ts). The three multi-choice
+    // columns are checklists, not pills. Task List is a Hyperlink column ARC
+    // reads and never writes.
+    name: "Scn",
+    source: "SCN Dashboard (ALTRONICSALESTEAM/SCN subsite)",
+    palette: "entity",
+    group: "supplyChain", width: 360,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "scnNumber (Title, YYYY-NNNN)", type: "text", kind: "field" },
+      { name: "product (Progress)", type: "text", kind: "field" },
+      { name: "category (Priority)", type: "choice", kind: "field" },
+      { name: "status (SCNStatus)", type: "choice", kind: "field" },
+      { name: "approvalStatus", type: "choice", kind: "field" },
+      { name: "description / notes", type: "text", kind: "field" },
+      { name: "assignedTo", type: "person[]", kind: "field" },
+      { name: "owner", type: "person[]", kind: "field" },
+      { name: "watchers", type: "person[]", kind: "field" },
+      { name: "oldNumber (PartsEffected) / sapNumber", type: "text", kind: "field" },
+      { name: "drawingNumber / partDescription / ecn", type: "text", kind: "field" },
+      { name: "preliminaryReviews / secondaryReview / projectStatus", type: "choice[]", kind: "field" },
+      { name: "ltsExpires (EOLExpires) / ltbExpires / fixtureReview", type: "date", kind: "field" },
+      { name: "signOffStatus / finalDisposition / salesHistory", type: "text", kind: "field" },
+      { name: "taskList (Hyperlink, read-only)", type: "link", kind: "field" },
+      { name: "year / projectReference (text)", type: "text", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+    ],
+  },
+  {
     // Standalone — `department` is a code-level enum (DASHBOARD_DEPARTMENTS)
     // matched against the Dashboard's own section titles, not a SharePoint
     // lookup, so there's no FK to draw. Order is per-department, admin-set.
     name: "QuickLink",
     source: "Quick Links list",
     palette: "entity",
-    x: 20, y: 5640, width: 300,
+    group: "core", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "label", type: "text", kind: "field" },
@@ -1273,7 +1764,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CoilDefectLogEntry",
     source: "QCCoils (Engineering site)",
     palette: "entity",
-    x: 20, y: 5860, width: 390,
+    group: "qc", width: 390,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "coilPartNumber (Title)", type: "text", kind: "field" },
@@ -1288,7 +1779,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CoilPartNumber",
     source: "CoilPN (Engineering site)",
     palette: "entity",
-    x: 440, y: 5860, width: 270,
+    group: "qc", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (part number)", type: "text", kind: "field" },
@@ -1298,7 +1789,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CoilOtherFault",
     source: "CoilOtherFaultList (Engineering site)",
     palette: "entity",
-    x: 740, y: 5860, width: 290,
+    group: "qc", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (defect)", type: "text", kind: "field" },
@@ -1310,7 +1801,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "QcTimeEntry",
     source: "QC Time Tracking (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 20, y: 6100, width: 320,
+    group: "panels", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "project (Title)", type: "text", kind: "field" },
@@ -1330,7 +1821,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "FeatureRequest",
     source: "ARC Feature Requests (Engineering site)",
     palette: "entity",
-    x: 20, y: 6400, width: 340,
+    group: "core", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -1356,7 +1847,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "EcnChecklist",
     source: "ECN Checklists (Engineering site)",
     palette: "entity",
-    x: 20, y: 6700, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "ecnId (EcnRef)", type: "int", kind: "fk", references: "ECN.id" },
@@ -1384,7 +1875,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MrbEntry",
     source: "MRB Data (Altronic_PMO site)",
     palette: "entity",
-    x: 400, y: 6420, width: 360,
+    group: "supplyChain", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "sapNumber (Title)", type: "text", kind: "field" },
@@ -1394,6 +1885,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "description (field_4)", type: "text", kind: "field" },
       { name: "reason (field_5)", type: "text", kind: "field" },
       { name: "whereCaused (field_6)", type: "choice", kind: "field" },
+      { name: "panelDepartment (PanelDepartment)", type: "bool", kind: "field" },
       { name: "disposition (field_7)", type: "choice", kind: "field" },
       { name: "vendorName (field_8)", type: "text", kind: "field" },
       { name: "pricePerUnit / pricePerIssue", type: "currency", kind: "field" },
@@ -1408,7 +1900,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelQcIssue",
     source: "PANEL COMPONENT FAILURES (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 380, y: 6100, width: 360,
+    group: "panels", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "panelSerialNumber / panelPartNumber", type: "text", kind: "field" },
@@ -1427,25 +1919,232 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelQcDefect",
     source: "PANEL COMPONENT DEFECTS (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 6100, width: 300,
+    group: "panels", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
     ],
   },
+  // ----- Insourcing Quotes (Customer Service / Sales, Altronic_PMO site) -----
+  // Quote → Line. A line carries the part's final material, labor and
+  // overhead (% of material) and its ONE target GM. The two lookups
+  // (CustomerRef, QuoteRef) are SINGLE lookups written as bare integers. The
+  // task links (item ids) and project refs (titles) point into other lists —
+  // one on another site collection — and nothing in SharePoint enforces
+  // them, so they are plain fields, no FK.
+  {
+    name: "QuoteCustomer",
+    source: "Quote Customers (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "customerCode (unique, frozen)", type: "text", kind: "field" },
+      { name: "customerNumber (SAP sold-to)", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+      { name: "note (customer notes, shown on quotes)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "QuoteRole",
+    source: "Quote Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "email (Title)", type: "text", kind: "field" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (viewer/quoter/manager)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "Quote",
+    source: "Quotes (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 360,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "quoteNumber (Title, unique)", type: "text", kind: "field" },
+      { name: "quoteBase", type: "text", kind: "field" },
+      { name: "rev", type: "int", kind: "field" },
+      { name: "customerId", type: "int", kind: "fk", references: "QuoteCustomer.id" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "validityDays", type: "int", kind: "field" },
+      { name: "contactName / contactEmail", type: "text", kind: "field" },
+      { name: "budgetary", type: "bool", kind: "field" },
+      { name: "budgetaryText", type: "text", kind: "field" },
+      { name: "quoteNotes", type: "text", kind: "field" },
+      { name: "customerReference", type: "text", kind: "field" },
+      { name: "customerType", type: "choice", kind: "field" },
+      { name: "projectContext", type: "text", kind: "field" },
+      { name: "alternates (JSON)", type: "text", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "watchers", type: "person[]", kind: "field" },
+      { name: "engineering / operationsTaskId", type: "int", kind: "field" },
+      { name: "engineering / operationsProjectRef (title)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "QuoteAssembly",
+    source: "Quote Assemblies (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "altronicPartNumber (Title)", type: "text", kind: "field" },
+      { name: "quoteId", type: "int", kind: "fk", references: "Quote.id" },
+      { name: "lineNo", type: "int", kind: "field" },
+      { name: "quotedQty (≥ 1, default 1)", type: "int", kind: "field" },
+      { name: "materialCost (Cost)", type: "currency", kind: "field" },
+      { name: "laborCost", type: "currency", kind: "field" },
+      { name: "materialOverheadPct (% of material)", type: "number", kind: "field" },
+      { name: "sapPartNumber (####-####-##)", type: "text", kind: "field" },
+      { name: "customerPartNumber", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "priceBreaks (JSON, ≤3)", type: "text", kind: "field" },
+      { name: "targetGM (the line's one margin)", type: "number", kind: "field" },
+      { name: "manualPrice", type: "currency", kind: "field" },
+      { name: "targetPrice (customer's)", type: "currency", kind: "field" },
+      { name: "estimatedEau", type: "int", kind: "field" },
+      { name: "customerPrice (stored)", type: "currency", kind: "field" },
+    ],
+  },
+  // ----- Sales Pricing (Customer Service / Sales, ALTRONICSALESTEAM site) -----
+  // Six lists with UNIQUE permissions. Pricing Requests (every role) holds the
+  // final price only; the other four data lists hold cost and are managers /
+  // admins only — the real boundary. RequestRef and WorksheetRef are SINGLE
+  // lookups written as bare integers. Customer data, quote lines, sub-assembly
+  // lines and both History columns are JSON, shown as plain fields.
+  {
+    name: "PricingRole",
+    source: "Pricing Roles (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    group: "pricing", width: 320,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "email (Title)", type: "text", kind: "field" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (requester/manager/admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "PricingRequest",
+    source: "Pricing Requests (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    group: "pricing", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "requestNumber (Title, unique)", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "altronicPartNumber", type: "text", kind: "field" },
+      { name: "sapPartNumber", type: "text", kind: "field" },
+      { name: "requestedDescription", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "mpg", type: "text", kind: "field" },
+      { name: "requestedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "customerSoldTo / name / group", type: "text", kind: "field" },
+      { name: "listPrice", type: "currency", kind: "field" },
+      { name: "customerDiscountPct", type: "number", kind: "field" },
+      { name: "customerPrice", type: "currency", kind: "field" },
+      { name: "leaveAsContactFactory", type: "boolean", kind: "field" },
+      { name: "pricedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "addedToSapBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "cancelReason", type: "text", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    name: "PricingHistory",
+    source: "Pricing History (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    group: "pricing", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "requestNumber (Title, unique)", type: "text", kind: "field" },
+      { name: "requestId (RequestRef)", type: "int", kind: "fk", references: "PricingRequest.id" },
+      { name: "cost / costSource", type: "currency", kind: "field" },
+      { name: "distributorDiscountPct / source", type: "number", kind: "field" },
+      { name: "targetGM", type: "number", kind: "field" },
+      { name: "listPrice", type: "currency", kind: "field" },
+      { name: "baseGM / customerGM", type: "number", kind: "field" },
+      { name: "mpg · avg GM · count", type: "text", kind: "field" },
+      { name: "familyPrefix · avg GM · count", type: "text", kind: "field" },
+      { name: "pricingNote", type: "text", kind: "field" },
+      { name: "history (JSON, append-only)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "NewProductWorksheet",
+    source: "New Product Pricing (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    group: "pricing", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "worksheetNumber (Title, unique)", type: "text", kind: "field" },
+      { name: "status (Active/Cancelled)", type: "choice", kind: "field" },
+      { name: "rev", type: "int", kind: "field" },
+      { name: "productName", type: "text", kind: "field" },
+      { name: "requestId (RequestRef)", type: "int", kind: "fk", references: "PricingRequest.id" },
+      { name: "customerSoldTo / name", type: "text", kind: "field" },
+      { name: "overheadPct", type: "number", kind: "field" },
+      { name: "mpg / distributorDiscountPct", type: "number", kind: "field" },
+      { name: "targetGM / baseGM", type: "number", kind: "field" },
+      { name: "unitCost / listPrice", type: "currency", kind: "field" },
+      { name: "priceBreaks (JSON, ≤3)", type: "text", kind: "field" },
+      { name: "comparisonParts (JSON, SAP #s)", type: "text", kind: "field" },
+      { name: "history (JSON, per revision)", type: "text", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    name: "SubAssembly",
+    source: "NP Sub-Assemblies (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    group: "pricing", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "kind (Sub-Assembly / Part)", type: "choice", kind: "field" },
+      { name: "altronicPartNumber / sapPartNumber", type: "text", kind: "field" },
+      { name: "worksheetId (WorksheetRef)", type: "int", kind: "fk", references: "NewProductWorksheet.id" },
+      { name: "rev", type: "int", kind: "field" },
+      { name: "sortOrder", type: "int", kind: "field" },
+      { name: "quantityPerProduct", type: "number", kind: "field" },
+      { name: "overheadPct (optional)", type: "number", kind: "field" },
+      { name: "pricing (JSON, own price)", type: "text", kind: "field" },
+      { name: "lines (JSON — CSV, by hand or SAP)", type: "text", kind: "field" },
+      { name: "fileName", type: "text", kind: "field" },
+      { name: "uploadedAt / uploadedBy", type: "datetime", kind: "field" },
+    ],
+  },
+  {
+    name: "CustomerQuote",
+    source: "Customer Quotes (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    group: "pricing", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "quoteNumber (Title, unique)", type: "text", kind: "field" },
+      { name: "quoteBase", type: "text", kind: "field" },
+      { name: "rev", type: "int", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "validityDays", type: "int", kind: "field" },
+      { name: "customer (JSON)", type: "text", kind: "field" },
+      { name: "lines (JSON)", type: "text", kind: "field" },
+      { name: "quoteNotes", type: "text", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
-interface Connection {
-  fromTable: string;
-  fromColumn: string;
-  toTable: string;
-  toColumn: string;
-  fromCard: "one" | "many";
-  toCard: "one" | "many";
-}
-
-const CONNECTIONS: Connection[] = [
+export const CONNECTIONS: Connection[] = [
   // Task → Project, Person
   { fromTable: "Task", fromColumn: "parentProjectId", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Task", fromColumn: "relatedProjects", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
@@ -1454,7 +2153,7 @@ const CONNECTIONS: Connection[] = [
   // Task → EIR (a promoted task links back to its source EIR, one-to-one)
   { fromTable: "Task", fromColumn: "eirReference", toTable: "EIR", toColumn: "id", fromCard: "one", toCard: "one" },
   // EcnChecklist → ECN (one checklist per ECN), Person
-  { fromTable: "EcnChecklist", fromColumn: "ecnId", toTable: "ECN", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "EcnChecklist", fromColumn: "ecnId (EcnRef)", toTable: "ECN", toColumn: "id", fromCard: "one", toCard: "one" },
   { fromTable: "EcnChecklist", fromColumn: "completedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "EcnChecklist", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   // EIR → Project, Person
@@ -1558,10 +2257,13 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
   // Panel Tasks — same site + shared Panel Project Reference list.
   { fromTable: "PanelTask", fromColumn: "projectReference", toTable: "PanelProject", toColumn: "id", fromCard: "many", toCard: "one" },
-  { fromTable: "PanelTask", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTask", fromColumn: "panelOrderRef", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelBom", fromColumn: "panelOrderRef", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTask", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "PanelTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTimeOff", fromColumn: "teamMember", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   // Teradyne — four lists on the PMO site, all single-value lookups pointing
   // INTO the three reference lists. No Comment/Attachment rows: the log has no
   // Communication column and takes no files. Employee 1 and Employee 2 are two
@@ -1570,6 +2272,29 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "TeradyneLogEntry", fromColumn: "employee1", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "employee2", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "remark", toTable: "TeradyneRemark", toColumn: "id", fromCard: "many", toCard: "one" },
+  // MCNs — three single-person columns, watchers, and the Operations task link.
+  { fromTable: "MCN", fromColumn: "originatedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "assignedEngineer", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "approvedBy (+ approvedDate)", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MCN", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "MCN", fromColumn: "operationsTask (OperationsTaskRef)", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "McnRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  // Plant Map — links held inside a layout's JSON.
+  { fromTable: "PlantLayout", fromColumn: "items[].componentId (LayoutJson)", toTable: "LayoutComponent", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PlantLayout", fromColumn: "items[].equipmentId (LayoutJson)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PlantLayout", fromColumn: "supersedesId", toTable: "PlantLayout", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "PlantMapRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  // Harness Production Log — one single lookup into the admin-managed part list.
+  { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Crimp Height Checks — one single lookup into the admin-managed specs.
+  { fromTable: "CrimpCheck", fromColumn: "specId (SpecRef)", toTable: "CrimpSpec", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Pull Tests — the same shape, into their own specs.
+  { fromTable: "PullTest", fromColumn: "specId (SpecRef)", toTable: "PullTestSpec", toColumn: "id", fromCard: "many", toCard: "one" },
+  // The presses: a spec names several, a check the one it was taken on.
+  { fromTable: "CrimpSpec", fromColumn: "machines (Machines)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "CrimpCheck", fromColumn: "machineId (MachineRef)", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Conformal Coating Checks — one single lookup into the admin-managed specs.
+  { fromTable: "CoatingCheck", fromColumn: "specId (SpecRef)", toTable: "CoatingSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
   // CRM tool — CustomerNote is the hub; the other three all point INTO it.
@@ -1591,8 +2316,22 @@ const CONNECTIONS: Connection[] = [
   // create and never re-picked; Watchers starts as just the requester.
   { fromTable: "FeatureRequest", fromColumn: "requestedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "FeatureRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
-  { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "FeatureRequest", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name (Title)", fromCard: "many", toCard: "one" },
   { fromTable: "PanelQcIssue", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  // Insourcing Quotes — Quote → Final assembly → Component, plus the customer.
+  { fromTable: "Quote", fromColumn: "customerId", toTable: "QuoteCustomer", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "QuoteAssembly", fromColumn: "quoteId", toTable: "Quote", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Sales Pricing — History and worksheets point at the request; sub-assemblies at their worksheet.
+  { fromTable: "PricingHistory", fromColumn: "requestId (RequestRef)", toTable: "PricingRequest", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "NewProductWorksheet", fromColumn: "requestId (RequestRef)", toTable: "PricingRequest", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "SubAssembly", fromColumn: "worksheetId (WorksheetRef)", toTable: "NewProductWorksheet", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PricingRequest", fromColumn: "requestedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PricingRequest", fromColumn: "pricedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PricingRequest", fromColumn: "addedToSapBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PricingRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "CustomerQuote", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "NewProductWorksheet", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
 ];
 
 export function AboutView() {
@@ -1712,9 +2451,14 @@ export function AboutView() {
 
       <Section
         title="Data model"
-        description="ER diagram of the SharePoint schema. Each table is one entity (a list, or a derived concept). PK rows are flagged in red; FK rows are flagged blue. Connectors show foreign-key relationships with crow's-foot cardinality at each end (○ = one, ⋖ = many). The diagram is wide — scroll horizontally on small screens."
+        description="ER diagram of the SharePoint schema. Each table is one entity (a list, or a derived concept). PK rows are flagged in red; FK rows are flagged blue. Connectors show foreign-key relationships with crow's-foot cardinality at each end (○ = one, ⋖ = many). Tables are grouped by department. Zoom with the buttons, Ctrl/⌘ + scroll or a pinch, drag to move around, and hover or tap a table to trace its relationships."
       >
-        <ErDiagram />
+        <ErDiagram
+          tables={SCHEMA_TABLES}
+          groups={ER_GROUPS}
+          connections={CONNECTIONS}
+          hubTables={ER_HUB_TABLES}
+        />
         <Legend
           items={[
             { palette: "entity", label: "Entity (SharePoint list)" },
@@ -1727,7 +2471,7 @@ export function AboutView() {
         <strong className="text-fg">For contributors:</strong> if you add a
         new view, route, hook category, API surface, or SharePoint list, edit
         the data arrays at the top of{" "}
-        <code className="rounded bg-bg px-1 py-0.5">src/views/AboutView.tsx</code>{" "}
+        <code className="rounded-sm bg-bg px-1 py-0.5">src/views/AboutView.tsx</code>{" "}
         in the same commit.
       </div>
     </div>
@@ -1843,7 +2587,7 @@ function DirectoryStatusSection() {
             <p className="text-xs leading-relaxed text-fg-muted">
               Most often this means your signed-in session predates the permission being
               granted, or{" "}
-              <code className="rounded bg-bg px-1 py-0.5">User.ReadBasic.All</code> hasn't been
+              <code className="rounded-sm bg-bg px-1 py-0.5">User.ReadBasic.All</code> hasn't been
               admin-consented on the <strong>Engineering Task System</strong> app registration
               yet. Click below to re-request access — if a Microsoft prompt appears asking to
               “read all users’ basic profiles,” the consent hasn't been granted (an admin can
@@ -2100,7 +2844,7 @@ function DiagramNode({
   return (
     <div
       className={cn(
-        "rounded-md border px-3 py-2 shadow-sm",
+        "rounded-md border px-3 py-2 shadow-xs",
         PALETTE[node.palette],
         className,
       )}
@@ -2108,275 +2852,6 @@ function DiagramNode({
       <div className="text-sm font-semibold">{node.label}</div>
       {node.hint && <div className="mt-0.5 text-[11px] text-fg-muted">{node.hint}</div>}
     </div>
-  );
-}
-
-/**
- * Three-tier reference hierarchy. Project at top → Task in the middle →
- * EIR + Test Sheet at the bottom. Between each tier we render a labelled
- * "reference bar" showing the exact SharePoint columns carrying the
- * relationship (and which source entity sets each one).
- *
- * Visual cue: every arrow points UPWARD because references in SharePoint
- * point at the parent (the child stores the lookup id).
- */
-/**
- * ER diagram drawn as a single SVG canvas. Tables are positioned by hand
- * in SCHEMA_TABLES; connectors come from CONNECTIONS. Crow's-foot markers
- * (`one` = open circle, `many` = three-prong) carry cardinality at each
- * end. Lines route as a simple right-angle: source → midpoint → target.
- */
-function ErDiagram() {
-  // Compute canvas dimensions from the table footprints.
-  const maxX = Math.max(...SCHEMA_TABLES.map((t) => t.x + t.width)) + 30;
-  const maxY = Math.max(...SCHEMA_TABLES.map((t) => t.y + tableHeight(t))) + 30;
-  const byName = Object.fromEntries(SCHEMA_TABLES.map((t) => [t.name, t]));
-
-  return (
-    <div className="overflow-x-auto rounded-md border border-border bg-bg p-3">
-      <svg
-        viewBox={`0 0 ${maxX} ${maxY}`}
-        width={maxX}
-        height={maxY}
-        style={{ minWidth: "100%", maxWidth: `${maxX}px` }}
-        role="img"
-        aria-label="Entity-relationship diagram for ARC (Altronic Resource Center)"
-      >
-        <defs>
-          {/* "many" crow's-foot — three lines fanning from the table edge. */}
-          <marker
-            id="er-many"
-            markerWidth="14"
-            markerHeight="14"
-            refX="13"
-            refY="7"
-            orient="auto"
-            markerUnits="userSpaceOnUse"
-          >
-            <path
-              d="M 13,7 L 2,0 M 13,7 L 2,7 M 13,7 L 2,14"
-              stroke="rgb(var(--fg-muted))"
-              strokeWidth="1.4"
-              fill="none"
-            />
-          </marker>
-          {/* "one" — open circle just outside the table edge. */}
-          <marker
-            id="er-one"
-            markerWidth="14"
-            markerHeight="14"
-            refX="13"
-            refY="7"
-            orient="auto"
-            markerUnits="userSpaceOnUse"
-          >
-            <circle
-              cx="6"
-              cy="7"
-              r="3"
-              stroke="rgb(var(--fg-muted))"
-              strokeWidth="1.4"
-              fill="rgb(var(--bg))"
-            />
-            <line
-              x1="9"
-              y1="7"
-              x2="13"
-              y2="7"
-              stroke="rgb(var(--fg-muted))"
-              strokeWidth="1.4"
-            />
-          </marker>
-        </defs>
-
-        {/* Connectors first so they sit behind the table cards. */}
-        {CONNECTIONS.map((c, i) => (
-          <ConnectionPath key={i} c={c} byName={byName} />
-        ))}
-
-        {/* Tables on top. */}
-        {SCHEMA_TABLES.map((t) => (
-          <SchemaTableSvg key={t.name} table={t} />
-        ))}
-      </svg>
-    </div>
-  );
-}
-
-function ConnectionPath({
-  c,
-  byName,
-}: {
-  c: Connection;
-  byName: Record<string, SchemaTable>;
-}) {
-  const from = byName[c.fromTable];
-  const to = byName[c.toTable];
-  if (!from || !to) return null;
-
-  // Pick the port side (left / right of each table) based on which
-  // direction the connector is travelling.
-  const fromRight = from.x + from.width / 2 < to.x + to.width / 2;
-  const srcX = fromRight ? from.x + from.width : from.x;
-  const tgtX = fromRight ? to.x : to.x + to.width;
-  const srcY = rowCenterY(from, c.fromColumn);
-  const tgtY = rowCenterY(to, c.toColumn);
-
-  // Right-angle path with the bend in the midline between the two
-  // tables. A small offset away from each table edge keeps the markers
-  // from clipping the table border.
-  const midX = (srcX + tgtX) / 2;
-  const d = `M ${srcX} ${srcY} L ${midX} ${srcY} L ${midX} ${tgtY} L ${tgtX} ${tgtY}`;
-
-  return (
-    <path
-      d={d}
-      stroke="rgb(var(--fg-muted))"
-      strokeWidth="1.2"
-      fill="none"
-      markerStart={`url(#er-${c.fromCard})`}
-      markerEnd={`url(#er-${c.toCard})`}
-    />
-  );
-}
-
-function SchemaTableSvg({ table }: { table: SchemaTable }) {
-  const h = tableHeight(table);
-  const isEntity = table.palette === "entity";
-  const headerFill = isEntity ? "#CB2C30" : "#1C60AC";
-
-  // Index of the last PK row so we can draw the dashed separator after it.
-  const lastPkIdx = table.columns.findIndex((c) => c.kind !== "pk") - 1;
-
-  return (
-    <g>
-      {/* Outer border */}
-      <rect
-        x={table.x}
-        y={table.y}
-        width={table.width}
-        height={h}
-        rx="6"
-        ry="6"
-        fill="rgb(var(--surface))"
-        stroke="rgb(var(--border))"
-      />
-
-      {/* Header band */}
-      <path
-        d={`M ${table.x} ${table.y + HEADER_HEIGHT}
-            L ${table.x} ${table.y + 6}
-            Q ${table.x} ${table.y} ${table.x + 6} ${table.y}
-            L ${table.x + table.width - 6} ${table.y}
-            Q ${table.x + table.width} ${table.y} ${table.x + table.width} ${table.y + 6}
-            L ${table.x + table.width} ${table.y + HEADER_HEIGHT} Z`}
-        fill={headerFill}
-      />
-      <text
-        x={table.x + table.width / 2}
-        y={table.y + 22}
-        fontSize="14"
-        fontWeight="700"
-        fill="#fff"
-        textAnchor="middle"
-      >
-        {table.name}
-      </text>
-      <text
-        x={table.x + table.width / 2}
-        y={table.y + 40}
-        fontSize="10"
-        fill="rgba(255,255,255,0.85)"
-        textAnchor="middle"
-      >
-        {table.source}
-      </text>
-
-      {/* Rows */}
-      {table.columns.map((col, i) => {
-        const rowY = table.y + HEADER_HEIGHT + i * ROW_HEIGHT;
-        return (
-          <g key={col.name}>
-            {/* PK badge */}
-            {col.kind === "pk" && (
-              <>
-                <rect
-                  x={table.x + 8}
-                  y={rowY + 4}
-                  width={26}
-                  height={14}
-                  rx="3"
-                  fill="#CB2C30"
-                />
-                <text
-                  x={table.x + 21}
-                  y={rowY + 14}
-                  fontSize="9"
-                  fontWeight="700"
-                  fill="#fff"
-                  textAnchor="middle"
-                >
-                  PK
-                </text>
-              </>
-            )}
-            {col.kind === "fk" && (
-              <>
-                <rect
-                  x={table.x + 8}
-                  y={rowY + 4}
-                  width={26}
-                  height={14}
-                  rx="3"
-                  fill="#1C60AC"
-                />
-                <text
-                  x={table.x + 21}
-                  y={rowY + 14}
-                  fontSize="9"
-                  fontWeight="700"
-                  fill="#fff"
-                  textAnchor="middle"
-                >
-                  FK
-                </text>
-              </>
-            )}
-            <text
-              x={table.x + 42}
-              y={rowY + 15}
-              fontSize="11"
-              fill="rgb(var(--fg))"
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-            >
-              {col.name}
-            </text>
-            <text
-              x={table.x + table.width - 8}
-              y={rowY + 15}
-              fontSize="10"
-              fill="rgb(var(--fg-muted))"
-              textAnchor="end"
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-            >
-              {col.type}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Dashed separator under the PK rows (Visio convention). */}
-      {lastPkIdx >= 0 && (
-        <line
-          x1={table.x + 8}
-          y1={table.y + HEADER_HEIGHT + (lastPkIdx + 1) * ROW_HEIGHT - 1}
-          x2={table.x + table.width - 8}
-          y2={table.y + HEADER_HEIGHT + (lastPkIdx + 1) * ROW_HEIGHT - 1}
-          stroke="rgb(var(--border))"
-          strokeDasharray="2 3"
-        />
-      )}
-    </g>
   );
 }
 
@@ -2394,7 +2869,7 @@ function Legend({
         <span key={it.label} className="inline-flex items-center gap-1.5">
           <span
             className={cn(
-              "inline-block h-3 w-3 rounded-sm border",
+              "inline-block h-3 w-3 rounded-xs border",
               PALETTE[it.palette],
             )}
           />

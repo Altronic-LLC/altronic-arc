@@ -4,7 +4,7 @@ import { spFetch } from "./sharepoint";
 import { ensureLookupIds, ensurePersonLookupId, ensureSiteUserLookupId } from "./siteUsers";
 import type { GraphListItem, OperationsTask, Person, ProjectReference } from "@/types/task";
 import { toOperationsTask } from "@/lib/operationsTaskMapper";
-import { appendComment, replaceComment } from "@/lib/communicationParser";
+import { appendComment, parseCommunication, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { listOperationsProjects } from "./operationsProjects";
 import { listOperationsEquipment } from "./operationsEquipment";
@@ -243,6 +243,7 @@ export async function updateOperationsTaskFields(
     const next = { ...mockStore[idx] };
     if ("Status" in fields) next.status = fields.Status as OperationsTask["status"];
     if ("Title" in fields) next.title = fields.Title as string;
+    if ("TaskNumber" in fields) next.taskNumber = fields.TaskNumber as string;
     if ("TaskDescription" in fields) next.description = fields.TaskDescription as string;
     if ("PriorityRequest" in fields) next.priority = fields.PriorityRequest as OperationsTask["priority"];
     if ("TaskType" in fields) next.taskType = fields.TaskType as OperationsTask["taskType"];
@@ -265,6 +266,7 @@ export async function updateOperationsTaskFields(
       const v = fields.AltronicEquipmentLookupId;
       next.equipment = v ? { lookupId: Number(v), title: next.equipment?.title ?? "" } : null;
     }
+    if ("Communication" in fields) next.comments = parseCommunication(String(fields.Communication ?? ""));
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
@@ -285,14 +287,6 @@ export async function setOperationsStatus(
   status: OperationsTask["status"],
 ): Promise<OperationsTask> {
   return updateOperationsTaskFields(id, { Status: status });
-}
-
-/** Change the parent project (or clear with `null`). */
-export async function setOperationsParentProject(
-  id: number,
-  projectLookupId: number | null,
-): Promise<OperationsTask> {
-  return updateOperationsTaskFields(id, { ProjectRefLookupId: projectLookupId });
 }
 
 /** Change the equipment reference (or clear with `null`). */

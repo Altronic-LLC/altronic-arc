@@ -264,6 +264,24 @@ describe("status alerts", () => {
     expect(call.to).toBe("Started");
   });
 
+  it("completing from the Complete form names the status it moved FROM", async () => {
+    // It used to send from: "", so the email read "— → Complete".
+    const wrap = wrapper();
+    const tasks = await loaded(wrap);
+    const target = tasks.find((t) => t.status === "Backlog")!;
+
+    const { result } = renderHook(() => useCompleteMaintenanceTask(), { wrapper: wrap });
+    await act(async () => {
+      await result.current.mutateAsync({ id: target.id, completedOn: new Date("2026-08-20T12:00:00Z") });
+    });
+
+    await waitFor(() => expect(fireFieldChangeAlert).toHaveBeenCalled());
+    const call = fireFieldChangeAlert.mock.calls[0][0];
+    expect(call.target).toMatchObject({ kind: "maintenanceTask", id: target.id });
+    expect(call.from).toBe("Backlog");
+    expect(call.to).toBe("Complete");
+  });
+
   it("stays quiet about a change that isn't the status", async () => {
     const wrap = wrapper();
     const tasks = await loaded(wrap);

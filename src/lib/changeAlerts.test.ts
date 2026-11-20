@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
 import {
+  DESCRIPTION_EXCERPT_MAX_CHARS,
+  descriptionExcerpt,
   buildAssigneeChangeEmails,
   buildChecklistToggleEmails,
   buildFieldChangeEmails,
@@ -289,24 +291,137 @@ describe("buildAssigneeChangeEmails", () => {
   });
 });
 
+// BusinessIT #5 / #6 (David Markovitch): the assignee should see how urgent
+// the work is and what it is without opening the link.
+describe("buildAssigneeChangeEmails — assignment details", () => {
+  const DUE = new Date(2026, 9, 12); // local midnight, as a picked date is held
+
+  function assign(details?: { dueDate: Date | null; description: string }) {
+    return buildAssigneeChangeEmails({
+      target: TASK,
+      prev: [JOHN],
+      next: [BOB],
+      actor: ACTOR,
+      watchers: [SARAH],
+      details,
+    });
+  }
+  const byEmail = (out: ReturnType<typeof assign>) =>
+    Object.fromEntries(out.map((e) => [e.email, e]));
+
+  it("puts the due date and description in the assignee's email", () => {
+    const bob = byEmail(assign({ dueDate: DUE, description: "Fit the new sensor." }))["bob@x.com"];
+    expect(bob.detailHtml).toContain("<strong>Due:</strong> Mon, Oct 12, 2026");
+    expect(bob.detailHtml).toContain("Description");
+    expect(bob.detailHtml).toContain("Fit the new sensor.");
+  });
+
+  it("says there is no due date rather than leaving it out", () => {
+    const bob = byEmail(assign({ dueDate: null, description: "" }))["bob@x.com"];
+    expect(bob.detailHtml).toContain("No due date");
+  });
+
+  it("treats an unreadable date as no due date", () => {
+    const bob = byEmail(assign({ dueDate: new Date("nope"), description: "" }))["bob@x.com"];
+    expect(bob.detailHtml).toContain("No due date");
+  });
+
+  it("drops the Description heading when there is no description", () => {
+    const bob = byEmail(assign({ dueDate: DUE, description: "   " }))["bob@x.com"];
+    expect(bob.detailHtml).not.toContain("Description");
+  });
+
+  it("keeps the details out of the unassigned note and the watcher broadcast", () => {
+    const out = byEmail(assign({ dueDate: DUE, description: "Fit the new sensor." }));
+    expect(out["john@x.com"].detailHtml).toBeUndefined();
+    expect(out["sarah@x.com"].detailHtml).not.toContain("Due:");
+    expect(out["sarah@x.com"].detailHtml).not.toContain("Fit the new sensor.");
+  });
+
+  it("leaves the assignee's email unchanged when no details are passed", () => {
+    expect(byEmail(assign())["bob@x.com"].detailHtml).toBeUndefined();
+  });
+
+  it("escapes the description", () => {
+    const bob = byEmail(assign({ dueDate: DUE, description: "Vout < 5V & Iout > 2A" }))["bob@x.com"];
+    expect(bob.detailHtml).toContain("Vout &lt; 5V &amp; Iout &gt; 2A");
+  });
+
+  it("keeps the description's line breaks", () => {
+    const bob = byEmail(assign({ dueDate: DUE, description: "Line one\nLine two" }))["bob@x.com"];
+    expect(bob.detailHtml).toContain("Line one<br/>Line two");
+  });
+});
+
+describe("descriptionExcerpt", () => {
+  it("strips HTML to text", () => {
+    expect(descriptionExcerpt("<p>Hello <strong>there</strong></p><p>Second</p>")).toBe(
+      "Hello there\n\nSecond",
+    );
+  });
+
+  // A tag strip on plain text would eat everything between a "<" and a ">".
+  it("leaves plain text with angle brackets alone", () => {
+    expect(descriptionExcerpt("Vout < 5V and Iout > 2A")).toBe("Vout < 5V and Iout > 2A");
+  });
+
+  it("shows checklist lines as boxes, without their who/when stamps", () => {
+    const text = [
+      "Steps:",
+      "- [x] Order the part ✓[Ray White · 7/17/2026, 10:15 AM]",
+      "\t- [ ] Confirm the bracket",
+      "- [ ] Bench test",
+    ].join("\n");
+    expect(descriptionExcerpt(text)).toBe(
+      ["Steps:", "☑ Order the part", "    ☐ Confirm the bracket", "☐ Bench test"].join("\n"),
+    );
+  });
+
+  it("returns empty for a blank description", () => {
+    expect(descriptionExcerpt("")).toBe("");
+    expect(descriptionExcerpt("<p> </p>")).toBe("");
+  });
+
+  it("caps a long description on a word boundary with an ellipsis", () => {
+    const long = "word ".repeat(400).trim();
+    const out = descriptionExcerpt(long);
+    expect(out.length).toBeLessThanOrEqual(DESCRIPTION_EXCERPT_MAX_CHARS + 1);
+    expect(out.endsWith("word…")).toBe(true);
+  });
+
+  it("cuts one enormous word rather than dropping the excerpt", () => {
+    const out = descriptionExcerpt("x".repeat(1000));
+    expect(out).toBe(`${"x".repeat(DESCRIPTION_EXCERPT_MAX_CHARS)}…`);
+  });
+
+  it("leaves a description at exactly the cap untouched", () => {
+    const exact = "y".repeat(DESCRIPTION_EXCERPT_MAX_CHARS);
+    expect(descriptionExcerpt(exact)).toBe(exact);
+  });
+});
+
 describe("buildPromotionEmails", () => {
   it("notifies watchers + reporter, excludes the actor, dedupes", () => {
     const out = buildPromotionEmails({
       eirLabel: "EIR_2026-0042",
+      task: { title: "T5-276-Pump seal", url: "https://arc.example/task/77" },
       watchers: [BOB, SARAH, ACTOR], // actor watching → dropped
       reporter: SARAH, // also a watcher → deduped
       actor: ACTOR,
     });
     const emails = out.map((e) => e.email).sort();
     expect(emails).toEqual(["bob@x.com", "sarah@x.com"]);
-    expect(out[0].subject).toBe("EIR_2026-0042 was promoted to a task");
-    expect(out[0].headlineHtml).toContain("promoted EIR");
-    expect(out[0].headlineHtml).toContain("EIR_2026-0042");
+    expect(out[0].subject).toBe("EIR_2026-0042 was promoted to task T5-276-Pump seal");
+    // The new task is named, and linked, in the headline.
+    expect(out[0].headlineHtml).toContain("promoted this EIR to task");
+    expect(out[0].headlineHtml).toContain('href="https://arc.example/task/77"');
+    expect(out[0].headlineHtml).toContain("T5-276-Pump seal");
   });
 
   it("returns [] when only the actor would be notified", () => {
     const out = buildPromotionEmails({
       eirLabel: "EIR_2026-0042",
+      task: { title: "T5-276-Pump seal", url: "https://arc.example/task/77" },
       watchers: [ACTOR],
       reporter: ACTOR,
       actor: ACTOR,

@@ -96,7 +96,7 @@ export function EirRow({ eir, onOpen }: EirRowProps) {
             {eir.eirNo || `#${eir.id}`}
           </span>
           {eir.requestType && (
-            <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+            <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
               {eir.requestType}
             </span>
           )}
@@ -123,7 +123,7 @@ export function EirRow({ eir, onOpen }: EirRowProps) {
           {eir.ltbDate && (
             <span
               title="Last-time-buy date"
-              className="inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted"
+              className="inline-flex items-center gap-1 rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted"
             >
               <CalendarClock className="h-3 w-3" />
               LTB{" "}
@@ -155,7 +155,7 @@ export function EirRow({ eir, onOpen }: EirRowProps) {
           {assignedSummary}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+          <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
             {eir.resolution}
           </span>
           {eir.taskPromotedFlag && (
@@ -228,7 +228,7 @@ function ProjectChips({ eir, maxVisible }: { eir: Eir; maxVisible: number }) {
         <span
           key={label}
           title={label}
-          className="inline-flex max-w-[14rem] truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
+          className="inline-flex max-w-56 truncate rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-fg"
         >
           {label}
         </span>
@@ -236,7 +236,7 @@ function ProjectChips({ eir, maxVisible }: { eir: Eir; maxVisible: number }) {
       {overflow > 0 && (
         <span
           title={all.slice(maxVisible).join("\n")}
-          className="inline-flex rounded border border-border bg-surface px-1.5 py-0.5 text-[11px] font-medium text-fg-muted"
+          className="inline-flex rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] font-medium text-fg-muted"
         >
           +{overflow} more
         </span>

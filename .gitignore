@@ -15,6 +15,8 @@ tsconfig.tsbuildinfo
 # Local-only — never push to the public repo.
 .claude/
 SESSION-NOTES.md
+# Working copies and previews Claude saves while planning a feature.
+Claude outputs/
 
 # Discovery snapshots from scripts/discover-list.ps1 — dumped SharePoint content.
 # Useful locally, not something to commit; the schema itself is documented in CLAUDE.md.
@@ -24,13 +26,21 @@ scripts/*-schema.json
 # and the only rollback reference for an applied run. Keep locally, don't commit.
 scripts/reassign-*.csv
 
+# Audit and scrub reports from scripts/Scrub-EquipmentList.ps1 — real equipment
+# ids, titles and locations. Same rule: keep locally, don't commit.
+scripts/equipment-*.csv
+
 # Generated sample workbooks from scripts/generate-sample-open-orders.mjs —
 # review output, not source. Regenerate with: node scripts/generate-sample-open-orders.mjs
 sample-open-orders/
 scripts/.open-orders-sample-bundle.mjs
 sample-open-orders-real/
+scripts/.harness-clean-bundle.mjs
+harness-clean/
 
 # Generated Power Automate flow packages (scripts/new-guest-notification-flow.ps1)
 # — regenerate rather than commit; they carry environment-specific ids.
 ARC-GuestNotify-*.zip
 ARC-GuestNotify-*.definition.json
+# move-panel-orders-to-arc.ps1 plans hold customer data (the script refuses an -OutDir in the repo too)
+panel-orders-*.csv

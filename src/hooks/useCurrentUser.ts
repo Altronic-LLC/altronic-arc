@@ -1,13 +1,41 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMsal } from "@azure/msal-react";
+import type { AccountInfo } from "@azure/msal-browser";
 import type { Person } from "@/types/task";
 import { USE_MOCK } from "@/api/config";
+import { resolveAccount } from "@/auth/activeAccount";
 import { resolveCurrentUserLookupId, resolveMyIdentity, type MyIdentity } from "@/api/currentUser";
 import { normaliseEmail } from "@/lib/emailIdentity";
 
 // Module-level cache so the lookupId resolution only fires once per session
 // per email, not once per component that uses this hook.
 const lookupIdCache = new Map<string, number>();
+
+/**
+ * The account every "who did this" field is written under.
+ *
+ * This used to be `msal.accounts[0]` — the first account MSAL happened to
+ * have cached, with no regard for which one was active. On a shared browser
+ * that is somebody else (2026-09-02, and still so on 2026-10-16 despite the
+ * AuthGate fix, because this hook never looked at the active account). The
+ * rule is in auth/activeAccount.ts: the active account, or the only one, or
+ * nobody. AuthGate shows the picker in the "nobody" case, so in practice a
+ * rendered screen always has one; the null branch below is the safety net.
+ *
+ * Tests stub `useMsal()` with a bare `instance: {}`, so the method is probed
+ * before it is called.
+ */
+function useSignedInAccount(): AccountInfo | null {
+  const msal = useMsal();
+  const active =
+    typeof msal.instance.getActiveAccount === "function" ? msal.instance.getActiveAccount() : null;
+  // Keyed on the id, not the object: MSAL builds a fresh AccountInfo on every
+  // getActiveAccount() call, and the effects below key on the account.
+  const activeId = active?.homeAccountId ?? null;
+  const accounts = msal.accounts;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `active` is covered by `activeId`
+  return useMemo(() => resolveAccount(active, accounts), [activeId, accounts]);
+}
 
 /**
  * Identifies the signed-in user as a `Person`.
@@ -24,8 +52,7 @@ const lookupIdCache = new Map<string, number>();
  * correctly once the lookupId resolves.
  */
 export function useCurrentUser(): Person {
-  const msal = useMsal();
-  const account = msal.accounts[0];
+  const account = useSignedInAccount();
   const identity = useMyIdentity();
 
   // **The mailbox, not the sign-in name.** `account.username` is the UPN, and
@@ -96,8 +123,7 @@ export function useCurrentUser(): Person {
  * nothing".
  */
 function useMyIdentity(): MyIdentity | null {
-  const msal = useMsal();
-  const account = msal.accounts[0];
+  const account = useSignedInAccount();
   const [identity, setIdentity] = useState<MyIdentity | null>(null);
 
   useEffect(() => {
@@ -136,8 +162,7 @@ function useMyIdentity(): MyIdentity | null {
  * address should check all of these rather than just the primary one.
  */
 export function useCurrentUserEmails(): string[] {
-  const msal = useMsal();
-  const account = msal.accounts[0];
+  const account = useSignedInAccount();
   const identity = useMyIdentity();
 
   // What the token itself carries. Available immediately, so matching still
