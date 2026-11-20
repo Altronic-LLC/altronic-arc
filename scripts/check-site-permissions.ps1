@@ -20,6 +20,7 @@ $sites = @(
     [pscustomobject]@{ Name = "salesTeam";       SiteId = "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a" }
     [pscustomobject]@{ Name = "salesOrderEntry"; SiteId = "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41" }
     [pscustomobject]@{ Name = "pmo";             SiteId = "coopermachineryservices.sharepoint.com,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb" }
+    [pscustomobject]@{ Name = "hr";              SiteId = "coopermachineryservices.sharepoint.com,eecf6524-72e1-449b-b464-5db3f479cf1d,b9f93aea-3484-458f-b206-66d0e233344d" }
 )
 
 if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Sites)) {

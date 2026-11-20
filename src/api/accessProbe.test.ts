@@ -53,6 +53,14 @@ describe("probeTargets", () => {
     expect(targets.map((t) => t.kind)).toEqual(["site"]);
   });
 
+  it("never asks about a QUIET site, even for an app registered on it", () => {
+    // HR is invisible to everyone not on HR Roles; asking at every sign-in
+    // would only collect refusals nobody should be shown.
+    const onHr: AppSpec = { path: "/hr/new-hires", label: "New Hires", site: "hr", lists: ["list-hr"] };
+    expect(probeTargets([onHr])).toEqual([]);
+    expect(probeTargets().map((t) => t.siteId)).not.toContain(SITES.hr);
+  });
+
   it("probes every site once, whatever its apps", () => {
     const sites = probeTargets().filter((t) => t.kind === "site");
     expect(sites).toHaveLength(new Set(sites.map((t) => t.siteId)).size);

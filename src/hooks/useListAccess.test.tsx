@@ -37,6 +37,20 @@ afterEach(() => {
 });
 
 describe("recordAccessFailure", () => {
+  it("keeps a QUIET site's refusals out of the store — HR's roles list included", () => {
+    // Everybody's browser reads HR Roles to decide whether to show HR, and only
+    // the HR people may read it. Recording the 403 would tell ~200 people in
+    // the footer that ARC couldn't load something they're meant never to see.
+    const hrRoles = `https://graph.microsoft.com/v1.0/sites/${SITES.hr}/lists/84130977-d0c5-410f-a492-39bdfd17a08e/items`;
+    recordAccessFailure(new FakeGraphError(403, '{"error":{"code":"accessDenied"}}', hrRoles));
+    recordAccessFailure(
+      new FakeGraphError(403, "", `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(SITES.hr)}?$select=id`),
+    );
+    const { result } = renderHook(() => useAccessDenials());
+    expect(result.current.count).toBe(0);
+    expect(result.current.implicatedSites.size).toBe(0);
+  });
+
   it("records the list a 403 names", () => {
     recordAccessFailure(new FakeGraphError(403, '{"error":{"code":"accessDenied"}}', itemsUrl));
     const { result } = renderHook(() => useAccessDenials());

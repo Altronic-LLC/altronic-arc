@@ -1768,6 +1768,7 @@ single `SP_SITE_ID`.
 | `scn` | ALTRONICSALESTEAM/SCN → Supply Chain (SCNs) (**subsite** of salesTeam — same collection, shares its grant, like salesOrderEntry) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,ca3d027d-afcb-44e9-9d1b-f5cf4b025e80` |
 | `salesDocumentation` | ALTRONICSALESTEAM/AltronicDocumentation → Sales (Sales Documentation, its Documents library's Main Channel folder) (**subsite** of salesTeam — shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,0a686f85-1497-4ed7-8c6c-3114ba3c2a65` |
 | `pmo` | Altronic_PMO | `…,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
+| `hr` | AltronicPC-ARCConnection → Human Resources (own collection, own grant; a QUIET site — see the HR section) | `…,eecf6524-72e1-449b-b464-5db3f479cf1d,b9f93aea-3484-458f-b206-66d0e233344d` |
 
 (`…` = `coopermachineryservices.sharepoint.com`.) All granted **read + write**.
 - **Task List ID:** `42fb8c19-5f33-4fdd-9ef7-df6f21433588`
@@ -6557,14 +6558,20 @@ field-level split). The first app replaces HR's New Hire spreadsheet. Pieces:
 `components/NewHireFormModal.tsx`, three views (`/hr/new-hires`, `/:id`,
 `/hr/access`), `scripts/create-hr-lists.ps1`.
 
-- **Going live**: IT creates the HR site, an admin grants ARC `Sites.Selected`
-  (write) on it, `create-hr-lists.ps1 -SiteId … [-AdminEmail …]` creates both
-  lists (writing and reading back every New Hires column on a throwaway row),
-  set `VITE_SP_HR_SITE_ID`, `VITE_SP_HR_ROLES_LIST_ID`,
-  `VITE_SP_NEW_HIRES_LIST_ID`, give BOTH lists unique permissions (they hold
-  personal data), redeploy. **The site is NOT in `SITES`** — an empty id there
-  would be access-probed at every sign-in; move it in (with `SITE_LABELS` and
-  `APPS` entries) once it exists. No defaults: unset = HR hidden in real mode.
+- **The site is LIVE (2026-11-20)**: `SITES.hr` = **AltronicPC-ARCConnection**
+  ("Altronic P&C-ARC Connection"), its own site collection, granted ARC
+  `Sites.Selected` (write) separately. `create-hr-lists.ps1` made both lists
+  (HR Roles `84130977-…`, New Hires `1c65d550-…`), both with unique
+  permissions; all three `VITE_*` vars are repo variables. The site id has a
+  default; the LIST ids have none — unset = HR hidden in real mode.
+- **HR is a QUIET site** (`QUIET_SITES` in `api/appAccess.ts`). Every browser
+  reads HR Roles to decide whether to show HR, and only HR people may read it,
+  so everybody else gets a 403 on every load. The access learner
+  (`recordAccessFailure`) ignores a quiet site's refusals, the probe never asks
+  about one, and HR has NO `APPS` entries — otherwise ~200 footers would say
+  "Some ARC data couldn't load", naming a site they're meant never to see.
+  HR's screens explain their own refusals (`HrAccessGate`). A future
+  restricted department can join `QUIET_SITES` the same way.
 - **Hidden, not "Coming soon".** No HR role = no HR group in the Departments
   menu (`hrApp` on a `DepartmentItem`; a group with no visible items is now
   skipped entirely) and no Dashboard section (`HumanResourcesSection`). Each

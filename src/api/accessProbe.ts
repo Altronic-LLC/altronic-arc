@@ -1,6 +1,6 @@
 import { graphFetch } from "./graph";
 import { SITES, USE_MOCK } from "./config";
-import { APPS, type AppSpec } from "./appAccess";
+import { APPS, QUIET_SITES, type AppSpec } from "./appAccess";
 import { fetchListItemCount } from "./listItemCount";
 
 // =============================================================================
@@ -89,6 +89,8 @@ export function probeTargets(apps: readonly AppSpec[] = APPS): ProbeTarget[] {
   }
 
   for (const app of apps) {
+    // A QUIET site is never asked about — its refusals aren't for showing.
+    if (QUIET_SITES.has(app.site)) continue;
     const siteId = SITES[app.site];
 
     // The SITE itself, once per site. Five cheap questions that answer for

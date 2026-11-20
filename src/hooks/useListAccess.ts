@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { appForPath, isAppUnavailable, type AccessDenials } from "@/api/appAccess";
+import { appForPath, isAppUnavailable, isQuietSiteId, type AccessDenials } from "@/api/appAccess";
 import { probeAppAccess } from "@/api/accessProbe";
 import { isAccessDeniedError, parseGraphResourceRef } from "@/lib/listAccess";
 
@@ -200,6 +200,8 @@ export function recordAccessFailure(error: unknown): void {
   if (!isAccessDeniedError(error)) return;
   const ref = parseGraphResourceRef((error as { url?: string } | null)?.url);
   if (!ref) return;
+  // A QUIET site's refusals are its own screens' business — see QUIET_SITES.
+  if (isQuietSiteId(ref.siteId)) return;
   if (ref.kind === "list" && ref.listId) markListDenied(ref.listId, ref.siteId);
   else if (ref.kind === "drive") markDriveDenied(ref.siteId);
   else markSiteDenied(ref.siteId);

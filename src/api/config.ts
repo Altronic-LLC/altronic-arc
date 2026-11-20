@@ -167,6 +167,13 @@ export const SITES = {
   pmo:
     import.meta.env.VITE_SP_PMO_SITE_ID ||
     "coopermachineryservices.sharepoint.com,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb",
+  // AltronicPC-ARCConnection ("Altronic P&C-ARC Connection") — Human
+  // Resources. Its OWN site collection, granted separately (2026-11-20). A
+  // QUIET site (QUIET_SITES in appAccess.ts): most people can't read it and
+  // HR is hidden from them, so a refusal here is never shown or probed.
+  hr:
+    import.meta.env.VITE_SP_HR_SITE_ID ||
+    "coopermachineryservices.sharepoint.com,eecf6524-72e1-449b-b464-5db3f479cf1d,b9f93aea-3484-458f-b206-66d0e233344d",
 } as const;
 
 // =============================================================================
@@ -1471,23 +1478,20 @@ export const PLANT_MAP_CONFIGURED =
     !!SP_PLANT_LAYOUT_FILES_LIST_ID);
 
 // =============================================================================
-// Human Resources (Tim, 2026-11-17) — built on MOCK DATA ONLY for now.
+// Human Resources (Tim, 2026-11-17).
 //
-// HR has no SharePoint site yet. When IT creates one: grant ARC
-// `Sites.Selected` on it (write), run scripts/create-hr-lists.ps1, set the
-// three variables below, then give each HR list UNIQUE permissions (HR + the
-// SAP and IT people, nobody else) — the lists hold personal data, and ARC
-// hiding the department is navigation, not security.
+// The site is SITES.hr (AltronicPC-ARCConnection, created and granted
+// 2026-11-20). Its two lists were made by scripts/create-hr-lists.ps1, and
+// each has UNIQUE permissions (HR + the SAP and IT people, nobody else) — the
+// lists hold personal data, and ARC hiding the department is navigation, not
+// security.
 //
-// The site is deliberately NOT in `SITES` yet: an empty site id there would be
-// probed for access on every sign-in. Move it in (with a SITE_LABELS entry and
-// APPS entries in appAccess.ts) once the site exists.
-//
-// **No defaults.** Unset means the HR department is hidden from everybody in
+// The site has a default (it gates nothing on its own); the LIST ids have
+// **no defaults**. Unset means the HR department is hidden from everybody in
 // real mode — nobody used HR in ARC before, so there is nobody to lock out.
 // =============================================================================
 
-export const HR_SITE_ID: string | undefined = import.meta.env.VITE_SP_HR_SITE_ID || undefined;
+export const HR_SITE_ID: string = SITES.hr;
 export const SP_HR_ROLES_LIST_ID: string | undefined = import.meta.env.VITE_SP_HR_ROLES_LIST_ID || undefined;
 export const SP_NEW_HIRES_LIST_ID: string | undefined = import.meta.env.VITE_SP_NEW_HIRES_LIST_ID || undefined;
 

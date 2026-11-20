@@ -102,7 +102,29 @@ export const SITE_LABELS: Record<SiteKey, string> = {
   scn: "ALTRONICSALESTEAM/SCN",
   salesDocumentation: "ALTRONICSALESTEAM/AltronicDocumentation",
   pmo: "Altronic_PMO",
+  hr: "AltronicPC-ARCConnection",
 };
+
+/**
+ * Sites whose refusals ARC keeps to ITSELF: never recorded by the access
+ * learner, never probed, never named in the footer, and with no APPS entries.
+ *
+ * Human Resources (Tim, 2026-11-20): every signed-in browser reads HR Roles
+ * to decide whether to show HR at all, and that list is readable only by the
+ * HR people — so everybody else gets a 403 on every load. Recording it would
+ * put "Some ARC data couldn't load" in ~200 people's footers, naming a site
+ * the department is meant to be invisible to. The HR screens explain their
+ * own refusals (HrAccessGate); for everyone else a refusal simply means
+ * "no HR", which is what they should see.
+ */
+export const QUIET_SITES: ReadonlySet<SiteKey> = new Set<SiteKey>(["hr"]);
+
+/** Is this Graph site id one of the QUIET_SITES? */
+export function isQuietSiteId(siteId: string | null | undefined): boolean {
+  if (!siteId) return false;
+  const id = siteId.toLowerCase();
+  return [...QUIET_SITES].some((key) => SITES[key].toLowerCase() === id);
+}
 
 /**
  * Which site a site sits UNDER. OrderEntry is a subsite of the Sales Team site
