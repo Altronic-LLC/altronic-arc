@@ -149,6 +149,34 @@ describe("notifyChangeEmails — the same email to several people is one email",
   });
 });
 
+describe("notifyChangeEmails — Reply-To", () => {
+  const one = { email: "person1@altronic-llc.com", displayName: "Person 1", subject: "New hire", headlineHtml: "Hi." };
+
+  function replyTo(): unknown {
+    const call = graphFetch.mock.calls.find(([path]) => String(path).includes("/sendMail"))!;
+    return JSON.parse(String(call[1]?.body)).message.replyTo;
+  }
+
+  it("still sends FROM the shared mailbox, with replies going to the person named", async () => {
+    await email.notifyChangeEmails({
+      target: TARGET,
+      emails: [one],
+      replyTo: { email: "hr.person@altronic-llc.com", displayName: "HR Person" },
+    });
+    const [path] = graphFetch.mock.calls.find(([p]) => String(p).includes("/sendMail"))!;
+    expect(decodeURIComponent(String(path))).toBe("/users/automation@altronic-llc.com/sendMail");
+    expect(replyTo()).toEqual([{ emailAddress: { address: "hr.person@altronic-llc.com", name: "HR Person" } }]);
+  });
+
+  it("sends no Reply-To when none is asked for, or the address is blank", async () => {
+    await email.notifyChangeEmails({ target: TARGET, emails: [one] });
+    expect(replyTo()).toBeUndefined();
+    graphFetch.mockClear();
+    await email.notifyChangeEmails({ target: TARGET, emails: [one], replyTo: { email: " ", displayName: "Nobody" } });
+    expect(replyTo()).toBeUndefined();
+  });
+});
+
 describe("leaving the page while email is still going out", () => {
   it("asks before unload only while a send is in flight", async () => {
     let release: () => void = () => {};

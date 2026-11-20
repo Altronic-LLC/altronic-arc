@@ -25,7 +25,29 @@ import { startDateLabel } from "./newHire";
 //
 // **No personal identifiers in an email** — Personal #, FAB # and EMP # stay on
 // the record. Mail is forwarded, and the error buffer can end up in an inbox.
+//
+// **From the shared mailbox, Reply-To the HR person** (Tim, 2026-11-20). A
+// reply goes to somebody who can answer it, not the unread automation box —
+// see `newHireReplyTo`.
 // =============================================================================
+
+export type NewHireEmailKind = "submitted" | "complete" | "cancelled";
+
+/**
+ * Who a reply to a New Hire email reaches. Submitted and Cancelled: the person
+ * who did it — HR. Complete: whoever SUBMITTED the hire, because the last step
+ * is usually ticked by IT or SAP, and "ready?" questions belong with HR.
+ * Falls back to the actor when the hire has no submitter on record.
+ */
+export function newHireReplyTo(
+  kind: NewHireEmailKind,
+  hire: NewHire,
+  actor: Person,
+): { email: string; displayName: string } | null {
+  const who = kind === "complete" && hire.submittedBy?.email?.trim() ? hire.submittedBy : actor;
+  const email = who.email?.trim();
+  return email ? { email, displayName: who.displayName || email } : null;
+}
 
 type Mailable = Person & { email: string };
 

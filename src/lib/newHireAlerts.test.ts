@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { NewHire } from "@/types/hr";
 import { mockNewHires } from "@/data/hrMockData";
-import { buildNewHireCancelledEmails, buildNewHireCompleteEmails, buildNewHireSubmittedEmails } from "./newHireAlerts";
+import {
+  buildNewHireCancelledEmails,
+  buildNewHireCompleteEmails,
+  buildNewHireSubmittedEmails,
+  newHireReplyTo,
+} from "./newHireAlerts";
 
 const hire: NewHire = { ...mockNewHires()[0], personalNumber: "P-SECRET-1", fabNumber: "F-SECRET-2", empNumber: "E-SECRET-3" };
 const actor = { displayName: "HR Person", email: "hr@example.com" };
@@ -54,5 +59,23 @@ describe("a new hire completed or cancelled", () => {
     const emails = buildNewHireCancelledEmails({ hire: cancelled, sap, it: it_, actor });
     expect(to(emails)).toEqual(["ivy@example.com", hire.manager!.email!, "sam@example.com"].sort());
     expect(emails[0].detailHtml).toMatch(/Offer declined/);
+  });
+});
+
+describe("who a reply reaches", () => {
+  const ivy = { displayName: "Ivy IT", email: "ivy@example.com" };
+
+  it("is the HR person who submitted or cancelled it", () => {
+    expect(newHireReplyTo("submitted", hire, actor)).toEqual({ email: "hr@example.com", displayName: "HR Person" });
+    expect(newHireReplyTo("cancelled", hire, actor)?.email).toBe("hr@example.com");
+  });
+
+  it("is the SUBMITTER on the ready email, not IT who ticked the last step", () => {
+    expect(newHireReplyTo("complete", hire, ivy)?.email).toBe(hire.submittedBy!.email);
+  });
+
+  it("falls back to the actor with no submitter, and to nobody with no address", () => {
+    expect(newHireReplyTo("complete", { ...hire, submittedBy: null }, ivy)?.email).toBe("ivy@example.com");
+    expect(newHireReplyTo("submitted", hire, { displayName: "No Mail", email: "" })).toBeNull();
   });
 });

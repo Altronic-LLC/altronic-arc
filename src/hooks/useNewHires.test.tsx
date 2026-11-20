@@ -45,6 +45,11 @@ const input = {
   needsComputer: true,
 };
 
+function replyTos(): Array<string | undefined> {
+  const calls = notifyChangeEmails.mock.calls as unknown as Array<[{ replyTo?: { email: string } | null }]>;
+  return calls.map(([arg]) => arg.replyTo?.email);
+}
+
 function recipients(): string[] {
   const calls = notifyChangeEmails.mock.calls as unknown as Array<[{ emails: { email: string }[] }]>;
   return calls.flatMap(([arg]) => arg.emails.map((e) => e.email)).sort();
@@ -87,6 +92,8 @@ describe("the emails", () => {
     await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalled());
     // The demo user holds both tags; Sam (the actor) is dropped because others are left.
     expect(recipients()).toEqual(["demo.user@altronic-llc.com", "jordan.manager@example.com", "quinn.sample@example.com"]);
+    // From the shared mailbox; a reply reaches the HR person who submitted it.
+    expect(replyTos()).toEqual(["sam.placeholder@example.com"]);
   });
 
   it("tells the submitter and the manager when the last step is ticked — and only then", async () => {
@@ -98,6 +105,8 @@ describe("the emails", () => {
     expect(after.after.status).toBe("Complete");
     await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalledTimes(1));
     expect(recipients()).toEqual(["avery.example@example.com", "casey.lead@example.com"]);
+    // The demo user ticked it, but a reply goes to Avery, who submitted the hire.
+    expect(replyTos()).toEqual(["avery.example@example.com"]);
   });
 
   it("tells SAP, IT and the manager to stop when a hire is cancelled", async () => {
@@ -105,5 +114,6 @@ describe("the emails", () => {
     await act(() => result.current.mutateAsync({ id: 1, reason: "Offer declined" }));
     await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalledTimes(1));
     expect(recipients()).toEqual(["jordan.manager@example.com", "quinn.sample@example.com", "sam.placeholder@example.com"]);
+    expect(replyTos()).toEqual(["demo.user@altronic-llc.com"]);
   });
 });

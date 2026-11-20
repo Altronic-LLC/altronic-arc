@@ -793,14 +793,34 @@ export async function notifyChangeEmails(input: {
    * request for a parts list that doesn't exist yet links to its Parts Book.
    */
   link?: { url: string; buttonText: string };
+  /**
+   * Where a reply goes, instead of the shared mailbox nobody reads. The email
+   * is still FROM the shared mailbox (every sender has Send-As on it, and a
+   * department's mail looks the same whoever pressed the button); Reply-To
+   * only sends an answer to a person. New Hire emails set it to the HR person.
+   */
+  replyTo?: { email: string; displayName: string } | null;
 }): Promise<MailSendResult> {
   const emails = input.emails.filter((e) => !!e.email);
   if (emails.length === 0) return NOTHING_SENT;
+  const replyTo = input.replyTo?.email?.trim()
+    ? {
+        replyTo: [
+          {
+            emailAddress: {
+              address: input.replyTo.email.trim(),
+              name: input.replyTo.displayName || input.replyTo.email.trim(),
+            },
+          },
+        ],
+      }
+    : {};
 
   if (USE_MOCK) {
     // eslint-disable-next-line no-console
     console.info("[email mock] change alerts:", {
       from: SHARED_MAILBOX ?? "(no shared mailbox configured)",
+      replyTo: input.replyTo?.email || undefined,
       kind: input.target.kind,
       item: input.target.title,
       url: input.link?.url ?? appItemUrl(input.target.kind, input.target.id),
@@ -847,6 +867,7 @@ export async function notifyChangeEmails(input: {
           await postMail({
             ...threadedMessage(threading, e.subject, bodyHtml),
             ...addressFields(batch),
+            ...replyTo,
           });
           result.sent.push(...batch.map((b) => b.email));
         } catch (err) {

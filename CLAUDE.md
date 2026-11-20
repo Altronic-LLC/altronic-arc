@@ -6605,10 +6605,15 @@ field-level split). The first app replaces HR's New Hire spreadsheet. Pieces:
   `FEATURE_REQUEST_DEPARTMENTS`**, so `scripts/add-department-choice.ps1
   -Department "Human Resources"` (the general form of the Harness script) must
   run BEFORE the deploy — both lists' Department columns are strict choices.
-- **Open: who the emails come FROM.** Today the shared mailbox like the rest of
-  ARC; Tim asked whether HR's should come from the HR person. Options and the
-  recommendation (shared mailbox + Reply-To the person) are in the
-  conversation of 2026-11-17 — record the decision here when made.
+- **From the shared mailbox, Reply-To the HR person** (Tim, 2026-11-20).
+  Sending AS the HR person would need every HR user to have Send-As on their
+  colleagues; Reply-To needs nothing new. `notifyChangeEmails` takes an
+  optional `replyTo` (written as Graph's `message.replyTo`, left out when
+  blank); `newHireReplyTo` in `lib/newHireAlerts.ts` decides who: the actor on
+  Submitted and Cancelled, the SUBMITTER on Complete (the last tick is usually
+  IT or SAP), the actor when there's no submitter. Pinned in
+  `api/email.grouped.test.ts` (real mode, verified by removing the line).
+  Another department can pass `replyTo` the same way.
 
 ### Panel Orders — moving in the old Panel Job Dashboard (2026-11-13)
 

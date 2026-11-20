@@ -12,6 +12,8 @@ import {
   buildNewHireCancelledEmails,
   buildNewHireCompleteEmails,
   buildNewHireSubmittedEmails,
+  newHireReplyTo,
+  type NewHireEmailKind,
 } from "@/lib/newHireAlerts";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
@@ -28,7 +30,8 @@ import { readHrPeopleWithRole, requireHrGate, useResolveHrAccess } from "./useHr
 //   * a create → the SAP and IT people (read FRESH from HR Roles) + the manager;
 //   * the last step ticked (status becomes Complete) → submitter + manager;
 //   * a cancellation → SAP, IT and the manager.
-// A queue with nobody on it is SAID, not silently skipped.
+// A queue with nobody on it is SAID, not silently skipped. Every one is sent
+// from the shared mailbox with Reply-To the HR person (newHireReplyTo).
 // =============================================================================
 
 export const NEW_HIRES_KEY = ["newHires", "list"] as const;
@@ -62,8 +65,10 @@ function targetOf(hire: NewHire) {
   return { kind: "newHire" as const, id: hire.id, title: hire.displayName || `New hire #${hire.id}` };
 }
 
-function send(hire: NewHire, emails: ChangeEmail[]): void {
-  if (emails.length > 0) void notifyChangeEmails({ target: targetOf(hire), emails });
+/** From the shared mailbox, with replies going to the HR person (newHireReplyTo). */
+function send(hire: NewHire, emails: ChangeEmail[], kind: NewHireEmailKind, actor: Person): void {
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: targetOf(hire), emails, replyTo: newHireReplyTo(kind, hire, actor) });
 }
 
 async function setupQueues(qc: QueryClient): Promise<{ sap: Person[]; it: Person[] }> {
@@ -87,7 +92,7 @@ function errorToast(err: unknown, action: string): void {
 /** When a write moved the hire to Complete, tell the submitter and the manager. */
 function announceIfCompleted(before: NewHire | undefined, after: NewHire, actor: Person): void {
   if (before?.status !== "Complete" && after.status === "Complete") {
-    send(after, buildNewHireCompleteEmails({ hire: after, actor }));
+    send(after, buildNewHireCompleteEmails({ hire: after, actor }), "complete", actor);
   }
 }
 
@@ -113,7 +118,7 @@ export function useCreateNewHire() {
       upsert(qc, hire);
       const actor = actorRef.current;
       const { sap, it } = await setupQueues(qc);
-      send(hire, buildNewHireSubmittedEmails({ hire, sap, it, actor }));
+      send(hire, buildNewHireSubmittedEmails({ hire, sap, it, actor }), "submitted", actor);
       const nobody = [sap.length === 0 && "add people to SAP", it.length === 0 && "raise IT tickets"].filter(Boolean);
       if (nobody.length > 0) {
         pushToast({
@@ -191,7 +196,8 @@ export function useSetNewHireCancelled() {
       upsert(qc, after);
       if (!before?.cancelled && after.cancelled) {
         const { sap, it } = await setupQueues(qc);
-        send(after, buildNewHireCancelledEmails({ hire: after, sap, it, actor: actorRef.current }));
+        const actor = actorRef.current;
+        send(after, buildNewHireCancelledEmails({ hire: after, sap, it, actor }), "cancelled", actor);
       }
     },
     onError: (err) => errorToast(err, "change the new hire"),
