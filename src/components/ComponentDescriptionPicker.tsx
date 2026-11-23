@@ -4,6 +4,7 @@ import { ChoicePills, MAX_PILL_OPTIONS } from "./ChoicePills";
 import { ChoiceSelect } from "./SearchableSelect";
 import {
   composeDescription,
+  controlCategoryChoices,
   optionsOfKind,
   typesFor,
   type DescriptionPicks,
@@ -11,8 +12,9 @@ import {
 
 // =============================================================================
 // A new component's Description, picked rather than typed — the old Power
-// App's two dropdowns (Tim, 2026-09-28), with a SIL category in front on the
-// 722 list (2026-09-29). Type stays disabled until a Description is picked,
+// App's two dropdowns (Tim, 2026-09-28), with a control category in front on
+// the 722/723 Controlled Parts lists (2026-09-29; "Control category" and its Other
+// choice, 2026-11-23). Type stays disabled until a Description is picked,
 // and offers only that Description's types. What it saves as is shown under
 // the dropdowns, so nobody is surprised by the capitals.
 //
@@ -30,11 +32,11 @@ export function ComponentDescriptionPicker({
   picks: DescriptionPicks;
   onChange: (next: DescriptionPicks) => void;
   options: readonly ComponentDescriptionOption[];
-  /** The 722 list — a SIL category comes first. */
+  /** A Controlled Parts list (722/723) — a control category comes first. */
   needSil: boolean;
   disabled?: boolean;
 }) {
-  const sil = optionsOfKind(options, "SIL Category").map((o) => o.name);
+  const sil = controlCategoryChoices(options);
   const descriptions = optionsOfKind(options, "Description").map((o) => o.name);
   const types = typesFor(options, picks.name);
   const showSil = needSil && sil.length > 0;
@@ -45,11 +47,11 @@ export function ComponentDescriptionPicker({
       <div className={showSil ? "grid grid-cols-1 gap-4 sm:grid-cols-3" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
         {showSil && (
           <div>
-            <FieldLabel text="SIL category" required />
+            <FieldLabel text="Control category" required />
             {sil.length <= MAX_PILL_OPTIONS ? (
               <ChoicePills
-                label="SIL category"
-                name="new-part-sil-category"
+                label="Control category"
+                name="new-part-control-category"
                 options={sil}
                 value={picks.silCategory}
                 onChange={(v) => onChange({ ...picks, silCategory: v })}
@@ -57,8 +59,8 @@ export function ComponentDescriptionPicker({
               />
             ) : (
               <ChoiceSelect
-                ariaLabel="SIL category"
-                emptyLabel="Pick a SIL category"
+                ariaLabel="Control category"
+                emptyLabel="Pick a control category"
                 options={sil}
                 value={picks.silCategory}
                 onChange={(v) => onChange({ ...picks, silCategory: v })}

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.228.0",
+    date: "2026-11-23",
+    changes: [
+      "Parts List: list 722 is now called Controlled Parts instead of SIL — every 722 part is controlled, and only some of them are SIL",
+      "723 is a new Controlled Parts list linked to 722: once 722 is full, New part takes the next free 723 number, and a search on either list covers both",
+      "On a new controlled part, the SIL category dropdown is now Control category, with an Other choice for a controlled part that isn't SIL; Other saves the description as CONTROLLED - CAPACITOR - CERAMIC",
+    ],
+  },
+  {
     version: "0.227.0",
     date: "2026-11-23",
     changes: [

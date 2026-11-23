@@ -15,7 +15,7 @@ import { isComponentPrefix } from "./altronicPartMapper";
 // Three things that are deliberate:
 //
 //  - The HCO component lists (601/611/701/711/712/722) are NOT labelled from
-//    here — they keep Through Hole / Surface Mount / SIL, which is what people
+//    here — they keep Through Hole / Surface Mount / Controlled Parts, which is what people
 //    call them. `listMeaning` returns null for them.
 //  - An UNUSED device type (C = 5, 7, 8) is never shown as "Unused" on a tile.
 //    Legacy lists like 915 hold real parts the guideline postdates, and a tile

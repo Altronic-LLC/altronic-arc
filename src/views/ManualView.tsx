@@ -7819,7 +7819,7 @@ const SECTIONS: ManualSection[] = [
       "sil cat",
     ],
     searchText:
-      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. A part's page and a single list load just what they show, in about a second; Global Search, the Parts Book counts and New part need every part number, so they take longer the first time, and New part leaves the number blank until both lists have loaded. Export components downloads the Component List as a CSV. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. A workflow diagram shows both approval paths, the sign-off status at each step, and who is emailed. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 and 723 Controlled Parts). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. A part's page and a single list load just what they show, in about a second; Global Search, the Parts Book counts and New part need every part number, so they take longer the first time, and New part leaves the number blank until both lists have loaded. Export components downloads the Component List as a CSV. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. A workflow diagram shows both approval paths, the sign-off status at each step, and who is emailed. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 and 723 Controlled Parts lists a control category first: a SIL category such as SIL CAT 1, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC, or Other for a controlled part that is not SIL, saved like CONTROLLED - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
     render: () => (
       <>
         <P>
@@ -7829,7 +7829,7 @@ const SECTIONS: ManualSection[] = [
           <strong>Altronic Part List</strong> and the{" "}
           <strong>Altronic Component List</strong>, which holds the HCO
           components (601 and 611 Through Hole, 701, 711 and 712 Surface Mount,
-          and 722 SIL). Reach it from the <strong>Parts List</strong> card on the
+          and 722 and 723 Controlled Parts). Reach it from the <strong>Parts List</strong> card on the
           Dashboard, or the <strong>Departments</strong> dropdown's Engineering
           group.
         </P>
@@ -7851,7 +7851,7 @@ const SECTIONS: ManualSection[] = [
           digit in the EWI's own words. Where EWI-005 doesn't assign a device type,
           only the assembly level is shown. Older part numbers predate the
           guideline, so not every part in a list will match its label. The HCO
-          lists keep their Through Hole, Surface Mount and SIL labels.
+          lists keep their Through Hole, Surface Mount and Controlled Parts labels.
         </P>
         <H3>Finding a part</H3>
         <P>
@@ -7940,7 +7940,7 @@ const SECTIONS: ManualSection[] = [
           601 or 611 looks through both — the old app kept these as one Surface
           Mount list and one Through Hole list. The count above the table says
           which lists it covered. With no search, a list shows only its own
-          parts. 722 (SIL) searches on its own.
+          parts. 722 and 723 (Controlled Parts) search each other the same way.
         </P>
         <P>
           <strong>Range search.</strong> On the component lists (601, 611, 701,
@@ -8019,12 +8019,12 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             <strong>Add</strong> — adds Part List parts and HCO components
-            (except in the 722 list). An editor can't change an existing part;
+            (except in the 722 and 723 Controlled Parts lists). An editor can't change an existing part;
             they use <strong>Suggest a correction</strong> instead.
           </LI>
           <LI>
             <strong>Parts editor (incl. HCO)</strong> — also edits existing parts
-            on both lists, and adds to the 722 list.
+            on both lists, and adds to the 722 and 723 lists.
           </LI>
           <LI>
             <strong>Reviewing engineer</strong> — approves new HCO components at
@@ -8059,13 +8059,16 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           The component lists are <strong>linked</strong>: 701, 711 and 712 for
-          Surface Mount, and 601 and 611 for Through Hole. When the list you open
+          Surface Mount, 601 and 611 for Through Hole, and 722 and 723 for
+          Controlled Parts. When the list you open
           is full, the form fills in the next free number from the next linked
           list instead and says so — on a full 701 and 711 you get a 712 number,
           with a note that 701 and 711 are full. When every linked list in the
           category is full, the form offers{" "}
           <strong>Ask the SAP admin for the next list</strong>, which emails them
-          to create one.
+          to create one. A new list has to be added to ARC before its first
+          part goes in; until then ARC would treat it as an ordinary Part List
+          list.
         </P>
         <P>
           Fields marked * are required, following the old app's rules. On a Part
@@ -8082,9 +8085,11 @@ const SECTIONS: ManualSection[] = [
           A new component's description is picked, not typed, as in the old app.
           Pick a <strong>Description</strong> first (Capacitor, Resistor, IC…),
           then a <strong>Type</strong> from that description's list — Type stays
-          greyed out until a Description is picked. On the 722 list you also pick
-          a <strong>SIL category</strong> (SIL CAT 1 or SIL CAT 2), which goes
-          first. The form shows what it will save, in capitals: for example{" "}
+          greyed out until a Description is picked. On the 722 and 723 Controlled
+          Parts lists you also pick a <strong>control category</strong>, which
+          goes first: a SIL category (SIL CAT 1 or SIL CAT 2), or{" "}
+          <strong>Other</strong> for a controlled part that isn't SIL, which
+          saves as <strong>CONTROLLED - CAPACITOR - CERAMIC</strong>. The form shows what it will save, in capitals: for example{" "}
           <strong>SIL CAT 1 - CAPACITOR - CERAMIC</strong>. Some descriptions,
           like Relay, have no types and save on their own.
         </P>
@@ -8096,7 +8101,8 @@ const SECTIONS: ManualSection[] = [
         <P>
           The SAP admin and the reviewing engineers manage the lists: click{" "}
           <strong>Descriptions</strong> on the Parts List landing page to add,
-          rename, reorder or remove a description, its types, or a SIL category.
+          rename, reorder or remove a description, its types, or a control
+          category. Other is always offered and isn't on the list.
           Changes only affect what new parts are offered — no existing part
           changes.
         </P>

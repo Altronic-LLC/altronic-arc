@@ -117,6 +117,11 @@ describe("the gates", () => {
     expect(addPartGate(access(["hco editor"]), "722", true).allowed).toBe(true);
   });
 
+  it("keep 723, 722's linked Controlled Parts list, to HCO editors too", () => {
+    expect(addPartGate(access(["editor"]), "723", true).allowed).toBe(false);
+    expect(addPartGate(access(["hco editor"]), "723", true).allowed).toBe(true);
+  });
+
   it("keep editing, on both lists, to parts editors and up — adding isn't editing", () => {
     expect(editPartGate(access(["editor"]), true).allowed).toBe(false);
     expect(editPartGate(access(["editor"]), false).allowed).toBe(false);

@@ -5,8 +5,12 @@ import seed from "@/data/componentDescriptionSeed.json";
 // A new component's Description is PICKED, not typed. That's how the old Power
 // App worked (Tim, 2026-09-28): a Description dropdown, then a Type dropdown
 // limited to that Description's types, and the two joined on save
-// ("CAPACITOR - CERAMIC"). On the 722 list a SIL category comes first (Tim,
-// 2026-09-29): "SIL CAT 1 - CAPACITOR - CERAMIC".
+// ("CAPACITOR - CERAMIC"). On the 722 Controlled Parts list a CONTROL
+// CATEGORY comes first (Tim, 2026-09-29; renamed from "SIL category"
+// 2026-11-23): "SIL CAT 1 - CAPACITOR - CERAMIC", or Other for a controlled
+// part that isn't SIL, which saves "CONTROLLED - CAPACITOR - CERAMIC". The
+// same picker is on 723, 722's linked list.
+// The options keep their stored Kind, "SIL Category", in SharePoint.
 //
 // The options live on a SharePoint list, the Component Description Options
 // list, so the SAP admin and the reviewing engineers can change them in ARC
@@ -76,7 +80,10 @@ export function optionNameProblem(
   exceptId?: number,
 ): string | null {
   const n = cleanOptionName(name);
-  if (!n) return kind === "Description" ? "Type the description." : "Type the SIL category.";
+  if (!n) return kind === "Description" ? "Type the description." : "Type the control category.";
+  if (kind === "SIL Category" && isOtherControlCategory(n)) {
+    return `"${CONTROL_CATEGORY_OTHER}" is always offered — it saves ${CONTROLLED_PREFIX.toUpperCase()} in front of the description.`;
+  }
   const clash = options.find((o) => o.kind === kind && o.id !== exceptId && o.name.trim().toLowerCase() === n.toLowerCase());
   return clash ? `"${clash.name}" is already on the list.` : null;
 }
@@ -90,6 +97,30 @@ export function typeNameProblem(type: string, existing: readonly string[]): stri
   return clash ? `"${clash}" is already a type here.` : null;
 }
 
+/**
+ * The control category for a controlled (722/723) part that has no SIL
+ * category. Always offered after the list's own options, and saved as
+ * `CONTROLLED_PREFIX` in front of the description (Tim, 2026-11-23). Not
+ * stored on the options list.
+ */
+export const CONTROL_CATEGORY_OTHER = "Other";
+
+/** What Other puts in front of a description: "CONTROLLED - CAPACITOR - CERAMIC". */
+export const CONTROLLED_PREFIX = "Controlled";
+
+/** Is this pick the built-in Other? */
+export function isOtherControlCategory(pick: string): boolean {
+  return pick.trim().toLowerCase() === CONTROL_CATEGORY_OTHER.toLowerCase();
+}
+
+/** The control categories offered on the 722/723 form: the list's, then Other. */
+export function controlCategoryChoices(options: readonly ComponentDescriptionOption[]): string[] {
+  const listed = optionsOfKind(options, "SIL Category")
+    .map((o) => o.name)
+    .filter((n) => !isOtherControlCategory(n));
+  return listed.length > 0 ? [...listed, CONTROL_CATEGORY_OTHER] : [];
+}
+
 /** What somebody has picked on the New part form. */
 export interface DescriptionPicks {
   silCategory: string;
@@ -99,9 +130,13 @@ export interface DescriptionPicks {
 
 export const EMPTY_PICKS: DescriptionPicks = { silCategory: "", name: "", type: "" };
 
-/** The text the picks save as — "SIL CAT 1 - CAPACITOR - CERAMIC". Blank picks are left out. */
+/**
+ * The text the picks save as — "SIL CAT 1 - CAPACITOR - CERAMIC". Blank picks
+ * are left out. The control category Other saves as CONTROLLED.
+ */
 export function composeDescription(picks: DescriptionPicks): string {
-  return [picks.silCategory, picks.name, picks.type]
+  const control = isOtherControlCategory(picks.silCategory) ? CONTROLLED_PREFIX : picks.silCategory;
+  return [control, picks.name, picks.type]
     .map((p) => p.trim())
     .filter(Boolean)
     .join(DESCRIPTION_SEPARATOR)
@@ -111,16 +146,19 @@ export function composeDescription(picks: DescriptionPicks): string {
 /**
  * What still has to be picked before the part can be added, or null.
  *
- * `needSil` is true on the 722 list, but only while the list offers a SIL
- * category: an empty SIL list must not make every 722 part impossible to add.
+ * `needSil` is true on the Controlled Parts lists (722/723), but only while
+ * the list offers a control category: an empty list must not make every
+ * controlled part impossible to add.
+ * Other counts as a pick — the person said the part isn't SIL.
  */
 export function picksProblem(
   picks: DescriptionPicks,
   options: readonly ComponentDescriptionOption[],
   needSil: boolean,
 ): string | null {
-  const sil = optionsOfKind(options, "SIL Category");
-  if (needSil && sil.length > 0 && !picks.silCategory.trim()) return "Pick the SIL category.";
+  if (needSil && controlCategoryChoices(options).length > 0 && !picks.silCategory.trim()) {
+    return "Pick the control category.";
+  }
   if (!picks.name.trim()) return "Pick a Description.";
   const types = typesFor(options, picks.name);
   if (types.length > 0 && !picks.type.trim()) return `Pick a Type for ${picks.name}.`;
@@ -143,7 +181,11 @@ export function typesFor(options: readonly ComponentDescriptionOption[], name: s
 export function reconcilePicks(picks: DescriptionPicks, options: readonly ComponentDescriptionOption[]): DescriptionPicks {
   const has = (kind: ComponentDescriptionOptionKind, v: string) =>
     optionsOfKind(options, kind).find((o) => o.name.toLowerCase() === v.trim().toLowerCase())?.name ?? "";
-  const silCategory = picks.silCategory ? has("SIL Category", picks.silCategory) : "";
+  const silCategory = !picks.silCategory
+    ? ""
+    : isOtherControlCategory(picks.silCategory)
+      ? CONTROL_CATEGORY_OTHER
+      : has("SIL Category", picks.silCategory);
   const name = picks.name ? has("Description", picks.name) : "";
   const type = name ? (typesFor(options, name).find((t) => t.toLowerCase() === picks.type.trim().toLowerCase()) ?? "") : "";
   return { silCategory, name, type };

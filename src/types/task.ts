@@ -1478,7 +1478,7 @@ export interface CsaListingInput {
 //
 //   Altronic Part List       every prefix EXCEPT the HCO components
 //   Altronic Component List  601/611 Through Hole, 701/711/712 Surface Mount,
-//                            722 SIL — with ratings, temps, footprint
+//                            722 Controlled Parts (stored "SIL") — with ratings, temps, footprint
 //
 // `Title` is the Altronic Part # on both, and its first three digits are the
 // "parts list" people think in (the old list name). Choice columns are NOT
@@ -1509,7 +1509,8 @@ export const COMPONENT_SIGN_OFF_STATUSES = [
  */
 export const PART_DELETED_STATUS = "Deleted";
 
-export const COMPONENT_CATEGORIES = ["Surface Mount", "Through Hole", "SIL"] as const;
+/** What ARC CALLS each category. 722's is stored "SIL" (lib/altronicPartMapper.ts `categoryColumnValue`). */
+export const COMPONENT_CATEGORIES = ["Surface Mount", "Through Hole", "Controlled Parts"] as const;
 export type ComponentCategory = (typeof COMPONENT_CATEGORIES)[number];
 
 export const PART_PROTOTYPE_OR_PRODUCTION = ["Prototype", "Production"] as const;

@@ -26,8 +26,9 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 
 // =============================================================================
 // The description lists — what a NEW component can be described as. The
-// Description / Type dropdowns (the old Power App's), and the SIL categories
-// offered in front on the 722 list. Tim, 2026-09-28/29.
+// Description / Type dropdowns (the old Power App's), and the control categories
+// offered in front on the 722 Controlled Parts list (plus a built-in Other,
+// which isn't stored here). Tim, 2026-09-28/29, renamed 2026-11-23.
 //
 // Inside the Parts List, not under /admin: the SAP admin and the reviewing
 // engineers manage these (manageDescriptionOptionsGate), and they aren't
@@ -60,7 +61,8 @@ export function PartDescriptionOptionsView() {
           <p className="text-sm text-fg-muted">
             What a new component can be described as. New part offers a Description, then a Type from that
             Description's list, and saves the two together in capitals — e.g. <span className="font-mono">CAPACITOR - CERAMIC</span>.
-            On the 722 list a SIL category comes first.
+            On the 722 and 723 Controlled Parts lists a control category comes first — one of the list below, or
+            Other for a controlled part that isn't SIL, which saves as <span className="font-mono">CONTROLLED - …</span>.
           </p>
         </div>
       </header>
@@ -111,12 +113,12 @@ export function PartDescriptionOptionsView() {
             empty="No descriptions yet. Until one is added, New part keeps a plain Description box."
           />
           <OptionSection
-            title="SIL categories — the 722 list"
+            title="Control categories — the 722 and 723 Controlled Parts lists"
             kind="SIL Category"
             options={options}
             canEdit={gate.allowed}
             hint={gate.hint}
-            empty="No SIL categories. 722 parts are described with the Description and Type alone."
+            empty="No control categories. 722 parts are described with the Description and Type alone, and Other isn't offered."
           />
         </>
       )}
@@ -371,7 +373,7 @@ function AddOption({
   const add = useAddDescriptionOption();
   const [name, setName] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
-  const label = kind === "Description" ? "New description" : "New SIL category";
+  const label = kind === "Description" ? "New description" : "New control category";
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -403,7 +405,7 @@ function AddOption({
           className="inline-flex shrink-0 items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs hover:bg-accent/90 disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
-          {kind === "Description" ? "Add description" : "Add SIL category"}
+          {kind === "Description" ? "Add description" : "Add control category"}
         </button>
       </div>
       {kind === "Description" && (

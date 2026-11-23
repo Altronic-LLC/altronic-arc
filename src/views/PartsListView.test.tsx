@@ -196,12 +196,11 @@ describe("PartsListView — a component search covers its whole category", () =>
     await waitFor(() => expect(tablePartNumbers()).toEqual(["701043", "701212", "701990"]));
   });
 
-  it("keeps 722 to itself — SIL has no other list", async () => {
+  it("searches 722 and its linked 723 together — the Controlled Parts lists", async () => {
     renderList("/engineering/parts/list/722?q=sil");
     await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
     expect(tablePartNumbers()).toEqual(["722044", "722051"]);
-    expect(screen.queryByText(/in lists/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/looks through lists/)).not.toBeInTheDocument();
+    expect(screen.getByText(/in lists 722 and 723/)).toBeInTheDocument();
   });
 
   it("leaves a Part List list to itself", async () => {

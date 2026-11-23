@@ -26,6 +26,7 @@ import {
   COMPONENT_PREFIX_CATEGORY,
   componentSearchPrefixes,
   isComponentPrefix,
+  isControlledPrefix,
   partPrefix,
 } from "@/lib/altronicPartMapper";
 import {
@@ -59,7 +60,7 @@ import { toDateInputValue } from "@/lib/spDates";
 
 // =============================================================================
 // New part — on either list. The form follows the NUMBER: a 601/611/701/711/
-// 712/722 number is a component (ratings, footprint, three-step approval),
+// 712/722/723 number is a component (ratings, footprint, three-step approval),
 // anything else a Part List part (drawing, purchasing, two-step). Opened from
 // a list, the list number is fixed and the next free number is filled in;
 // opened from the Parts Book, any number may be typed, which is how a new
@@ -182,7 +183,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   const usePicker = component && pickerAvailable;
   const pickerLoading = component && COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED && optionsQuery.isLoading;
   const pickerFailed = component && COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED && optionsQuery.isError;
-  const needSil = typedPrefix === "722";
+  const needSil = isControlledPrefix(typedPrefix);
   const picks = reconcilePicks(
     {
       silCategory: values[PICK_KEYS.silCategory] ?? "",

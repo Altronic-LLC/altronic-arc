@@ -277,7 +277,7 @@ export function PartsBookView() {
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-8">
                 {bookSummary.lists.map((list) => {
                   // EWI-005 meaning for a Part List list; the HCO lists keep
-                  // their Through Hole / Surface Mount / SIL chip instead.
+                  // their Through Hole / Surface Mount / Controlled Parts chip instead.
                   const meaning = listMeaning(list.prefix);
                   return (
                     <Link
