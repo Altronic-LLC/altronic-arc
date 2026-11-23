@@ -135,6 +135,27 @@ export function useLookUpSapParts() {
 }
 
 /**
+ * Ask SAP about ONE part again, FRESH (Ray, 2026-11-23: "manually pull in SAP
+ * costing again"). `staleTime: 0` skips the five-minute cache — the button
+ * exists because the figure may have moved — and the answer lands in the same
+ * cache entry `useSapPart` reads. The SAP # is asked when there is one, else
+ * the Altronic #. Throws when SAP couldn't be asked; null = SAP hasn't it.
+ */
+export function usePullSapPart() {
+  const qc = useQueryClient();
+  return (numbers: { altronicPartNumber: string; sapPartNumber: string }): Promise<SapPart | null> => {
+    const sap = numbers.sapPartNumber.trim();
+    const args = sap ? { altronicPartNumber: "", sapPartNumber: sap } : { altronicPartNumber: numbers.altronicPartNumber.trim(), sapPartNumber: "" };
+    return qc.fetchQuery<SapPart | null>({
+      queryKey: ["pricing-sap", "part", args.altronicPartNumber.toLowerCase(), args.sapPartNumber.toLowerCase()],
+      queryFn: () => lookupSapPart(args),
+      staleTime: 0,
+      retry,
+    });
+  };
+}
+
+/**
  * A material's cost at each plant, by SAP number, from the Fabric cost view —
  * the Calculator's lookup. Retries only a network blip or a server error: a
  * refused token or query fails the same way every time.

@@ -108,7 +108,8 @@ interface DepartmentItem {
    * preview switch AND a pricing role); `"without"` only to everyone else —
    * the old "Coming soon" row, so the review stays private.
    */
-  pricingAccess?: "with" | "without";
+  /** Shown only to someone with a Pricing role. */
+  pricingAccess?: "with";
   /**
    * MCNs: `"with"` shown only to someone who can open them (everyone once
    * live; the pilot team, approvers and admins until then); `"without"` —
@@ -536,7 +537,6 @@ const DEPARTMENTS: DepartmentGroup[] = [
         matchesPath: (p) => p.startsWith("/sales/pricing"),
         pricingAccess: "with",
       },
-      { ...soon("Pricing", <Calculator className="h-4 w-4" />), pricingAccess: "without" },
     ],
   },
 ];
@@ -963,7 +963,7 @@ function DepartmentsMenu({
                   )
                   .filter(
                     (item) =>
-                      !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
+                      !item.pricingAccess || canSeePricing,
                   )
                   .filter(
                     (item) =>

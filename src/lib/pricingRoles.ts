@@ -26,8 +26,6 @@ import { PRICING_ROLES, type PricingRequestStatus, type PricingRole } from "@/ty
 //   * **An ARC admin gets ONLY `canManageRoles`**, so a list nobody holds
 //     `admin` on is never locked from the inside. Being an ARC admin is not a
 //     reason to see cost.
-//   * **The PREVIEW list wins over everything** while the tool is in review:
-//     somebody not on it has no access whatever their role (see `previewAllows`).
 //
 // Hiding cost from a requester is NOT only UI here: cost lives on lists a
 // requester has no SharePoint permission to read. ARC's gating decides what
@@ -85,17 +83,6 @@ export function pricingRightsFrom(roles: readonly PricingRole[], opts: { isArcAd
     canAddToSap: admin,
     canManageRoles: admin || opts.isArcAdmin,
   };
-}
-
-/**
- * The review gate: while the tool is not live, only the preview list is let
- * in, whatever the roles list says. `live` true (or an empty list, which
- * would lock everybody out) lets the roles decide.
- */
-export function previewAllows(args: { live: boolean; previewEmails: readonly string[]; myEmails: readonly string[] }): boolean {
-  if (args.live || args.previewEmails.length === 0) return true;
-  const mine = new Set(args.myEmails.map((e) => e.trim().toLowerCase()));
-  return args.previewEmails.some((e) => mine.has(e.trim().toLowerCase()));
 }
 
 /** The signed-in user's rights, plus whether the roles list has answered. */

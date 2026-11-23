@@ -2,9 +2,9 @@ import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
 import { formatSapPartNumber, SAP_PART_NUMBER_DIGITS } from "./sapPartNumber";
 
 // =============================================================================
-// The Calculator's SAP cost lookup (Ray, 2026-10-15) — the pure half. Reads the
-// Fabric view `tbl_cogs_material_api` (GraphQL `tbl_cogs_material_apis`),
-// one row per material PER PLANT. The transport is `lookupSapMaterialCosts` in
+// The Calculator's SAP cost lookup (Ray, 2026-10-15) — the pure half. Reads
+// ARC's materials table `tbl_arc_material_list_price` (GraphQL
+// `tbl_arc_material_list_prices`, 2026-11-23), one row per material PER PLANT. The transport is `lookupSapMaterialCosts` in
 // api/pricingLookup.ts.
 //
 // Kept DELIBERATELY NARROW for speed (Ray: "only look for the SAP number and
@@ -90,6 +90,33 @@ export const SAP_PART_FIELDS = [
   "MaterialPriceGroup",
   "UnitCost",
 ] as const;
+
+// -----------------------------------------------------------------------------
+// ARC's materials table (Ray, 2026-11-23) — `tbl_arc_material_list_price`,
+// GraphQL `tbl_arc_material_list_prices`, built from rpt.vw_material_list_price
+// by scripts/arc-pricing-tables.sql. Same column names as the cost table PLUS
+// `ListPrice` (per unit, null for none or $0) and `FamilyPrefix` (the first six
+// characters of the Altronic #). EVERY material at every plant status: the
+// COGS cost view keeps only status 40/45/50, so a new part (status 12, like
+// 1027-0397-00) read as "not in SAP".
+// -----------------------------------------------------------------------------
+
+export interface SapMaterialRow extends SapPartRow {
+  ListPrice?: number | string | null;
+}
+
+export const SAP_MATERIAL_FIELDS = [...SAP_PART_FIELDS, "ListPrice"] as const;
+
+/** A positive number, else null — 0 or blank is "none", as for cost. */
+export function positiveOrNull(v: unknown): number | null {
+  const n = v == null || v === "" ? NaN : Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** One materials-table row as a part, its own list price included. */
+export function sapPartFromMaterialRow(row: SapMaterialRow): SapPart {
+  return toSapPart([row], positiveOrNull(row.ListPrice))!;
+}
 
 /**
  * One part from its rows (a row per plant). The FIRST plant, by plant number,

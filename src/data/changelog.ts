@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.229.0",
+    date: "2026-11-23",
+    changes: [
+      "Pricing is open: everyone on the Pricing Roles list can use it, and it is no longer shown as Coming soon",
+      "Pricing: a Tour on the Pricing bar walks you through requesting a price and what happens on the pricing side, on demo screens, with every email it sends",
+      "Pricing now reads all of its SAP figures live, comparable parts included, so nothing needs typing in while SAP has it",
+      "Parts SAP is still setting up (new parts not yet released) are found in SAP instead of reading as not in SAP",
+      "New Product Pricing: a button on each component and part pulls SAP's current cost into its base cost",
+      "Pricing: a new request needs only the customer's name — the sold-to number is optional, for a prospect or a new account",
+    ],
+  },
+  {
     version: "0.228.0",
     date: "2026-11-23",
     changes: [

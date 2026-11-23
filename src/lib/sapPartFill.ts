@@ -1,5 +1,6 @@
 import type { SapPart, SubAssemblyLine } from "@/types/pricing";
 import { sapMaterialLookupKey } from "./sapMaterialCost";
+import { formatUnitCost } from "./quoteMoney";
 
 // =============================================================================
 // Filling a part's boxes from SAP as somebody types (Ray, 2026-10-22) — the
@@ -119,4 +120,28 @@ export function samePart(
 ): boolean {
   const eq = (x?: string, y?: string) => !!x?.trim() && x.trim().toLowerCase() === (y ?? "").trim().toLowerCase();
   return eq(a.partNumber, b.partNumber) || eq(a.sapPartNumber, b.sapPartNumber);
+}
+
+/**
+ * Pull SAP's CURRENT cost into a line's base (Ray, 2026-11-23) — a manager
+ * re-costing one part on a worksheet. SAP's cost REPLACES the base, whatever
+ * the line came from (CSV, SAP, typed), and marks it SAP. A blank number is
+ * filled from SAP; a typed one, the description and the adjusted cost are
+ * never touched. Not in SAP, or no cost there: nothing changes, and says why.
+ */
+export function pullSapCost(
+  line: SubAssemblyLine,
+  part: SapPart | null,
+): { patch: Partial<SubAssemblyLine> | null; message: string } {
+  const label = line.sapPartNumber?.trim() || line.partNumber.trim() || "This part";
+  if (!part) return { patch: null, message: `${label} isn't in SAP — the base cost is unchanged.` };
+  if (part.cost === null) return { patch: null, message: `SAP holds no cost for ${label} — the base cost is unchanged.` };
+  const patch: Partial<SubAssemblyLine> = { uploadedCost: part.cost, source: "sap" };
+  if (!line.partNumber.trim() && part.altronicPartNumber) patch.partNumber = part.altronicPartNumber;
+  if (!line.sapPartNumber?.trim() && part.sapPartNumber) patch.sapPartNumber = part.sapPartNumber;
+  const was = line.uploadedCost;
+  const what =
+    was === part.cost ? `SAP's cost for ${label} is still ${formatUnitCost(part.cost)}` : `Base cost for ${label} is now SAP's ${formatUnitCost(part.cost)}${was === null ? "" : ` (was ${formatUnitCost(was)})`}`;
+  const note = line.adjustedCost !== null ? " Its adjusted cost still overrides it." : "";
+  return { patch, message: `${what}.${note}` };
 }

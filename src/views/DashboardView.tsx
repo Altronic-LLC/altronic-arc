@@ -1346,11 +1346,9 @@ export function DashboardView() {
           to={"/sales/application-photos"}
           onClick={() => navigate("/sales/application-photos")}
         />
-        {/* Sales Pricing — a real card for whoever has access; everybody else
-            still sees "Coming soon", so the review stays private. */}
+        {/* Pricing — only for someone on the Pricing Roles list (live 2026-11-23). */}
         <SalesPricingCard onOpen={() => navigate("/sales/pricing")} />
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
-        <SalesPricingPlaceholder />
       </DeptSection>
 
       <p className="text-center text-xs text-fg-muted">
@@ -1711,8 +1709,7 @@ function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
 }
 
 /**
- * Sales Pricing — shown ONLY to someone the preview switch and the Pricing
- * Roles list let in. The requests list is read only once the card renders.
+ * Pricing — shown ONLY to someone the Pricing Roles list lets in. The requests list is read only once the card renders.
  */
 function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
   const { rights } = useMyPricingAccess();
@@ -1785,13 +1782,6 @@ function PlantMapCard({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
     />
   );
-}
-
-/** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */
-function SalesPricingPlaceholder() {
-  const { rights } = useMyPricingAccess();
-  if (rights.canOpen) return null;
-  return <PlaceholderCard name="Pricing" icon={<Calculator className="h-5 w-5" />} />;
 }
 
 function PlaceholderCard({ name, icon }: { name: string; icon: React.ReactNode }) {
