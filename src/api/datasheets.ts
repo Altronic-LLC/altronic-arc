@@ -88,6 +88,37 @@ export function datasheetFileProblem(file: File): string | null {
   return null;
 }
 
+/** The datasheet picked can't be read any more — moved, renamed or changed. */
+export class DatasheetUnreadableError extends Error {
+  constructor(fileName: string) {
+    super(
+      `"${fileName}" couldn't be read. It may have been moved, renamed or changed since it was picked — pick it again.`,
+    );
+    this.name = "DatasheetUnreadableError";
+  }
+}
+
+/**
+ * The picked file's bytes, read NOW, as a File held in memory.
+ *
+ * A browser File is only a handle on the file on disk. If the file is renamed,
+ * moved or saved again after it was picked, reading it later fails
+ * (`NotReadableError`) with no request ever reaching SharePoint. The New Part
+ * form uploads only after the part is created, often minutes after the pick,
+ * so Femi Olugbon's datasheets were refused there every time and had to be
+ * uploaded again from the part's page (2026-11-23). Reading at pick time takes
+ * a later change on disk out of it, and an unreadable file is caught on the
+ * form, before any part exists.
+ */
+export async function readDatasheetFile(file: File): Promise<File> {
+  try {
+    const bytes = await file.arrayBuffer();
+    return new File([bytes], file.name, { type: file.type || "application/pdf", lastModified: file.lastModified });
+  } catch {
+    throw new DatasheetUnreadableError(file.name);
+  }
+}
+
 function mockDatasheet(partNumber: string, size: number): Datasheet {
   return { name: datasheetFileName(partNumber), webUrl: `${SITE_URL}/Shared%20Documents/${drivePath(partNumber)}`, size };
 }
@@ -133,7 +164,9 @@ export async function archiveDatasheet(partNumber: string, on: Date = new Date()
   const drive = `/sites/${SITES.engineering}/drive`;
   let fileId: string;
   try {
-    const item = await graphFetch<{ id: string; file?: unknown }>(`${drive}/root:/${drivePath(pn)}?$select=id,file`);
+    const item = await graphFetch<{ id: string; file?: unknown }>(`${drive}/root:/${drivePath(pn)}?$select=id,file`, {
+      expectedStatuses: [404],
+    });
     if (!item.file) return null;
     fileId = item.id;
   } catch (err) {
@@ -204,6 +237,8 @@ export async function findDatasheet(partNumber: string): Promise<Datasheet | nul
   try {
     const item = await graphFetch<{ name: string; webUrl: string; size?: number; file?: unknown }>(
       `/sites/${SITES.engineering}/drive/root:/${drivePath(partNumber)}?$select=name,webUrl,size,file`,
+      // 404 is the answer "no datasheet", not a fault — don't log it.
+      { expectedStatuses: [404] },
     );
     // A FOLDER with the part number's name isn't a datasheet.
     if (!item.file) return null;

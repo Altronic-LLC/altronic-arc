@@ -620,7 +620,7 @@ export function Header() {
               stay reachable by URL, but aren't advertised in the nav yet. */}
           {isAdmin && (
             <NavLink
-              to="/admin/admins"
+              to="/admin"
               active={isAdminPage}
               icon={<Shield className="h-4 w-4" />}
             >

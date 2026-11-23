@@ -98,8 +98,8 @@ export function AdminPartsRolesView() {
           </p>
         </div>
         <nav className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 sm:flex-col sm:items-end">
-          <Link to="/admin/admins" className="text-xs text-accent underline-offset-2 hover:underline">
-            Admins →
+          <Link to="/admin" className="text-xs text-accent underline-offset-2 hover:underline">
+            Admin →
           </Link>
           <Link to="/admin/eir-roles" className="text-xs text-accent underline-offset-2 hover:underline">
             EIR Roles →

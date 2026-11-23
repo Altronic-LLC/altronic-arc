@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowLeft, Plus, Shield, Trash2, UserPlus } from "lucide-react";
 import { useAddAdmin, useAdmins, useRemoveAdmin } from "@/hooks/useAdmins";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -16,7 +16,6 @@ import { useOverlayDismiss } from "@/components/useOverlayDismiss";
  * "not authorised" notice.
  */
 export function AdminAdminsView() {
-  const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const currentUser = useCurrentUser();
   const { data: admins = [], isLoading } = useAdmins();
@@ -37,12 +36,12 @@ export function AdminAdminsView() {
 
   return (
     <div className="mx-auto flex max-w-[1000px] flex-col gap-4 px-4 py-6 sm:gap-5 sm:px-6">
-      <button
-        onClick={() => navigate(-1)}
+      <Link
+        to="/admin"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
       >
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
+        <ArrowLeft className="h-4 w-4" /> Admin
+      </Link>
 
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
@@ -57,113 +56,6 @@ export function AdminAdminsView() {
             projects, the admin list, and any future admin-gated features.
           </p>
         </div>
-        <nav className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 sm:flex-col sm:items-end">
-          <Link
-            to="/admin/projects"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Engineering Project Log →
-          </Link>
-          <Link
-            to="/admin/notification-recipients"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Notification recipients →
-          </Link>
-          <Link
-            to="/admin/eir-roles"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            EIR Roles admin →
-          </Link>
-          <Link
-            to="/admin/parts-roles"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Parts Roles admin →
-          </Link>
-          <Link
-            to="/admin/maintenance-roles"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Maintenance Roles admin →
-          </Link>
-          <Link
-            to="/admin/operations-projects"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Operations Projects →
-          </Link>
-          <Link
-            to="/admin/panel-projects"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Panel Projects →
-          </Link>
-          <Link
-            to="/admin/panel-roles"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Panel User Roles →
-          </Link>
-          <Link
-            to="/admin/quick-links"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Quick Links →
-          </Link>
-          {/* Harness admin screens live inside the department (their routes
-              aren't /admin/*), but they're admin work, so they're listed here
-              too (Tim, 2026-10-27). */}
-          <Link
-            to="/harness/alert-recipients"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Harness — Who's notified →
-          </Link>
-          <Link
-            to="/harness/crimp-checks/specs"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Harness — Crimp Specs →
-          </Link>
-          <Link
-            to="/harness/pull-tests/specs"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Harness — Pull Test Specs →
-          </Link>
-          <Link
-            to="/operations/alert-recipients"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Operations — Who's notified →
-          </Link>
-          <Link
-            to="/operations/plant-map/roles"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Operations — Plant Map Roles →
-          </Link>
-          <Link
-            to="/quality/fixtures/roles"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Quality Control — Fixture Log Roles →
-          </Link>
-          <Link
-            to="/operations/coating-checks/specs"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Operations — Coating Specs →
-          </Link>
-          <Link
-            to="/harness/production-log/part-numbers"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Harness — Part Numbers →
-          </Link>
-        </nav>
       </header>
 
       {!USE_MOCK && !SP_ADMINS_LIST_ID && (

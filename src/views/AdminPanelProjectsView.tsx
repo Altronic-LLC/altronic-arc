@@ -78,8 +78,8 @@ export function AdminPanelProjectsView() {
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <Link to="/admin/admins" className="text-xs text-accent underline-offset-2 hover:underline">
-            Admins →
+          <Link to="/admin" className="text-xs text-accent underline-offset-2 hover:underline">
+            Admin →
           </Link>
           <Link to="/admin/panel-roles" className="text-xs text-accent underline-offset-2 hover:underline">
             Panel User Roles →

@@ -9,15 +9,11 @@ vi.mock("@/hooks/useIsAdmin", () => ({
 }));
 
 describe("AdminAdminsView", () => {
-  // The Harness admin screens live inside the department, not under /admin,
-  // so the Admin page links to them by hand (Tim, 2026-10-27).
-  it("links to the Harness admin screens", () => {
+  // The other admin screens are buttons on /admin now (Tim, 2026-11-19), not a
+  // list of links down the side of this page.
+  it("links back to the Admin page, and no longer lists every admin screen", () => {
     renderWithProviders(<AdminAdminsView />, { route: "/admin/admins" });
-    expect(screen.getByRole("link", { name: /Harness — Who's notified/ })).toHaveAttribute("href", "/harness/alert-recipients");
-    expect(screen.getByRole("link", { name: /Harness — Crimp Specs/ })).toHaveAttribute("href", "/harness/crimp-checks/specs");
-    expect(screen.getByRole("link", { name: /Harness — Part Numbers/ })).toHaveAttribute(
-      "href",
-      "/harness/production-log/part-numbers",
-    );
+    expect(screen.getByRole("link", { name: /^Admin$/ })).toHaveAttribute("href", "/admin");
+    expect(screen.queryByRole("link", { name: /Crimp Specs/ })).toBeNull();
   });
 });

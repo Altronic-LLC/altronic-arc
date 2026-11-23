@@ -191,7 +191,7 @@ export function AdminNotificationRecipientsView() {
     <div className="mx-auto flex max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6">
       <header className="flex flex-col gap-2">
         <Link
-          to="/admin/admins"
+          to="/admin"
           className="inline-flex w-fit items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

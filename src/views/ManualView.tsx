@@ -7999,7 +7999,10 @@ const SECTIONS: ManualSection[] = [
           A datasheet is optional. To add one with a new part, choose the PDF under{" "}
           <strong>Datasheet</strong> on the New Part form. It's saved as the part number (for example{" "}
           <code>604613.pdf</code>) once the part is added, whatever the file was
-          called, and a component's Has Data Sheet is set to Yes for you. A part
+          called, and a component's Has Data Sheet is set to Yes for you. The PDF
+          is read as soon as you choose it, so renaming or moving the file
+          afterwards doesn't stop the upload; if it can't be read, the form says
+          so and you choose it again. A part
           with no datasheet shows <strong>Upload datasheet</strong> on its page
           to anyone who can edit it or add parts to its list — the Add role
           included — for an existing part or if an upload didn't go through. Only PDFs are accepted, and ARC never
@@ -8556,15 +8559,19 @@ const SECTIONS: ManualSection[] = [
       "reorder quick links",
     ],
     searchText:
-      "Admins manage several things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), where a duplicate project can be deleted once nothing points at it any more, EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks, Panel Projects and Panel User Roles, and Quick Links (/admin/quick-links) — button links shown above each department's cards on the Dashboard, grouped by department, reordered with up/down arrows within their own department, and shown to everyone signed in even though only admins can manage them. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+      "The Admin link in the header opens the Admin page: a button for every screen ARC admins look after, grouped by department (ARC, Engineering, Panels, Operations, Harness, Quality Control, Supply Chain), with a search box. Admins manage several things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), where a duplicate project can be deleted once nothing points at it any more, EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks, Panel Projects and Panel User Roles, and Quick Links (/admin/quick-links) — button links shown above each department's cards on the Dashboard, grouped by department, reordered with up/down arrows within their own department, and shown to everyone signed in even though only admins can manage them. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
     render: () => (
       <>
         <P>
           The <strong>Admin</strong> link in the header only shows up for users
-          whose email is in the Admins list. Click it to land on the Admins
-          page, which has a table of everyone who has admin access. If a
-          non-admin opens an <code>/admin</code> URL directly, they're redirected
-          to the dashboard — the admin pages never render for them.
+          whose email is in the Admins list. Click it to land on the Admin
+          page: a button for every screen ARC admins look after, grouped by
+          department — ARC, Engineering, Panels, Operations, Harness, Quality
+          Control and Supply Chain — with a search box at the top.{" "}
+          <strong>Admins</strong> opens the table of everyone who has admin
+          access. If a non-admin opens an <code>/admin</code> URL directly,
+          they're redirected to the dashboard — the admin pages never render for
+          them.
         </P>
         <H3>Adding or removing admins</H3>
         <P>
@@ -8582,7 +8589,7 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Engineering Project Log admin</H3>
         <P>
-          The <strong>Engineering Project Log →</strong> link on the Admins page
+          The <strong>Engineering Project Log</strong> button on the Admin page
           (or navigate to <code>/admin/projects</code> directly) opens the
           Engineering Project Log — the master list of projects. Add new projects
           there and they immediately become available as Project Reference
