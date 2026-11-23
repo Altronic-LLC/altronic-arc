@@ -145,9 +145,11 @@ function FakeButton({ children, primary = false }: { children: React.ReactNode; 
 function FakeField({ label, value, required = false, hint, muted = false }: { label: string; value: string; required?: boolean; hint?: string; muted?: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
-        {label} {required && <span className="text-cooper-red">*</span>}
-      </span>
+      {label && (
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+          {label} {required && <span className="text-cooper-red">*</span>}
+        </span>
+      )}
       <span className={cn("rounded-md border border-border bg-surface px-2 py-1", muted ? "text-fg-muted italic" : "text-fg")}>{value || " "}</span>
       {hint && <span className="text-[10px] text-fg-muted">{hint}</span>}
     </div>
@@ -209,6 +211,255 @@ function StatusFlow({ current }: { current: PricingRequestStatus }) {
   );
 }
 
+// ----------------------------------------------------------------------------- the real screens, in miniature
+//
+// Each mirrors a REAL Pricing screen (checked against screenshots of the demo,
+// 2026-11-23): the same cards, labels, buttons and order. Change one with the
+// screen it copies.
+
+function Card({ title, children, tone }: { title: string; children: React.ReactNode; tone?: "green" | "blue" }) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border p-2.5",
+        tone === "green" && "border-cooper-green/30 border-l-4 border-l-cooper-green bg-cooper-green/5",
+        tone === "blue" && "border-superior-blue/30 border-l-4 border-l-superior-blue bg-superior-blue/5",
+        !tone && "border-border bg-surface",
+      )}
+    >
+      <div className="mb-1.5 font-display text-[11px] font-semibold uppercase tracking-wide text-fg">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Read({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[9px] font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
+      <span className="text-fg">{value || "—"}</span>
+    </div>
+  );
+}
+
+/** The Requests list: title, New request, status pills, search, the table. */
+function ListScreen({ press }: { press?: boolean }) {
+  const button = <FakeButton primary>+ New request</FakeButton>;
+  return (
+    <DemoScreen title="Pricing — Requests">
+      <div className={cn("flex items-start gap-2", press && "pt-4")}>
+        <div className="flex flex-col">
+          <span className="font-display text-sm font-semibold">Pricing</span>
+          <span className="text-[10px] text-fg-muted">Pricing requests for Contact Factory items — raised by Sales, priced by the pricing managers.</span>
+        </div>
+        <span className="ml-auto shrink-0">{press ? <Press>{button}</Press> : button}</span>
+      </div>
+      <div className="flex flex-wrap gap-1 text-[10px]">
+        {["Open 3", "Awaiting SAP 1", "Submitted 1", "In Review 1", "Priced 1", "Cancelled", "All 4"].map((p, i) => (
+          <span key={p} className={cn("rounded-md px-1.5 py-0.5", i === 0 ? "bg-surface font-semibold text-fg shadow-xs" : "text-fg-muted")}>
+            {p}
+          </span>
+        ))}
+      </div>
+      <span className="flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[10px] text-fg-muted">
+        <Search className="h-3 w-3" /> Request #, part, customer, requester…
+      </span>
+      <div className="overflow-hidden rounded-md border border-border">
+        <div className="grid grid-cols-[5.5rem_1fr_6rem_5.5rem] gap-2 bg-surface-2 px-2 py-1 text-[9px] font-semibold uppercase text-fg-muted">
+          <span>Request #</span>
+          <span>Description</span>
+          <span>Customer</span>
+          <span>Status</span>
+        </div>
+        {(
+          [
+            ["PR-2026-0041", "HARNESS, DEMO, 25 FT", "Demo Gas Co.", "In Review"],
+            ["PR-2026-0040", "DEMO SENSOR KIT", "—", "Awaiting SAP"],
+            ["PR-2026-0039", "DEMO DISPLAY MODULE", "Demo Compression Co.", "Submitted"],
+          ] as const
+        ).map(([n, d, c, s]) => (
+          <div key={n} className="grid grid-cols-[5.5rem_1fr_6rem_5.5rem] items-center gap-2 border-t border-border bg-surface px-2 py-1">
+            <span>{n}</span>
+            <span className="truncate">{d}</span>
+            <span className="truncate">{c}</span>
+            <PricingStatusChip status={s} />
+          </div>
+        ))}
+      </div>
+    </DemoScreen>
+  );
+}
+
+/** The New pricing request form, in its real order. */
+function FormScreen({ filled, pressSubmit }: { filled: "part" | "all"; pressSubmit?: boolean }) {
+  const all = filled === "all";
+  const submit = <FakeButton primary>Submit request</FakeButton>;
+  return (
+    <DemoScreen title="New pricing request">
+      <div className="grid grid-cols-2 gap-2">
+        <FakeField label="Altronic part #" value={DEMO.altronicPartNumber} />
+        <FakeField label="SAP part #" value={DEMO.sapPartNumber} />
+      </div>
+      <span className="-mt-1 text-[10px] text-fg-muted">Either number will do — ARC looks the other one up in SAP.</span>
+      <span className="flex items-center gap-1 text-[10px] text-cooper-green">
+        <Search className="h-3 w-3" /> Found in SAP: {DEMO.altronicPartNumber} · {DEMO.sapPartNumber}
+      </span>
+      <FakeField label="Description" value={DEMO.description} required hint="Replaced by SAP's description once ARC finds the part — yours is kept too." />
+      <FakeField label="Requested by" value={`Me (${REQUESTER.displayName})`} required />
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Customer</span>
+        <span className="text-[10px] text-fg-muted">Optional — leave it blank for a generic request.</span>
+        <div className="grid grid-cols-3 gap-2">
+          <FakeField label="" value={all ? DEMO.customerSoldTo : ""} />
+          <div className="col-span-2">
+            <FakeField label="" value={all ? DEMO.customerName : ""} />
+          </div>
+        </div>
+        <FakeField label="" value={all ? "Customer group — from SAP" : ""} muted />
+      </div>
+      <FakeField label="Notes" value={all ? "About 40 a year, first order in March." : ""} hint="Context for the pricing manager — volumes, timing, what the customer asked for." />
+      <div className={cn("flex items-center justify-end gap-3", pressSubmit && "pt-4")}>
+        <span className="text-fg-muted">Cancel</span>
+        {pressSubmit ? <Press label="Then press this">{submit}</Press> : submit}
+      </div>
+    </DemoScreen>
+  );
+}
+
+/** A request's page: header + buttons, Request card, Price card, Watchers on the right. */
+function RequestScreen({
+  status,
+  priced,
+  actions,
+  workbench,
+  below,
+}: {
+  status: PricingRequestStatus;
+  priced: boolean;
+  actions?: React.ReactNode;
+  workbench?: React.ReactNode;
+  below?: React.ReactNode;
+}) {
+  return (
+    <DemoScreen title={`${DEMO.requestNumber} — ${DEMO.altronicPartNumber}`}>
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-display text-sm font-semibold">{DEMO.requestNumber}</span>
+          <span className="flex items-center gap-1">
+            <PricingStatusChip status={status} />
+            <span className="font-mono text-[10px]">{DEMO.altronicPartNumber}</span>
+            <span className="text-[10px] text-fg-muted">{DEMO.description}</span>
+          </span>
+        </div>
+        <span className="ml-auto flex flex-wrap gap-1 pt-4">{actions}</span>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
+        <div className="flex flex-col gap-2">
+          <Card title="Request">
+            <div className="grid grid-cols-2 gap-1.5">
+              <Read label="Altronic part #" value={DEMO.altronicPartNumber} />
+              <Read label="SAP part #" value={DEMO.sapPartNumber} />
+              <Read label="Customer" value={`${DEMO.customerName} (${DEMO.customerSoldTo})`} />
+              <Read label="Requested by" value={REQUESTER.displayName} />
+            </div>
+          </Card>
+          <Card title="Price" tone="green">
+            {priced ? (
+              <div className="grid grid-cols-3 gap-1.5">
+                <Read label="List price" value={<strong>$3,450.00</strong>} />
+                <Read label={`Price for ${DEMO.customerName}`} value={<strong>$2,277.00</strong>} />
+                <Read label="Leave as Contact Factory" value="No" />
+              </div>
+            ) : (
+              <span className="text-fg-muted">Not priced yet — you'll be emailed when it is.</span>
+            )}
+          </Card>
+          {workbench}
+          {below}
+        </div>
+        <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-2">
+          <span className="text-[9px] font-semibold uppercase tracking-wider text-fg-muted">Watchers</span>
+          <span className="rounded-sm bg-surface-2 px-1 py-0.5">{REQUESTER.displayName}</span>
+          <span className="rounded-sm bg-surface-2 px-1 py-0.5">{WATCHER.displayName}</span>
+          <span className="text-[10px] text-fg-muted">+ Add / edit</span>
+          <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-fg-muted">Raised</span>
+          <span className="text-[10px]">{REQUESTER.displayName}</span>
+        </div>
+      </div>
+    </DemoScreen>
+  );
+}
+
+/** The manager's "Price this request" panel, as on the page. */
+function Workbench({ pressSet }: { pressSet?: boolean }) {
+  const set = <FakeButton primary>Set price</FakeButton>;
+  return (
+    <Card title="Price this request" tone="green">
+      <div className="grid grid-cols-4 gap-1.5">
+        <FakeField label="Material price group" value="QX" />
+        <FakeField label="Cost" value="$1,180" hint="SAP" />
+        <FakeField label="Distributor discount" value="34%" hint="SAP" />
+        <FakeField label="Customer discount" value="34%" hint="SAP" />
+      </div>
+      <div className="mt-1.5 grid grid-cols-[auto_1fr] items-end gap-2">
+        <div className="flex flex-col gap-0.5">
+          <span className="flex gap-1 text-[9px] font-semibold uppercase">
+            <span className="rounded-sm bg-bg px-1 shadow-xs">Target GM</span>
+            <span className="text-fg-muted">List price</span>
+          </span>
+          <span className="w-20 rounded-md border border-border bg-surface px-2 py-1">49 %</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[9px] font-semibold uppercase tracking-wider text-fg-muted">Leave as Contact Factory?</span>
+          <span className="flex gap-1">
+            <span className="rounded-md border border-border px-2 py-0.5 text-fg-muted">Yes</span>
+            <span className="rounded-md border border-cooper-red bg-cooper-red/10 px-2 py-0.5">No</span>
+          </span>
+        </div>
+      </div>
+      <div className="mt-1.5 grid grid-cols-4 gap-1.5 rounded-md border border-cooper-green/40 bg-cooper-green/10 p-1.5">
+        <Read label="List price" value={<strong>$3,450.00</strong>} />
+        <Read label="Base GM" value="48.2%" />
+        <Read label={`Price for ${DEMO.customerName}`} value={<strong>$2,277.00</strong>} />
+        <Read label="Customer GM" value="48.2%" />
+      </div>
+      <div className="mt-1.5">
+        <FakeField label="Why this price (saved with it)" value="In line with the family; 40 a year." />
+      </div>
+      <div className={cn("mt-1 flex justify-end", pressSet && "pt-4")}>{pressSet ? <Press label="Sends the price">{set}</Press> : set}</div>
+    </Card>
+  );
+}
+
+function Comparables() {
+  return (
+    <>
+      <Card title="Material price group QX" tone="blue">
+        <Row cells={["799999-16", "DEMO MODULE, 16 CYL", "base GM 48%"]} />
+        <span className="text-[10px] text-fg-muted">Average base GM 47.6% over 6 parts</span>
+      </Card>
+      <Card title="Family 799999…" tone="blue">
+        <Row cells={["799999-18", "DEMO MODULE, 18 CYL", "base GM 51%"]} />
+        <span className="text-[10px] text-fg-muted">Average base GM 49.5% over 2 parts</span>
+      </Card>
+    </>
+  );
+}
+
+function Discussion() {
+  return (
+    <Card title="Discussion">
+      <span className="rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-fg-muted">
+        Write a comment… (type @ to mention someone, drop or paste files to attach)
+      </span>
+      <p className="mt-1">
+        Standard 8-cylinder — <span className="rounded-sm bg-accent/15 px-1 text-accent">@{WATCHER.displayName}</span> can confirm the volumes.
+      </p>
+      <span className="text-[10px] text-fg-muted">Reply · by {REQUESTER.displayName}</span>
+    </Card>
+  );
+}
+
 // ----------------------------------------------------------------------------- the steps
 
 interface TourStep {
@@ -238,103 +489,61 @@ function useSteps(): Record<Track, TourStep[]> {
             <p className="text-fg-muted">Who can do what comes from the Pricing Roles list: Requester, Manager or Admin.</p>
           </>
         ),
-        screen: (
-          <DemoScreen title="Pricing — Requests">
-            <div className="flex items-center gap-2">
-              <span className="font-display text-sm font-semibold">Pricing requests</span>
-              <span className="ml-auto">
-                <FakeButton primary>+ New request</FakeButton>
-              </span>
-            </div>
-            <Row cells={["PR-2026-0041", "HARNESS, DEMO, 25 FT", <PricingStatusChip key="s" status="In Review" />]} />
-            <Row cells={["PR-2026-0040", "DEMO DISPLAY MODULE", <PricingStatusChip key="s" status="Priced" />]} />
-            <Row cells={["PR-2026-0039", "DEMO SENSOR KIT", <PricingStatusChip key="s" status="Awaiting SAP" />]} />
-          </DemoScreen>
-        ),
+        screen: <ListScreen />,
       },
       {
         title: "1. Press New request",
         body: (
-          <p>
-            On the Requests tab, press <strong>New request</strong>. The list opens on the requests still in progress;
-            the pills across the top filter by status, and every column sorts.
-          </p>
-        ),
-        screen: (
-          <DemoScreen title="Pricing — Requests">
-            <div className="flex items-center gap-2 pt-4">
-              <span className="font-display text-sm font-semibold">Pricing requests</span>
-              <span className="ml-auto">
-                <Press>
-                  <FakeButton primary>+ New request</FakeButton>
-                </Press>
-              </span>
-            </div>
-            <Row cells={["PR-2026-0041", "HARNESS, DEMO, 25 FT", <PricingStatusChip key="s" status="In Review" />]} />
-          </DemoScreen>
-        ),
-      },
-      {
-        title: "2. Enter the part — ARC finds it in SAP",
-        body: (
           <>
             <p>
-              Type the <strong>Altronic part #</strong> or the <strong>SAP part #</strong>, whichever you know. ARC looks it
-              up in SAP as you type and fills in the other number and the description.
-            </p>
-            <p className="text-fg-muted">Don't know either? Type a description — the managers will sort it out.</p>
-          </>
-        ),
-        screen: (
-          <DemoScreen title="New pricing request">
-            <div className="grid grid-cols-2 gap-2">
-              <FakeField label="Altronic part #" value={DEMO.altronicPartNumber} />
-              <FakeField label="SAP part #" value={DEMO.sapPartNumber} hint="Filled in from SAP" />
-            </div>
-            <FakeField label="Description" value={DEMO.description} required hint="Filled in from SAP — yours is kept too" />
-            <span className="flex items-center gap-1 text-[11px] text-cooper-green">
-              <Search className="h-3 w-3" /> Found in SAP: {DEMO.altronicPartNumber} · {DEMO.sapPartNumber}
-            </span>
-          </DemoScreen>
-        ),
-      },
-      {
-        title: "3. Who it's for, and the customer",
-        body: (
-          <>
-            <p>
-              <strong>Requested by</strong> is you, unless you're raising it for someone else. Then find the{" "}
-              <strong>customer</strong>: type their sold-to number or name and pick them from SAP — their customer group
-              fills in, which is what decides their discount.
+              The <strong>Requests</strong> tab lists every request. It opens on the <strong>Open</strong> ones; the pills
+              filter by status, the search box finds a request by number, part, customer or requester, and every column
+              sorts.
             </p>
             <p>
-              Only the <strong>customer name</strong> is required. Leave the sold-to number blank for a prospect or a new
-              account. Add any <strong>notes</strong> the manager should know — volumes, timing, what the customer asked
-              for.
+              Press <strong>New request</strong>.
             </p>
           </>
         ),
-        screen: (
-          <DemoScreen title="New pricing request">
-            <FakeField label="Requested by" value={`Me (${REQUESTER.displayName})`} required />
-            <div className="grid grid-cols-3 gap-2">
-              <FakeField label="Sold-to #" value={DEMO.customerSoldTo} hint="Optional" />
-              <div className="col-span-2">
-                <FakeField label="Customer name" value={DEMO.customerName} required />
-              </div>
-            </div>
-            <FakeField label="Customer group" value="From SAP" muted />
-            <FakeField label="Notes" value="About 40 a year, first order in March." />
-            <div className="flex justify-end pt-4">
-              <Press label="Then press Submit">
-                <FakeButton primary>Submit</FakeButton>
-              </Press>
-            </div>
-          </DemoScreen>
-        ),
+        screen: <ListScreen press />,
       },
       {
-        title: "4. Submit — where it goes next",
+        title: "2. The part — ARC finds it in SAP",
+        body: (
+          <>
+            <p>
+              Type the <strong>Altronic part #</strong> or the <strong>SAP part #</strong> — whichever you know. ARC looks
+              it up in SAP as you type and fills in the other number and the description.
+            </p>
+            <p>
+              <strong>Description</strong> is required. If ARC finds the part, SAP's description replaces yours, and yours
+              is kept as "As requested".
+            </p>
+          </>
+        ),
+        screen: <FormScreen filled="part" />,
+      },
+      {
+        title: "3. Who it's for, the customer and notes",
+        body: (
+          <>
+            <p>
+              <strong>Requested by</strong> is you, unless you're raising it for someone else.
+            </p>
+            <p>
+              The <strong>customer is optional</strong>. For a customer, type their sold-to number or name and pick them from
+              SAP — their customer group fills in. For a <strong>generic</strong> list price, leave it blank.
+            </p>
+            <p>
+              Add <strong>notes</strong> for the pricing manager — volumes, timing, what the customer asked for. Then press{" "}
+              <strong>Submit request</strong>.
+            </p>
+          </>
+        ),
+        screen: <FormScreen filled="all" pressSubmit />,
+      },
+      {
+        title: "4. Submitted — the emails",
         body: (
           <>
             <p>When you submit, ARC checks the part in SAP once more:</p>
@@ -344,11 +553,10 @@ function useSteps(): Record<Track, TourStep[]> {
                 you get a receipt.
               </li>
               <li>
-                <strong>Not in SAP yet</strong> — it is <strong>Awaiting SAP</strong>, and the pricing admins are asked to
-                set the part up first. You're told that too.
+                <strong>Not in SAP yet</strong> — it is <strong>Awaiting SAP</strong> (next step).
               </li>
             </ul>
-            <p className="text-fg-muted">Here are the emails, exactly as ARC sends them.</p>
+            <p className="text-fg-muted">These are the emails exactly as ARC sends them.</p>
           </>
         ),
         screen: (
@@ -364,56 +572,54 @@ function useSteps(): Record<Track, TourStep[]> {
         body: (
           <>
             <p>
-              A part SAP doesn't hold yet waits at <strong>Awaiting SAP</strong>. A pricing admin sets it up in SAP and
-              presses <strong>Added to SAP</strong> on your request — it moves to Submitted, the managers are told it's
-              ready to price, and so are you.
+              The request waits at <strong>Awaiting SAP</strong>, and the pricing admins are emailed to set the part up.
+              You get a receipt saying so.
+            </p>
+            <p>
+              When it's set up, an admin presses <strong>Added to SAP</strong> on the request. It moves to Submitted, the
+              managers are told it's ready to price, and so are you.
             </p>
           </>
         ),
         screen: (
           <div className="flex flex-col gap-2">
-            <StatusFlow current="Awaiting SAP" />
+            <RequestScreen
+              status="Awaiting SAP"
+              priced={false}
+              actions={
+                <>
+                  <Press label="Pricing admin">
+                    <FakeButton primary>Added to SAP</FakeButton>
+                  </Press>
+                  <FakeButton>Cancel request</FakeButton>
+                </>
+              }
+            />
             <EmailPreview email={m.toAdmins} to="The pricing admins" />
             <EmailPreview email={m.inSapNow} to={`${REQUESTER.displayName} (you), once it's added`} />
           </div>
         ),
       },
       {
-        title: "5. Follow it, talk about it",
+        title: "5. Your request's page",
         body: (
           <>
             <p>
-              Open your request any time to see where it is. The first time a manager opens it, it moves to{" "}
-              <strong>In Review</strong>.
+              Open it from the list any time. The <strong>Request</strong> card shows what you asked for; the{" "}
+              <strong>Price</strong> card says "Not priced yet" until it is. The first time a manager opens it, it moves to{" "}
+              <strong>In Review</strong> — no email for that.
             </p>
             <p>
-              Use the <strong>comments</strong> to answer questions — type <strong>@</strong> and a name to bring someone
-              in; they're emailed and start watching. Anyone <strong>watching</strong> hears about comments and the
-              price. Attach drawings or the customer's email under Attachments.
+              <strong>Watchers</strong> (right) hear about comments and the price — you're one already. Use the{" "}
+              <strong>Discussion</strong> to answer questions: type <strong>@</strong> and a name to bring someone in; they're
+              emailed and start watching. Files go under Attachments.
             </p>
-            <p className="text-fg-muted">Changed your mind? Cancel it with a reason, any time before it's priced.</p>
+            <p className="text-fg-muted">
+              Changed your mind? <strong>Cancel request</strong>, with a reason, any time before it's priced.
+            </p>
           </>
         ),
-        screen: (
-          <DemoScreen title={`${DEMO.requestNumber} — ${DEMO.altronicPartNumber}`}>
-            <StatusFlow current="In Review" />
-            <div className="rounded-md border border-border bg-surface p-2">
-              <span className="text-[10px] font-semibold uppercase text-fg-muted">Comments</span>
-              <p className="mt-1">
-                <strong>{MANAGER.displayName}</strong>: Is this the standard 8-cylinder, or the extended-temp version?
-              </p>
-              <p className="mt-1">
-                <strong>{REQUESTER.displayName}</strong>: Standard. <span className="rounded-sm bg-accent/15 px-1 text-accent">@{WATCHER.displayName}</span> can
-                confirm the volumes.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <FakeButton>Watch</FakeButton>
-              <FakeButton>Attachments</FakeButton>
-              <FakeButton>Cancel request</FakeButton>
-            </div>
-          </DemoScreen>
-        ),
+        screen: <RequestScreen status="In Review" priced={false} actions={<FakeButton>Cancel request</FakeButton>} below={<Discussion />} />,
       },
       {
         title: "6. Priced — the answer comes to you",
@@ -421,30 +627,27 @@ function useSteps(): Record<Track, TourStep[]> {
           <>
             <p>
               When the manager sets the price, the request is <strong>Priced</strong> and you and everyone watching are
-              emailed the <strong>final price</strong> — the list price, the price for your customer, and whether the
-              part stays <strong>Contact Factory</strong>.
+              emailed. The <strong>Price</strong> card shows the list price, the price for your customer (when there is
+              one), and whether the part stays <strong>Contact Factory</strong>.
             </p>
             <p>
-              You see the final price only, never cost or margin. Download a <strong>Customer PDF</strong> from the
-              request to send the customer.
+              <strong>Customer PDF</strong> appears at the top once it's priced — any role can download it to send the
+              customer. You see the final price only, never cost or margin.
             </p>
           </>
         ),
         screen: (
           <div className="flex flex-col gap-2">
-            <StatusFlow current="Priced" />
-            <EmailPreview email={m.pricedToRequester} to={`${REQUESTER.displayName} (you) and everyone watching`} />
-            <DemoScreen title={`${DEMO.requestNumber} — Final price`}>
-              <div className="grid grid-cols-2 gap-2">
-                <FakeField label="List price" value="$3,450.00" />
-                <FakeField label={`Price for ${DEMO.customerName}`} value="$2,277.00" />
-              </div>
-              <div className="flex justify-end">
-                <Press label="For the customer">
+            <RequestScreen
+              status="Priced"
+              priced
+              actions={
+                <Press label="Once priced">
                   <FakeButton>Customer PDF</FakeButton>
                 </Press>
-              </div>
-            </DemoScreen>
+              }
+            />
+            <EmailPreview email={m.pricedToRequester} to={`${REQUESTER.displayName} (you) and everyone watching`} />
           </div>
         ),
       },
@@ -456,12 +659,12 @@ function useSteps(): Record<Track, TourStep[]> {
         body: (
           <>
             <p>
-              This is a preview of what the <strong>pricing managers</strong> do with your request. Managers and admins
-              see cost and margin; requesters never do.
+              A preview of what the <strong>pricing managers</strong> do with a request. Managers and admins see cost and
+              margin; requesters never do.
             </p>
             <p>
-              A new request lands in their inbox and on the Requests list as <strong>Submitted</strong>. Opening it moves it
-              to <strong>In Review</strong> — so you can see someone's on it. No email goes out for that.
+              A new request reaches them by email and shows on the Requests list as <strong>Submitted</strong>. Opening it
+              moves it to <strong>In Review</strong>, so the requester can see someone's on it.
             </p>
           </>
         ),
@@ -473,86 +676,94 @@ function useSteps(): Record<Track, TourStep[]> {
         ),
       },
       {
-        title: "1. Cost and the market, from SAP",
+        title: "1. Price this request",
         body: (
           <>
             <p>
-              The manager's <strong>Price this request</strong> panel shows SAP's current <strong>cost</strong> and the{" "}
-              <strong>distributor discount</strong> for the part's material price group.
+              Below the Price card, managers get <strong>Price this request</strong>. SAP fills in the{" "}
+              <strong>material price group</strong>, the <strong>cost</strong>, the <strong>distributor discount</strong>{" "}
+              and the <strong>customer discount</strong>; each can be typed over, and each says where it came from.
             </p>
             <p>
-              Beside it are <strong>comparables</strong>: other parts in the same material price group and the same
-              six-digit family, each with its list price, cost and margin, and the average — so a new price sits sensibly
-              among the parts customers already buy.
+              The manager types a <strong>Target GM</strong> or switches to <strong>List price</strong>, answers{" "}
+              <strong>Leave as Contact Factory?</strong>, and the green box shows the list price, base GM, the customer's
+              price and the customer GM.
             </p>
           </>
         ),
+        screen: <RequestScreen status="In Review" priced={false} actions={<FakeButton>Cancel request</FakeButton>} workbench={<Workbench />} />,
+      },
+      {
+        title: "2. Comparables",
+        body: (
+          <>
+            <p>
+              Under the panel are two blue <strong>comparables</strong> panels: the parts in the same{" "}
+              <strong>material price group</strong>, and the parts in the same six-digit <strong>family</strong>, each with
+              its list price, cost and base GM, and the average.
+            </p>
+            <p className="text-fg-muted">They're there so a new price sits sensibly among the parts customers already buy.</p>
+          </>
+        ),
         screen: (
-          <DemoScreen title={`${DEMO.requestNumber} — Price this request`}>
-            <div className="grid grid-cols-3 gap-2">
-              <FakeField label="Cost (SAP)" value="$1,180.00" />
-              <FakeField label="Price group" value="QX" />
-              <FakeField label="Distributor discount" value="34%" />
-            </div>
-            <div className="rounded-md border border-superior-blue/40 bg-superior-blue/5 p-2">
-              <span className="text-[10px] font-semibold uppercase text-fg-muted">Comparables — same family</span>
-              <Row cells={["799999-16", "DEMO MODULE, 16 CYL", "base GM 48%"]} />
-              <Row cells={["799999-18", "DEMO MODULE, 18 CYL", "base GM 51%"]} />
-              <span className="text-[10px] text-fg-muted">Average base GM 49.5% over 2 parts</span>
-            </div>
+          <DemoScreen title={`${DEMO.requestNumber} — comparables`}>
+            <Comparables />
           </DemoScreen>
         ),
       },
       {
-        title: "2. Set the price",
+        title: "3. Set price",
         body: (
           <>
             <p>
-              The manager types a <strong>target margin</strong> or a <strong>list price</strong>. ARC works out the rest:
-              the list price, the margin it earns, and the price for <em>this</em> customer after their own discount.
+              The manager writes <strong>why this price</strong> — it's saved with it — and presses{" "}
+              <strong>Set price</strong>.
             </p>
             <p>
-              They also answer <strong>Leave as Contact Factory?</strong> — Yes or No — which you'll see with the price.
-            </p>
-          </>
-        ),
-        screen: (
-          <DemoScreen title={`${DEMO.requestNumber} — Price this request`}>
-            <div className="grid grid-cols-3 gap-2">
-              <FakeField label="Target GM" value="49%" />
-              <FakeField label="List price" value="$3,450.00" />
-              <FakeField label="Customer price" value="$2,277.00" />
-            </div>
-            <FakeField label="Leave as Contact Factory?" value="No" required />
-            <div className="flex justify-end pt-4">
-              <Press label="Sends the price">
-                <FakeButton primary>Set price</FakeButton>
-              </Press>
-            </div>
-          </DemoScreen>
-        ),
-      },
-      {
-        title: "3. Set price — what happens",
-        body: (
-          <>
-            <p>
-              <strong>Set price</strong> saves how the price was reached to the <strong>price history</strong> first (only
-              managers and admins can read it), then puts the final price on the request and marks it{" "}
-              <strong>Priced</strong>.
-            </p>
-            <p>The requester and everyone watching are emailed. The manager who priced it isn't.</p>
-            <p className="text-fg-muted">
-              A manager can <strong>reopen</strong> a priced request to change it; the earlier price stays in the history,
-              and the new one goes out as <em>Re-priced</em>.
+              ARC saves the working to the <strong>Price history</strong> first (managers and admins only), then puts the
+              final price on the request and marks it <strong>Priced</strong>. The requester and every watcher are emailed —
+              not the manager who priced it.
             </p>
           </>
         ),
         screen: (
           <div className="flex flex-col gap-2">
-            <StatusFlow current="Priced" />
+            <Workbench pressSet />
             <EmailPreview email={m.pricedToWatcher} to={`${REQUESTER.displayName}, ${WATCHER.displayName} and other watchers`} />
           </div>
+        ),
+      },
+      {
+        title: "4. Re-pricing",
+        body: (
+          <>
+            <p>
+              A priced request shows <strong>Reopen to re-price</strong>. Reopening puts it back In Review; the earlier price
+              stays in the <strong>Price history</strong>, and the new one goes out as <em>Re-priced</em>.
+            </p>
+          </>
+        ),
+        screen: (
+          <RequestScreen
+            status="Priced"
+            priced
+            actions={
+              <>
+                <FakeButton>Customer PDF</FakeButton>
+                <Press label="Managers">
+                  <FakeButton>Reopen to re-price</FakeButton>
+                </Press>
+              </>
+            }
+            below={
+              <Card title="Price history">
+                <span>
+                  <strong>$3,450.00 list</strong> · {MANAGER.displayName}
+                </span>
+                <span className="block text-[10px] text-fg-muted">Cost, discounts and GM as priced, and why.</span>
+              </Card>
+            }
+          />
         ),
       },
       {
@@ -613,11 +824,12 @@ function useSteps(): Record<Track, TourStep[]> {
           <>
             <p>
               <strong>Calculator</strong> — a quick customer price from a cost and a margin, with SAP's cost for any SAP part
-              number. Nothing is saved. Every pricing role has it.
+              number. Nothing is saved.
             </p>
             <p>
               <strong>New Products</strong> — managers price a product not in SAP yet from its sub-assemblies and parts.{" "}
-              <strong>Customer Quotes</strong> — managers build a quote with a customer PDF.
+              <strong>Customer Quotes</strong> — managers build a quote with a customer PDF. <strong>Roles</strong> — admins
+              manage who has which role.
             </p>
             <p className="text-fg-muted">Press Tour on the Pricing bar to see this again.</p>
           </>
@@ -625,17 +837,18 @@ function useSteps(): Record<Track, TourStep[]> {
         screen: (
           <DemoScreen title="Pricing bar">
             <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-surface p-1 pt-5">
-              <span className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white">Requests</span>
-              <span className="px-3 py-1 text-xs font-semibold text-fg-muted">New Products</span>
-              <span className="px-3 py-1 text-xs font-semibold text-fg-muted">Customer Quotes</span>
+              <span className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-white">Requests</span>
+              <span className="px-2 py-1 text-xs font-semibold text-fg-muted">New Products</span>
+              <span className="px-2 py-1 text-xs font-semibold text-fg-muted">Customer Quotes</span>
+              <span className="px-2 py-1 text-xs font-semibold text-fg-muted">Roles</span>
               <span className="ml-auto flex gap-1">
-                <FakeButton>
+                <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-fg-muted">
                   <GraduationCap className="h-3.5 w-3.5" /> Tour
-                </FakeButton>
+                </span>
                 <Press label="Quick price">
-                  <FakeButton>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-fg-muted">
                     <Calculator className="h-3.5 w-3.5" /> Calculator
-                  </FakeButton>
+                  </span>
                 </Press>
               </span>
             </div>

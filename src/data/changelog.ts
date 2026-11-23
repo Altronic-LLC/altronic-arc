@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.229.1",
+    date: "2026-11-23",
+    changes: [
+      "Pricing: the Tour's demo screens now match the real Requests list, form and request page, step by step",
+      "Pricing: the customer is optional on a new request, for a generic price request; a customer PDF of one prints with no customer",
+    ],
+  },
+  {
     version: "0.229.0",
     date: "2026-11-23",
     changes: [

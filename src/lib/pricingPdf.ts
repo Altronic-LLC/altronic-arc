@@ -188,17 +188,18 @@ export function renderPricingPdf(doc: jsPDF, autoTable: AutoTableFn, model: Pric
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(115, 115, 115);
-  doc.text("PREPARED FOR", MARGIN, y);
-  if (model.preparedBy) doc.text("PREPARED BY", col2, y);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
   const forLines = [
     model.customer.name,
     model.customer.soldTo && `Account ${model.customer.soldTo}`,
     model.customer.contactName,
     model.customer.contactEmail,
   ].filter(Boolean) as string[];
+  // A generic request has no customer (Ray, 2026-11-23): no empty heading.
+  if (forLines.length > 0) doc.text("PREPARED FOR", MARGIN, y);
+  if (model.preparedBy) doc.text("PREPARED BY", col2, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
   forLines.forEach((t, i) => doc.text(t, MARGIN, y + 14 + i * 13));
   if (model.preparedBy) {
     [model.preparedBy.name, model.preparedBy.email].filter(Boolean).forEach((t, i) => doc.text(t, col2, y + 14 + i * 13));

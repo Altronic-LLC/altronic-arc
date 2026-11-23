@@ -5432,8 +5432,9 @@ Visit Reports — so the Dashboard reads no pricing list at all.
 Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
 ```
 
-- **Only the customer NAME is required** (Ray, 2026-11-23) — the sold-to
-  number and group are optional, for a prospect or a new account.
+- **The customer is OPTIONAL** (Ray, 2026-11-23) — a generic request has none.
+  Everything downstream falls back to "the customer", the customer discount
+  to the standard 34%, and the customer PDF leaves out PREPARED FOR.
 - **Either part number will do** (Ray, 2026-10-13). The form looks the OTHER
   one up in SAP when either box is left, filling only BLANK boxes; somebody
   who only knows the SAP number gets the Altronic (old) number pulled in.
@@ -5471,7 +5472,10 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
   PDF** of a PRICED request.
 - **The Tour** (`components/PricingTour.tsx`, Ray, 2026-11-23) — a button on
   the Pricing bar opening a two-track walkthrough (Requesting a price / Pricing
-  a request) of explanation beside DEMO screens, invented data only. **Its
+  a request) of explanation beside DEMO screens, invented data only. **Each
+  demo screen mirrors a REAL screen** (list, form, request page, Price this
+  request, comparables) — change one with the screen it copies, and check it
+  against a screenshot. **Its
   email previews are built by the real `lib/pricingAlerts.ts` builders** fed
   demo data, so a change to the emails' wording or recipients reaches the tour
   with no edit; the "Every email" table beside them is hand-written — change
