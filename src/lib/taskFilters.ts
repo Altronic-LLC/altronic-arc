@@ -48,6 +48,12 @@ export function applyFilters(
       if (ppid == null || !filters.projectIds.includes(ppid)) return false;
     }
 
+    if (filters.categories.length > 0) {
+      // A task with no category matches no selection — "Drawing" means
+      // tasks someone filed as drawings, not ones nobody filed at all.
+      if (t.category == null || !filters.categories.includes(t.category)) return false;
+    }
+
     if (filters.assignedEmails.length > 0) {
       // Both sides through personKey. The filter value can arrive from the URL
       // or from the signed-in user (whose email MSAL returns proper-cased,

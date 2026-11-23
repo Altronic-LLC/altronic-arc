@@ -6,7 +6,7 @@ import { useTasks } from "@/hooks/useTasks";
 import { useFilters } from "@/hooks/useFilters";
 import { OperationsStatusPills } from "@/components/OperationsStatusPills";
 import { TaskStagePills } from "@/components/TaskStagePills";
-import { EMPTY_FILTERS, FilterBar } from "@/components/FilterBar";
+import { EMPTY_FILTERS, FilterBar, OPERATIONS_TASK_TYPE_FILTER } from "@/components/FilterBar";
 import {
   CombinedTaskResults,
   departmentField,
@@ -139,6 +139,7 @@ export function OperationsListView() {
         // The two lists use different project lists, so Project can't be
         // right for both halves — Department takes its place.
         replaceProjectWith={allScope ? departmentField(department, setDepartment) : undefined}
+        category={allScope ? undefined : OPERATIONS_TASK_TYPE_FILTER}
       />
 
       {allScope && engQuery.error && (

@@ -39,6 +39,7 @@ const NO_FILTERS: Filters = {
   assignedEmails: [],
   createdByEmail: null,
   watchedByEmail: null,
+  categories: [],
 };
 
 describe("collectOperationsPeople", () => {
@@ -227,5 +228,23 @@ describe("applyOperationsFilters — watching", () => {
   it("filters nothing when unset", () => {
     const tasks = [task({ id: 1, watchers: [ALICE] }), task({ id: 2, watchers: [] })];
     expect(applyOperationsFilters(tasks, null, NO_FILTERS)).toHaveLength(2);
+  });
+});
+
+describe("applyOperationsFilters — Task Type (BusinessIT#76)", () => {
+  const programming = task({ id: 1, taskType: "Programming" });
+  const fixtures = task({ id: 2, taskType: "Fixtures" });
+  const none = task({ id: 3, taskType: null });
+
+  it("keeps only tasks of the chosen Task Types", () => {
+    const out = applyOperationsFilters([programming, fixtures, none], null, {
+      ...NO_FILTERS,
+      categories: ["Fixtures", "Programming"],
+    });
+    expect(out.map((t) => t.id)).toEqual([1, 2]);
+  });
+
+  it("filters nothing when none is chosen", () => {
+    expect(applyOperationsFilters([programming, fixtures, none], null, NO_FILTERS)).toHaveLength(3);
   });
 });

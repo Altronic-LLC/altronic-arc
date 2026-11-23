@@ -47,6 +47,11 @@ export function applyOperationsFilters(
       if (ppid == null || !filters.projectIds.includes(ppid)) return false;
     }
 
+    if (filters.categories.length > 0) {
+      // Operations' category is its Task Type — see taskFilters.ts.
+      if (t.taskType == null || !filters.categories.includes(t.taskType)) return false;
+    }
+
     if (filters.assignedEmails.length > 0) {
       // Case-insensitive both sides — see the note in taskFilters.ts.
       const wanted = filters.assignedEmails.map((e) => e.toLowerCase());

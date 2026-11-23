@@ -148,7 +148,13 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
     task?.relatedProjects.map((r) => r.lookupId) ?? [],
   );
   const [assigned, setAssignedState] = useState<Person[]>(task?.assigned ?? []);
-  const [watchers, setWatchersState] = useState<Person[]>(task?.watchers ?? []);
+  // A child task starts with its parent's watchers (Altronic-LLC/BusinessIT#78,
+  // Alexander Masgras): whoever follows the parent almost always wants the
+  // child too. Only a starting point — the creator can add or remove anyone
+  // before pressing Create, and is added themselves on create as usual.
+  const [watchers, setWatchersState] = useState<Person[]>(
+    task?.watchers ?? (lockToParent ? fromParentTask!.watchers : []),
+  );
   const [softwareRevision, setSoftwareRevision] = useState<string>(
     task?.softwareRevision ?? "",
   );
@@ -206,7 +212,10 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
   const me = useCurrentUser();
   const allPeople: Person[] = useMemo(() => {
     const seen = new Map<string, Person>();
-    for (const t of allTasks) {
+    // The parent's watchers first: a child task starts with them selected, and
+    // a selected person missing from the options would be dropped by the next
+    // change in the picker — say, when the task list is still a partial one.
+    for (const t of fromParentTask ? [fromParentTask, ...allTasks] : allTasks) {
       for (const p of [...t.assigned, ...t.watchers]) {
         const key = (p.email ?? p.displayName).toLowerCase();
         if (!seen.has(key)) seen.set(key, p);
@@ -216,7 +225,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
     // somebody the Assigned picker can't show — before the directory loads,
     // or for a new starter on no task yet.
     return mergePeople([...seen.values()], directory, me.email ? [me] : []);
-  }, [allTasks, directory, me]);
+  }, [allTasks, directory, me, fromParentTask]);
 
   // "Add myself as an assignee" (BusinessIT#14) is a VIEW of the Assigned
   // list, not a second piece of state: ticked whenever you're in it, however
@@ -775,6 +784,11 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 onChange={setWatchersState}
                 allLabel="No watchers"
               />
+              {lockToParent && fromParentTask!.watchers.length > 0 && (
+                <span className="mt-1 block text-xs text-fg-muted">
+                  Copied from the parent task — add or remove anyone before creating.
+                </span>
+              )}
             </FieldLabel>
 
             <FieldLabel label="Software Revision">

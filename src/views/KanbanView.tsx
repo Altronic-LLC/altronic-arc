@@ -19,7 +19,7 @@ import { TaskListPreviewNotice } from "@/components/TaskListPreviewNotice";
 import { filterSearch, useFilters } from "@/hooks/useFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { STATUSES, type Status, type Task } from "@/types/task";
-import { FilterBar } from "@/components/FilterBar";
+import { FilterBar, TASK_CATEGORY_FILTER } from "@/components/FilterBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { KanbanCard } from "@/components/KanbanCard";
 import { TaskFormModal } from "@/components/TaskFormModal";
@@ -193,7 +193,13 @@ export function KanbanView() {
         </button>
       </div>
 
-      <FilterBar filters={filters} onChange={setFilters} projects={projects} people={people} />
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        projects={projects}
+        people={people}
+        category={TASK_CATEGORY_FILTER}
+      />
 
       {preview && <TaskListPreviewNotice shown={tasks.length} board />}
 

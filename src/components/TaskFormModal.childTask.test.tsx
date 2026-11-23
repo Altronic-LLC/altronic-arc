@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_TASKS } from "@/data/mockData";
@@ -122,6 +122,55 @@ describe("TaskFormModal — fromParentTask (New child task)", () => {
     // locked fields above.
     const statusLabel = screen.getByText("Status").closest("label")!;
     expect(statusLabel.querySelector('[aria-haspopup="listbox"]')).not.toBeNull();
+  });
+
+  // Altronic-LLC/BusinessIT#78 (Alexander Masgras): a child task starts with
+  // its parent's watchers. Invented people — the repo is public.
+  const PAT = { displayName: "Pat Example", email: "pat.example@altronic-llc.com", lookupId: 901 };
+  const SAM = { displayName: "Sam Sample", email: "sam.sample@altronic-llc.com", lookupId: 902 };
+  const watchedParent = { ...parent, watchers: [PAT, SAM] };
+
+  it("starts with the parent's watchers and creates the task with them", async () => {
+    renderWithProviders(
+      <TaskFormModal mode="create" fromParentTask={watchedParent} onClose={vi.fn()} />,
+    );
+    const watchersLabel = screen.getByText("Watchers").closest("label")!;
+    // The picker summarises a selection as "First name +N".
+    expect(watchersLabel).toHaveTextContent("Pat Example +1");
+    expect(watchersLabel).toHaveTextContent(/Copied from the parent task/);
+
+    await userEvent.type(screen.getByPlaceholderText(/short, action-oriented/i), "Do the sub-work");
+    await userEvent.click(screen.getByRole("button", { name: /create task/i }));
+
+    await waitFor(() => expect(createTask).toHaveBeenCalledTimes(1));
+    const createArgs = createTask.mock.calls[0][0] as { watchers: { email?: string }[] };
+    expect(createArgs.watchers.map((p) => p.email)).toEqual([PAT.email, SAM.email]);
+  });
+
+  it("lets the creator remove an inherited watcher before creating", async () => {
+    renderWithProviders(
+      <TaskFormModal mode="create" fromParentTask={watchedParent} onClose={vi.fn()} />,
+    );
+    const watchersLabel = screen.getByText("Watchers").closest("label")!;
+    await userEvent.click(watchersLabel.querySelector<HTMLElement>('[aria-haspopup="listbox"]')!);
+    await userEvent.click(
+      within(screen.getByRole("listbox")).getByRole("option", { name: /Sam Sample/ }),
+    );
+    await userEvent.keyboard("{Escape}");
+
+    await userEvent.type(screen.getByPlaceholderText(/short, action-oriented/i), "Do the sub-work");
+    await userEvent.click(screen.getByRole("button", { name: /create task/i }));
+
+    await waitFor(() => expect(createTask).toHaveBeenCalledTimes(1));
+    const createArgs = createTask.mock.calls[0][0] as { watchers: { email?: string }[] };
+    expect(createArgs.watchers.map((p) => p.email)).toEqual([PAT.email]);
+  });
+
+  it("a normal 'New task' starts with no watchers", async () => {
+    renderWithProviders(<TaskFormModal mode="create" onClose={vi.fn()} />);
+    const watchersLabel = screen.getByText("Watchers").closest("label")!;
+    expect(watchersLabel).toHaveTextContent("No watchers");
+    expect(watchersLabel).not.toHaveTextContent(/Copied from the parent task/);
   });
 
   it("a normal 'New task' (no fromParentTask) is unaffected — regression check", async () => {

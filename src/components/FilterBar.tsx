@@ -1,4 +1,10 @@
-import type { Person, ProjectReference } from "@/types/task";
+import {
+  CATEGORIES,
+  OPERATIONS_TASK_TYPES,
+  type Person,
+  type ProjectReference,
+} from "@/types/task";
+import { cn } from "@/lib/cn";
 import { personKey } from "@/lib/people";
 import { MultiSelect, SingleSelect } from "./SearchableSelect";
 import { SearchInput } from "./SearchInput";
@@ -21,6 +27,14 @@ export interface Filters {
    * set of watchers ORed together answers nobody's.
    */
   watchedByEmail: string | null;
+  /**
+   * Selected categories — the Engineering task's Category, or the Operations
+   * task's Task Type. Empty = any. Altronic-LLC/BusinessIT#76 (Brandon
+   * Mirto): searching "label" finds every task that MENTIONS a label, when
+   * the question is "which tasks are label changes". A task with no category
+   * never matches a selection.
+   */
+  categories: string[];
 }
 
 export const EMPTY_FILTERS: Filters = {
@@ -29,6 +43,22 @@ export const EMPTY_FILTERS: Filters = {
   assignedEmails: [],
   createdByEmail: null,
   watchedByEmail: null,
+  categories: [],
+};
+
+/** The Category control: what the list calls the column, and its choices. */
+export interface CategoryFilterSpec {
+  label: string;
+  options: readonly string[];
+}
+
+/** Engineering tasks' Category (the List and the board). */
+export const TASK_CATEGORY_FILTER: CategoryFilterSpec = { label: "Category", options: CATEGORIES };
+
+/** Operations tasks' Task Type — that list's Category. */
+export const OPERATIONS_TASK_TYPE_FILTER: CategoryFilterSpec = {
+  label: "Task Type",
+  options: OPERATIONS_TASK_TYPES,
 };
 
 interface FilterBarProps {
@@ -43,9 +73,23 @@ interface FilterBarProps {
    * a control that can't be right for both halves.
    */
   replaceProjectWith?: { label: string; control: React.ReactNode };
+  /**
+   * Offer a Category filter. Engineering passes Category, Operations its Task
+   * Type. Left out in the "All tasks" scope, where the two lists' choices
+   * differ — `filterCombinedTasks` ignores the filter there too, so a
+   * `category=` left in the URL can't narrow the list invisibly.
+   */
+  category?: CategoryFilterSpec;
 }
 
-export function FilterBar({ filters, onChange, projects, people, replaceProjectWith }: FilterBarProps) {
+export function FilterBar({
+  filters,
+  onChange,
+  projects,
+  people,
+  replaceProjectWith,
+  category,
+}: FilterBarProps) {
   const me = useCurrentUser();
   const peopleSorted = [...people].sort((a, b) => a.displayName.localeCompare(b.displayName));
   const peopleOptions = peopleSorted.map((p) => ({
@@ -68,10 +112,15 @@ export function FilterBar({ filters, onChange, projects, people, replaceProjectW
     : peopleOptions;
 
   return (
-    // Five controls now, so the widest breakpoint is 5 across — at 4 the
-    // Watching field dropped onto a row of its own looking like an
-    // afterthought. The md:2 step is unchanged.
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    // One row at the widest breakpoint, however many controls there are — a
+    // last field alone on a second row reads as an afterthought. Six with a
+    // Category filter, five without. The md:2 / lg:3 steps are unchanged.
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3",
+        category ? "xl:grid-cols-6" : "xl:grid-cols-5",
+      )}
+    >
       {replaceProjectWith ? (
         <Field label={replaceProjectWith.label}>{replaceProjectWith.control}</Field>
       ) : (
@@ -87,6 +136,18 @@ export function FilterBar({ filters, onChange, projects, people, replaceProjectW
                 projectIds: next.map((v) => parseInt(v, 10)).filter((n) => !Number.isNaN(n)),
               })
             }
+          />
+        </Field>
+      )}
+
+      {category && (
+        <Field label={category.label}>
+          <MultiSelect
+            allLabel="Any"
+            searchPlaceholder={`Search ${category.label.toLowerCase()}…`}
+            options={category.options.map((c) => ({ value: c, label: c }))}
+            selected={filters.categories}
+            onChange={(next) => onChange({ ...filters, categories: next })}
           />
         </Field>
       )}

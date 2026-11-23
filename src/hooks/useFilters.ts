@@ -8,7 +8,7 @@ import { useCurrentUser } from "./useCurrentUser";
  * views of the SAME task list (List ⇄ Kanban) must hand these on, or the
  * filters reset — see `filterSearch()`.
  */
-export const FILTER_PARAM_KEYS = ["q", "project", "assigned", "createdBy", "watching"] as const;
+export const FILTER_PARAM_KEYS = ["q", "project", "assigned", "createdBy", "watching", "category"] as const;
 
 /**
  * Pick just the filter params out of a location's search string and return
@@ -51,6 +51,7 @@ export function filterSearch(search: string): string {
  *   assigned   → assignedEmails (comma-separated emails)
  *   createdBy  → createdByEmail
  *   watching   → watchedByEmail
+ *   category   → categories (comma-separated; the choices hold no commas)
  *
  * "Assigned to me" default: on first visit (URL has no `assigned` param at
  * all), we write the signed-in user's email into the URL so the home page
@@ -108,6 +109,7 @@ export function useFilters(): [Filters, (next: Filters) => void] {
       // list already narrowed to what you watch would hide most of it with no
       // indication why. It is an opt-in.
       watchedByEmail: watchingRaw ? watchingRaw.toLowerCase() : null,
+      categories: parseStringList(searchParams.get("category")),
     };
   }, [searchParams]);
 
@@ -131,6 +133,8 @@ export function useFilters(): [Filters, (next: Filters) => void] {
           // suppress, so an empty `watching=` would be noise in the URL.
           if (next.watchedByEmail) out.set("watching", next.watchedByEmail);
           else out.delete("watching");
+          if (next.categories.length > 0) out.set("category", next.categories.join(","));
+          else out.delete("category");
           return out;
         },
         { replace: true },
