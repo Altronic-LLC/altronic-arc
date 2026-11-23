@@ -94,7 +94,7 @@ export function AdminQuickLinksView() {
         </div>
         <nav className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 sm:flex-col sm:items-end">
           <Link
-            to="/admin/admins"
+            to="/admin"
             className="text-xs text-accent underline-offset-2 hover:underline"
           >
             ← Admin

@@ -352,6 +352,9 @@ script exists; until then, copy the lines.
     manager" e-mail forwards console output, so a console line can end up in
     somebody's inbox. To log what a request sent, use `describeRequestBody()`
     from `api/graph.ts` — it gives the field names and never the values.
+    `graphFetch` logs every failed request; pass `expectedStatuses` (e.g.
+    `[404]` for "is it there?") when a status is an answer, not a fault, so
+    reports don't carry it as one.
 
 13. **Deploys only move forward.** `deploy.yml`'s first step refuses to
     publish a version lower than the one live, because Pages serves whichever
@@ -1305,6 +1308,7 @@ src/
 │   ├── AdminOperationsProjectsView.tsx  Admin → Operations Projects
 │   ├── AdminPanelProjectsView.tsx  Admin → Panel Projects
 │   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
+│   ├── AdminHomeView.tsx         Admin (/admin) — a button per admin screen, grouped by department, with search; ADMIN_GROUPS is the list (a test checks every route exists)
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
 │   ├── AdminPartsRolesView.tsx   Admin → Parts Roles (editor / HCO editor / reviewing engineer / SAP admin)
@@ -2708,6 +2712,24 @@ Seven things that are load-bearing:
 - **No email.** The SAP admins hear about edits to the part's fields; a
   datasheet is a file beside it.
 - **The file is not in the form draft** — a `File` can't be stored.
+- **The PDF is READ when it's picked** (`readDatasheetFile`, 2026-11-23). A
+  browser `File` is only a handle on the file on disk: renamed, moved or saved
+  again after the pick, reading it fails (`NotReadableError`) before any
+  request is sent. The upload runs only after the create, so Femi Olugbon's
+  datasheets failed there every time and went up from the part's page a
+  minute later. Live data showed it: everyone else's PDF landed one second
+  after the part, Femi's 20 and 62 seconds after. The picker now holds an
+  in-memory copy, and an unreadable pick is said on the form before any part
+  exists. A failed upload is also `console.warn`ed (`[Datasheet] …`) so Report
+  issue carries the reason: the toast is gone once read, and a failure that
+  never reached Graph leaves no other line. Pinned in
+  `PartFormModal.test.tsx`, whose datasheets mock reads the bytes the way the
+  real upload does (verified by returning the original file instead).
+- **"No datasheet" is not logged as an error.** `findDatasheet` and
+  `archiveDatasheet`'s lookups pass `expectedStatuses: [404]` to `graphFetch`,
+  which then throws as usual but doesn't `console.error` it. That 404 was the
+  only line in the report above, and it pointed at the wrong thing. Use
+  `expectedStatuses` for any lookup whose 404 is an answer.
 
 #### Part numbers are deleted, then reused
 
@@ -11128,6 +11150,26 @@ and Ray. Hard-coded in `lib/eirWorkflowEditors.ts`, the
   whoever completes it; that's the workflow, not a hand edit.
 - **The New EIR form is untouched** — it has no status choice or engineer
   picker.
+
+## The Admin page (`/admin`)
+
+A grid of buttons, one per screen ARC admins look after, grouped by
+department, with a search box (Tim, 2026-11-19 — it replaced a column of 17
+links down the side of the Admins page; built on the shopfloor-management
+branch and brought forward on its own 2026-11-23). `ADMIN_GROUPS` in
+`views/AdminHomeView.tsx` is the list, as DATA. **A new admin screen gets an
+entry there in the same commit**, wherever its route lives: Harness specs,
+Operations "Who's notified" and Fixture Log Roles are inside their
+departments and still listed. `AdminHomeView.test.tsx` checks every button's
+`to` is a `path=` in `App.tsx` and that nothing the old link list offered
+was dropped. The header's Admin tab goes to `/admin`; the Admins list is
+`/admin/admins`. **Every admin screen's "Admin →" link goes to `/admin`**,
+never `/admin/admins` (that was the hub before `/admin` existed); the same
+test reads every `Admin*View.tsx` and fails on a link back to the list. Only
+ARC-admin screens belong there — one gated by another
+role (MCN Settings, Pricing Roles while in preview) would open to "no access".
+**Shop floor settings is NOT on main's list yet** — its route ships with the
+shopfloor-management branch, which adds the button when it merges.
 
 ## Admin → Quick Links
 

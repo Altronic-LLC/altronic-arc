@@ -17,6 +17,21 @@ import { __resetAltronicComponentsMockStore, listAltronicComponents } from "@/ap
 import { __resetComponentDescriptionOptionsMockStore } from "@/api/componentDescriptionOptions";
 import { __resetDatasheetsMockStore, findDatasheet, uploadDatasheet } from "@/api/datasheets";
 
+// The real upload reads the file's bytes (uploadToDriveTarget's
+// `file.arrayBuffer()`); the mock branch doesn't. Reading them here makes a
+// file that can't be read fail the way it does live — the 2026-11-23 report,
+// where a PDF changed on disk after it was picked.
+vi.mock("@/api/datasheets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/datasheets")>();
+  return {
+    ...actual,
+    uploadDatasheet: vi.fn(async (partNumber: string, file: File) => {
+      await file.arrayBuffer();
+      return actual.uploadDatasheet(partNumber, file);
+    }),
+  };
+});
+
 vi.mock("@/api/email", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/email")>();
   return {
@@ -381,6 +396,37 @@ describe("PartFormModal — the datasheet", () => {
     expect(pushToast).not.toHaveBeenCalled();
   });
 
+  it("still uploads the PDF when the file on disk changes after it was picked (2026-11-23)", async () => {
+    const { onClose } = renderForm("604");
+    await fillPart();
+    const picked = pdf();
+    await userEvent.upload(screen.getByLabelText("Datasheet PDF"), picked);
+    expect(await screen.findByText(/USB4105 datasheet\.pdf/)).toBeInTheDocument();
+    // Renamed, moved or saved again on disk: the browser can no longer read
+    // the file it was handed at pick time.
+    picked.arrayBuffer = () => Promise.reject(new DOMException("The file changed.", "NotReadableError"));
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await findDatasheet("604613")).toMatchObject({ name: "604613.pdf" });
+    expect(pushToast).not.toHaveBeenCalled();
+  });
+
+  it("says so on the form when the picked PDF can't be read, before any part is added", async () => {
+    renderForm("604");
+    await fillPart();
+    const broken = pdf();
+    broken.arrayBuffer = () => Promise.reject(new DOMException("The file changed.", "NotReadableError"));
+    await userEvent.upload(screen.getByLabelText("Datasheet PDF"), broken);
+
+    expect(
+      await screen.findByText(/"USB4105 datasheet\.pdf" couldn't be read\. It may have been moved, renamed or changed/),
+    ).toBeInTheDocument();
+    // The picker is back to empty, so the PDF can be picked again.
+    expect(screen.getByRole("button", { name: "Choose PDF" })).toBeInTheDocument();
+    expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(false);
+  });
+
   it("refuses a file that isn't a PDF BEFORE adding the part", async () => {
     renderForm("604");
     await fillPart();
@@ -397,19 +443,28 @@ describe("PartFormModal — the datasheet", () => {
   it("still adds the part when the upload fails — and says how to retry", async () => {
     // A 604613.pdf is already in the folder, so the upload is refused.
     await uploadDatasheet("604613", pdf());
-    const { onClose } = renderForm("604");
-    await fillPart();
-    await userEvent.upload(screen.getByLabelText("Datasheet PDF"), pdf());
-    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { onClose } = renderForm("604");
+      await fillPart();
+      await userEvent.upload(screen.getByLabelText("Datasheet PDF"), pdf());
+      await userEvent.click(screen.getByRole("button", { name: "Add part" }));
 
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(true);
-    expect(pushToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringMatching(/604613 was added, but its datasheet didn't upload — 604613\.pdf is already in the Datasheets folder, so it wasn't replaced/),
-        variant: "error",
-      }),
-    );
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(true);
+      expect(pushToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(/604613 was added, but its datasheet didn't upload — 604613\.pdf is already in the Datasheets folder, so it wasn't replaced/),
+          variant: "error",
+        }),
+      );
+      // Logged too, so Report issue carries the reason after the toast is gone.
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringMatching(/^\[Datasheet\] 604613 was added, but its datasheet didn't upload — 604613\.pdf is already/),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("doesn't ask Has Data Sheet on a new component — the upload decides it", async () => {

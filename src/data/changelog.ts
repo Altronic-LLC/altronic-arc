@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.230.0",
+    date: "2026-11-23",
+    changes: [
+      "Admin: the Admin page is now a set of buttons grouped by department, with a search box, in place of the long list of links on the Admins page",
+      "Admin: the Admin link on every admin screen now goes back to the Admin page, rather than to the list of admins",
+      "Parts List: a datasheet chosen on the New Part form now uploads even if the PDF is renamed, moved or saved again before the part is added — it used to fail, and had to be uploaded again from the part's page",
+      "If the chosen PDF can't be read, the New Part form says so straight away, so you can choose it again before the part is added",
+      "Report issue now includes why a new part's datasheet didn't upload, and no longer lists a part with no datasheet yet as an error",
+    ],
+  },
+  {
     version: "0.229.1",
     date: "2026-11-23",
     changes: [

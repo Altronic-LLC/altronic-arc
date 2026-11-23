@@ -24,7 +24,32 @@ vi.mock("./config", async (importOriginal) => {
   return { ...actual, USE_MOCK: false, SITES: { ...actual.SITES, engineering: "engineering-site" } };
 });
 
-import { DatasheetExistsError, findDatasheet, uploadDatasheet } from "./datasheets";
+import { DatasheetExistsError, DatasheetUnreadableError, findDatasheet, readDatasheetFile, uploadDatasheet } from "./datasheets";
+
+describe("readDatasheetFile", () => {
+  it("hands back an in-memory copy with the same name, type and bytes", async () => {
+    const picked = new File([new Uint8Array([37, 80, 68, 70])], "sheet.pdf", { type: "application/pdf" });
+    const copy = await readDatasheetFile(picked);
+    expect(copy).not.toBe(picked);
+    expect(copy.name).toBe("sheet.pdf");
+    expect(copy.type).toBe("application/pdf");
+    expect(Array.from(new Uint8Array(await copy.arrayBuffer()))).toEqual([37, 80, 68, 70]);
+  });
+
+  it("keeps working once the picked file can no longer be read", async () => {
+    const picked = new File([new Uint8Array([1, 2, 3])], "sheet.pdf", { type: "application/pdf" });
+    const copy = await readDatasheetFile(picked);
+    picked.arrayBuffer = () => Promise.reject(new DOMException("changed", "NotReadableError"));
+    expect((await copy.arrayBuffer()).byteLength).toBe(3);
+  });
+
+  it("says the file couldn't be read when the browser refuses it", async () => {
+    const picked = new File(["x"], "sheet.pdf", { type: "application/pdf" });
+    picked.arrayBuffer = () => Promise.reject(new DOMException("changed", "NotReadableError"));
+    await expect(readDatasheetFile(picked)).rejects.toBeInstanceOf(DatasheetUnreadableError);
+    await expect(readDatasheetFile(picked)).rejects.toThrow(/"sheet\.pdf" couldn't be read.*pick it again/);
+  });
+});
 
 // A BLOCK body, not `() => graphFetch.mockReset()`: mockReset returns the mock,
 // and Vitest runs a function returned from beforeEach as the test's CLEANUP —
@@ -52,6 +77,12 @@ describe("findDatasheet (real mode)", () => {
   it("reads a 404 as no datasheet", async () => {
     graphFetch.mockRejectedValue(new FakeGraphError(404));
     expect(await findDatasheet("722633")).toBeNull();
+  });
+
+  it("tells graphFetch a 404 is expected, so 'no datasheet' isn't logged as an error", async () => {
+    graphFetch.mockRejectedValue(new FakeGraphError(404));
+    await findDatasheet("722633");
+    expect(graphFetch.mock.calls[0][1]).toEqual({ expectedStatuses: [404] });
   });
 
   it("doesn't count a FOLDER of that name as a datasheet", async () => {

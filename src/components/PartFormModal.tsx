@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, Loader2, Plus, Send, Upload, Wand2, X } from "lucide-react";
-import { datasheetFileName, datasheetFileProblem, DATASHEETS_PATH } from "@/api/datasheets";
+import { datasheetFileName, datasheetFileProblem, DATASHEETS_PATH, readDatasheetFile } from "@/api/datasheets";
 import { formatBytes } from "@/api/projectFiles";
 import { useUploadDatasheet } from "@/hooks/useDatasheet";
 import { pushToast } from "./Toast";
@@ -114,6 +114,43 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   const createComponent = useCreateAltronicComponent();
   const uploadSheet = useUploadDatasheet();
   const [datasheet, setDatasheet] = useState<File | null>(null);
+  // The picked PDF is read into memory straight away (readDatasheetFile), so a
+  // later rename or save on disk can't stop the upload after the part exists.
+  const [readingSheet, setReadingSheet] = useState(false);
+  // Only the LATEST pick may land: one read finishing after another pick (or
+  // a Remove) must not put the older file back.
+  const pickSeq = useRef(0);
+
+  async function pickDatasheet(f: File | null) {
+    const seq = ++pickSeq.current;
+    if (!f) {
+      setReadingSheet(false);
+      setError(null);
+      setDatasheet(null);
+      return;
+    }
+    const problem = datasheetFileProblem(f);
+    if (problem) {
+      // Shown with its reason; the submit refuses it before the part is added.
+      setReadingSheet(false);
+      setError(problem);
+      setDatasheet(f);
+      return;
+    }
+    setReadingSheet(true);
+    try {
+      const copy = await readDatasheetFile(f);
+      if (seq !== pickSeq.current) return;
+      setError(null);
+      setDatasheet(copy);
+    } catch (err) {
+      if (seq !== pickSeq.current) return;
+      setError(err instanceof Error ? err.message : `"${f.name}" couldn't be read — pick it again.`);
+      setDatasheet(null);
+    } finally {
+      if (seq === pickSeq.current) setReadingSheet(false);
+    }
+  }
 
   const { existing, allNumbers, deleted } = useMemo(() => {
     const rows = [...(parts.data ?? []), ...(components.data ?? [])];
@@ -172,7 +209,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   // Allowed on an existing list, refused only because this one is new — the
   // case that gets the "ask the SAP admin" button rather than a plain refusal.
   const needsNewList = newList && !gate.allowed && addPartGate(access, typedPrefix, component).allowed;
-  const busy = createPart.isPending || createComponent.isPending || uploadSheet.isPending;
+  const busy = createPart.isPending || createComponent.isPending || uploadSheet.isPending || readingSheet;
 
   // The description dropdowns — components only, and only once the options
   // are loaded. A restored draft's picks are checked against today's options.
@@ -294,6 +331,8 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     try {
       const { flagError } = await uploadSheet.mutateAsync({ partNumber: pn, file, via: "new", componentId });
       if (flagError) {
+        // Logged so Report issue carries it — the toast alone is gone once read.
+        console.warn(`[Datasheet] ${pn}: uploaded, but Has Data Sheet couldn't be set — ${flagError}`);
         pushToast({
           message: `The datasheet uploaded, but Has Data Sheet couldn't be set: ${flagError} The part's page still links to it.`,
           variant: "error",
@@ -301,6 +340,11 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
       }
     } catch (err) {
       const why = err instanceof Error ? err.message : "the upload failed.";
+      // Logged so Report issue carries the reason. A failure that never
+      // reached SharePoint (an unreadable file, a refused gate) leaves no
+      // Graph line in the console, and the toast is gone once it's read —
+      // which is how one report arrived with no cause at all (2026-11-23).
+      console.warn(`[Datasheet] ${pn} was added, but its datasheet didn't upload — ${why}`);
       pushToast({
         message: `${pn} was added, but its datasheet didn't upload — ${why} Use Upload datasheet on the part's page to try again.`,
         variant: "error",
@@ -486,10 +530,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
 
           <DatasheetPicker
             file={datasheet}
-            onChange={(f) => {
-              setError(f ? datasheetFileProblem(f) : null);
-              setDatasheet(f);
-            }}
+            onChange={(f) => void pickDatasheet(f)}
             fileName={partNumber.trim() ? datasheetFileName(partNumber) : "<part #>.pdf"}
             disabled={busy}
           />

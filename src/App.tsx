@@ -20,6 +20,7 @@ import { ProjectView } from "@/views/ProjectView";
 import { ProjectFoldersView } from "@/views/ProjectFoldersView";
 import { AdminProjectsView } from "@/views/AdminProjectsView";
 import { AdminAdminsView } from "@/views/AdminAdminsView";
+import { AdminHomeView } from "@/views/AdminHomeView";
 import { AdminEirRolesView } from "@/views/AdminEirRolesView";
 import { AdminMaintenanceRolesView } from "@/views/AdminMaintenanceRolesView";
 import { TestSheetsView } from "@/views/TestSheetsView";
@@ -608,7 +609,11 @@ export function App() {
             />
             <Route
               path="/admin"
-              element={<Navigate to="/admin/admins" replace />}
+              element={
+                <RequireAdmin>
+                  <AdminHomeView />
+                </RequireAdmin>
+              }
             />
             <Route path="/test-sheets" element={<TestSheetsView />} />
             <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />

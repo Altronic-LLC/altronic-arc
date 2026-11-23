@@ -102,7 +102,17 @@ export async function fetchWithRetry(url: string, init: RequestInit = {}): Promi
  * network error), throws SessionExpiredError so callers can show a
  * graceful "please sign in again" UI instead of a raw error.
  */
-export async function graphFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * A Graph request's options: `fetch`'s, plus `expectedStatuses` — statuses
+ * that are an ANSWER, not a fault, for this call (a 404 from "is there a
+ * datasheet?"). They still throw a GraphError; they just aren't logged, so
+ * Report issue doesn't carry a lookup that went as planned as though it had
+ * failed (2026-11-23: a "no datasheet yet" 404 was the only line in a report
+ * about an upload that failed for another reason).
+ */
+export type GraphRequestInit = RequestInit & { expectedStatuses?: number[] };
+
+export async function graphFetch<T>(path: string, init: GraphRequestInit = {}): Promise<T> {
   if (USE_MOCK) {
     throw new Error("graphFetch called while VITE_USE_MOCK is true — check the call site.");
   }
@@ -121,7 +131,7 @@ export async function graphFetch<T>(path: string, init: RequestInit = {}): Promi
 export async function graphFetchScoped<T>(
   path: string,
   scopes: string[],
-  init: RequestInit = {},
+  init: GraphRequestInit = {},
 ): Promise<T> {
   if (USE_MOCK) {
     throw new Error("graphFetchScoped called while VITE_USE_MOCK is true — check the call site.");
@@ -247,8 +257,10 @@ export function resetInteractiveSignIn() {
 }
 
 /** Issue the actual Graph request with an already-acquired token, incl. retries + error handling. */
-async function runGraphRequest<T>(path: string, accessToken: string, init: RequestInit): Promise<T> {
+async function runGraphRequest<T>(path: string, accessToken: string, options: GraphRequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
+  // `expectedStatuses` is ours, not fetch's — never send it.
+  const { expectedStatuses, ...init } = options;
 
   const response = await fetchWithRetry(url, {
     ...init,
@@ -282,15 +294,19 @@ async function runGraphRequest<T>(path: string, accessToken: string, init: Reque
     // when a scope is missing, so the error code alone is ambiguous. The
     // full token is NEVER logged; only the JWT payload claims, which
     // aren't secret (they're decodable from any captured token).
-    const tokenClaims = decodeJwtClaims(accessToken);
-    /* eslint-disable no-console */
-    console.error(
-      `[Graph ${response.status}] ${init.method ?? "GET"} ${url}\n` +
-        `Token claims: ${JSON.stringify(tokenClaims, null, 2)}\n` +
-        `Request fields: ${describeRequestBody(init.body)}\n` +
-        `Response body: ${body}`,
-    );
-    /* eslint-enable no-console */
+    //
+    // A status the caller said to expect is an answer, not a fault: not logged.
+    if (!expectedStatuses?.includes(response.status)) {
+      const tokenClaims = decodeJwtClaims(accessToken);
+      /* eslint-disable no-console */
+      console.error(
+        `[Graph ${response.status}] ${init.method ?? "GET"} ${url}\n` +
+          `Token claims: ${JSON.stringify(tokenClaims, null, 2)}\n` +
+          `Request fields: ${describeRequestBody(init.body)}\n` +
+          `Response body: ${body}`,
+      );
+      /* eslint-enable no-console */
+    }
     throw new GraphError(response.status, response.statusText, body, url);
   }
 
