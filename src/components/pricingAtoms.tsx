@@ -1,39 +1,18 @@
 import { Navigate, NavLink } from "react-router-dom";
 import { Calculator, Lock } from "lucide-react";
-import type { PricingRequestStatus } from "@/types/pricing";
 import { accessPricingGate, managePricingRolesGate, type PricingRights } from "@/lib/pricingRoles";
 import { useMyPricingAccess, type MyPricingAccess } from "@/hooks/usePricingRoles";
 import { LoadingTasks } from "./LoadingTasks";
 import { cn } from "@/lib/cn";
 import { PriceCalculatorButton } from "./PriceCalculator";
+import { PricingTourButton } from "./PricingTour";
 
-export { COST_PANEL, FieldColumn, FieldLabel, PRICE_PANEL, REFERENCE_PANEL } from "./pricingFields";
+export { COST_PANEL, FieldColumn, FieldLabel, PRICE_PANEL, PricingStatusChip, REFERENCE_PANEL } from "./pricingFields";
 
 // =============================================================================
 // Sales Pricing — the small shared pieces every pricing screen uses: the
 // status chip, the sub-navigation, the access gate and the card shells.
 // =============================================================================
-
-const STATUS_TONE: Record<PricingRequestStatus, string> = {
-  "Awaiting SAP": "bg-ajax-yellow/15 text-fg border-ajax-yellow/40",
-  Submitted: "bg-superior-blue/10 text-superior-blue border-superior-blue/30",
-  "In Review": "bg-accent/10 text-accent border-accent/30",
-  Priced: "bg-cooper-green/10 text-cooper-green border-cooper-green/30",
-  Cancelled: "bg-surface-2 text-fg-muted border-border",
-};
-
-export function PricingStatusChip({ status }: { status: PricingRequestStatus }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-        STATUS_TONE[status] ?? STATUS_TONE.Submitted,
-      )}
-    >
-      {status}
-    </span>
-  );
-}
 
 /**
  * Requests / New Products / Customer Quotes / Roles. The middle two show only
@@ -72,7 +51,8 @@ export function PricingNav() {
           </NavLink>
         ))}
       {/* The quick price calculator lives HERE, in the Pricing tool only (Ray, 2026-10-15). */}
-      <span className="ml-auto">
+      <span className="ml-auto flex items-center gap-1">
+        <PricingTourButton />
         <PriceCalculatorButton />
       </span>
     </nav>
@@ -128,13 +108,9 @@ export function PricingAccessGate({
         <div className="rounded-xl border border-border bg-surface px-4 py-10 text-center text-sm text-fg-muted">
           <Lock className="mx-auto h-8 w-8" />
           <p className="mt-3 font-medium text-fg">
-            {access.inPreviewOnly
-              ? "Pricing is still being reviewed and isn't open yet."
-              : access.failed
-                ? gate.hint
-                : "You don't have access to Pricing."}
+            {access.failed ? gate.hint : "You don't have access to Pricing."}
           </p>
-          {!access.inPreviewOnly && !access.failed && <p className="mt-1">{gate.hint}</p>}
+          {!access.failed && <p className="mt-1">{gate.hint}</p>}
         </div>
       </PricingPage>
     );

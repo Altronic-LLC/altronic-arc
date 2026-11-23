@@ -33,6 +33,9 @@ import {
   SAP_MATERIAL_COST_FIELDS,
   toSapMaterialCost,
   type SapMaterialCostRow,
+  SAP_MATERIAL_FIELDS,
+  sapPartFromMaterialRow,
+  type SapMaterialRow,
 } from "@/lib/sapMaterialCost";
 import { familyPrefix } from "@/lib/pricingMath";
 
@@ -41,12 +44,14 @@ import { familyPrefix } from "@/lib/pricingMath";
 // READ-ONLY: ARC never writes to SAP or Fabric. Prices and their reasoning go
 // to the SharePoint lists; costs and comparables are only ever read here.
 //
-// THIS IS THE ONE SEAM to the warehouse. The real branch is not wired yet:
-// the table names and columns are still to come (Ray, 2026-10-13), and the
-// transport will be Tim's Fabric API-for-GraphQL module (`api/fabric.ts` on
-// Tim-Sandbox). Until then every real-mode call throws
-// `PricingDataNotConnectedError`, and every screen degrades to manual entry —
-// typed cost, typed customer, no comparables — rather than breaking.
+// THIS IS THE ONE SEAM to the warehouse, through the Fabric API for GraphQL
+// (`api/fabric.ts`). Every lookup is LIVE (Ray, 2026-11-23): parts, list
+// prices, customers, the distributor and customer-group discounts and the
+// comparables, from ARC's tables in Altronic_Business_IT
+// (scripts/arc-pricing-tables.sql). Without a Fabric endpoint every real-mode
+// call throws `PricingDataNotConnectedError`, and every screen degrades to
+// manual entry — typed cost, typed customer, no comparables — rather than
+// breaking.
 //
 // The mock branch reads the warehouse stand-in in data/pricingMockData.ts.
 // =============================================================================
@@ -54,9 +59,25 @@ import { familyPrefix } from "@/lib/pricingMath";
 /**
  * Whether the warehouse can be asked at all. Screens read this up front, so a
  * form shows typed entry from the start rather than after a failed lookup.
- * Becomes `true` in real mode the day the Fabric tables are wired below.
+ * The demo always can; live needs a Fabric endpoint.
  */
-export const SAP_DATA_CONNECTED = USE_MOCK;
+export const SAP_DATA_CONNECTED = !USE_MOCK || FABRIC_IN_DEMO ? FABRIC_ENABLED : true;
+
+/**
+ * ARC's SAP tables on the GraphQL API (scripts/arc-pricing-tables.sql). The
+ * materials table holds EVERY material — the COGS cost table it replaced kept
+ * only plant status 40/45/50, so new parts read as "not in SAP".
+ */
+export const SAP_MATERIALS_TABLE = "tbl_arc_material_list_prices";
+export const SAP_PRICE_GROUP_DISCOUNTS_TABLE = "tbl_arc_price_group_discounts";
+export const SAP_MATERIAL_DISCOUNTS_TABLE = "tbl_arc_price_group_material_discounts";
+
+/**
+ * The customer price group whose discounts ARE the distributor discount —
+ * A0, "DIST Domestic Distributor" (2026-11-23). It reads 34% on the common
+ * price groups, ARC's standard default.
+ */
+export const DISTRIBUTOR_PRICE_GROUP = "A0";
 
 export class PricingDataNotConnectedError extends Error {
   constructor() {
@@ -77,11 +98,10 @@ const norm = (s: string) => s.trim().toLowerCase();
 
 // -----------------------------------------------------------------------------
 // The Calculator's cost lookup — the FIRST real Fabric read (Ray, 2026-10-15).
-// One TABLE, `tbl_cogs_material_api`, exposed on the Fabric API for GraphQL
-// as `tbl_cogs_material_apis`; field names match the SQL columns. It replaced
-// the view `rpt.vw_cogs_material_api` (Ray, 2026-10-20) — same six columns,
-// and a lookup by SAP # came back in ~0.3s against ~1.9s on the view. Only the Calculator uses it — every
-// other SAP fact above is still "not connected" until its own view exists.
+// Reads ARC's materials table (`tbl_arc_material_list_prices`) since
+// 2026-11-23: same column names as the COGS cost table it replaced, but EVERY
+// material, not only plant status 40/45/50 — 1027-0397-00 (status 12, a new
+// part) read as "not in SAP" before. One equality on Material, four columns.
 // -----------------------------------------------------------------------------
 
 /** Whether the Calculator's SAP cost lookup can be asked. */
@@ -125,7 +145,7 @@ let warmed: Promise<void> | null = null;
 export function warmSapCostLookup(): Promise<void> {
   if (SAP_COST_LOOKUP_IS_DEMO || !FABRIC_ENABLED) return Promise.resolve();
   if (!warmed) {
-    warmed = fabricQuery("query { tbl_cogs_material_apis(first: 1) { items { Plant } } }")
+    warmed = fabricQuery(`query { ${SAP_MATERIALS_TABLE}(first: 1) { items { Plant } } }`)
       .then(() => undefined)
       .catch(() => {
         // A failed warm-up (not signed in yet, say) is retried next time the
@@ -166,12 +186,12 @@ export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMat
   // ONE equality on Material and four columns — kept narrow for speed.
   // The number travels as a variable, never interpolated into the query.
   const query = `query($sap: String!) {
-  tbl_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { Material: { eq: $sap } }) {
+  ${SAP_MATERIALS_TABLE}(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { Material: { eq: $sap } }) {
     items { ${SAP_MATERIAL_COST_FIELDS.join(" ")} }
   }
 }`;
-  const data = await fabricQuery<{ tbl_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, { sap });
-  return sapMaterialPlants((data.tbl_cogs_material_apis?.items ?? []).map(toSapMaterialCost));
+  const data = await fabricQuery<Record<string, { items?: SapMaterialCostRow[] | null } | null>>(query, { sap });
+  return sapMaterialPlants((data[SAP_MATERIALS_TABLE]?.items ?? []).map(toSapMaterialCost));
 }
 
 /**
@@ -224,7 +244,7 @@ const LIST_PRICE_COLUMN = { Material: "PartNumber", OldMaterialNumber: "OldMater
  */
 async function liveSapPart(column: "Material" | "OldMaterialNumber", value: string): Promise<SapPart | null> {
   const query = `query($v: String!) {
-  tbl_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
+  ${SAP_MATERIALS_TABLE}(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${column}: { eq: $v } }) {
     items { ${SAP_PART_FIELDS.join(" ")} }
   }
   tbl_altronic_user_pricings(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { ${LIST_PRICE_COLUMN[column]}: { eq: $v } }) {
@@ -232,11 +252,11 @@ async function liveSapPart(column: "Material" | "OldMaterialNumber", value: stri
   }
 }`;
   const data = await fabricQuery<{
-    tbl_cogs_material_apis?: { items?: SapPartRow[] | null } | null;
+    [SAP_MATERIALS_TABLE]?: { items?: SapPartRow[] | null } | null;
     tbl_altronic_user_pricings?: { items?: SapListPriceRow[] | null } | null;
   }>(query, { v: value });
   const listPrice = currentListPrice(data.tbl_altronic_user_pricings?.items ?? [], new Date());
-  return toSapPart(data.tbl_cogs_material_apis?.items ?? [], listPrice);
+  return toSapPart(data[SAP_MATERIALS_TABLE]?.items ?? [], listPrice);
 }
 
 /**
@@ -311,9 +331,40 @@ export async function searchSapCustomers(query: string, by: "number" | "name" = 
   return mockDelay(hits.slice(0, 25).map((c) => ({ ...c })));
 }
 
-/** The standard distributor discount SAP holds per MPG. A missing MPG means SAP has none. */
+/** A discount row's percentage — positive in ARC's tables; anything unreadable is none. */
+function pct(v: unknown): number | null {
+  const n = v == null || v === "" ? NaN : Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/**
+ * The standard distributor discount SAP holds per MPG. A missing MPG means SAP has none.
+ * LIVE: the A0 price group's current ZD04 discount per MPG, in ONE request.
+ */
 export async function sapMpgDistributorDiscounts(mpgs: string[]): Promise<Record<string, number | null>> {
-  if (!USE_MOCK) notConnected();
+  if (SAP_PART_LOOKUP_LIVE) {
+    if (!FABRIC_ENABLED) notConnected();
+    const wanted = [...new Set(mpgs.map((m) => m.trim()).filter(Boolean))];
+    const out: Record<string, number | null> = {};
+    for (const m of mpgs) out[m] = null;
+    if (wanted.length === 0) return out;
+    const query = `query($g: String!, $mpgs: [String!]) {
+  ${SAP_PRICE_GROUP_DISCOUNTS_TABLE}(first: ${Math.max(wanted.length * 4, 50)}, filter: { PriceGroup: { eq: $g }, MaterialPriceGroup: { in: $mpgs } }) {
+    items { MaterialPriceGroup DiscountPct }
+  }
+}`;
+    const data = await fabricQuery<Record<string, { items?: { MaterialPriceGroup?: string | null; DiscountPct?: unknown }[] | null } | null>>(
+      query,
+      { g: DISTRIBUTOR_PRICE_GROUP, mpgs: wanted },
+    );
+    const found = new Map<string, number | null>();
+    for (const r of data[SAP_PRICE_GROUP_DISCOUNTS_TABLE]?.items ?? []) {
+      const key = (r.MaterialPriceGroup ?? "").trim();
+      if (key && !found.has(key)) found.set(key, pct(r.DiscountPct));
+    }
+    for (const m of mpgs) out[m] = found.get(m.trim()) ?? null;
+    return out;
+  }
   const out: Record<string, number | null> = {};
   for (const m of mpgs) out[m] = MOCK_SAP_MPG_DISCOUNTS[m] ?? null;
   return mockDelay(out);
@@ -329,25 +380,80 @@ export async function sapCustomerGroupDiscounts(args: {
   sapPartNumber: string;
   mpg: string;
 }): Promise<{ materialPct: number | null; mpgPct: number | null }> {
-  if (!USE_MOCK) notConnected();
   const group = args.customerGroup.trim();
   const sap = args.sapPartNumber.trim();
   const mpg = args.mpg.trim();
+  if (SAP_PART_LOOKUP_LIVE) {
+    if (!FABRIC_ENABLED) notConnected();
+    // The customer GROUP here is SAP's customer price group (KNVV-KONDA, A0..AC)
+    // — the code vw_sales_customer hands the picker as CUSTOMER_GROUP.
+    if (!group || (!sap && !mpg)) return { materialPct: null, mpgPct: null };
+    const vars: Record<string, string> = { g: group };
+    const roots: string[] = [];
+    if (sap) {
+      vars.sap = sap;
+      roots.push(`m: ${SAP_MATERIAL_DISCOUNTS_TABLE}(first: 5, filter: { PriceGroup: { eq: $g }, Material: { eq: $sap } }) { items { DiscountPct } }`);
+    }
+    if (mpg) {
+      vars.mpg = mpg;
+      roots.push(`p: ${SAP_PRICE_GROUP_DISCOUNTS_TABLE}(first: 5, filter: { PriceGroup: { eq: $g }, MaterialPriceGroup: { eq: $mpg } }) { items { DiscountPct } }`);
+    }
+    const declared = Object.keys(vars).map((k) => `$${k}: String!`).join(", ");
+    const data = await fabricQuery<{ m?: { items?: { DiscountPct?: unknown }[] | null } | null; p?: { items?: { DiscountPct?: unknown }[] | null } | null }>(
+      `query(${declared}) {\n  ${roots.join("\n  ")}\n}`,
+      vars,
+    );
+    return {
+      materialPct: sap ? pct(data.m?.items?.[0]?.DiscountPct) : null,
+      mpgPct: mpg ? pct(data.p?.items?.[0]?.DiscountPct) : null,
+    };
+  }
   return mockDelay({
     materialPct: sap ? (MOCK_SAP_GROUP_MATERIAL_DISCOUNTS[group]?.[sap] ?? null) : null,
     mpgPct: mpg ? (MOCK_SAP_GROUP_DISCOUNTS[group]?.[mpg] ?? null) : null,
   });
 }
 
-/** Every part in a material price group. */
+/** Rows a page; and the most read for one panel (the biggest MPG holds ~2,900). */
+const MATERIALS_PAGE = 1000;
+const MATERIALS_MAX_PAGES = 10;
+
+/**
+ * Every material whose `column` equals `value`, paged. A list that runs past
+ * the cap THROWS rather than handing back a partial set — an average over
+ * part of a group would be wrong without saying so.
+ */
+async function liveMaterialsWhere(column: "MaterialPriceGroup" | "FamilyPrefix", value: string): Promise<SapPart[]> {
+  if (!FABRIC_ENABLED) notConnected();
+  const query = `query($v: String!, $after: String) {
+  ${SAP_MATERIALS_TABLE}(first: ${MATERIALS_PAGE}, after: $after, filter: { ${column}: { eq: $v } }) {
+    items { ${SAP_MATERIAL_FIELDS.join(" ")} }
+    endCursor
+    hasNextPage
+  }
+}`;
+  const rows: SapMaterialRow[] = [];
+  let after: string | null = null;
+  for (let page = 0; page < MATERIALS_MAX_PAGES; page++) {
+    const data: Record<string, { items?: SapMaterialRow[] | null; endCursor?: string | null; hasNextPage?: boolean } | null> =
+      await fabricQuery(query, { v: value, after });
+    const result = data[SAP_MATERIALS_TABLE];
+    rows.push(...(result?.items ?? []));
+    if (!result?.hasNextPage || !result.endCursor) return rows.map(sapPartFromMaterialRow);
+    after = result.endCursor;
+  }
+  throw new Error(`More than ${MATERIALS_PAGE * MATERIALS_MAX_PAGES} parts in ${value} — not averaging a partial list.`);
+}
+
+/** Every part in a material price group. LIVE: ARC's materials table, by MPG. */
 export async function listMpgParts(mpg: string): Promise<SapPart[]> {
-  if (!USE_MOCK) notConnected();
+  if (SAP_PART_LOOKUP_LIVE) return mpg.trim() ? liveMaterialsWhere("MaterialPriceGroup", mpg.trim()) : [];
   return mockDelay(pricingMockDb.sapParts.filter((p) => p.mpg === mpg).map((p) => ({ ...p })));
 }
 
-/** Every part whose Altronic number starts with the same six digits. */
+/** Every part whose Altronic number starts with the same six digits. LIVE: by `FamilyPrefix`. */
 export async function listFamilyParts(prefix: string): Promise<SapPart[]> {
-  if (!USE_MOCK) notConnected();
+  if (SAP_PART_LOOKUP_LIVE) return prefix.trim() ? liveMaterialsWhere("FamilyPrefix", prefix.trim()) : [];
   return mockDelay(
     pricingMockDb.sapParts.filter((p) => familyPrefix(p.altronicPartNumber) === prefix).map((p) => ({ ...p })),
   );

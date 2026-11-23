@@ -7,17 +7,14 @@ import {
   updatePricingRoleEntry,
 } from "@/api/pricingRoles";
 import { listAdmins } from "@/api/admins";
-import { PRICING_LIVE, PRICING_PREVIEW_USERS } from "@/api/config";
 import type { AdminEntry } from "@/types/task";
 import type { PricingRole, PricingRoleEntry } from "@/types/pricing";
 import type { PricingRoleInput } from "@/lib/pricingMapper";
 import { BOOTSTRAP_ADMINS } from "@/lib/adminAccess";
 import { matchesAnyEmail } from "@/lib/emailIdentity";
-import { parseRecipientList } from "@/lib/recipientList";
 import {
   NO_PRICING_RIGHTS,
   managePricingRolesGate,
-  previewAllows,
   pricingRightsFrom,
   type PricingAccess,
   type PricingGate,
@@ -35,24 +32,16 @@ import { useCurrentUserEmails } from "./useCurrentUser";
 //      `useResolvePricingAccess` for a mutationFn, which AWAITS the roles and
 //      Admins lists rather than trusting a render-time flag.
 //
-// THE PREVIEW SWITCH SITS IN FRONT OF BOTH. While PRICING_LIVE is off, an
-// address not in PRICING_PREVIEW_USERS has NO rights — whatever the roles list
-// says, ARC admins included (Ray, 2026-10-13: exclusive access to review it).
+// Pricing is LIVE (Ray, 2026-11-23): the roles list alone decides. The review
+// switch that let only one person in was removed.
 // =============================================================================
 
 export const PRICING_ROLES_KEY = ["pricing-roles", "list"] as const;
 
 const STALE_MS = 60_000;
 
-const PREVIEW_EMAILS = parseRecipientList(PRICING_PREVIEW_USERS).map((p) => p.email ?? "");
-
-/** True when the preview switch lets these addresses in. */
-export function pricingPreviewAllows(emails: string[]): boolean {
-  return previewAllows({ live: PRICING_LIVE, previewEmails: PREVIEW_EMAILS, myEmails: emails });
-}
-
-/** The signed-in user's access, plus whether the preview switch is what refused them. */
-export type MyPricingAccess = PricingAccess & { inPreviewOnly: boolean };
+/** The signed-in user's access. */
+export type MyPricingAccess = PricingAccess;
 
 export function requirePricingGate(gate: PricingGate): void {
   if (!gate.allowed) throw new Error(gate.hint);
@@ -81,26 +70,22 @@ export function usePricingRoleEntries(enabled = true) {
 /** For rendering — feed it to the gates in lib/pricingRoles.ts. */
 export function useMyPricingAccess(): MyPricingAccess {
   const emails = useCurrentUserEmails();
-  const previewOk = emails.length > 0 && pricingPreviewAllows(emails);
-  // Somebody the preview keeps out never fetches the roles list at all.
-  const roles = usePricingRoleEntries(previewOk);
+  const roles = usePricingRoleEntries(emails.length > 0);
   const admins = useAdmins();
 
-  if (emails.length === 0) return { rights: NO_PRICING_RIGHTS, resolving: true, failed: false, inPreviewOnly: false };
-  if (!previewOk) return { rights: NO_PRICING_RIGHTS, resolving: false, failed: false, inPreviewOnly: true };
+  if (emails.length === 0) return { rights: NO_PRICING_RIGHTS, resolving: true, failed: false };
 
   const bootstrap = emails.some((e) => BOOTSTRAP_ADMINS.has(e.toLowerCase()));
   if (roles.isLoading || (!bootstrap && admins.isLoading)) {
-    return { rights: NO_PRICING_RIGHTS, resolving: true, failed: false, inPreviewOnly: false };
+    return { rights: NO_PRICING_RIGHTS, resolving: true, failed: false };
   }
-  if (roles.isError) return { rights: NO_PRICING_RIGHTS, resolving: false, failed: true, inPreviewOnly: false };
+  if (roles.isError) return { rights: NO_PRICING_RIGHTS, resolving: false, failed: true };
   return {
     rights: pricingRightsFrom(rolesFor(roles.data ?? [], emails), {
       isArcAdmin: isArcAdminFor(admins.data ?? [], emails),
     }),
     resolving: false,
     failed: false,
-    inPreviewOnly: false,
   };
 }
 
@@ -115,7 +100,7 @@ export function useResolvePricingAccess(): () => Promise<PricingAccess> {
 
 /** The plumbing behind `useResolvePricingAccess` — exported for tests. */
 export async function resolvePricingAccess(qc: QueryClient, emails: string[]): Promise<PricingAccess> {
-  if (emails.length === 0 || !pricingPreviewAllows(emails)) {
+  if (emails.length === 0) {
     return { rights: NO_PRICING_RIGHTS, resolving: false, failed: false };
   }
   let entries: PricingRoleEntry[];

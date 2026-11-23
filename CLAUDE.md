@@ -1081,8 +1081,9 @@ src/
 │   ├── PricingWorkbench.tsx          The manager's pricing panel — cost, discounts, target GM or list, result, MPG + family comparables (cost-gated)
 │   ├── SapCustomerPicker.tsx         Pick a customer from SAP (sold-to, name, group); typed while SAP data isn't connected
 │   ├── NewWorksheetFormModal.tsx     Start a New Product Pricing worksheet (never from a request)
+│   ├── PricingTour.tsx               The Pricing bar's Tour — requesting + pricing on demo screens; email previews built by the REAL pricingAlerts builders
 │   ├── PriceCalculator.tsx           The Pricing bar's Calculator + dialog: SAP cost lookup, quick customer price, round-5 GM ladder, Copy results — every pricing role, nothing saved
-│   ├── pricingFields.tsx             Pricing's field grid (FieldColumn / FieldLabel) + colour panels — own file so PriceCalculator avoids a cycle; re-exported by pricingAtoms
+│   ├── pricingFields.tsx             Pricing's field grid (FieldColumn / FieldLabel) + colour panels + the status chip — own file so PriceCalculator avoids a cycle; re-exported by pricingAtoms
 │   ├── RowSellingPrice.tsx           A worksheet row's OWN selling price — "Sell separately", target GM / list / customer, discount override, its own breaks (edits the DRAFT)
 │   ├── SapComparisonCard.tsx         A worksheet's SAP comparison — reference SAP parts, list / cost / base GM re-read from SAP, saved straight away
 │   ├── SubAssemblyCard.tsx           A worksheet sub-assembly (CSV and/or hand-added components) or standalone part (SAP or manual) — Altronic + SAP #, base vs adjusted cost, files (edits the DRAFT)
@@ -5358,9 +5359,8 @@ names — **the internal names are the contract** with `lib/pricingMapper.ts`):
 
 The first four carry documented defaults — they gate nothing by themselves.
 NP Sub-Assemblies and Customer Quotes have none; unset means their screens say
-so (`NEW_PRODUCT_PRICING_CONFIGURED` / `CUSTOMER_QUOTES_CONFIGURED`). All
-eight `VITE_*` vars (the six ids plus the two preview vars below) are in
-`deploy.yml`'s named list and `vite-env.d.ts`.
+so (`NEW_PRODUCT_PRICING_CONFIGURED` / `CUSTOMER_QUOTES_CONFIGURED`). All six
+list-id `VITE_*` vars are in `deploy.yml`'s named list and `vite-env.d.ts`.
 
 **EVERY LIST HAS UNIQUE (non-inherited) PERMISSIONS, and that is the
 design.** Hiding a column in ARC is UI-only — the bundle is public and Graph
@@ -5410,27 +5410,21 @@ admins get "Run Queries and Mutations" on the GraphQL API item.
 - The name column is `PersonName`, never `DisplayName` (Graph silently drops
   that field).
 
-#### The preview switch — and how to go live
+#### Live — the roles list alone decides
 
-`PRICING_LIVE` (`VITE_PRICING_LIVE`) is off by default. While it is off, only
-the addresses in `PRICING_PREVIEW_USERS` (`VITE_PRICING_PREVIEW_USERS`,
-default `ray.white@altronic-llc.com`) get ANY rights — whatever the roles list
-says, ARC admins included (`previewAllows`, applied in front of both
-`useMyPricingAccess` and `useResolvePricingAccess`). Everybody else still sees
-**"Pricing — Coming soon"** on the Dashboard and in the Departments
-menu; the real card and menu entry show only to someone with access
-(`pricingAccess: "with" | "without"` in `Header.tsx`).
+**Pricing is LIVE** (Ray, 2026-11-23). The review switch that kept it to one
+person — `PRICING_LIVE` / `PRICING_PREVIEW_USERS` (`VITE_PRICING_LIVE`,
+`VITE_PRICING_PREVIEW_USERS`), `previewAllows`, `inPreviewOnly` and the
+"Pricing — Coming soon" card and menu row — was REMOVED, not switched on.
+Somebody on the Pricing Roles list sees the card and the menu entry; somebody
+not on it sees nothing (the Insourcing Quotes arrangement), and an address
+landing on `/sales/pricing` gets "You don't have access to Pricing".
 
 **The tool is called "Pricing"** everywhere a user sees it — Dashboard card,
 Departments menu, page title, breadcrumb, access notices (Ray, 2026-10-15).
 "Sales Pricing" survives only in code comments and this file's headings. **The
 Dashboard card carries NO count** — a description card, like Customers and
-Visit Reports — so the Dashboard reads no pricing list at all. An empty preview list
-lets the roles decide rather than locking everybody out. Mock mode ignores the
-switch.
-
-**Going live**: populate Pricing Roles, apply the permission matrix, set the
-repo variable `VITE_PRICING_LIVE=true`, redeploy.
+Visit Reports — so the Dashboard reads no pricing list at all.
 
 #### The request workflow — `hooks/usePricingRequests.ts`
 
@@ -5438,6 +5432,8 @@ repo variable `VITE_PRICING_LIVE=true`, redeploy.
 Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
 ```
 
+- **Only the customer NAME is required** (Ray, 2026-11-23) — the sold-to
+  number and group are optional, for a prospect or a new account.
 - **Either part number will do** (Ray, 2026-10-13). The form looks the OTHER
   one up in SAP when either box is left, filling only BLANK boxes; somebody
   who only knows the SAP number gets the Altronic (old) number pulled in.
@@ -5473,6 +5469,14 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
   (`commentNotifyRecipients`, mention → watcher on Post, resolved on the
   **Sales** site). Any role can download a **customer price confirmation
   PDF** of a PRICED request.
+- **The Tour** (`components/PricingTour.tsx`, Ray, 2026-11-23) — a button on
+  the Pricing bar opening a two-track walkthrough (Requesting a price / Pricing
+  a request) of explanation beside DEMO screens, invented data only. **Its
+  email previews are built by the real `lib/pricingAlerts.ts` builders** fed
+  demo data, so a change to the emails' wording or recipients reaches the tour
+  with no edit; the "Every email" table beside them is hand-written — change
+  it with the workflow. `PricingStatusChip` moved to `pricingFields.tsx` so
+  the tour can use it without a cycle (pricingAtoms renders the button).
 - **The quick price calculator** (Ray, 2026-10-15) — a **Calculator** button
   on the PRICING BAR (`PricingNav`), so it lives in the Pricing tool only —
   it was in the top bar for an hour and Ray moved it. Every pricing role gets
@@ -5569,28 +5573,56 @@ falls back to the admins.
   The workbench is keyed on `${id}-${status}`, so opening a Submitted request
   (→ In Review) REMOUNTS it — a test must wait for In Review before typing.
 
-#### SAP data — the Fabric seam, partly wired
+#### SAP data — the Fabric seam, ALL live
 
 `api/pricingLookup.ts` is the ONE seam to SAP: parts (by either number),
 customers, per-MPG distributor discounts, each customer group's discounts
 on a material and its MPG (`sapCustomerGroupDiscounts`), MPG and family parts.
-It is
-**read-only** — ARC never writes to SAP or Fabric. The data will come from the
-Fabric SAP warehouse through Tim's Fabric API-for-GraphQL module
-(`api/fabric.ts` on Tim-Sandbox); the table names are still to come. Until
-then:
+It is **read-only** — ARC never writes to SAP or Fabric. **Every lookup is
+live** (2026-11-23), through the Fabric API for GraphQL (`api/fabric.ts`).
 
 - **Mock mode** reads the warehouse stand-in in `data/pricingMockData.ts`.
-- **Real mode throws `PricingDataNotConnectedError`** from every call, and
-  `SAP_DATA_CONNECTED` is false, so every screen shows **typed entry from the
-  start** — typed cost, typed customer (`SapCustomerPicker`), no comparables —
-  rather than breaking. `usePricingLookup`'s queries report `notConnected` and
-  never retry it.
+- **Live** (`SAP_PART_LOOKUP_LIVE`: real mode, or the dev demo with
+  `FABRIC_IN_DEMO`) reads the tables below. Without a Fabric endpoint every
+  call throws `PricingDataNotConnectedError`, `SAP_DATA_CONNECTED` is false,
+  and every screen shows **typed entry from the start** rather than breaking.
 
-Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`. **Four
-lookups are live now** — the Calculator's cost (below), and the request
-form's part (with its list price) and customer lookups (the section after it). Each has its own
-switch; everything else in the seam still throws.
+**ARC's tables, in the `Altronic_Business_IT` warehouse** — created and
+refreshed by `arc-pricing-tables.sql` (given to Ray, 2026-11-23; kept out of
+the public repo) from the mirrored S/4 `rpt` views, refreshed daily by
+`dbo.usp_refresh_arc_pricing` (TRUNCATE + INSERT — dropping a table can drop
+it from the GraphQL item):
+
+| GraphQL | From | Feeds |
+|---|---|---|
+| `tbl_arc_material_list_prices` | `rpt.vw_material_list_price`, one row per material | the part lookup, the Calculator's cost, MPG + family comparables (`MaterialPriceGroup`, `FamilyPrefix`) |
+| `tbl_arc_price_group_discounts` | `rpt.vw_price_group_discount`, current ZD04 % rows | the customer's MPG discount; `PriceGroup = 'A0'` IS the distributor discount (`DISTRIBUTOR_PRICE_GROUP`) |
+| `tbl_arc_price_group_material_discounts` | `rpt.vw_price_group_material_discount` | the customer's material discount (beats the MPG one) |
+
+Five things that are load-bearing:
+
+- **The materials table holds EVERY material.** The COGS cost table
+  (`tbl_cogs_material_api`, from `rpt.vw_cogs_material`) keeps only plant
+  status 40/45/50, so a new part at status 12 — 1027-0397-00, reported by
+  Ray — read as "not in SAP" (359 parts at 12, 3,050 at 60). The part lookup
+  and the Calculator moved off it; the column names are the same.
+  **`api/panelBomCosts.ts` still reads the COGS table** and has the same gap.
+- **The "customer group" is SAP's customer PRICE GROUP** (KNVV-KONDA, A0–AC) —
+  the code `vw_sales_customer` hands the picker as `CUSTOMER_GROUP`.
+- **Discounts are stored POSITIVE** (SAP holds ZD04 as `-25.000`), current
+  percentage rows only (`IS_CURRENT = 'X'`, not 'Y').
+- **A0 as the distributor discount is a reading, not a decision on record** —
+  it is "DIST Domestic Distributor" and reads 34% on the common price groups.
+  `rpt.vw_material_price_group_discount` looks like the distributor table and
+  has NO current rows (all expired 2018).
+- **The list price still comes from `tbl_altronic_user_pricings`** for one
+  part; the materials table's `ListPrice` agreed with it on every row
+  (2026-11-23 — the 863 "differences" were all $0, which is no price), and is
+  what the comparables use. A panel that runs past 10,000 parts throws rather
+  than averaging a partial list.
+
+Pinned in `pricingLookup.discounts.real.test.ts`, `.part.real.test.ts` and
+`.materialCost.real.test.ts` (`USE_MOCK: false`, invented values).
 
 #### The Calculator's cost table — the first real Fabric read
 
@@ -5729,10 +5761,9 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
   feeds `SapPart.listPrice`, so the New Product SAP comparison and a customer
   quote's SAP-part line get it with no change of their own. Pinned in
   `pricingLookup.part.real.test.ts` (verified by dropping the price).
-- **The per-MPG distributor discount is still NOT wired.** In live mode
-  `sapMpgDistributorDiscounts` throws not-connected, and `useSapComparison`
-  reads that as the standard 34% (footnoted on the card) — never as "SAP
-  isn't connected", which hid real list and cost figures behind a banner.
+- **The per-MPG distributor discount is live** (A0, above). An MPG with no
+  A0 row is the standard 34%; `useSapComparison` still reads a not-connected
+  answer as 34% rather than hiding real list and cost figures behind a banner.
 - **The form looks the part up AS YOU TYPE** — at once on the 10th SAP digit,
   else 400 ms after typing stops — and warms the endpoint as it opens. It
   fills only BLANK boxes, so a typed Altronic number is kept.
@@ -5803,6 +5834,14 @@ FABRIC_IN_DEMO`) and their `…_CONNECTED` twins (also `FABRIC_ENABLED`).
 - **The worksheet's right column is ONE sticky block** on wide screens
   (`xl:sticky`, scrolling inside itself past the window height). Only the
   Save panel used to be sticky, and the cards under it slid beneath it.
+- **↻ Pull SAP cost** (Ray, 2026-11-23) on every component row and standalone
+  part asks SAP FRESH (`usePullSapPart`, `staleTime: 0`, same cache entry as
+  `useSapPart`) and puts SAP's cost in the BASE, marked `sap`, whatever the
+  line came from (`pullSapCost` in `lib/sapPartFill.ts`). A blank number is
+  filled from SAP; typed numbers, the description and the adjusted cost are
+  never touched. Not in SAP / no cost there: nothing changes, and a toast says
+  why. A CSV line pulled this way is `sap` now, so a re-upload that no longer
+  carries it drops it like any CSV line.
 - **Each line has a BASE cost** (the JSON field `uploadedCost`, named for the
   CSV case) and a `source`: `csv` and `sap` base costs are never edited — the
   manager types an ADJUSTED cost; a `manual` line's base cost is typed and

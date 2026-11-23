@@ -98,7 +98,9 @@ export function PricingRequestFormModal({
     !altronic.trim() && !sap.trim() && "Altronic or SAP part #",
     !description.trim() && "Description",
     !requester && "Requested by",
-    !chosen && "Customer",
+    // Only the NAME is needed (Ray, 2026-11-23): the sold-to number is
+    // optional — a prospect or a new account may not have one yet.
+    !chosen && "Customer name",
   ].filter(Boolean) as string[];
 
   async function handleSubmit(ev: React.FormEvent) {
@@ -193,7 +195,10 @@ export function PricingRequestFormModal({
 
           <div className="flex flex-col gap-1 text-xs">
             <span className="font-semibold uppercase tracking-wider text-fg-muted">
-              Customer <span className="text-cooper-red">*</span>
+              Customer
+            </span>
+            <span className="text-[11px] text-fg-muted">
+              Customer name is required <span className="text-cooper-red">*</span> — the sold-to number and group are optional.
             </span>
             <SapCustomerPicker value={customer} onChange={setCustomer} />
           </div>

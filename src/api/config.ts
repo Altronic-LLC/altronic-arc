@@ -1404,18 +1404,9 @@ export const SP_CUSTOMER_QUOTES_LIST_ID: string | undefined =
 export const NEW_PRODUCT_PRICING_CONFIGURED = USE_MOCK || !!SP_NP_SUBASSEMBLIES_LIST_ID;
 export const CUSTOMER_QUOTES_CONFIGURED = USE_MOCK || !!SP_CUSTOMER_QUOTES_LIST_ID;
 
-/**
- * Sales Pricing is IN REVIEW until this is "true" (Ray, 2026-10-13: "grant me
- * exclusive access so I can review it"). While it isn't, only the addresses
- * in PRICING_PREVIEW_USERS can see or open the tool — whatever the Pricing
- * Roles list says, ARC admins included. Mock mode ignores it, so the demo
- * works. Going live is one repo variable and a redeploy.
- */
-export const PRICING_LIVE = USE_MOCK || import.meta.env.VITE_PRICING_LIVE === "true";
-
-/** Comma-separated addresses let in while PRICING_LIVE is off. */
-export const PRICING_PREVIEW_USERS: string =
-  import.meta.env.VITE_PRICING_PREVIEW_USERS || "ray.white@altronic-llc.com";
+// Sales Pricing is LIVE (Ray, 2026-11-23): the Pricing Roles list alone
+// decides who gets in. The review switch (VITE_PRICING_LIVE /
+// VITE_PRICING_PREVIEW_USERS) that kept it to one person was removed.
 
 // =============================================================================
 // Manufacturing Change Notices — Operations (BusinessIT#38). Three lists on

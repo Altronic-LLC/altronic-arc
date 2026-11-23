@@ -25,9 +25,9 @@ beforeEach(() => {
   fabricQuery.mockReset();
 });
 
-const rows = (...items: Record<string, unknown>[]) => ({ tbl_cogs_material_apis: { items } });
+const rows = (...items: Record<string, unknown>[]) => ({ tbl_arc_material_list_prices: { items } });
 const priced = (prices: Record<string, unknown>[], ...items: Record<string, unknown>[]) => ({
-  tbl_cogs_material_apis: { items },
+  tbl_arc_material_list_prices: { items },
   tbl_altronic_user_pricings: { items: prices },
 });
 const CURRENT = { Currency: "USD", ValidFrom: "2026-02-16T00:00:00Z", ValidTo: "9999-12-31T00:00:00Z" };

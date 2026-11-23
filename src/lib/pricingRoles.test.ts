@@ -7,7 +7,6 @@ import {
   cancelRequestGate,
   managePricingRolesGate,
   parsePricingRoles,
-  previewAllows,
   priceGate,
   pricingRightsFrom,
   seePricingCostGate,
@@ -92,23 +91,6 @@ describe("pricingRightsFrom", () => {
 
   it("an ARC admin with no pricing role gets ONLY canManageRoles — never cost", () => {
     expect(pricingRightsFrom([], { isArcAdmin: true })).toEqual({ ...NO_PRICING_RIGHTS, canManageRoles: true });
-  });
-});
-
-describe("previewAllows", () => {
-  it("lets everyone through when live", () => {
-    expect(previewAllows({ live: true, previewEmails: ["a@x.com"], myEmails: ["b@x.com"] })).toBe(true);
-  });
-
-  it("lets everyone through when the preview list is EMPTY (never locks everybody out)", () => {
-    expect(previewAllows({ live: false, previewEmails: [], myEmails: [] })).toBe(true);
-  });
-
-  it("before live, admits only the preview list — case-insensitively, against any of my addresses", () => {
-    const previewEmails = [" Ray.White@Altronic-LLC.com "];
-    expect(previewAllows({ live: false, previewEmails, myEmails: ["ray@x.com", "ray.white@altronic-llc.com"] })).toBe(true);
-    expect(previewAllows({ live: false, previewEmails, myEmails: ["tim@altronic-llc.com"] })).toBe(false);
-    expect(previewAllows({ live: false, previewEmails, myEmails: [] })).toBe(false);
   });
 });
 

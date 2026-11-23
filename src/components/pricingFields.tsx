@@ -1,3 +1,5 @@
+import type { PricingRequestStatus } from "@/types/pricing";
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 
 // =============================================================================
@@ -37,4 +39,27 @@ export const SMALL_LABEL = "whitespace-nowrap text-[10px] font-semibold uppercas
 
 export function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="font-semibold uppercase tracking-wider text-fg-muted">{children}</span>;
+}
+
+// The status chip lives here (not pricingAtoms) so the Pricing tour can use it
+// without a cycle: pricingAtoms renders the tour button.
+const STATUS_TONE: Record<PricingRequestStatus, string> = {
+  "Awaiting SAP": "bg-ajax-yellow/15 text-fg border-ajax-yellow/40",
+  Submitted: "bg-superior-blue/10 text-superior-blue border-superior-blue/30",
+  "In Review": "bg-accent/10 text-accent border-accent/30",
+  Priced: "bg-cooper-green/10 text-cooper-green border-cooper-green/30",
+  Cancelled: "bg-surface-2 text-fg-muted border-border",
+};
+
+export function PricingStatusChip({ status }: { status: PricingRequestStatus }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+        STATUS_TONE[status] ?? STATUS_TONE.Submitted,
+      )}
+    >
+      {status}
+    </span>
+  );
 }

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ListPlus, Paperclip, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ListPlus, Loader2, Paperclip, Plus, RefreshCw, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import type { SubAssembly, SubAssemblyLine } from "@/types/pricing";
 import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
 import { describeSapCostFailure } from "@/api/pricingLookup";
-import { useSapPartAsYouType } from "@/hooks/usePricingLookup";
-import { applySapPart, clearSapFill, lineFromLookup, samePart, sapLookupArgs, type PartFields, type SapFill } from "@/lib/sapPartFill";
-import { MultiPartAdd, describePastedAdd } from "./MultiPartAdd";
+import { usePullSapPart, useSapPartAsYouType } from "@/hooks/usePricingLookup";
+import { applySapPart, clearSapFill, lineFromLookup, pullSapCost, samePart, sapLookupArgs, type PartFields, type SapFill } from "@/lib/sapPartFill";
+import { MultiPartAdd, describePastedAdd, sapFailureReason } from "./MultiPartAdd";
+import { pushToast } from "./Toast";
 import { importSubAssemblyCsv, lineLabel, mergeUpload, type UploadChanges } from "@/lib/subAssemblyCsv";
 import { lineUnitCost, overheadFactor, subAssemblyCost } from "@/lib/pricingMath";
 import { formatMoney, formatUnitCost } from "@/lib/quoteMoney";
@@ -40,6 +41,8 @@ import { SMALL_LABEL } from "./pricingFields";
 // SAP part (never edited here: change it with Adjusted cost, so "base vs
 // adjusted" keeps its meaning), or what was typed for a hand-added line
 // (editable). The ADJUSTED cost overrides it; the cost used is adjusted ?? base.
+// The ↻ button on a line pulls SAP's CURRENT cost into its base, fresh, and
+// marks it SAP (Ray, 2026-11-23) — whatever the line came from.
 //
 // FILES hang off each row (`npSubAssembly` attachments), so a row must be
 // SAVED before it can take one; a new revision copies them across.
@@ -442,7 +445,7 @@ export function SubAssemblyCard({
                 <th className="px-2 py-1.5 text-right font-semibold">Qty</th>
                 <th
                   className="px-2 py-1.5 text-right font-semibold"
-                  title="From the CSV (not editable — use Adjusted cost), or typed when the component was added by hand"
+                  title="From the CSV or SAP (not editable — use Adjusted cost, or ↻ to pull SAP's current cost), or typed when the component was added by hand"
                 >
                   Base cost
                 </th>
@@ -544,6 +547,8 @@ export function SubAssemblyCard({
                     </td>
                     <td className="px-2 py-1.5 text-right">
                       {!readOnly && (
+                        <span className="inline-flex items-center">
+                        <PullSapCostButton line={line} label={label} onPulled={(patch) => setLine(i, patch)} />
                         <button
                           type="button"
                           onClick={() => onChange({ ...draft, lines: draft.lines.filter((_, j) => j !== i) })}
@@ -552,6 +557,7 @@ export function SubAssemblyCard({
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -609,6 +615,54 @@ export function SubAssemblyCard({
       </>
       )}
     </section>
+  );
+}
+
+/**
+ * Pull SAP's CURRENT cost into this line's base (Ray, 2026-11-23). Asks SAP
+ * fresh, not the cached answer; the base becomes SAP's and is marked SAP. The
+ * adjusted cost is left alone. The result is toasted either way.
+ */
+function PullSapCostButton({
+  line,
+  label,
+  onPulled,
+  className,
+}: {
+  line: SubAssemblyLine;
+  label: string;
+  onPulled: (patch: Partial<SubAssemblyLine>) => void;
+  className?: string;
+}) {
+  const pull = usePullSapPart();
+  const [busy, setBusy] = useState(false);
+  const hasNumber = !!(line.sapPartNumber?.trim() || line.partNumber.trim());
+
+  async function run() {
+    setBusy(true);
+    try {
+      const part = await pull({ altronicPartNumber: line.partNumber, sapPartNumber: line.sapPartNumber ?? "" });
+      const r = pullSapCost(line, part);
+      if (r.patch) onPulled(r.patch);
+      pushToast({ message: r.message });
+    } catch (err) {
+      pushToast({ message: `Couldn't pull SAP's cost for ${label} — ${sapFailureReason(err)}.` });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void run()}
+      disabled={busy || !hasNumber}
+      aria-label={`Pull SAP cost for ${label}`}
+      title={hasNumber ? "Pull SAP's current cost into the base cost" : "Enter an SAP or Altronic part number first"}
+      className={cn("rounded-sm p-1 text-fg-muted hover:text-accent disabled:opacity-40", className)}
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+    </button>
   );
 }
 
@@ -954,6 +1008,22 @@ export function PartCard({
               value={line.uploadedCost ?? ""}
               onChange={(e) => set({}, { uploadedCost: num(e.target.value), source: "manual" })}
               className="input h-9! w-28! text-right tabular-nums"
+            />
+          )}
+          {!readOnly && (
+            <PullSapCostButton
+              line={{ ...line, partNumber: draft.altronicPartNumber, sapPartNumber: draft.sapPartNumber }}
+              label={label}
+              className="ml-1"
+              onPulled={(patch) =>
+                set(
+                  {
+                    ...(patch.partNumber !== undefined && { altronicPartNumber: patch.partNumber }),
+                    ...(patch.sapPartNumber !== undefined && { sapPartNumber: patch.sapPartNumber }),
+                  },
+                  { uploadedCost: patch.uploadedCost, source: patch.source },
+                )
+              }
             />
           )}
           </div>
