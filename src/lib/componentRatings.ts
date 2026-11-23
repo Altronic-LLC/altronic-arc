@@ -87,9 +87,9 @@ const ALIASES: Record<string, string[]> = {
  */
 export function ratingLabelsFor(description: string): RatingLabels {
   let d = words(description);
-  // "OBSOLETE - IC - …" and "SIL CAT 1 - CAPACITOR - …" — neither prefix is
-  // the type.
-  d = d.replace(/^OBSOLETE\s+/, "").replace(/^SIL CAT \d+\s+/, "");
+  // "OBSOLETE - IC - …", "SIL CAT 1 - CAPACITOR - …" and a controlled part's
+  // "CONTROLLED - CAPACITOR - …" — none of those prefixes is the type.
+  d = d.replace(/^OBSOLETE\s+/, "").replace(/^(SIL CAT \d+|CONTROLLED)\s+/, "");
   let best: RatingLabels | null = null;
   let bestLen = 0;
   for (const row of COMPONENT_RATING_TABLE) {

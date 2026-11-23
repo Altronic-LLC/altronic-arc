@@ -25,7 +25,8 @@ describe("linked HCO lists (Tim, 2026-10-09)", () => {
     expect(linkedListChain("711")).toEqual(["711", "712"]);
     expect(linkedListChain("712")).toEqual(["712"]);
     expect(linkedListChain("601")).toEqual(["601", "611"]);
-    expect(linkedListChain("722")).toEqual(["722"]);
+    expect(linkedListChain("722")).toEqual(["722", "723"]);
+    expect(linkedListChain("723")).toEqual(["723"]);
     expect(linkedListChain("604")).toEqual(["604"]);
   });
 
@@ -42,6 +43,8 @@ describe("linked HCO lists (Tim, 2026-10-09)", () => {
     const r = nextLinkedPartNumber("701", [...full("701"), ...full("711"), "712101"]);
     expect(r).toMatchObject({ partNumber: "712102", prefix: "712", skipped: ["701", "711"] });
     expect(nextLinkedPartNumber("601", [...full("601")])).toMatchObject({ partNumber: "611001", skipped: ["601"] });
+    // A full 722 (Controlled Parts) rolls over into 723.
+    expect(nextLinkedPartNumber("722", [...full("722")])).toMatchObject({ partNumber: "723001", prefix: "723", skipped: ["722"] });
   });
 
   it("reuses a deleted number before overflowing", () => {

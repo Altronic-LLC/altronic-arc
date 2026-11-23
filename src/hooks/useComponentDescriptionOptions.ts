@@ -14,7 +14,7 @@ import { manageDescriptionOptionsGate } from "@/lib/partsRoles";
 import { useResolvePartsAccess } from "./usePartsRoles";
 
 // =============================================================================
-// The Description / Type / SIL category dropdowns for a new component, and
+// The Description / Type / control category dropdowns for a new component, and
 // the screen that manages them (/engineering/parts/descriptions).
 //
 // Every write asks manageDescriptionOptionsGate INSIDE its mutationFn — the

@@ -28,7 +28,7 @@ async function ready(label: string) {
 }
 
 const descriptions = () => screen.getByRole("region", { name: "Descriptions" });
-const silCategories = () => screen.getByRole("region", { name: /SIL categories/ });
+const silCategories = () => screen.getByRole("region", { name: /Control categories/ });
 
 beforeEach(() => {
   __resetComponentDescriptionOptionsMockStore();
@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 
 describe("PartDescriptionOptionsView", () => {
-  it("lists the descriptions with their types, and the SIL categories", async () => {
+  it("lists the descriptions with their types, and the control categories", async () => {
     renderWithProviders(<PartDescriptionOptionsView />);
     expect(await within(await screen.findByRole("region", { name: "Descriptions" })).findByText("Capacitor")).toBeInTheDocument();
     expect(within(descriptions()).getByText("Ceramic")).toBeInTheDocument();
@@ -57,8 +57,8 @@ describe("PartDescriptionOptionsView", () => {
 
   it("refuses a duplicate, and says so", async () => {
     renderWithProviders(<PartDescriptionOptionsView />);
-    await userEvent.type(await ready("New SIL category"), "sil cat 2 -");
-    await userEvent.click(screen.getByRole("button", { name: "Add SIL category" }));
+    await userEvent.type(await ready("New control category"), "sil cat 2 -");
+    await userEvent.click(screen.getByRole("button", { name: "Add control category" }));
     expect(await screen.findByText('"SIL CAT 2" is already on the list.')).toBeInTheDocument();
   });
 

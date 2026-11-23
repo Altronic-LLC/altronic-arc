@@ -248,7 +248,7 @@ describe("PartFormModal — a component", () => {
       { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor"], note: "" },
     ]);
     renderForm("722");
-    expect(await screen.findByText(/Only parts editors can add to the 722 list/)).toBeInTheDocument();
+    expect(await screen.findByText(/Only parts editors can add to the Controlled Parts lists/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add part" })).toBeDisabled();
   });
 });
@@ -293,15 +293,15 @@ describe("PartFormModal — a component's description is picked", () => {
     expect(await screen.findByText(/^Pick a Type for Capacitor\. Also fill in:/)).toBeInTheDocument();
   });
 
-  it("puts a SIL category first on the 722 list, and requires it", async () => {
+  it("puts a control category first on the 722 list, and requires it", async () => {
     const { onClose } = renderForm("722");
-    await screen.findByRole("radiogroup", { name: "SIL category" });
+    await screen.findByRole("radiogroup", { name: "Control category" });
     await pick("Description", "Capacitor");
     await pick("Type", "Ceramic");
     await fillComponentExceptDescription();
     await attachDatasheet();
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
-    expect(await screen.findByText("Pick the SIL category.")).toBeInTheDocument();
+    expect(await screen.findByText("Pick the control category.")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("radio", { name: "SIL CAT 2" }));
     expect(screen.getByText("SIL CAT 2 - CAPACITOR - CERAMIC")).toBeInTheDocument();
@@ -310,10 +310,25 @@ describe("PartFormModal — a component's description is picked", () => {
     expect((await listAltronicComponents()).some((c) => c.description === "SIL CAT 2 - CAPACITOR - CERAMIC")).toBe(true);
   });
 
-  it("offers no SIL category off the 722 list", async () => {
+  it("offers Other for a controlled part that isn't SIL — saved as CONTROLLED - …", async () => {
+    const { onClose } = renderForm("722");
+    await screen.findByRole("radiogroup", { name: "Control category" });
+    await pick("Description", "Capacitor");
+    await pick("Type", "Ceramic");
+    await fillComponentExceptDescription();
+    await attachDatasheet();
+    await userEvent.click(screen.getByRole("radio", { name: "Other" }));
+    expect(screen.getByText("CONTROLLED - CAPACITOR - CERAMIC")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const added = (await listAltronicComponents()).filter((c) => c.partNumber.startsWith("722"));
+    expect(added.some((c) => c.description === "CONTROLLED - CAPACITOR - CERAMIC" && c.category === "Controlled Parts")).toBe(true);
+  });
+
+  it("offers no control category off the 722 list", async () => {
     renderForm("701");
     await screen.findByRole("button", { name: "Description" });
-    expect(screen.queryByRole("radiogroup", { name: "SIL category" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Control category" })).not.toBeInTheDocument();
   });
 
   it("offers what's on the list today — an option added is offered, one removed isn't", async () => {

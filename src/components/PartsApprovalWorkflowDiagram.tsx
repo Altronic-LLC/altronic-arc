@@ -19,7 +19,7 @@ import { SAP_RESPONSES, SAP_RESPONSE_LABELS } from "@/lib/partsRoles";
 // role, never by name — who holds a role is data on that list, not code.
 // =============================================================================
 
-/** "601, 611, 701, 711, 712 or 722" — the prefixes that are components. */
+/** "601, 611, 701, 711, 712, 722 or 723" — the prefixes that are components. */
 export const COMPONENT_PREFIXES = joinNames(Object.keys(COMPONENT_PREFIX_CATEGORY).sort(), "or");
 
 const SAP_STEP: WorkflowStep = {
@@ -42,7 +42,7 @@ export const PARTS_APPROVAL_TRACKS: WorkflowTrack[] = [
         title: "Add the component",
         status: "Pending Engineering Review",
         detail:
-          "New part on the list. Its Description and Type are picked, and the next free number is filled in. Adding to 722 needs Parts editor or above.",
+          "New part on the list. Its Description and Type are picked, and the next free number is filled in. Adding to a Controlled Parts list (722, 723) needs Parts editor or above.",
         emails: "The reviewing engineers, with every field",
       },
       {

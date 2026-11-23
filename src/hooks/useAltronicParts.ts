@@ -475,7 +475,7 @@ export function useRequestNewPartsList() {
 }
 
 export interface LinkedListsFullRequest {
-  /** "Surface Mount", "Through Hole", "SIL". */
+  /** "Surface Mount", "Through Hole", "Controlled Parts". */
   category: string;
   /** Every linked list in the category, all full. */
   lists: string[];

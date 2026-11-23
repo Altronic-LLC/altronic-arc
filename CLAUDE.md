@@ -2083,13 +2083,28 @@ digit is its **Parts Book**. That is a rule about the NUMBER, not a stored
 column (`partPrefix` / `partBook` in `lib/altronicPartMapper.ts`).
 
 **Which list a part is on is decided by its prefix**:
-- `601/611` are Through Hole, `701/711/712` Surface Mount, and `722` SIL.
-  These six go to the Component List; everything else goes to the Part List.
+- `601/611` are Through Hole, `701/711/712` Surface Mount, and `722/723` Controlled Parts.
+  These seven go to the Component List; everything else goes to the Part List.
 - `COMPONENT_PREFIX_CATEGORY` is the one copy in the app, and it must agree
   with `$CategoryByPrefix` in the load script. A mismatch looks for a part on
   the wrong list.
 - `722044` sat in the old numeric "722" list and was moved to the Component
   List as SIL during the load.
+- **722 is "Controlled Parts", stored as "SIL"** (Tim, 2026-11-23): every
+  722 part is controlled, only some are SIL. ARC shows Controlled Parts; the
+  Category column and its 122 rows still hold "SIL", so `categoryFromColumn`
+  reads SIL as Controlled Parts and `categoryColumnValue` writes SIL back
+  (`CATEGORY_STORED_AS` in `lib/altronicPartMapper.ts`). Migrating the column
+  means deleting that entry AND the load script's `"722" = "SIL"` together.
+- **723 is 722's linked list** (Tim, 2026-11-23), added before 722 filled
+  (live that day: 122 numbers, highest 722633, 2 deleted; Next free never
+  goes back into the 511 unused numbers below 633). From a full 722 New part
+  takes the next free 723 number, as 701 → 711; a search on either covers
+  both; 723 stores Category "SIL" too, and adding to it needs Parts editor
+  (`isControlledPrefix`, not `prefix === "722"`). 723 was empty on both lists.
+  **A further list must be added to `COMPONENT_PREFIX_CATEGORY` (and
+  `$CategoryByPrefix`) BEFORE its first part** — until then ARC reads it as a
+  plain Part List list. 724 and 729 already hold Part List parts.
 
 #### How the lists were built — the scripts, not an export
 
@@ -2803,9 +2818,15 @@ Tim's decisions, 2026-09-28/29:
   `/engineering/parts/descriptions` — not under `/admin`, because they aren't
   necessarily ARC admins. The Parts Book's **Descriptions** button is hidden
   from everybody else, like New part.
-- **The 722 list gets a SIL category first** — SIL CAT 1 / SIL CAT 2 to begin
-  with, on the same list (`Kind = SIL Category`) so more can be added. Nearly
-  all 122 existing 722 parts are written that way.
+- **The 722/723 lists get a CONTROL category first** (called "SIL category"
+  until 2026-11-23) — SIL CAT 1 / SIL CAT 2 to begin with, on the same list
+  (`Kind = SIL Category`, the stored name) so more can be added. Nearly all
+  122 existing 722 parts are written that way. **Other** is built in
+  (`CONTROL_CATEGORY_OTHER`, offered only while the list has a control
+  category): a controlled part that isn't SIL, saved as
+  `CONTROLLED - CAPACITOR - CERAMIC` (`CONTROLLED_PREFIX`; Tim, 2026-11-23).
+  `componentRatings.ts` skips that prefix like SIL CAT n. Other can't be
+  added to the list as an option.
 - **Editing keeps the free text box.** About half of the 3,946 existing
   descriptions aren't a Description/Type pair; an edit must not force them
   into one.

@@ -346,7 +346,8 @@ export const SP_ALTRONIC_PART_LIST_ID =
 
 /**
  * "Altronic Component List" — the HCO electronic components, ~3,900 rows:
- * 601/611 Through Hole, 701/711/712 Surface Mount, 722 SIL. Same origin and
+ * 601/611 Through Hole, 701/711/712 Surface Mount, 722 Controlled Parts (its
+ * Category is stored "SIL"). Same origin and
  * the same `Title` = Altronic Part # rule as the Part List above.
  */
 export const SP_ALTRONIC_COMPONENT_LIST_ID =
@@ -376,7 +377,7 @@ export const PARTS_ROLES_CONFIGURED = USE_MOCK || !!SP_PARTS_ROLES_LIST_ID;
 
 /**
  * "Component Description Options" — the Description / Type dropdowns a new
- * component is described with, plus the SIL categories offered on the 722
+ * component is described with, plus the control categories offered on the 722/723
  * list (Tim, 2026-09-28/29). Kind (Description | SIL Category), Title = the
  * option, Types = one per line, SortOrder. Created and seeded by
  * `scripts/create-altronic-parts-lists.ps1`; managed at

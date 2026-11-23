@@ -3,9 +3,12 @@ import type { GraphListItem } from "@/types/task";
 import {
   COMPONENT_PREFIX_CATEGORY,
   altronicPartLabel,
+  categoryColumnValue,
+  categoryFromColumn,
   comparePartNumbers,
   componentSearchPrefixes,
   isComponentPrefix,
+  isControlledPrefix,
   partBook,
   partPrefix,
   toAltronicComponent,
@@ -128,6 +131,34 @@ describe("toAltronicComponent", () => {
   it("reads a missing HasDataSheet as No", () => {
     expect(toAltronicComponent(item({ Title: "601110" })).hasDataSheet).toBe(false);
   });
+
+  it("reads the stored SIL category as Controlled Parts", () => {
+    expect(toAltronicComponent(item({ Title: "722044", Category: "SIL" })).category).toBe("Controlled Parts");
+  });
+});
+
+describe("the 722 category — Controlled Parts, stored as SIL", () => {
+  it("names 722 and its linked 723 Controlled Parts — one category, searched together", () => {
+    expect(COMPONENT_PREFIX_CATEGORY["722"]).toBe("Controlled Parts");
+    expect(COMPONENT_PREFIX_CATEGORY["723"]).toBe("Controlled Parts");
+    expect(componentSearchPrefixes("723")).toEqual(["722", "723"]);
+    expect(isControlledPrefix("723")).toBe(true);
+    expect(isControlledPrefix("712")).toBe(false);
+    expect(isControlledPrefix("724")).toBe(false);
+  });
+
+  it("writes Controlled Parts as SIL, and leaves the other categories as they are", () => {
+    expect(categoryColumnValue("Controlled Parts")).toBe("SIL");
+    expect(categoryColumnValue("Surface Mount")).toBe("Surface Mount");
+  });
+
+  it("reads SIL in any case, a migrated value, and blanks", () => {
+    expect(categoryFromColumn("sil")).toBe("Controlled Parts");
+    expect(categoryFromColumn("Controlled Parts")).toBe("Controlled Parts");
+    expect(categoryFromColumn("Through Hole")).toBe("Through Hole");
+    expect(categoryFromColumn("")).toBeNull();
+    expect(categoryFromColumn(undefined)).toBeNull();
+  });
 });
 
 describe("part-number rules", () => {
@@ -149,7 +180,7 @@ describe("part-number rules", () => {
   });
 
   it("knows exactly the six HCO lists, matching the load script", () => {
-    expect(Object.keys(COMPONENT_PREFIX_CATEGORY).sort()).toEqual(["601", "611", "701", "711", "712", "722"]);
+    expect(Object.keys(COMPONENT_PREFIX_CATEGORY).sort()).toEqual(["601", "611", "701", "711", "712", "722", "723"]);
     expect(isComponentPrefix("722")).toBe(true);
     expect(isComponentPrefix("610")).toBe(false);
     // An inherited property must not read as a prefix.
@@ -160,7 +191,7 @@ describe("part-number rules", () => {
     expect(componentSearchPrefixes("701")).toEqual(["701", "711", "712"]);
     expect(componentSearchPrefixes("712")).toEqual(["701", "711", "712"]);
     expect(componentSearchPrefixes("611")).toEqual(["601", "611"]);
-    expect(componentSearchPrefixes("722")).toEqual(["722"]);
+    expect(componentSearchPrefixes("722")).toEqual(["722", "723"]);
     // A Part List list has no family.
     expect(componentSearchPrefixes("610")).toEqual([]);
     expect(componentSearchPrefixes("toString")).toEqual([]);

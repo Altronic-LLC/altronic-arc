@@ -3,6 +3,7 @@ import type { ComponentDescriptionOption } from "@/types/task";
 import {
   cleanOptionName,
   composeDescription,
+  controlCategoryChoices,
   EMPTY_PICKS,
   nextSortOrder,
   optionNameProblem,
@@ -43,6 +44,13 @@ describe("composeDescription", () => {
     );
   });
 
+  it("puts CONTROLLED in front for the control category Other", () => {
+    expect(composeDescription({ silCategory: "Other", name: "Capacitor", type: "Ceramic" })).toBe(
+      "CONTROLLED - CAPACITOR - CERAMIC",
+    );
+    expect(ratingLabelsFor("CONTROLLED - CAPACITOR - CERAMIC").component).toBe("Capacitor ceramic");
+  });
+
   it("is the description alone when it has no types", () => {
     expect(composeDescription({ silCategory: "", name: "Relay", type: "" })).toBe("RELAY");
   });
@@ -67,9 +75,10 @@ describe("picksProblem", () => {
     expect(picksProblem({ silCategory: "", name: "Relay", type: "" }, OPTIONS, false)).toBeNull();
   });
 
-  it("wants a SIL category on the 722 list — unless the list offers none", () => {
+  it("wants a control category on the 722 list — unless the list offers none", () => {
     const picks = { silCategory: "", name: "Relay", type: "" };
-    expect(picksProblem(picks, OPTIONS, true)).toBe("Pick the SIL category.");
+    expect(picksProblem(picks, OPTIONS, true)).toBe("Pick the control category.");
+    expect(picksProblem({ ...picks, silCategory: "Other" }, OPTIONS, true)).toBeNull();
     expect(picksProblem(picks, OPTIONS.filter((o) => o.kind === "Description"), true)).toBeNull();
     expect(picksProblem(picks, OPTIONS, false)).toBeNull();
   });
@@ -92,6 +101,24 @@ describe("reconcilePicks", () => {
     });
     expect(reconcilePicks({ silCategory: "", name: "Fuse", type: "Ceramic" }, OPTIONS)).toEqual(EMPTY_PICKS);
   });
+
+  it("keeps Other, which is never on the list", () => {
+    expect(reconcilePicks({ silCategory: "other", name: "Relay", type: "" }, OPTIONS).silCategory).toBe("Other");
+  });
+});
+
+describe("controlCategoryChoices", () => {
+  it("is the list's control categories, then Other", () => {
+    expect(controlCategoryChoices(OPTIONS)).toEqual(["SIL CAT 1", "SIL CAT 2", "Other"]);
+  });
+
+  it("offers nothing — not even Other — when the list has none", () => {
+    expect(controlCategoryChoices(OPTIONS.filter((o) => o.kind === "Description"))).toEqual([]);
+  });
+
+  it("never offers Other twice, if somebody added one to the list", () => {
+    expect(controlCategoryChoices([...OPTIONS, opt(9, "SIL Category", "OTHER")])).toEqual(["SIL CAT 1", "SIL CAT 2", "Other"]);
+  });
 });
 
 describe("the option rules", () => {
@@ -111,6 +138,8 @@ describe("the option rules", () => {
     expect(optionNameProblem("capacitor", "Description", OPTIONS)).toBe('"Capacitor" is already on the list.');
     expect(optionNameProblem("SIL CAT 1 -", "SIL Category", OPTIONS)).toBe('"SIL CAT 1" is already on the list.');
     expect(optionNameProblem("Capacitor", "SIL Category", OPTIONS)).toBeNull();
+    // Other is built in, so it can't also be a stored control category.
+    expect(optionNameProblem("other", "SIL Category", OPTIONS)).toMatch(/always offered/);
     // Renaming a row to its own name isn't a clash.
     expect(optionNameProblem("Capacitor", "Description", OPTIONS, 1)).toBeNull();
   });

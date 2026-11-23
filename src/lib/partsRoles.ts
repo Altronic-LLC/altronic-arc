@@ -4,6 +4,7 @@ import {
   PARTS_ROLE_TAGS,
   type PartsRole,
 } from "@/types/task";
+import { isControlledPrefix } from "./altronicPartMapper";
 
 export { PARTS_ROLE_TAGS, type PartsRole };
 
@@ -16,9 +17,9 @@ export { PARTS_ROLE_TAGS, type PartsRole };
 // 2026-09-28), so who holds them changes on the list, not in code.
 //
 //   editor              ADD Part List parts on existing lists, and HCO
-//                       components (except 722). No editing: they suggest a
+//                       components (except Controlled Parts, 722/723). No editing: they suggest a
 //                       correction instead (suggestCorrectionGate)
-//   hco editor          + EDIT existing parts on BOTH lists, and add to 722
+//   hco editor          + EDIT existing parts on BOTH lists, and add to 722/723
 //                       (shown as "Parts editor")
 //   reviewing engineer  + approve a component's Engineering Review step
 //   sap admin           + approve the Pending SAP step; start a new parts list;
@@ -54,8 +55,8 @@ export const PARTS_ROLE_LABELS: Record<PartsRole, string> = {
 
 export const PARTS_ROLE_DESCRIPTIONS: Record<PartsRole, string> = {
   editor:
-    "Adds Part List parts on existing lists and HCO components (not 722). Can't edit existing parts — suggests corrections to the reviewers and the SAP admin instead.",
-  "hco editor": "Also edits existing parts on both lists and adds to the 722 list. Includes Add.",
+    "Adds Part List parts on existing lists and HCO components (not Controlled Parts, 722/723). Can't edit existing parts — suggests corrections to the reviewers and the SAP admin instead.",
+  "hco editor": "Also edits existing parts on both lists and adds to the Controlled Parts lists (722, 723). Includes Add.",
   "reviewing engineer": "Approves new HCO components at the Engineering Review step. Includes Parts editor.",
   "sap admin": "Adds new parts to SAP and gives final approval; starts new parts lists; can edit every field. Emailed about every new part and every edit.",
 };
@@ -92,7 +93,7 @@ export interface PartsRights {
   editParts: boolean;
   addComponents: boolean;
   editComponents: boolean;
-  /** Add to 722. */
+  /** Add to the Controlled Parts lists (722, 723). */
   addSil: boolean;
   approveEngineering: boolean;
   approveSap: boolean;
@@ -161,8 +162,8 @@ export function addPartGate(
   component: boolean,
   opensNewList = false,
 ): PartsGate {
-  if (component && prefix === "722") {
-    return gate(access, (r) => r.addSil, `Only parts editors can add to the 722 list. ${ASK}`);
+  if (component && isControlledPrefix(prefix)) {
+    return gate(access, (r) => r.addSil, `Only parts editors can add to the Controlled Parts lists (722, 723). ${ASK}`);
   }
   if (!component && opensNewList) {
     return gate(
@@ -197,7 +198,7 @@ export function editPartGate(access: PartsAccess, component: boolean): PartsGate
  * can edit the part, or add parts to its list (Tim, 2026-09-29): an upload
  * never replaces a file (api/datasheets.ts), so adding one that isn't there
  * changes nothing anyone relied on — and it's how the Add role retries an
- * upload that failed when they added the part. The 722 list stays with parts
+ * upload that failed when they added the part. The Controlled Parts lists (722/723) stay with parts
  * editors, as adding to it does.
  */
 export function addDatasheetGate(access: PartsAccess, prefix: string, component: boolean): PartsGate {
@@ -232,7 +233,7 @@ export function deletePartGate(access: PartsAccess): PartsGate {
 }
 
 /**
- * May this person change the Description / Type / SIL category dropdowns a
+ * May this person change the Description / Type / control category dropdowns a
  * new component is described with? The SAP admin and the reviewing engineers
  * (Tim, 2026-09-28) — the people who approve components, so the people who
  * see a missing option first.

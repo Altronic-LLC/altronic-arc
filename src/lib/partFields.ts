@@ -237,7 +237,7 @@ export function nextPartNumber(prefix: string, existing: Iterable<string>, delet
 /**
  * The HCO lists a new part on `prefix` may land on, in order: `prefix` itself,
  * then the LINKED lists after it in the same category (Tim, 2026-10-09) —
- * 701 → 711 → 712, 601 → 611. 722 is alone. Any other list is just itself.
+ * 701 → 711 → 712, 601 → 611, 722 → 723. Any other list is just itself.
  * Only lists AFTER `prefix` count: the earlier ones are the ones that filled
  * first, and handing out a number behind the list somebody opened is a
  * surprise nobody asked for.

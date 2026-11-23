@@ -3,6 +3,7 @@ import type { AltronicComponent, Person } from "@/types/task";
 import { PART_DELETED_STATUS } from "@/types/task";
 import {
   COMPONENT_PREFIX_CATEGORY,
+  categoryColumnValue,
   comparePartNumbers,
   partPrefix,
   toAltronicComponent,
@@ -39,7 +40,7 @@ import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Altronic Component List API — the HCO electronic components (601/611 Through
-// Hole, 701/711/712 Surface Mount, 722 SIL), on the Engineering site.
+// Hole, 701/711/712 Surface Mount, 722/723 Controlled Parts), on the Engineering site.
 //
 // ~3,900 rows: under the threshold, fetched whole and searched in the browser,
 // the same as the Part List for the same reason. Writes follow the Part List's
@@ -155,7 +156,7 @@ export type NewAltronicComponent = Partial<AltronicComponent> & { partNumber: st
 /** The category a component number belongs to, or throws — it isn't an HCO number. */
 export function categoryForNumber(partNumber: string): string {
   const category = COMPONENT_PREFIX_CATEGORY[partPrefix(partNumber) ?? ""];
-  if (!category) throw new Error(`${partNumber} isn't an HCO component number (601/611/701/711/712/722).`);
+  if (!category) throw new Error(`${partNumber} isn't an HCO component number (601/611/701/711/712/722/723).`);
   return category;
 }
 
@@ -204,7 +205,7 @@ export async function createAltronicComponent(
   const fields = {
     ...columnsFromPatch(COMPONENT_FIELDS, input),
     Title: partNumber,
-    Category: category,
+    Category: categoryColumnValue(category),
     SignOffStatus: signOffStatus,
   };
   const created = await createItem(listId(), fields);
@@ -276,7 +277,7 @@ async function reuseComponent(
   const fields: Record<string, unknown> = {
     ...replacementColumns(COMPONENT_FIELDS, input),
     Title: partNumber,
-    Category: category,
+    Category: categoryColumnValue(category),
     SignOffStatus: signOffStatus,
     LegacySource: "",
   };

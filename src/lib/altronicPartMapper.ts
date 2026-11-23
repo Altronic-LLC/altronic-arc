@@ -34,8 +34,35 @@ export const COMPONENT_PREFIX_CATEGORY: Readonly<Record<string, ComponentCategor
   "701": "Surface Mount",
   "711": "Surface Mount",
   "712": "Surface Mount",
-  "722": "SIL",
+  "722": "Controlled Parts",
+  // 722's linked list, ready before 722 fills (Tim, 2026-11-23): a new part
+  // opened on a full 722 takes the next free 723 number, as 701 → 711 does.
+  "723": "Controlled Parts",
 };
+
+/**
+ * The Category column's STORED value, where it isn't the name ARC shows.
+ * 722 was the "SIL" list in the old app; it is the Controlled Parts list now
+ * (Tim, 2026-11-23) — every 722 part is controlled, and only some are SIL
+ * (that's the SIL CAT prefix on the description). The 122 live rows and the
+ * column's choice still say "SIL", so ARC reads "SIL" as Controlled Parts and
+ * writes "SIL" back — on 723 too. If the column is ever migrated, delete the entry here
+ * and in the load script's `$CategoryByPrefix` together.
+ */
+const CATEGORY_STORED_AS: Readonly<Record<string, string>> = { "Controlled Parts": "SIL" };
+
+/** A stored Category value as ARC names it — "SIL" reads as "Controlled Parts". */
+export function categoryFromColumn(raw: unknown): string | null {
+  const stored = toChoice(raw);
+  if (!stored) return null;
+  const shown = Object.keys(CATEGORY_STORED_AS).find((k) => CATEGORY_STORED_AS[k].toLowerCase() === stored.toLowerCase());
+  return shown ?? stored;
+}
+
+/** The value written to the Category column for a category ARC names. */
+export function categoryColumnValue(category: string): string {
+  return CATEGORY_STORED_AS[category] ?? category;
+}
 
 function toText(raw: unknown): string {
   return typeof raw === "string" ? raw.trim() : "";
@@ -106,7 +133,7 @@ export function toAltronicComponent(item: GraphListItem): AltronicComponent {
   return {
     id: parseInt(item.id, 10),
     partNumber: toText(f.Title),
-    category: toChoice(f.Category),
+    category: categoryFromColumn(f.Category),
     description: toText(f.Description),
     mfgName: toText(f.MfgName),
     mfgNumber: toText(f.MfgNumber),
@@ -144,6 +171,11 @@ export function partBook(partNumber: string): number | null {
   return prefix ? Number(prefix[0]) : null;
 }
 
+/** Is this a Controlled Parts list (722, and 723 linked after it)? */
+export function isControlledPrefix(prefix: string): boolean {
+  return isComponentPrefix(prefix) && COMPONENT_PREFIX_CATEGORY[prefix] === "Controlled Parts";
+}
+
 /** Is this three-digit list one of the HCO component lists? */
 export function isComponentPrefix(prefix: string): boolean {
   return Object.prototype.hasOwnProperty.call(COMPONENT_PREFIX_CATEGORY, prefix);
@@ -152,7 +184,7 @@ export function isComponentPrefix(prefix: string): boolean {
 /**
  * The HCO lists a search on `prefix` covers: every prefix in the same
  * category, in order — 601/611 (Through Hole), 701/711/712 (Surface Mount),
- * 722 alone (SIL). The old app kept each category as ONE list ("Through Hole
+ * 722/723 (Controlled Parts). The old app kept each category as ONE list ("Through Hole
  * Parts", "Surface Mount Parts"), so searching from 711 found a 701 part, and
  * ARC does the same (Tim, 2026-10-02). Empty for a Part List prefix.
  */

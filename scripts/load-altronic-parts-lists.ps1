@@ -116,7 +116,7 @@ $ExpectedLegacy    = 175
 $CategoryByPrefix = @{
     "601" = "Through Hole"; "611" = "Through Hole"
     "701" = "Surface Mount"; "711" = "Surface Mount"; "712" = "Surface Mount"
-    "722" = "SIL"
+    "722" = "SIL"; "723" = "SIL"   # STORED value — ARC shows it as "Controlled Parts" (lib/altronicPartMapper.ts CATEGORY_STORED_AS)
 }
 
 $DateFields = @("DateAssigned", "DateDrawing")
