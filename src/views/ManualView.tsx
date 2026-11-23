@@ -57,7 +57,7 @@ const SECTIONS: ManualSection[] = [
       "calendar",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool). Every date in ARC is picked from a calendar: the month and year at the top of it are dropdowns, so you can jump straight to a year instead of clicking the arrow a month at a time, which matters most for older dates like a CSA listing's Date Certified. A record's existing year is always offered however old it is.",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms, Quality Fixture Log), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool). Every date in ARC is picked from a calendar: the month and year at the top of it are dropdowns, so you can jump straight to a year instead of clicking the arrow a month at a time, which matters most for older dates like a CSA listing's Date Certified. A record's existing year is always offered however old it is.",
     render: () => (
       <>
         <P>
@@ -70,7 +70,7 @@ const SECTIONS: ManualSection[] = [
           Listings, Where Am I?, ECNs), <strong>Panels</strong>,{" "}
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC Defect Log,
-          Ignition QC Defect Log, QC Forms), <strong>Supply Chain</strong> (Gray Market Requests,
+          Ignition QC Defect Log, QC Forms, Quality Fixture Log), <strong>Supply Chain</strong> (Gray Market Requests,
           FAITs, MRB, and the Suppliers SRM tool), and{" "}
           <strong>Customer Service / Sales</strong> (Open Orders Report, Visit
           Reports, and the Customers CRM tool). Engineering Tasks use the{" "}
@@ -221,7 +221,7 @@ const SECTIONS: ManualSection[] = [
       "quick link buttons",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project. The page shows its cards straight away; a card still waiting on its SharePoint list says Loading… and can't be opened until its count arrives, and during a refresh each card keeps its last count, stays clickable and shows Updating.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log, QC Forms and the Quality Fixture Log; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project. The page shows its cards straight away; a card still waiting on its SharePoint list says Loading… and can't be opened until its count arrives, and during a refresh each card keeps its last count, stays clickable and shows Updating.",
     render: () => (
       <>
         <P>
@@ -291,7 +291,7 @@ const SECTIONS: ManualSection[] = [
           Other departments have their own cards further down the page —{" "}
           <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
-          Defect Log, QC Forms), <strong>Supply Chain</strong> (Gray Market Requests,
+          Defect Log, QC Forms, Quality Fixture Log), <strong>Supply Chain</strong> (Gray Market Requests,
           Suppliers, Cost Impact Notices, FAITs, MRB) and{" "}
           <strong>Customer Service / Sales</strong> (Open Orders Report,
           Visit Reports, Customers) all open straight to their lists, and{" "}
@@ -4439,6 +4439,59 @@ const SECTIONS: ManualSection[] = [
             QCFRM-035 Rev 0 page.
           </LI>
         </UL>
+      </>
+    ),
+  },
+  {
+    id: "quality-fixture-log",
+    title: "Quality Fixture Log",
+    group: "Quality Control",
+    keywords: [
+      "quality fixture log",
+      "fixture",
+      "qf",
+      "qflog",
+      "custom equipment",
+      "calibration not required",
+      "tester",
+      "gauge",
+      "retire",
+      "fixture roles",
+    ],
+    searchText:
+      "Quality Fixture Log at /quality/fixtures, under Departments > Quality Control: the custom QC equipment log (calibration not required), one row per fixture, tester or gauge, numbered QF1, QF2 and so on. Everyone signed in can read and search it — search covers the number, description, comment, location and products / part numbers. It opens on Active fixtures; the Retired and All pills show the rest. Click a fixture to open its page, with its location, the products or part numbers it tests, a comment, and its attachments (photos, drawings), which anyone can open. Fixture Log editors add fixtures (the next free number is filled in; type over it to use another — a number already on the log is refused), edit them, add and remove attachments, and retire a fixture taken out of service. A retired fixture stays on the log and its number is never reused; Put back in service undoes it. There is no delete. Who can edit is the Quality Fixture Roles list, under Roles, managed by a Fixture Log admin or an ARC admin.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Quality Control → Quality Fixture Log</strong> (
+          <code>/quality/fixtures</code>) is Quality Control's custom equipment log — the QF fixtures, testers and
+          gauges that need no calibration. Everyone signed in can read and search it.
+        </P>
+        <UL>
+          <LI>
+            The list opens on <strong>Active</strong> fixtures in number order. The <strong>Retired</strong> and{" "}
+            <strong>All</strong> pills show the others. Search covers the number, description, comment, location and
+            products / part numbers; every column sorts, and Location and Status can be filtered.
+          </LI>
+          <LI>
+            Click a fixture to open its page: where it's kept, what it tests, a comment, and its{" "}
+            <strong>attachments</strong> (photos, drawings), which anyone can open.
+          </LI>
+          <LI>
+            A <strong>Fixture Log editor</strong> can <strong>Add fixture</strong> — the next free number is filled in,
+            and you can type over it; a number already on the log, retired ones included, is refused — and can edit a
+            fixture, add or remove its attachments, and <strong>Retire</strong> one taken out of service.
+          </LI>
+          <LI>
+            A retired fixture stays on the log and its number is never used again. <strong>Put back in service</strong>{" "}
+            undoes it. There is no delete.
+          </LI>
+        </UL>
+        <Tip>
+          Who can edit is the <strong>Quality Fixture Roles</strong> list, under <strong>Roles</strong> on the log
+          (also linked from the Admin page). A Fixture Log admin or an ARC admin adds people as an editor or an admin;
+          an admin can also manage the list. Until somebody is on it, nobody can change the log.
+        </Tip>
       </>
     ),
   },

@@ -3,6 +3,7 @@ import {
   SP_BUILD_REQUESTS_LIST_ID,
   SP_COST_IMPACT_NOTICES_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
+  SP_QUALITY_FIXTURES_LIST_ID,
   SP_ECNS_LIST_ID,
   SP_FAIT_LIST_ID,
   SP_FEATURE_REQUESTS_LIST_ID,
@@ -89,7 +90,8 @@ export type AttachmentParent =
   | "npSubAssembly"
   | "customerQuote"
   | "mcn"
-  | "featureRequest";
+  | "featureRequest"
+  | "qualityFixture";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -269,6 +271,12 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_FEATURE_REQUESTS_LIST_ID,
     siteUrl: SP_SITE_URL,
     listIdEnvVar: "VITE_SP_FEATURE_REQUESTS_LIST_ID",
+  },
+  // A fixture's photos and drawings. QFLOG (PMO site) has attachments on.
+  qualityFixture: {
+    listId: SP_QUALITY_FIXTURES_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_QUALITY_FIXTURES_LIST_ID",
   },
 };
 

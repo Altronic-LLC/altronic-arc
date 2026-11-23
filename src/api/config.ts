@@ -1470,6 +1470,23 @@ export const PLANT_MAP_CONFIGURED =
     !!SP_PLANT_LAYOUTS_LIST_ID &&
     !!SP_PLANT_LAYOUT_FILES_LIST_ID);
 
+// =============================================================================
+// Quality Fixture Log — Quality Control. The "Quality Control Custom Equipment
+// Log (calibration not required)": QFLOG on the PMO site, loaded from the old
+// list, plus Quality Fixture Roles, created by
+// scripts/setup-quality-fixture-log.ps1.
+//
+// Both carry documented defaults (created 2026-11-23). QFLOG gates nothing —
+// reading it is open to everyone signed in. The roles list admits ONLY the
+// people on it, so pointing at it locks nobody out (the Parts Roles
+// reasoning): nobody could change the log in ARC before.
+// =============================================================================
+
+export const SP_QUALITY_FIXTURES_LIST_ID: string =
+  import.meta.env.VITE_SP_QUALITY_FIXTURES_LIST_ID || "4e8c5134-83ee-4600-ab81-286c9161e2f9";
+export const SP_QUALITY_FIXTURE_ROLES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_QUALITY_FIXTURE_ROLES_LIST_ID || "619dfcf7-ab4a-4dfc-9095-766be7ab6983";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // =============================================================================

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.227.0",
+    date: "2026-11-23",
+    changes: [
+      "Quality Control: the Quality Fixture Log — every custom QC fixture, tester and gauge (QF numbers), with where it's kept, what it tests, a comment and its attachments, readable and searchable by everyone",
+      "Fixture Log editors add fixtures (the next free QF number is filled in), edit them, attach photos and drawings, and retire a fixture taken out of service; a retired fixture stays on the log and its number is never reused",
+      "Who can edit is the new Quality Fixture Roles list, under Roles on the log, managed by a Fixture Log admin or an ARC admin",
+    ],
+  },
+  {
     version: "0.226.0",
     date: "2026-11-23",
     changes: [

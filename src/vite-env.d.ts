@@ -38,6 +38,8 @@ interface ImportMetaEnv {
   readonly VITE_SP_LAYOUT_COMPONENTS_LIST_ID: string;
   readonly VITE_SP_PLANT_LAYOUTS_LIST_ID: string;
   readonly VITE_SP_PLANT_LAYOUT_FILES_LIST_ID: string;
+  readonly VITE_SP_QUALITY_FIXTURES_LIST_ID: string;
+  readonly VITE_SP_QUALITY_FIXTURE_ROLES_LIST_ID: string;
   readonly VITE_SP_ECN_DISTRIBUTION_GROUPS_LIST_ID: string;
   readonly VITE_SP_PMO_SITE_ID: string;
   readonly VITE_SP_LIST_ID: string;

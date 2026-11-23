@@ -452,6 +452,16 @@ const DevEmailGroupingTestView = lazy(() =>
 const DevFabricTestView = lazy(() =>
   import("@/views/DevFabricTestView").then((m) => ({ default: m.DevFabricTestView })),
 );
+// Quality Fixture Log (Quality Control) — QFLOG on the PMO site.
+const QualityFixturesView = lazy(() =>
+  import("@/views/QualityFixturesView").then((m) => ({ default: m.QualityFixturesView })),
+);
+const QualityFixtureDetailView = lazy(() =>
+  import("@/views/QualityFixtureDetailView").then((m) => ({ default: m.QualityFixtureDetailView })),
+);
+const QualityFixtureRolesView = lazy(() =>
+  import("@/views/QualityFixtureRolesView").then((m) => ({ default: m.QualityFixtureRolesView })),
+);
 const QcFormsView = lazy(() =>
   import("@/views/QcFormsView").then((m) => ({ default: m.QcFormsView })),
 );
@@ -617,6 +627,30 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="test sheets" />}>
                   <QcFormPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/quality/fixtures"
+              element={
+                <Suspense fallback={<LoadingTasks noun="fixtures" />}>
+                  <QualityFixturesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/quality/fixtures/roles"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Fixture Log roles" />}>
+                  <QualityFixtureRolesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/quality/fixtures/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the fixture" />}>
+                  <QualityFixtureDetailView />
                 </Suspense>
               }
             />
