@@ -8150,13 +8150,20 @@ const SECTIONS: ManualSection[] = [
       "production complete",
       "build request production complete",
       "production hand-off",
+      "build request from eir",
+      "build request from gray market",
+      "build request from gmr",
+      "build request from fait",
+      "raised from",
+      "link existing",
+      "unlink build request",
       "workflow",
       "process",
       "diagram",
       "flowchart",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. A workflow diagram shows the whole process: the requestor raises the request, which starts as Pending Submission while it is worked on; the engineer adds parts, prepares each one and presses Mark as Ready for Production on it; once every part is ready a note says Ready for Production needs pressing now, and the assigned engineer presses it on the request to submit it to production; Amanda Hoagland moves each part to In Production and then Production Complete, presses Build Request Production Complete, and Sheila Horn reviews the request and presses Mark Build Request Complete. There is no Status dropdown: these buttons move the request along. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part. A request raised from the Build Requests list must name its task too: pick one (the request's project's tasks are listed first), or pick Create a task for this, which creates the task in the request's project and links them. A request with no task says so on its page and offers Link to a task, where you can pick a task or Create a task for this; a linked one has Change, which asks you to confirm before moving it to another task, a new one included. Anyone signed in can link or move one. The list's Not linked to a task box shows only the requests with no task, each marked No task. Comments made on the task or the request before they were linked are not copied: each page shows the other's earlier comments in a collapsed Earlier discussion panel, read-only, with a link to reply where they were posted.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review the request; she (or an admin) then presses Mark Build Request Complete, available while every part is still Production Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. A task the request was raised from can't be marked Complete until the request is Complete. The list opens on Open requests and its search covers open requests; tick Search all build requests beside the search box to search every request whatever its status, Complete included.",
+      "Build Requests ask manufacturing to build parts. A workflow diagram shows the whole process: the requestor raises the request, which starts as Pending Submission while it is worked on; the engineer adds parts, prepares each one and presses Mark as Ready for Production on it; once every part is ready a note says Ready for Production needs pressing now, and the assigned engineer presses it on the request to submit it to production; Amanda Hoagland moves each part to In Production and then Production Complete, presses Build Request Production Complete, and Sheila Horn reviews the request and presses Mark Build Request Complete. There is no Status dropdown: these buttons move the request along. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part. A request can also be raised from an EIR, a Gray Market request or a FAIT with the Create Build Request button in the Build requests card on its page: the form fills in the title and project, picks the record's linked task when there is one (an EIR's promoted task, or the task of the EIR a Gray Market request or FAIT names), copies the record's comments across once, and adds the record's part as the request's first part (from a Gray Market request with its Qty of Parts for BR) — change or clear any of it before creating. The request still needs a task, so pick one or Create a task for this if none was picked. The record's Build requests card then lists the requests raised from it, and the build request shows Raised from with a link back; a request raised from a Gray Market request also writes its number into that request's Build Request No. Later comments are not copied between them. Link existing, beside Create Build Request, links a build request that already exists instead: pick it (open ones are listed first) and press Link. A build request links to one EIR, one Gray Market request and one FAIT, so if it is already linked to another of the same kind you are asked before it moves. Each linked build request on the card has an Unlink button. Linking or unlinking copies no comments, adds no part and emails nobody; linking one to a Gray Market request writes its number into Build Request No too, and unlinking leaves that number as it is. A request raised from the Build Requests list must name its task too: pick one (the request's project's tasks are listed first), or pick Create a task for this, which creates the task in the request's project and links them. A request with no task says so on its page and offers Link to a task, where you can pick a task or Create a task for this; a linked one has Change, which asks you to confirm before moving it to another task, a new one included. Anyone signed in can link or move one. The list's Not linked to a task box shows only the requests with no task, each marked No task. Comments made on the task or the request before they were linked are not copied: each page shows the other's earlier comments in a collapsed Earlier discussion panel, read-only, with a link to reply where they were posted.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review the request; she (or an admin) then presses Mark Build Request Complete, available while every part is still Production Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. A task the request was raised from can't be marked Complete until the request is Complete. The list opens on Open requests and its search covers open requests; tick Search all build requests beside the search box to search every request whatever its status, Complete included.",
     render: () => (
       <>
         <P>
@@ -8214,6 +8221,45 @@ const SECTIONS: ManualSection[] = [
           in the original thread. Each side emails its own watchers, so
           watching both the task and the request still means one email per
           comment.
+        </P>
+        <H3>Raising a request from an EIR, Gray Market request or FAIT</H3>
+        <P>
+          An EIR, a Gray Market request and a FAIT each have a{" "}
+          <strong>Build requests</strong> card with a{" "}
+          <strong>Create Build Request</strong> button. It opens this same
+          form with the record&apos;s title and project filled in and the
+          record shown as <em>Raised from</em>. If the record has a linked
+          task — an EIR&apos;s promoted task, or the task of the EIR a Gray
+          Market request or FAIT names — that task is already picked; you can
+          change it, and if none is picked you pick one or create one, as for
+          any build request.
+        </P>
+        <P>
+          The record&apos;s <strong>part</strong> is added as the request&apos;s
+          first part — its part number and description, and from a Gray Market
+          request its <em>Qty of Parts for BR</em>. Change it on the form, or
+          clear the part number to leave it off. The record&apos;s comments are
+          copied into the new request once, each keeping its original author
+          and time; comments made later are not copied between them.
+        </P>
+        <P>
+          Afterwards the record&apos;s Build requests card lists every request
+          raised from it with its status, and the build request shows{" "}
+          <strong>Raised from</strong> with a link back. A request raised from
+          a Gray Market request also writes its number into that request&apos;s{" "}
+          <em>Build Request No</em>, after any number already there.
+        </P>
+        <P>
+          For a build request that <strong>already exists</strong>, press{" "}
+          <strong>Link existing</strong> on the same card, pick it (open ones
+          are listed first) and press <strong>Link</strong>. A build request
+          links to one EIR, one Gray Market request and one FAIT, so if it is
+          already linked to another of the same kind ARC asks before moving
+          it. Each linked build request on the card has an{" "}
+          <strong>Unlink</strong> button, which asks first. Linking and
+          unlinking copy no comments, add no part and email nobody. Linking
+          one to a Gray Market request writes its number into Build Request
+          No; unlinking leaves that number alone.
         </P>
         <H3>Linking a request to a task later</H3>
         <P>

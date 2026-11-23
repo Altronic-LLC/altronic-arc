@@ -39,6 +39,8 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { ChoiceSelect, SingleSelect } from "@/components/SearchableSelect";
 import { FaitStatusChip, FirstPassChip, SignOffChip } from "@/components/faitAtoms";
+import { SourceBuildRequestsCard } from "@/components/SourceBuildRequestsCard";
+import { sourceFromFait } from "@/lib/buildRequestFromSource";
 
 const KAM_FIELD_KEYS = new Set(["kamSignOff", "kamInitials", "kamApprovalNotes"]);
 
@@ -268,6 +270,12 @@ export function FaitDetailView() {
               </div>
             </section>
           ))}
+
+          <SourceBuildRequestsCard
+            kind="fait"
+            id={fait.id}
+            makeSource={(tasks, eirs) => sourceFromFait(fait, tasks, eirs)}
+          />
 
           <AttachmentsSection parent="fait" itemId={fait.id} />
 
