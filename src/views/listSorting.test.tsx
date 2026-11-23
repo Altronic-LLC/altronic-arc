@@ -407,6 +407,21 @@ describe("the rows are actually re-ordered", () => {
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 
+  it("Quality Fixture Log sorts by Description — not its default Fixture # order", async () => {
+    const { QualityFixturesView } = await import("./QualityFixturesView");
+    renderWithProviders(<QualityFixturesView />, { route: "/quality/fixtures?show=all" });
+    await waitForTable();
+    const byNumber = firstColumnValues();
+
+    await sortBy("Description");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byNumber);
+
+    await sortBy("Description");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
   it("SCN Documents sorts by Modified, folders still first", async () => {
     // Name is the default, so Modified proves the key switches AND the tbody
     // maps the sorted rows. Folders always lead whatever the sort.

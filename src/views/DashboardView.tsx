@@ -20,6 +20,7 @@ import {
   Cpu,
   DollarSign,
   FileCheck,
+  Wrench,
   FileDiff,
   FileSpreadsheet,
   FileStack,
@@ -1195,6 +1196,14 @@ export function DashboardView() {
           description="Digitized paper QC/test forms — start with QCFRM-012, the CPU-95 ignition module test sheet."
           to={"/qc-forms"}
           onClick={() => navigate("/qc-forms")}
+        />
+        <TypeCard
+          name="Quality Fixture Log"
+          icon={<Wrench className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Every custom QC fixture, tester and gauge (QF numbers) — where it is, what it tests, photos."
+          to={"/quality/fixtures"}
+          onClick={() => navigate("/quality/fixtures")}
         />
       </DeptSection>
 

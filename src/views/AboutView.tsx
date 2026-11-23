@@ -73,9 +73,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · My Agenda (your tasks + EIRs coming due) · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + one form engine; QCFRM-012 CPU-95, GET-1 GE ECU and QCFRM-035 Series X log sheets) · Panel QC Issue Tracker · Open Orders Report · Sales Documentation · Application Photos · Insourcing Quotes (list · worksheet · customers · roles) · Pricing (calculator on the Pricing bar · requests · request · new product worksheets · customer quotes · roles) · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Supply Chain Files · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useAgenda · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcForms · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useQuotes · useQuoteAssemblies · useQuoteCustomers · useQuoteRoles · useQuotePdf · usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useEcnDistributionGroups · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useSupplierPerformance · useCostImpactNotices · useScns · useScnDocuments · useSupplyChainFiles · useSalesDocumentation · useApplicationPhotos · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcForms · qcFormLists · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · quotes · quoteAssemblies · quoteCustomers · quoteRoles · quoteRevisions · quotePdfFiles · pricingRequests · pricingHistory · pricingRoles · pricingLookup (SAP via Fabric — the Calculator cost, the part lookup and the customer search are live, the rest not wired yet) · newProductPricing · newProductSubAssemblies · customerQuotes · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · ecnDistributionGroups · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · supplierPerformance (SAP via Fabric, read-only) · costImpactNotices · scns · driveLibrary · scnDocuments · supplyChainFiles · salesDocumentation · applicationPhotos · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · My Agenda (your tasks + EIRs coming due) · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + one form engine; QCFRM-012 CPU-95, GET-1 GE ECU and QCFRM-035 Series X log sheets) · Quality Fixture Log (list · fixture page · roles) · Panel QC Issue Tracker · Open Orders Report · Sales Documentation · Application Photos · Insourcing Quotes (list · worksheet · customers · roles) · Pricing (calculator on the Pricing bar · requests · request · new product worksheets · customer quotes · roles) · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Supply Chain Files · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useAgenda · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useQualityFixtures · useQualityFixtureRoles · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcForms · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useQuotes · useQuoteAssemblies · useQuoteCustomers · useQuoteRoles · useQuotePdf · usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useEcnDistributionGroups · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useSupplierPerformance · useCostImpactNotices · useScns · useScnDocuments · useSupplyChainFiles · useSalesDocumentation · useApplicationPhotos · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcForms · qcFormLists · qualityFixtures · qualityFixtureRoles · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · quotes · quoteAssemblies · quoteCustomers · quoteRoles · quoteRevisions · quotePdfFiles · pricingRequests · pricingHistory · pricingRoles · pricingLookup (SAP via Fabric — the Calculator cost, the part lookup and the customer search are live, the rest not wired yet) · newProductPricing · newProductSubAssemblies · customerQuotes · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · ecnDistributionGroups · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · supplierPerformance (SAP via Fabric, read-only) · costImpactNotices · scns · driveLibrary · scnDocuments · supplyChainFiles · salesDocumentation · applicationPhotos · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -264,6 +264,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "QCFRM-012 CPU-95 Test Sheets", hint: "PMO site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form (moved from the Engineering site's \"CPU-95\" list, 2026-10-21). ~150 readable columns: header, oven ON/OFF, start-up and final readings, Yes / No / N/A checks, 20 firing-angle slots with an at-spec check, Post Test Inspection, defects, sign-off. Which apply depends on the unit's Altronic Part Number — its cylinder grid and its variant (base, 791952/62-18, 791956-16, CPU-95C, EVS). No delete; any signed-in user can create/edit", palette: "list" },
       { label: "GET-1 GE Transportation Log Sheets", hint: "PMO site — the list backing GET-1, the QC Forms Phase 1 pilot, built from scripts/data/qc-get1-columns.json. One row per GE ECU: serial, part number, 15 Yes / No / N/A checks, ship firmware revision, a work order per board (12), QC inspector, date, notes. No variants, no delete; any signed-in user can create/edit. No default list id", palette: "list" },
       { label: "QCFRM-035 Series X Controller Log Sheets", hint: "PMO site — the list backing QCFRM-035 (Series X), built from scripts/data/qc-series-x-columns.json. One row per Series X controller: serial, part number, the same 15 Yes / No / N/A checks as GET-1 (same column names), ship firmware revision, a work order per board (11), QC inspector, date, notes. No variants, no delete; any signed-in user can create/edit. No default list id", palette: "list" },
+      { label: "QFLOG + Quality Fixture Roles", hint: "PMO site — the Quality Fixture Log (the custom QC equipment log, calibration not required): one row per QF fixture (Title = fixture #, field_1 description, field_2 comment, Location, PartNumbers, Active). Retired, never deleted; numbers never reused. Quality Fixture Roles (editor / admin) decides who changes it; everyone reads", palette: "list" },
     ],
   },
 ];
@@ -1799,6 +1800,35 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
   {
+    // The custom QC equipment log. Standalone — no lookups in or out; its
+    // files are list-item attachments.
+    name: "QualityFixture",
+    source: "QFLOG (Altronic_PMO site)",
+    palette: "entity",
+    group: "qc", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "number (Title)", type: "text", kind: "field" },
+      { name: "description (field_1)", type: "text", kind: "field" },
+      { name: "comment (field_2)", type: "text", kind: "field" },
+      { name: "location", type: "text", kind: "field" },
+      { name: "partNumbers", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "QualityFixtureRole",
+    source: "Quality Fixture Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "qc", width: 250,
+    columns: [
+      { name: "email (Title)", type: "text", kind: "fk", references: "Person.email" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (editor / admin)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
     // A standalone entity — no lookups in or out. Same shape as VisitReport
     // above: a simple log on its own site, added 2026-09-01.
     name: "QcTimeEntry",
@@ -2301,6 +2331,8 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "CoatingCheck", fromColumn: "specId (SpecRef)", toTable: "CoatingSpec", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "QualityFixture", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "QualityFixtureRole", fromColumn: "email (Title)", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // CRM tool — CustomerNote is the hub; the other three all point INTO it.
   { fromTable: "CustomerNote", fromColumn: "csr", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "CustomerNote", fromColumn: "kam", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },

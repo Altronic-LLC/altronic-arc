@@ -146,6 +146,12 @@ export function AdminAdminsView() {
             Operations — Plant Map Roles →
           </Link>
           <Link
+            to="/quality/fixtures/roles"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Quality Control — Fixture Log Roles →
+          </Link>
+          <Link
             to="/operations/coating-checks/specs"
             className="text-xs text-accent underline-offset-2 hover:underline"
           >

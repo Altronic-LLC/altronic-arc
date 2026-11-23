@@ -51,6 +51,8 @@ import {
   SP_PLANT_LAYOUTS_LIST_ID,
   SP_LAYOUT_COMPONENTS_LIST_ID,
   SP_PLANT_MAP_ROLES_LIST_ID,
+  SP_QUALITY_FIXTURES_LIST_ID,
+  SP_QUALITY_FIXTURE_ROLES_LIST_ID,
   SP_MRB_LIST_ID,
   SP_OPEN_ORDERS_CUSTOMERS_LIST_ID,
   SP_OPERATIONS_ALERT_RECIPIENTS_LIST_ID,
@@ -276,6 +278,9 @@ export const APPS: AppSpec[] = [
     site: "pmo",
     lists: ids(...Object.values(QC_FORM_LISTS).map((l) => l.listId)),
   },
+
+  { path: "/quality/fixtures/roles", label: "Quality Fixture Log Roles", site: "pmo", lists: ids(SP_QUALITY_FIXTURE_ROLES_LIST_ID) },
+  { path: "/quality/fixtures", label: "Quality Fixture Log", site: "pmo", lists: ids(SP_QUALITY_FIXTURES_LIST_ID) },
 
   // Supply Chain ---------------------------------------------------------
   { path: "/supply-chain/gray-market-requests", label: "Gray Market Requests", site: "pmo", lists: ids(SP_GRAY_MARKET_LIST_ID) },

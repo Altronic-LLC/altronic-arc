@@ -528,6 +528,8 @@ src/
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
 │   ├── qcForms.ts                EVERY QC form's test sheet CRUD, by form spec (Quality Control, PMO site) — mock store per form, no delete
 │   ├── qcFormLists.ts            Each QC form's SharePoint list (site, id, env var) — the api half of the registry
+│   ├── qualityFixtures.ts        Quality Fixture Log (QFLOG, PMO site) — read whole, numbered create checked against a FRESH read, DIFFED edits, NO delete (retire)
+│   ├── qualityFixtureRoles.ts    Quality Fixture Roles CRUD (editor / admin) — empty = nobody edits
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
@@ -600,6 +602,7 @@ src/
 │   ├── qcCpu95FiringSpecs.json   Standard TEST firing specs by part number — the form, the blank sheet and the backfill script read it
 │   ├── qcGet1MockData.ts         Sample GET-1 (GE ECU) log sheets — signed off, reworked, part-way, just scanned
 │   ├── qcSeriesXMockData.ts      Sample QCFRM-035 (Series X) log sheets — two signed off (one board blank), part-way, just scanned
+│   ├── qualityFixtureMockData.ts Sample Quality Fixture Log — INVENTED fixtures (a gap, a lettered pair, one retired) + roles
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
@@ -664,6 +667,8 @@ src/
 │   ├── usePanelBom.ts            BOM Builder queries (parts, kits, saved BOMs, SAP costs) + gated writes (Super User for parts/kits, team edit for BOMs)
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
 │   ├── useQcForms.ts             Any QC form's test sheet queries + mutations, cached per form — no delete hook
+│   ├── useQualityFixtures.ts     Quality Fixture Log query + editor-gated writes (add, edit, retire / restore) — no delete hook
+│   ├── useQualityFixtureRoles.ts Quality Fixture Roles CRUD (manage-gated) + useMyQualityFixtureAccess / useResolveQualityFixtureAccess
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useCustomerNotes.ts       CRM Tool — Customer Notes queries, mutations + comments
 │   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
@@ -843,6 +848,8 @@ src/
 │   ├── qcGeControllerChecks.ts   The fifteen GE controller checks — word for word the same on GET-1 and Series X, so shared
 │   ├── qcSeriesXForm.ts          QCFRM-035 (Series X Controller log sheet) as a QcFormSpec, and its GE log sheet text + spacing
 │   ├── qcSeriesXFields.ts        QCFRM-035 column descriptors — the shared checks, firmware revision, 11 board work orders, sign-off
+│   ├── qualityFixtures.ts        QFLOG columns (field_1/field_2 decoded), QF numbers (next = highest + 1, unique incl. retired), diffed write, search, Active/Retired scope (pure)
+│   ├── qualityFixtureRoles.ts    Quality Fixture Roles tags → rights + the edit / manage gates (pure)
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -970,6 +977,7 @@ src/
 │   ├── harness.ts                Harness Alert Recipients types + HARNESS_ALERTS (the Alert choices)
 │   ├── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
 │   ├── plant.ts                  Plant Map types + constants (roles, component categories, layout statuses, the layout doc)
+│   ├── qualityFixture.ts         Quality Fixture Log types + QUALITY_FIXTURE_ROLES (editor / admin)
 │   └── panelBom.ts               Panel SAP BOM Builder types + PANEL_BOM_CLUSTERS (the ten clusters, which drive item numbers)
 │
 ├── components/
@@ -1040,6 +1048,8 @@ src/
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
 │   ├── QcFormModal.tsx           Create/edit a test sheet for ANY QC form — spec driven; Enter-as-Tab, firing grid, Export (filled form) in edit mode
 │   ├── QcFormExportButton.tsx    Shared QC Forms export button — build a PDF, download it, toast a failure
+│   ├── QualityFixtureFormModal.tsx Add/edit a Quality Fixture Log fixture — next QF number filled in, clash refused before saving
+│   ├── qualityFixtureAtoms.tsx   Quality Fixture Log Fixtures / Roles sub-nav (Roles only for its managers) + the Active / Retired chip
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
@@ -1240,6 +1250,9 @@ src/
 │   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
 │   ├── QcFormsView.tsx           QC Forms landing dashboard — search + a button per controlled form
 │   ├── QcFormView.tsx            /qc-forms/:formId — any QC form's sheet list (status lights, sortable, cards on a phone, blank export)
+│   ├── QualityFixturesView.tsx   Quality Fixture Log (/quality/fixtures) — Active / Retired / All, search, sortable; cards on a phone
+│   ├── QualityFixtureDetailView.tsx One fixture (/quality/fixtures/:id) — fields, attachments (read-only for non-editors), Edit, Retire / Put back
+│   ├── QualityFixtureRolesView.tsx Quality Fixture Log → Roles (/quality/fixtures/roles) — a Fixture Log admin or an ARC admin manages it
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
 │   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
@@ -6531,6 +6544,69 @@ rather than a bespoke multi-key sort, so it still plugs into the shared
 flipping direction reverses both the group order and the within-group date
 order together — accepted, since compressing two sort keys into one numeric
 value is the standard trade-off here).
+
+### Quality Fixture Log (Quality Control, PMO site)
+
+Tim, 2026-11-23: the "Quality Control Custom Equipment Log — calibration not
+required" — every custom QC fixture, tester and gauge, numbered QF1, QF2 …
+QF63A, QF63B … QF99, then QF200 … (no QF100–199). Routes `/quality/fixtures`,
+`/quality/fixtures/:id`, `/quality/fixtures/roles`, lazy-loaded; a
+cooper-green Dashboard card and a Departments entry under Quality Control.
+
+**The list is QFLOG on `SITES.pmo`** (`4e8c5134-83ee-4600-ab81-286c9161e2f9`,
+`VITE_SP_QUALITY_FIXTURES_LIST_ID`, that value as the documented default — it
+gates nothing). Tim loaded it from the old list before ARC touched it, so two
+columns are `field_N` (`lib/qualityFixtures.ts` is the one translation):
+
+| Column | Is |
+|---|---|
+| `Title` | the fixture number (shown "Fixture #") |
+| `field_1` | Description |
+| `field_2` | Comment (single line) |
+| `Active` | Yes/No — No = retired. A blank reads as ACTIVE |
+| `Location` | where it's kept |
+| `PartNumbers` | products / part numbers it tests (multi-line plain) |
+
+`Active`, `Location` and `PartNumbers` — and the **Quality Fixture Roles**
+list (`VITE_SP_QUALITY_FIXTURE_ROLES_LIST_ID`, default
+`619dfcf7-ab4a-4dfc-9095-766be7ab6983` — it admits only the people on it, so
+the default locks nobody out; empty = nobody edits, everyone reads) — come
+from `scripts/setup-quality-fixture-log.ps1`,
+which reports until `-Apply`, sets Active = Yes on every blank row, and
+write/read-back checks every column. Its `-UpdateFrom <file>` brings QFLOG up
+to date from the paper log ("Fixture|Description" per line, kept OUTSIDE the
+repo): adds what's missing, updates a description that differs, trims a
+padded number, only REPORTS a fixture the paper hasn't got — never deletes or
+retires. The 2026-11-23 paper log (Rev. 10/98, QF1–QF390) differed in 12
+places: QF388–390 new, QF40–42 descriptions cut off at "(900 ", "QF65 " and
+QF75 padded, and four hyphens the paper has as "–". Tim ran it with
+`-Apply` that day; a read-back found QFLOG matching the paper exactly (291
+rows, all Active). **The az CLI's Graph token reads the site but is refused
+writes** (no Sites scope), so the script is run by a person in their own
+terminal. The old conversion errors in both
+copies (`AGO@` for `"GO"`, `ABURN IN@`, `GERHARDT=S`) were left alone on
+purpose.
+
+Five things that are load-bearing:
+
+- **Retire, never delete.** No delete in the API or the UI
+  (`qualityFixtures.real.test.ts` asserts it). A retired fixture keeps its
+  number, and **numbers are never reused**: the clash check counts retired
+  fixtures too.
+- **Next number = highest + 1, never count + 1** (`nextFixtureNumber`) — the
+  log jumps QF99 → QF200 and has lettered pairs. The form fills it in and it
+  can be typed over; `fixtureNumberProblem` (blank, not `QF<digits>[letter]`,
+  taken — any case) is asked in the form AND by the API against a **fresh**
+  read before the POST (or a PATCH that changes the number).
+- **Edits are DIFFED** against the cached row; nothing changed → nothing sent.
+- **Roles** (`lib/qualityFixtureRoles.ts`, the Plant Map arrangement):
+  `editor` adds, edits, retires and changes attachments; `admin` (implies
+  editor) also manages the roles list; **an ARC admin gets ONLY the roles
+  list**. Every write asks `editFixturesGate` / `manageFixtureRolesGate`
+  inside its mutationFn via `useResolveQualityFixtureAccess` (awaits the
+  lists). Verified by removing the gate and the fresh check.
+- **Attachments are open to read**: the detail page's `AttachmentsSection`
+  (parent `qualityFixture`, PMO site) is `readOnly` for non-editors.
 
 ### Panel Orders — moving in the old Panel Job Dashboard (2026-11-13)
 
