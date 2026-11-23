@@ -209,14 +209,14 @@ describe("PricingRequestFormModal — either part number will do", () => {
     expect(await within(dialog).findByText(/Found in SAP: 791950-08/)).toBeInTheDocument();
   });
 
-  it("saves with a customer name and NO sold-to number — the number is optional", async () => {
+  it("saves with a customer name and no sold-to number", async () => {
     const onSaved = vi.fn();
     renderWithProviders(<PricingRequestFormModal onClose={vi.fn()} onSaved={onSaved} />);
     const dialog = screen.getByRole("dialog", { name: "New pricing request" });
     await userEvent.type(within(dialog).getByLabelText("Altronic part #"), "NO-SOLDTO-1");
     await userEvent.type(within(dialog).getByLabelText(/^Description/), "Prospect part");
     await userEvent.type(within(dialog).getByLabelText("Customer name"), "Brand New Prospect");
-    await userEvent.click(within(dialog).getByRole("button", { name: /submit|create|raise|save/i }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /submit/i }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled(), { timeout: 10_000 });
     const saved = pricingMockDb.requests.find((r) => r.id === onSaved.mock.calls[0][0]);
@@ -224,14 +224,17 @@ describe("PricingRequestFormModal — either part number will do", () => {
     expect(saved?.customerSoldTo).toBe("");
   });
 
-  it("asks for the customer NAME when it is missing, not the number", async () => {
-    renderWithProviders(<PricingRequestFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+  it("saves a GENERIC request with no customer at all", async () => {
+    const onSaved = vi.fn();
+    renderWithProviders(<PricingRequestFormModal onClose={vi.fn()} onSaved={onSaved} />);
     const dialog = screen.getByRole("dialog", { name: "New pricing request" });
-    await userEvent.type(within(dialog).getByLabelText("Altronic part #"), "NO-SOLDTO-2");
-    await userEvent.type(within(dialog).getByLabelText(/^Description/), "Prospect part");
-    await userEvent.type(within(dialog).getByLabelText("Sold-to number"), "123456");
-    await userEvent.click(within(dialog).getByRole("button", { name: /submit|create|raise|save/i }));
-    expect(await within(dialog).findByText(/Fill in: Customer name\./)).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText("Altronic part #"), "NO-CUSTOMER-1");
+    await userEvent.type(within(dialog).getByLabelText(/^Description/), "Generic list price");
+    await userEvent.click(within(dialog).getByRole("button", { name: /submit/i }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled(), { timeout: 10_000 });
+    const saved = pricingMockDb.requests.find((r) => r.id === onSaved.mock.calls[0][0]);
+    expect(saved).toMatchObject({ customerName: "", customerSoldTo: "", customerGroup: "" });
   });
 
   it("never replaces an Altronic # that was typed", async () => {

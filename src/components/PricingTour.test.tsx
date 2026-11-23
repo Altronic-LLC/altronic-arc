@@ -35,10 +35,20 @@ describe("PricingTour", () => {
     expect(within(dialog).getByText(/Your pricing request was received and sent to the pricing managers/)).toBeInTheDocument();
   });
 
-  it("says only the customer NAME is required", async () => {
+  it("says the customer is optional, for a generic request", async () => {
     const { dialog } = open();
     await userEvent.click(within(dialog).getByRole("button", { name: /step 4: 3\. Who it's for/ }));
-    expect(within(dialog).getByText(/Leave the sold-to number blank/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/customer is optional/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Optional — leave it blank for a generic request.")).toBeInTheDocument();
+  });
+
+  it("shows Customer PDF only on the priced step, and Added to SAP for the admin", async () => {
+    const { dialog } = open();
+    await userEvent.click(within(dialog).getByRole("button", { name: /If the part isn't in SAP yet/ }));
+    expect(within(dialog).getAllByText("Added to SAP").length).toBeGreaterThan(0);
+    expect(within(dialog).queryByText("Customer PDF")).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: /6\. Priced/ }));
+    expect(within(dialog).getAllByText("Customer PDF").length).toBeGreaterThan(0);
   });
 
   it("leads from the last requester step into the pricing side, which ends in Finish", async () => {

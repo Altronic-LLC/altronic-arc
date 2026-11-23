@@ -92,15 +92,11 @@ export function PricingRequestFormModal({
   );
   const requester: Person | null = people.find((p) => personKey(p) === requesterKey) ?? null;
 
-  const chosen = customer && customer.name.trim() ? customer : null;
 
   const missing = [
     !altronic.trim() && !sap.trim() && "Altronic or SAP part #",
     !description.trim() && "Description",
     !requester && "Requested by",
-    // Only the NAME is needed (Ray, 2026-11-23): the sold-to number is
-    // optional — a prospect or a new account may not have one yet.
-    !chosen && "Customer name",
   ].filter(Boolean) as string[];
 
   async function handleSubmit(ev: React.FormEvent) {
@@ -117,9 +113,10 @@ export function PricingRequestFormModal({
         description: description.trim(),
         requestedBy: requester!,
         notes: notes.trim(),
-        customerSoldTo: chosen!.soldTo.trim(),
-        customerName: chosen!.name.trim(),
-        customerGroup: chosen!.customerGroup.trim(),
+        // The customer is OPTIONAL (Ray, 2026-11-23) — a generic request has none.
+        customerSoldTo: customer?.soldTo.trim() ?? "",
+        customerName: customer?.name.trim() ?? "",
+        customerGroup: customer?.customerGroup.trim() ?? "",
       });
       onClose();
       onSaved(created.id);
@@ -198,7 +195,7 @@ export function PricingRequestFormModal({
               Customer
             </span>
             <span className="text-[11px] text-fg-muted">
-              Customer name is required <span className="text-cooper-red">*</span> — the sold-to number and group are optional.
+              Optional — leave it blank for a generic request.
             </span>
             <SapCustomerPicker value={customer} onChange={setCustomer} />
           </div>
