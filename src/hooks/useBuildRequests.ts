@@ -10,6 +10,7 @@ import {
   setBuildRequestProjects,
   setBuildRequestRequestor,
   setBuildRequestTask,
+  setBuildRequestSourceLink,
   setBuildRequestWatchers,
   updateBuildRequestFields,
 } from "@/api/buildRequests";
@@ -63,6 +64,13 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
+import {
+  SOURCE_NOUN,
+  buildRequestsForSource,
+  sourceIdOf,
+  withSourceLink,
+  type BuildRequestSourceKind,
+} from "@/lib/buildRequestFromSource";
 import { buildRequestEmailTitle, buildRequestPartEmailTitle } from "@/lib/buildRequestAlerts";
 import { buildRequestEmailContext, type EmailContext, type LinkedTaskRef } from "@/lib/emailContext";
 import { parseWrittenDate } from "@/lib/dateInput";
@@ -176,6 +184,18 @@ export function useBuildRequestsForTask(taskId: number | null) {
   return {
     ...list,
     data: buildRequestsForTask(list.data ?? [], taskId),
+  };
+}
+
+/**
+ * The build requests raised FROM an EIR, Gray Market request or FAIT — the
+ * source's side of a link stored only on the request (BusinessIT#68/#69/#65).
+ */
+export function useBuildRequestsForSource(kind: BuildRequestSourceKind, id: number | null) {
+  const list = useBuildRequests();
+  return {
+    ...list,
+    data: buildRequestsForSource(list.data ?? [], kind, id),
   };
 }
 
@@ -585,6 +605,40 @@ export function useSetBuildRequestTask() {
       errorToast(
         describeListWriteFailure(err, {
           action: "link this build request to the task",
+          site: "Altronic_Engineering",
+          permission: "editing",
+        }),
+      );
+    },
+    onSettled: () => invalidateBrs(qc),
+  });
+}
+
+/**
+ * Link an EXISTING build request to an EIR / Gray Market request / FAIT, or
+ * unlink it (`sourceId: null`). Optimistic, with Undo to whatever link it
+ * had before — linking can MOVE a request off another record.
+ */
+export function useSetBuildRequestSourceLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, kind, sourceId }: { id: number; kind: BuildRequestSourceKind; sourceId: number | null }) =>
+      setBuildRequestSourceLink(id, kind, sourceId),
+    onMutate: ({ id, kind, sourceId }) =>
+      snapshotAndPatchBr(qc, id, patchBr(id, (b) => ({ ...withSourceLink(b, kind, sourceId), modifiedAt: new Date() }))),
+    onSuccess: (_data, { id, kind, sourceId }, ctx) => {
+      const prev = ctx?.prevBr ? sourceIdOf(ctx.prevBr, kind) : null;
+      const noun = SOURCE_NOUN[kind];
+      pushToast({
+        message: sourceId == null ? `Unlinked from the ${noun}.` : prev != null ? `Moved to this ${noun}.` : `Linked to the ${noun}.`,
+        undo: buildUndoBr(qc, ctx?.previous, () => setBuildRequestSourceLink(id, kind, prev)),
+      });
+    },
+    onError: (err, { sourceId }, ctx) => {
+      rollbackBr(qc, ctx);
+      errorToast(
+        describeListWriteFailure(err, {
+          action: sourceId == null ? "unlink this build request" : "link this build request",
           site: "Altronic_Engineering",
           permission: "editing",
         }),

@@ -1,4 +1,4 @@
-import { graphFetch, graphFetchAll } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SP_BUILD_REQUESTS_LIST_ID, SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
 import { readColumnChoices } from "./columnChoices";
 import { BUILD_REQUEST_STATUSES } from "@/types/task";
@@ -14,6 +14,7 @@ import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
 import { mockDelay } from "./mockLatency";
+import { sourceLinkFields, type BuildRequestSourceKind } from "@/lib/buildRequestFromSource";
 
 // =============================================================================
 // Build Request headers API — the "Build Request Tracker" list on the
@@ -81,6 +82,48 @@ const BR_FIELD_SELECT = [
 ].join(",");
 
 /**
+ * The record a request was raised FROM (BusinessIT#68/#69/#65):
+ * `EIRReference` / `FAITReference` (single lookups) and `GrayMarketRequestId`
+ * (a number). Created by scripts/add-build-request-source-columns.ps1, which
+ * runs separately from any deploy — and selecting a column a list hasn't got
+ * 400s the WHOLE read, which would blank every build request screen. So the
+ * read asks for them, on a 400 ONLY retries without and remembers for the
+ * page session (the EIR Latest columns / MRB Watchers arrangement). A create
+ * then leaves the link out, and the form says so. `null` = not yet known.
+ */
+const SOURCE_COLUMNS = ["EIRReferenceLookupId", "FAITReferenceLookupId", "GrayMarketRequestId"] as const;
+let sourceColumnsAvailable: boolean | null = null;
+
+/** Whether the EIR / FAIT / Gray Market link columns exist on the list. */
+export function buildRequestSourceColumnsAvailable(): boolean {
+  return USE_MOCK || sourceColumnsAvailable !== false;
+}
+
+/** Test seam: forget what the last read learned about the columns. */
+export function __resetBuildRequestSourceColumns(): void {
+  sourceColumnsAvailable = null;
+}
+
+async function readWithSourceFallback<T>(read: (withSource: boolean) => Promise<T>): Promise<T> {
+  if (sourceColumnsAvailable === false) return read(false);
+  try {
+    const result = await read(true);
+    sourceColumnsAvailable = true;
+    return result;
+  } catch (err) {
+    // Only a 400 can mean a missing column, and only on the first read. A
+    // throttle, a refusal or an outage must propagate, never be read as
+    // "the columns aren't there".
+    const missing = err instanceof GraphError && err.status === 400;
+    if (sourceColumnsAvailable !== null || !missing) throw err;
+    const result = await read(false);
+    // Concluded only once the slim read SUCCEEDS.
+    sourceColumnsAvailable = false;
+    return result;
+  }
+}
+
+/**
  * The BRStatus column's LIVE choices (Ray, 2026-10-05) — the hardcoded list had
  * drifted from SharePoint. Drives the status picker, the list's status pills and
  * the Dashboard card. Falls back to BUILD_REQUEST_STATUSES if unreadable.
@@ -97,11 +140,15 @@ export async function listBuildRequests(): Promise<BuildRequest[]> {
     return mockDelay(mockStore.map((b) => ({ ...b })));
   }
 
-  const path =
-    `/sites/${SP_SITE_ID}/lists/${SP_BUILD_REQUESTS_LIST_ID}` +
-    `/items?$expand=fields($select=${BR_FIELD_SELECT})&$top=200`;
+  const read = (withSource: boolean) =>
+    graphFetchAll<GraphListItem>(
+      `/sites/${SP_SITE_ID}/lists/${SP_BUILD_REQUESTS_LIST_ID}` +
+        `/items?$expand=fields($select=${
+          withSource ? [BR_FIELD_SELECT, ...SOURCE_COLUMNS].join(",") : BR_FIELD_SELECT
+        })&$top=200`,
+    );
   const [items, projects, siteUsers] = await Promise.all([
-    graphFetchAll<GraphListItem>(path),
+    readWithSourceFallback(read),
     listProjects(),
     // Best-effort: resolve Requestor / EngineerAssigned bare LookupIds to
     // display names via the site's User Information List (same limitation
@@ -149,10 +196,16 @@ export interface CreateBuildRequestInput {
    */
   taskReferenceLookupId?: number | null;
   /**
-   * Pre-built `Communication` value — the task's discussion carried over.
-   * See `buildCarriedCommunication` in lib/buildRequestFromTask.ts.
+   * Pre-built `Communication` value — the task's (or source's) discussion
+   * carried over. See lib/buildRequestFromTask.ts / buildRequestFromSource.ts.
    */
   communication?: string;
+  /** The EIR this request was raised from — a SINGLE lookup, bare integer. */
+  eirReferenceLookupId?: number | null;
+  /** The FAIT this request was raised from — a SINGLE lookup, bare integer. */
+  faitReferenceLookupId?: number | null;
+  /** The Gray Market request (PMO site) it was raised from — a NUMBER column. */
+  grayMarketRequestId?: number | null;
 }
 
 export async function createBuildRequest(input: CreateBuildRequestInput): Promise<BuildRequest> {
@@ -181,6 +234,9 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
         title: "",
       })),
       taskReferenceLookupId: input.taskReferenceLookupId ?? null,
+      eirReferenceLookupId: input.eirReferenceLookupId ?? null,
+      faitReferenceLookupId: input.faitReferenceLookupId ?? null,
+      grayMarketRequestId: input.grayMarketRequestId ?? null,
       createdAt: now,
       modifiedAt: now,
       author: input.requestor ?? null,
@@ -224,11 +280,33 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
   }
   if (input.communication) fields.Communication = input.communication;
 
-  const created = await graphFetch<GraphListItem>(
-    `/sites/${SP_SITE_ID}/lists/${SP_BUILD_REQUESTS_LIST_ID}/items`,
-    { method: "POST", body: JSON.stringify({ fields }) },
-  );
-  return toBuildRequest(created);
+  // The source link — single lookups as bare integers, the Gray Market id as a
+  // plain number. Left out when the columns are known to be missing; the
+  // caller sees the link wasn't stored (`sourceLinkSaved`) and says so.
+  const link: Record<string, number> = {};
+  if (input.eirReferenceLookupId) link.EIRReferenceLookupId = input.eirReferenceLookupId;
+  if (input.faitReferenceLookupId) link.FAITReferenceLookupId = input.faitReferenceLookupId;
+  if (input.grayMarketRequestId) link.GrayMarketRequestId = input.grayMarketRequestId;
+  const hasLink = Object.keys(link).length > 0;
+
+  const post = (body: Record<string, unknown>) =>
+    graphFetch<GraphListItem>(`/sites/${SP_SITE_ID}/lists/${SP_BUILD_REQUESTS_LIST_ID}/items`, {
+      method: "POST",
+      body: JSON.stringify({ fields: body }),
+    });
+
+  if (!hasLink || sourceColumnsAvailable === false) return toBuildRequest(await post(fields));
+  try {
+    return toBuildRequest(await post({ ...fields, ...link }));
+  } catch (err) {
+    // A 400 here, before any read has learned the columns exist, most likely
+    // means they don't: create the request without the link rather than not
+    // at all. Once the columns are known to exist a 400 is a real refusal.
+    if (!(err instanceof GraphError && err.status === 400) || sourceColumnsAvailable === true) throw err;
+    const created = await post(fields);
+    sourceColumnsAvailable = false;
+    return toBuildRequest(created);
+  }
 }
 
 /** Update arbitrary fields on a Build Request header. Returns the updated header. */
@@ -270,6 +348,15 @@ export async function updateBuildRequestFields(
     }
     if ("TaskReferenceLookupId" in fields) {
       next.taskReferenceLookupId = (fields.TaskReferenceLookupId as number | null) ?? null;
+    }
+    if ("EIRReferenceLookupId" in fields) {
+      next.eirReferenceLookupId = (fields.EIRReferenceLookupId as number | null) ?? null;
+    }
+    if ("FAITReferenceLookupId" in fields) {
+      next.faitReferenceLookupId = (fields.FAITReferenceLookupId as number | null) ?? null;
+    }
+    if ("GrayMarketRequestId" in fields) {
+      next.grayMarketRequestId = (fields.GrayMarketRequestId as number | null) ?? null;
     }
     if ("ProjectReferenceLookupId" in fields && Array.isArray(fields.ProjectReferenceLookupId)) {
       next.parentProjects = (fields.ProjectReferenceLookupId as number[]).map((lookupId) => ({
@@ -360,6 +447,27 @@ export async function setBuildRequestTask(
   taskId: number | null,
 ): Promise<BuildRequest> {
   return updateBuildRequestFields(id, { TaskReferenceLookupId: taskId });
+}
+
+/**
+ * Link a build request to the EIR, Gray Market request or FAIT it belongs to —
+ * or clear that link with `null` (BusinessIT#65/#68/#69). A request holds ONE
+ * link of each kind, so linking it to another record moves it.
+ *
+ * Refused, naming the script, while the columns are known to be missing:
+ * SharePoint would 400 the PATCH with no hint why.
+ */
+export async function setBuildRequestSourceLink(
+  id: number,
+  kind: BuildRequestSourceKind,
+  sourceId: number | null,
+): Promise<BuildRequest> {
+  if (!buildRequestSourceColumnsAvailable()) {
+    throw new Error(
+      "The Build Request list can't store this link yet — ask an ARC admin to run scripts/add-build-request-source-columns.ps1.",
+    );
+  }
+  return updateBuildRequestFields(id, sourceLinkFields(kind, sourceId));
 }
 
 /** Replace the Watchers list on a header. */

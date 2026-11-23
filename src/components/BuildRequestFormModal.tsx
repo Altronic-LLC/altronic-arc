@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Plus, X } from "lucide-react";
-import { useBuildRequests, useCreateBuildRequest } from "@/hooks/useBuildRequests";
+import {
+  useBuildRequests,
+  useCreateBuildRequest,
+  useCreateBuildRequestItem,
+} from "@/hooks/useBuildRequests";
 import { useCreateTask, useProjects, useTasks } from "@/hooks/useTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -25,7 +29,15 @@ import {
   buildRequestPrefillFromTask,
   taskLabel,
 } from "@/lib/buildRequestFromTask";
-import type { Task } from "@/types/task";
+import type { BuildRequest, Task } from "@/types/task";
+import {
+  SOURCE_NOUN,
+  buildSourceCommunication,
+  sourceLinkInput,
+  sourceLinkSaved,
+  type BuildRequestSource,
+} from "@/lib/buildRequestFromSource";
+import { pushToast } from "./Toast";
 import {
   NEW_TASK_FOR_BUILD_REQUEST,
   taskForBuildRequest,
@@ -44,6 +56,19 @@ interface BuildRequestFormModalProps {
    * independent props on independent forms, not one shared contract.
    */
   fromTask?: Task;
+  /**
+   * Raise it FROM an EIR, Gray Market request or FAIT (BusinessIT#68/#69/#65).
+   * Prefills the title and projects, PRE-PICKS the source's linked task (still
+   * changeable — a request must name a task, #58), carries the source's
+   * discussion over once, stores the link, and adds the source's part as the
+   * first part. Never together with `fromTask`.
+   */
+  fromSource?: BuildRequestSource;
+  /**
+   * Called once the request exists, before navigating to it — the source's
+   * page uses it to write anything of its own (the GMR's Build Request No).
+   */
+  onCreated?: (br: BuildRequest) => void;
 }
 
 /**
@@ -52,7 +77,12 @@ interface BuildRequestFormModalProps {
  * worked (header first, then parts). BR No is computed client-side from the
  * loaded list (nextBuildRequestNo) — same convention as EIR numbers.
  */
-export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormModalProps) {
+export function BuildRequestFormModal({
+  onClose,
+  fromTask,
+  fromSource,
+  onCreated,
+}: BuildRequestFormModalProps) {
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
   const { data: allBrs = [] } = useBuildRequests();
@@ -60,6 +90,7 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
   const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const createBr = useCreateBuildRequest();
   const createTask = useCreateTask();
+  const createItem = useCreateBuildRequestItem();
   const directory = useDirectoryPeople();
 
   // Seeded ONCE from the task, deliberately not a controlled mirror of it:
@@ -67,7 +98,7 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
   // whatever the user has since typed over the prefill.
   const prefill = fromTask ? buildRequestPrefillFromTask(fromTask) : null;
 
-  const [title, setTitle] = useState(prefill?.title ?? "");
+  const [title, setTitle] = useState(prefill?.title ?? fromSource?.title ?? "");
   const [brType, setBrType] = useState<BuildRequestType | "">("");
   const [leadTime, setLeadTime] = useState<BuildRequestLeadTime | "">("STD Lead Time");
   const [shipDate, setShipDate] = useState("");
@@ -77,13 +108,22 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
   const [customerPO, setCustomerPO] = useState("");
   const [leadFree, setLeadFree] = useState(false);
   const [projectIds, setProjectIds] = useState<number[]>(
-    prefill?.parentProjectLookupIds ?? [],
+    prefill?.parentProjectLookupIds ?? fromSource?.projectLookupIds ?? [],
   );
   // The task a NEW build request is linked to (BusinessIT#58) — a task id,
   // NEW_TASK_FOR_BUILD_REQUEST, or null while nothing is picked. Required:
   // a build request with no task shows on no task's page. Not used when the
   // form is opened FROM a task, which decides it already.
-  const [taskKey, setTaskKey] = useState<string | null>(null);
+  const [taskKey, setTaskKey] = useState<string | null>(
+    fromSource?.taskId != null ? String(fromSource.taskId) : null,
+  );
+  // The source's part, added as the request's first part after the create.
+  // Editable; clearing the part number leaves it off.
+  const [partNumber, setPartNumber] = useState(fromSource?.part?.partNumber ?? "");
+  const [partDesc, setPartDesc] = useState(fromSource?.part?.partDesc ?? "");
+  const [partQty, setPartQty] = useState(
+    fromSource?.part?.qty != null ? String(fromSource.part.qty) : "",
+  );
   // A task "Create a task for this" already made, kept so a retry after a
   // failed build request create links to it rather than making a second.
   const [createdTask, setCreatedTask] = useState<Task | null>(null);
@@ -221,8 +261,36 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
               raisedBy: currentUser,
               now: new Date(),
             })
-          : undefined,
+          : fromSource
+            ? buildSourceCommunication({ source: fromSource, raisedBy: currentUser, now: new Date() })
+            : undefined,
+        ...(fromSource ? sourceLinkInput(fromSource) : {}),
       });
+      if (fromSource && !sourceLinkSaved(created, fromSource)) {
+        pushToast({
+          variant: "error",
+          durationMs: 12000,
+          message: `${created.brNo} was created, but its link to ${fromSource.label} couldn't be saved — the Build Request list hasn't got the link columns yet. Ask an ARC admin to run scripts/add-build-request-source-columns.ps1.`,
+        });
+      }
+      // The source's part. The request is real by now, so a failed part is
+      // the part hook's own toast, never a failed create — it can be added
+      // from the request's page.
+      const trimmedPart = partNumber.trim();
+      if (fromSource && trimmedPart) {
+        const qty = parseInt(partQty, 10);
+        await createItem
+          .mutateAsync({
+            partNumber: trimmedPart,
+            buildRequestLookupId: created.id,
+            partDesc: partDesc.trim() || undefined,
+            drawingNo: fromSource.part?.drawingNo || undefined,
+            qty: Number.isNaN(qty) || qty <= 0 ? null : qty,
+            projectRefLookupId: projectIds[0] ?? null,
+          })
+          .catch(() => undefined);
+      }
+      onCreated?.(created);
       onClose();
       navigate(`/build-request/${created.id}`);
     } catch {
@@ -251,7 +319,11 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
             <Plus className="h-4 w-4 text-accent" />
-            {fromTask ? `New Build Request from ${taskLabel(fromTask)}` : "New Build Request"}
+            {fromTask
+              ? `New Build Request from ${taskLabel(fromTask)}`
+              : fromSource
+                ? `New Build Request from ${fromSource.label}`
+                : "New Build Request"}
           </h2>
           <button
             onClick={onClose}
@@ -409,6 +481,72 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
             </div>
           )}
 
+          {fromSource && (
+            <div>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                Raised from {SOURCE_NOUN[fromSource.kind]}
+              </span>
+              {/* Read-only: arriving from a record decides it, and its
+                  discussion is about to be copied in. */}
+              <div className="flex h-[38px] items-center rounded-md border border-dashed border-border bg-surface-2 px-3 text-sm text-fg">
+                <span className="truncate">{fromSource.label}</span>
+              </div>
+              <p className="mt-1 text-xs text-fg-muted" data-testid="br-source-hint">
+                {fromSource.comments.length > 0
+                  ? `Its ${fromSource.comments.length} comment${
+                      fromSource.comments.length === 1 ? "" : "s"
+                    } will be copied into the new build request, and the two will be linked.`
+                  : "The two will be linked to each other."}
+                {fromSource.taskId != null && taskKey === String(fromSource.taskId)
+                  ? " Its linked task is picked above."
+                  : ""}
+              </p>
+            </div>
+          )}
+
+          {fromSource && (
+            <fieldset className="rounded-md border border-border p-3" data-testid="br-source-part">
+              <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                First part
+              </legend>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_2fr_6rem]">
+                <FieldLabel label="Part Number">
+                  <input
+                    type="text"
+                    value={partNumber}
+                    onChange={(e) => setPartNumber(e.target.value)}
+                    className="select"
+                    disabled={busy}
+                  />
+                </FieldLabel>
+                <FieldLabel label="Part Description">
+                  <input
+                    type="text"
+                    value={partDesc}
+                    onChange={(e) => setPartDesc(e.target.value)}
+                    className="select"
+                    disabled={busy}
+                  />
+                </FieldLabel>
+                <FieldLabel label="Qty">
+                  <input
+                    type="number"
+                    min={1}
+                    value={partQty}
+                    onChange={(e) => setPartQty(e.target.value)}
+                    className="select"
+                    disabled={busy}
+                  />
+                </FieldLabel>
+              </div>
+              <p className="mt-1 text-xs text-fg-muted">
+                {partNumber.trim()
+                  ? "Added to the build request as its first part. Clear the part number to leave it off."
+                  : "No part will be added — add parts from the build request's page."}
+              </p>
+            </fieldset>
+          )}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Customer Name">
               <input
@@ -452,7 +590,7 @@ export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormMod
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className="text-xs text-fg-muted">
               Will be numbered <span className="font-mono font-semibold">{nextBuildRequestNo(allBrs)}</span>
-              . Add parts from the detail page after creating.
+              . Add {fromSource && partNumber.trim() ? "more parts" : "parts"} from the detail page after creating.
             </span>
             <div className="flex gap-2">
               <button

@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.226.0",
+    date: "2026-11-23",
+    changes: [
+      "Build Requests: a Create Build Request button on EIRs, Gray Market requests and FAITs raises a build request from that record — its title, project and part are filled in, its comments are copied across, and the two are linked",
+      "The new build request picks the record's linked task for you when there is one (an EIR's promoted task, or the task of the EIR a Gray Market request or FAIT names); you can still change it or create a new task",
+      "The record's part is added as the build request's first part — from a Gray Market request with its Qty of Parts for BR — and you can change or clear it before creating",
+      "EIRs, Gray Market requests and FAITs show the build requests raised from them; a build request shows the record it was raised from",
+      "Link existing, beside Create Build Request, links a build request that already exists to the EIR, Gray Market request or FAIT; it asks first if that build request is linked to another one, and each linked build request has an Unlink button",
+      "A build request raised from a Gray Market request writes its number into that request's Build Request No",
+    ],
+  },
+  {
     version: "0.225.0",
     date: "2026-11-19",
     changes: [

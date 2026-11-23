@@ -806,6 +806,17 @@ export interface BuildRequest {
   parentProjects: ProjectReference[];
   /** Single lookup into the Task List (Task Reference) — bare id; title resolved from the tasks cache. */
   taskReferenceLookupId: number | null;
+  /**
+   * The record this request was raised FROM (BusinessIT#68/#69/#65) — stored
+   * ONCE, here; the source's side is derived (lib/buildRequestFromSource.ts).
+   * `EIRReference` / `FAITReference` are single lookups (same site);
+   * `GrayMarketRequestId` is a NUMBER, since the Gray Market list is on the PMO
+   * site collection. Optional only so older test fixtures needn't name them —
+   * the mapper always sets all three.
+   */
+  eirReferenceLookupId?: number | null;
+  faitReferenceLookupId?: number | null;
+  grayMarketRequestId?: number | null;
   createdAt: Date;
   modifiedAt: Date;
   author: Person | null;

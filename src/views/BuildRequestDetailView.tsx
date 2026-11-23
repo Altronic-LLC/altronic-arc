@@ -44,6 +44,7 @@ import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { LinkedDiscussion } from "@/components/LinkedDiscussion";
 import { BuildRequestTaskField } from "@/components/BuildRequestTaskField";
+import { BuildRequestSourceLinks } from "@/components/BuildRequestSourceLinks";
 import { earlierLinkedComments } from "@/lib/buildRequestTaskLink";
 import { taskLabel } from "@/lib/buildRequestFromTask";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
@@ -481,6 +482,12 @@ export function BuildRequestDetailView() {
               <SideField label="Task Reference" icon={<Link2 />}>
                 <BuildRequestTaskField br={br} tasks={tasks} tasksLoading={tasksLoading} />
               </SideField>
+
+              {(br.eirReferenceLookupId || br.grayMarketRequestId || br.faitReferenceLookupId) && (
+                <SideField label="Raised from" icon={<Link2 />}>
+                  <BuildRequestSourceLinks br={br} />
+                </SideField>
+              )}
 
               <SideField label="Customer" icon={<Building2 />}>
                 <input

@@ -76,6 +76,8 @@ import {
   toPlainTextForEditing,
 } from "@/lib/richText";
 import { DescriptionView } from "@/components/DescriptionView";
+import { SourceBuildRequestsCard } from "@/components/SourceBuildRequestsCard";
+import { sourceFromEir } from "@/lib/buildRequestFromSource";
 import {
   convertToChecklist,
   looksLikeHtml,
@@ -444,6 +446,12 @@ export function EirDetailView() {
             onSaveReference={(v) =>
               updateFields.mutate({ id: eir.id, fields: { TaskReference: v } })
             }
+          />
+
+          <SourceBuildRequestsCard
+            kind="eir"
+            id={eir.id}
+            makeSource={(tasks, eirs) => sourceFromEir(eir, tasks, eirs)}
           />
 
           <AttachmentsSection parent="eir" itemId={eir.id} />

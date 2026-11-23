@@ -83,7 +83,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Build Requests (lazy-loaded)",
-        hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. A request can be raised FROM a task (Create Build Request on the task page), which writes TaskReference and carries the task's discussion across; the task side of that link is derived from this column, not stored on the Task list. Once linked the two share one comment thread: a comment on either is COPIED to the other, and a comment on a part is copied to both carrying an origin banner that links back to the part. Own code-split chunk.",
+        hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. A request can be raised FROM a task (Create Build Request on the task page), which writes TaskReference and carries the task's discussion across; the task side of that link is derived from this column, not stored on the Task list. It can also be raised FROM an EIR, Gray Market request or FAIT (EIRReference / FAITReference lookups, GrayMarketRequestId number), each record's side derived the same way, with its part added as the first part and its comments copied once. Once linked the two share one comment thread: a comment on either is COPIED to the other, and a comment on a part is copied to both carrying an origin banner that links back to the part. Own code-split chunk.",
         palette: "ui",
       },
       {
@@ -704,6 +704,9 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "projectReference", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "taskReference", type: "int", kind: "fk", references: "Task.id" },
+      { name: "eirReference", type: "int", kind: "fk", references: "EIR.id" },
+      { name: "faitReference (FAIT lookup)", type: "int", kind: "field" },
+      { name: "grayMarketRequestId (PMO, no FK)", type: "number", kind: "field" },
       { name: "communication", type: "text", kind: "field" },
       { name: "archived", type: "bool", kind: "field" },
       { name: "legacySource", type: "text", kind: "field" },
@@ -2243,6 +2246,7 @@ export const CONNECTIONS: Connection[] = [
   // request column, deliberately, so the two can never disagree. It is also
   // what routes a mirrored comment between the two (lib/commentMirror.ts).
   { fromTable: "BuildRequest", fromColumn: "taskReference", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "BuildRequest", fromColumn: "eirReference", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequest", fromColumn: "requestor", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequest", fromColumn: "engineerAssigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequestItem", fromColumn: "projectReference", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "one" },

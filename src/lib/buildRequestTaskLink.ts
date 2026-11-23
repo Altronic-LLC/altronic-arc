@@ -109,8 +109,11 @@ export function isUnlinkedBuildRequest(br: Pick<BuildRequest, "taskReferenceLook
   return br.taskReferenceLookupId == null;
 }
 
-/** The note ARC writes at the top of a build request raised from a task. */
-const RAISED_FROM_TASK = /^\s*<p><em>Raised from task /i;
+/**
+ * The note ARC writes at the top of a build request raised from a task — or
+ * from an EIR, Gray Market request or FAIT (lib/buildRequestFromSource.ts).
+ */
+const RAISED_FROM_TASK = /^\s*<p><em>Raised from /i;
 
 /**
  * The comments on the OTHER record of a task ⇄ build request pair that this

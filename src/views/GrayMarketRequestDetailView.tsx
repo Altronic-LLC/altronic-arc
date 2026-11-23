@@ -38,6 +38,8 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { GrayMarketStatusChip, TestResultChip } from "@/components/grayMarketAtoms";
+import { SourceBuildRequestsCard } from "@/components/SourceBuildRequestsCard";
+import { grayMarketBuildRequestNo, sourceFromGrayMarket } from "@/lib/buildRequestFromSource";
 
 // =============================================================================
 // One gray market request.
@@ -221,6 +223,23 @@ export function GrayMarketRequestDetailView() {
               </div>
             </section>
           ))}
+
+          <SourceBuildRequestsCard
+            kind="grayMarket"
+            id={request.id}
+            makeSource={(tasks, eirs) => sourceFromGrayMarket(request, tasks, eirs)}
+            onLinked={(br) => {
+              // The request's own "Build Request No" column, so the number
+              // shows on it in SharePoint too. Never over what was typed.
+              const next = grayMarketBuildRequestNo(request.values.buildRequestNo, br.brNo);
+              if (next == null) return;
+              updateFields.mutate({
+                id: request.id,
+                fields: grayMarketFieldPatch("buildRequestNo", next),
+                patch: (r) => ({ ...r, values: { ...r.values, buildRequestNo: next } }),
+              });
+            }}
+          />
 
           <AttachmentsSection parent="grayMarketRequest" itemId={request.id} />
 

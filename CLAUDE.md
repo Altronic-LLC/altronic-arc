@@ -790,6 +790,7 @@ src/
 │   ├── buildRequestNumber.ts     Next BR No for a new Build Request
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
+│   ├── buildRequestFromSource.ts EIR / Gray Market / FAIT → Build Request (#68/#69/#65): prefill, pre-picked task, first part, carried comments, derived links (pure)
 │   ├── buildRequestTaskLink.ts   Linking a BR to a task (#58) — picker order, "Create a task for this", earlier comments to SHOW, not copy (pure)
 │   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
 │   ├── buildRequestPartProduction.ts A PART's production buttons — readiness, who presses which step, the write guard (pure)
@@ -1014,6 +1015,8 @@ src/
 │   ├── BuildRequestRow.tsx       One build request row
 │   ├── BuildRequestTaskField.tsx A BR's Task Reference — link when empty, Change (with a confirm) when linked (#58)
 │   ├── LinkedDiscussion.tsx      The linked task's / BR's EARLIER comments, read-only and collapsed (#58)
+│   ├── SourceBuildRequestsCard.tsx  "Build requests" card on an EIR / GMR / FAIT — the requests raised from / linked to it, Create Build Request, Link existing, Unlink
+│   ├── BuildRequestSourceLinks.tsx  A BR's "Raised from" links back to its EIR / GMR / FAIT
 │   ├── BuildRequestItemCard.tsx  One part on a build request
 │   ├── WorkflowDiagram.tsx       The User Manual's shared workflow diagram — numbered steps, gates, branches/loops, tracks; each department passes DATA + its own status badge
 │   ├── BuildRequestWorkflowDiagram.tsx  The build request process (User Manual), on WorkflowDiagram
@@ -12992,6 +12995,62 @@ both pages use them.
   comments remain. Read-only `CommentThread` (no `onEdit`, no `onReply`);
   nothing written, nobody emailed. Part comments from before the link are
   NOT shown — the panel covers the request's own thread only.
+
+### A build request raised from an EIR, Gray Market request or FAIT — #68/#69/#65
+
+Femi (EIR), Brandon (GMR), Jerrod (FAIT). Tim's decisions, 2026-11-23, all
+built: a **Build requests** card on each record (`SourceBuildRequestsCard`)
+lists the requests raised from it and opens `BuildRequestFormModal` with
+`fromSource`. Rules in `lib/buildRequestFromSource.ts`.
+
+- **The link is stored ONCE, on the request**: `EIRReference` and
+  `FAITReference` (SINGLE lookups, same site — bare integers) and
+  `GrayMarketRequestId` (a NUMBER: the Gray Market list is on the PMO site
+  collection, which a lookup can't reach). The record's side is derived
+  (`buildRequestsForSource`), the TaskReference arrangement.
+  `scripts/add-build-request-source-columns.ps1` adds them (`-WriteCheck`
+  for a throwaway-row read-back). Until it has run, the READ asks for them
+  and on a 400 only retries without and remembers
+  (`buildRequestSourceColumnsAvailable`), and a CREATE refused with a 400
+  before any read learned the columns exist is sent again WITHOUT the link —
+  the person still gets a build request, and the form toasts that the link
+  wasn't stored (`sourceLinkSaved`). Pinned in real mode in
+  `api/buildRequests.sources.real.test.ts`.
+- **The #58 task rule still holds.** The source's linked task is PRE-PICKED,
+  never locked: an EIR's promoted task (`linkedTaskForEir`), or that of the
+  EIR a GMR's free-text EIR No. / a FAIT's EIR lookup names — only when
+  exactly one EIR and one task answer. Otherwise the usual picker.
+- **Projects**: the EIR's; a FAIT's own, else its EIR's; a GMR has no
+  project column, so its EIR's.
+- **The record's part becomes the first part**, after the request exists,
+  through `useCreateBuildRequestItem` — a failed part is that hook's toast,
+  never a failed create. EIR: Altronic # (else MFG #) + title; GMR: AI Part
+  No. (else the SAP P/N Title) + description + `parseQuantity(Qty of Parts
+  for BR)` (0 or unreadable = none); FAIT: SAP Part Number + description +
+  drawing number. Editable on the form; clearing the number adds none.
+- **Comments are copied ONCE** (`buildSourceCommunication`, oldest-first,
+  original authors), under a "Raised from <noun> <label>" note. No live
+  mirror — Tim's call; EIRs would otherwise get every part comment.
+  `earlierLinkedComments`' note filter now matches any "Raised from …".
+- **A GMR writes the new number into its own `Build Request No` text
+  column** (`onCreated` on its page, through `useUpdateGrayMarketFields`, so
+  the Engineering-card change alert fires). Never over what's there:
+  `grayMarketBuildRequestNo` appends after a different number, skips one
+  already listed.
+- The request's page shows **Raised from** (`BuildRequestSourceLinks`) — an
+  EIR by number (the EIR list is always cached), a GMR / FAIT by its cached
+  label, else "Gray Market request #12"; it doesn't fetch those lists.
+- **Link existing** (Tim, 2026-11-23 — Jerrod's #65 says "link") on the
+  same card links a request that already exists: `linkableBuildRequests`
+  (everything not linked HERE, open first), then `setBuildRequestSourceLink`
+  through `useSetBuildRequestSourceLink` (optimistic, Undo to the previous
+  link). A request holds ONE link per kind, so one linked to another record
+  is MOVED, after a confirm (`linkedElsewhere`). Each linked row has Unlink
+  (confirm; writes `null`). Anyone signed in, like #58's task link. No
+  comments copied, no part added, no email. The GMR write-back runs on a
+  link too (`onLinked`); an unlink never edits the GMR's typed number. The
+  API refuses a link while the columns are known missing, naming the script.
+- Not built: Operations tasks as a source.
 
 ### List or Kanban is remembered — BusinessIT#51
 
