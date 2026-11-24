@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.234.1",
+    date: "2026-11-24",
+    changes: [
+      "Insourcing Quotes: when ARC has been updated since the page was opened, generating the customer PDF now says to reload the page instead of showing a file error",
+    ],
+  },
+  {
     version: "0.234.0",
     date: "2026-11-24",
     changes: [

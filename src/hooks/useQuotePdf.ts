@@ -8,6 +8,10 @@ import { generatePdfGate } from "@/lib/quoteRoles";
 import { toIsoDate } from "@/lib/dateInput";
 import { requireQuoteGate, useResolveQuoteAccess } from "./useQuoteRoles";
 import { useCurrentUser } from "./useCurrentUser";
+import { looksLikeStaleChunk } from "@/components/RouteErrorBoundary";
+
+export const STALE_PDF_MESSAGE =
+  "ARC was updated since this page was opened. Reload the page (F5) and press Generate again.";
 
 // =============================================================================
 // The customer PDF.
@@ -62,7 +66,15 @@ export function useGenerateQuotePdf() {
       if (!model) {
         throw new Error(`The quote can't be generated yet:\n${problems.map((p) => `• ${p}`).join("\n")}`);
       }
-      const blob = await generateQuotePdf(model);
+      let blob: Blob;
+      try {
+        blob = await generateQuotePdf(model);
+      } catch (err) {
+        // The PDF library is loaded on first use. A tab left open across a
+        // deploy asks for the OLD file, which is gone — say what fixes it.
+        if (looksLikeStaleChunk(err)) throw new Error(STALE_PDF_MESSAGE);
+        throw err;
+      }
       return { blob, fileName: quotePdfFileName(model) };
     },
   });

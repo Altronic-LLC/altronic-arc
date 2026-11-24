@@ -20,7 +20,7 @@ vi.mock("@/api/quotePdfFiles", async (orig) => {
 
 import * as pdf from "@/lib/quotePdf";
 import * as files from "@/api/quotePdfFiles";
-import { downloadBlob, useGenerateQuotePdf, useQuotePdfs, useSaveQuotePdf } from "./useQuotePdf";
+import { STALE_PDF_MESSAGE, downloadBlob, useGenerateQuotePdf,useQuotePdfs, useSaveQuotePdf } from "./useQuotePdf";
 
 const QUOTER = ["katie.fleming@altronic-llc.com"];
 const VIEWER = ["brandon.mirto@altronic-llc.com"];
@@ -59,6 +59,22 @@ describe("useGenerateQuotePdf", () => {
     const { result } = renderHook(() => useGenerateQuotePdf(), { wrapper });
     await act(() => expect(result.current.mutateAsync(inputFor(1))).rejects.toThrow(/generate the customer quote/));
     expect(pdf.generateQuotePdf).not.toHaveBeenCalled();
+  });
+
+  it("a PDF library missing after a deploy says to reload, not the raw import error", async () => {
+    vi.mocked(pdf.generateQuotePdf).mockRejectedValueOnce(
+      new TypeError("Failed to fetch dynamically imported module: https://x/assets/jspdf.es.min-B6AK85nY.js"),
+    );
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useGenerateQuotePdf(), { wrapper });
+    await act(() => expect(result.current.mutateAsync(inputFor(1))).rejects.toThrow(STALE_PDF_MESSAGE));
+  });
+
+  it("any other PDF failure keeps its own message", async () => {
+    vi.mocked(pdf.generateQuotePdf).mockRejectedValueOnce(new Error("font missing"));
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useGenerateQuotePdf(), { wrapper });
+    await act(() => expect(result.current.mutateAsync(inputFor(1))).rejects.toThrow("font missing"));
   });
 
   it("builds the model dated TODAY and returns the blob with the quote's file name", async () => {
