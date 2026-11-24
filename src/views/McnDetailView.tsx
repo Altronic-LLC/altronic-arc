@@ -157,7 +157,7 @@ function McnDetail() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="MCNs" listTo="/operations/mcns" />
+      <DetailTopBar category="MCNs" listTo="/operations/mcns" keepOpenLabel={mcnLabel(current)} />
 
       <div className="flex flex-wrap items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-superior-blue/10 text-superior-blue">

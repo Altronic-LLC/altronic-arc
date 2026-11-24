@@ -35,6 +35,7 @@ import {
 } from "@/lib/mrbFields";
 import { formatSpDate, fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import {
@@ -149,7 +150,11 @@ export function MrbDetailView() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="MRB" listTo="/supply-chain/mrb" />
+      <DetailTopBar
+        category="MRB"
+        listTo="/supply-chain/mrb"
+        keepOpenLabel={tabLabel(entry.sapNumber || `MRB #${entry.id}`, entry.description)}
+      />
 
       <header className="mb-5 flex flex-wrap items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-superior-blue/10 text-superior-blue">

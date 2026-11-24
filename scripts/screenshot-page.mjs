@@ -116,6 +116,16 @@ if (theme) {
   await sleep(500);
   await evalJs(`localStorage.setItem("aets-theme", ${JSON.stringify(theme)}); true`);
 }
+// SHOT_STORAGE seeds localStorage before sign-in, as {"key": value}; a value
+// that isn't a string is stored as JSON. E.g. tabs kept open:
+//   SHOT_STORAGE='{"arc-open-items":[{"path":"/task/47","label":"T1","category":"Tasks"}]}'
+if (process.env.SHOT_STORAGE) {
+  await sleep(500);
+  for (const [key, value] of Object.entries(JSON.parse(process.env.SHOT_STORAGE))) {
+    const stored = typeof value === "string" ? value : JSON.stringify(value);
+    await evalJs(`localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(stored)}); true`);
+  }
+}
 // The sign-in page appears only once MSAL has settled, so a single click on a
 // timer is a race (it missed about half the time). Click until it's gone.
 let signedIn = false;

@@ -710,6 +710,7 @@ src/
 │   ├── useGitHubToken.ts         The person's GitHub token, in THIS browser's localStorage (never the bundle)
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useAgenda.ts              My agenda over the cached task + EIR lists, and the header badge count (no new request)
+│   ├── useOpenItems.ts           The records kept open (#74) — a module store in this browser's localStorage, in step across ARC tabs
 │   ├── useDeleteProject.ts       Delete an Engineering project — admin only, refused while anything still points at it
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
@@ -908,6 +909,7 @@ src/
 │   ├── graphValues.ts            toNumberOrNull / toLookupId — reading Graph field values (shared; teradyneMapper re-exports)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
+│   ├── openItems.ts              Records kept open as tabs (pure) — parse, add (refused when full), remove, move, rename, tabLabel
 │   ├── agenda.ts                 My agenda (pure) — whose tasks/EIRs, which dates, the window, LOCAL-day grouping, the badge count
 │   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
 │   ├── openOrders.ts             Open Orders maths — aging, rollups, repairs split, filenames
@@ -994,7 +996,8 @@ src/
 │   ├── LoadingTasks.tsx          THE app-wide loading screen — verb/noun headline + a rotating "did you know" fact about ARC (data/loadingFacts.ts)
 │   ├── RequireAdmin.tsx          Route guard for /admin/*
 │   ├── MovedTo.tsx               Redirect for a moved route that KEEPS the query string (old /operations/harness-log links)
-│   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
+│   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages + the record's Keep open button (#74)
+│   ├── OpenItemsBar.tsx          The strip of records kept open, inside the sticky header — tabs, drag/Ctrl+Shift+arrow to reorder; an Open menu on a phone
 │   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
@@ -11826,6 +11829,9 @@ looked at. Three things it had to learn:
   sees typing. **`SHOT_THEN_CLICK="Look up"`** presses a second button AFTER
   the typing (and says if it was disabled), and **`SHOT_WAIT_MS=1500`** waits
   for the result.
+- **`SHOT_STORAGE='{"arc-open-items":[…]}'`** seeds localStorage before
+  sign-in (a non-string value is stored as JSON) — how to start a page with
+  tabs kept open, or any other remembered choice.
 - **Page errors are printed** after the capture (exceptions, `console.error`,
   `console.warn`) — a screenshot alone can't show why something didn't
   happen.
@@ -14425,6 +14431,49 @@ reintroducing the bug:
 It renders in **both** header clusters — the `sm:hidden` mobile one and the
 desktop one — like `SuggestFeatureButton` and `NotifyAppManagerButton`. A
 button added to only one is invisible on the other form factor.
+
+### Records kept open — the tab strip under the header (BusinessIT#74)
+
+Thomas Terhune (ARC Feature Request #48) kept a browser tab open per task he
+was working on. Tim's decisions, 2026-11-24: a **strip of tabs** under the
+header (not a header menu or a side rail), added only by a **Keep open**
+button (never by visiting), for **any record with a page**, and **reorder by
+drag in the first version**. Pieces: `lib/openItems.ts` (pure rules),
+`hooks/useOpenItems.ts` (the store), `components/OpenItemsBar.tsx` (the
+strip, rendered INSIDE the sticky `<header>` so it stays in reach), and the
+button in `DetailTopBar`.
+
+- **A page opts in with `keepOpenLabel`** on `DetailTopBar` — 28 record pages
+  do; settings / admin screens using the same bar don't. Pass `undefined`
+  until the record has loaded, so a tab is never saved as "Loading…". A new
+  record page passes it too, usually `tabLabel(number, title)`.
+- **The tab is keyed by router `pathname`** (no query string), and its label
+  follows the record: `KeepOpenButton` renames a kept tab whenever the page
+  renders with a different label. The category (the bar's chip) is the tooltip.
+- **Per browser, localStorage `arc-open-items`**, every access in try/catch;
+  the `storage` event keeps other ARC tabs in step. Not shared between devices
+  or people — ARC has no server. `src/test/setup.ts` clears it after every test.
+- **At most 10** (`MAX_OPEN_ITEMS`). Full REFUSES, with a toast and an
+  `aria-disabled` button — never drops the oldest, since each was pinned on
+  purpose. A stored list is parsed tolerantly (bad entries dropped, cut to 10).
+- **Reordering**: dnd-kit drag (pointer only, 6px to start), and
+  **Ctrl+Shift+← / →** on a focused tab (`shiftOpenItem`), focus put back on
+  the moved tab. Only dnd-kit's `listeners` are spread on the tab wrapper,
+  NOT its `attributes` — those make the wrapper a focusable role="button"
+  around a link and a button.
+- **The click after a drag must be cancelled at the WINDOW.** dnd-kit stops
+  that click's propagation at the window when a drag ends, so React and the
+  Link's `onClick` never see it — but the browser still follows the link, as
+  a FULL PAGE LOAD. A `preventDefault` in the Link's `onClick` did nothing;
+  `OpenItemsTabs` adds its own window capture listener, and the flag is
+  cleared by the next press (a `setTimeout(0)` was outlived by the click).
+  Found in real Chrome with `SHOT_DRAGS`, invisible to jsdom. **Any sortable
+  list of LINKS with dnd-kit has the same trap.**
+- **Closing the current page's tab keeps you on the page.** A phone gets an
+  "Open (n)" menu (`useIsPhone`, no reorder there).
+
+Pinned in `lib/openItems.test.ts`, `hooks/useOpenItems.test.ts`,
+`components/OpenItemsBar.test.tsx` and `components/DetailTopBar.test.tsx`.
 
 ### The app has ONE loading screen — `LoadingTasks`
 

@@ -4,6 +4,7 @@ import { Archive, ArchiveRestore, Pencil, Wrench } from "lucide-react";
 import { useQualityFixtures, useSetQualityFixtureActive } from "@/hooks/useQualityFixtures";
 import { useMyQualityFixtureAccess } from "@/hooks/useQualityFixtureRoles";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
@@ -30,7 +31,11 @@ export function QualityFixtureDetailView() {
 
   return (
     <div className="mx-auto flex max-w-[1000px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Quality Fixture Log" listTo="/quality/fixtures" />
+      <DetailTopBar
+        category="Quality Fixture Log"
+        listTo="/quality/fixtures"
+        keepOpenLabel={fixture ? tabLabel(fixture.number, fixture.description) : undefined}
+      />
       {isLoading ? (
         <LoadingTasks noun="the fixture" />
       ) : error && isPermissionDenied(error) ? (

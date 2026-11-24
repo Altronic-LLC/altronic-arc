@@ -381,6 +381,65 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "kept-open",
+    title: "Keeping records open (tabs)",
+    keywords: [
+      "keep open",
+      "kept open",
+      "tabs",
+      "tab",
+      "open tabs",
+      "pin",
+      "pinned",
+      "switch between",
+      "working on",
+      "reorder tabs",
+    ],
+    searchText:
+      "Keep open adds a record to a row of tabs under the header, so you can switch between the tasks, EIRs and other records you're working on without opening extra browser tabs. Press Keep open at the top of a record's page; press Kept open to remove it. Click a tab to open that record; the tab for the page you're on is highlighted. Click the × to close a tab; the record itself is unchanged, and closing the tab for the page you're on keeps you on that page. Drag a tab to move it, or press Ctrl+Shift+Left or Right on a focused tab. Up to 10 can be open at once. On a phone the tabs are an Open menu. The tabs are kept in this browser only, survive a refresh, and are shared with other ARC tabs in the same browser, but not with other computers or other people. A tab's name follows the record's title when you visit it.",
+    render: () => (
+      <>
+        <P>
+          Press <strong>Keep open</strong> at the top of a task, EIR, build
+          request or any other record's page to add it to a row of tabs under
+          the header. Use them to switch between the records you're working on
+          without opening extra browser tabs. Press{" "}
+          <strong>Kept open</strong> to take the record back off.
+        </P>
+        <UL>
+          <LI>
+            Click a tab to open that record. The tab for the page you're on is
+            highlighted.
+          </LI>
+          <LI>
+            Click a tab's <strong>×</strong> to close it. This only removes the
+            tab; the record itself doesn't change. Closing the tab for the page
+            you're on keeps you on that page.
+          </LI>
+          <LI>
+            Drag a tab to move it. With the keyboard, move to a tab and press{" "}
+            <strong>Ctrl+Shift+←</strong> or <strong>Ctrl+Shift+→</strong>.
+          </LI>
+          <LI>
+            Up to <strong>10</strong> records can be kept open at once. When you
+            have 10, close one before adding another.
+          </LI>
+        </UL>
+        <P>
+          On a phone there's no room for tabs, so they're an{" "}
+          <strong>Open</strong> menu under the header, in the same order.
+        </P>
+        <P>
+          The tabs are saved in this browser only. They're still there after a
+          refresh and in other ARC tabs in the same browser, but not on another
+          computer, and nobody else sees them. If a record is renamed, its tab
+          shows the new name the next time you open it. Visiting a page doesn't
+          add a tab; only Keep open does.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "list-view",
     title: "Task List view",
     group: "Tasks",

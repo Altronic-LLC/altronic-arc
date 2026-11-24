@@ -35,6 +35,7 @@ import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditMo
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { ChoiceSelect, SingleSelect } from "@/components/SearchableSelect";
@@ -220,7 +221,11 @@ export function FaitDetailView() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="FAITs" listTo="/supply-chain/faits" />
+      <DetailTopBar
+          category="FAITs"
+          listTo="/supply-chain/faits"
+          keepOpenLabel={tabLabel(fait.values.sapPartNumber || `FAIT #${fait.id}`, fait.values.description)}
+        />
 
       {/* Icon + identity in ONE block, chips in another — not five siblings of
           a single flex-wrap row. A wrap point calculated across the title text

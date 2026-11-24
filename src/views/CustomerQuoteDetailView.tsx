@@ -42,6 +42,7 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PersonMultiField } from "@/components/PersonMultiField";
@@ -192,7 +193,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
 
   return (
     <PricingPage wide>
-      <DetailTopBar category="Customer Quotes" listTo="/sales/pricing/quotes" />
+      <DetailTopBar category="Customer Quotes" listTo="/sales/pricing/quotes" keepOpenLabel={tabLabel(q.quoteNumber, q.customer.name)} />
 
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">

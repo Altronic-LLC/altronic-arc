@@ -50,6 +50,7 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
@@ -245,7 +246,7 @@ export function EirDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="EIRs" listTo="/eirs" />
+      <DetailTopBar category="EIRs" listTo="/eirs" keepOpenLabel={tabLabel(eir.eirNo || `EIR #${eir.id}`, eir.title)} />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Main column */}

@@ -209,7 +209,7 @@ export function PanelTaskDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Panel Tasks" listTo="/panels/tasks" />
+      <DetailTopBar category="Panel Tasks" listTo="/panels/tasks" keepOpenLabel={task.title} />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Main column */}
