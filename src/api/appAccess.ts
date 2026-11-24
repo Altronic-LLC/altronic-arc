@@ -74,6 +74,7 @@ import {
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
   SP_SCNS_LIST_ID,
   SP_SUPPLIERS_LIST_ID,
+  SP_SUPPLIER_COLD_CALLS_LIST_ID,
   SP_TERADYNE_LOG_LIST_ID,
   SP_TEST_RESULTS_LIST_ID,
   SP_SALES_ORDERENTRY_SITE_URL,
@@ -285,6 +286,7 @@ export const APPS: AppSpec[] = [
   // Supply Chain ---------------------------------------------------------
   { path: "/supply-chain/gray-market-requests", label: "Gray Market Requests", site: "pmo", lists: ids(SP_GRAY_MARKET_LIST_ID) },
   { path: "/supply-chain/suppliers", label: "Suppliers", site: "pmo", lists: ids(SP_SUPPLIERS_LIST_ID) },
+  { path: "/supply-chain/cold-call-log", label: "Cold Call Log", site: "pmo", lists: ids(SP_SUPPLIER_COLD_CALLS_LIST_ID) },
   { path: "/supply-chain/cost-impact-notices", label: "Cost Impact Notices", site: "salesTeam", lists: ids(SP_COST_IMPACT_NOTICES_LIST_ID) },
   { path: "/supply-chain/faits", label: "FAITs", site: "engineering", lists: ids(SP_FAIT_LIST_ID) },
   { path: "/supply-chain/mrb", label: "MRB", site: "pmo", lists: ids(SP_MRB_LIST_ID) },

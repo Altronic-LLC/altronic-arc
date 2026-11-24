@@ -40,6 +40,7 @@ import {
   Megaphone,
   MessageSquare,
   PackageSearch,
+  PhoneCall,
   Receipt,
   Sparkles,
   TestTubes,
@@ -1227,6 +1228,18 @@ export function DashboardView() {
           description="The SRM tool — every supplier, their contacts and their open issues in one place."
           to={"/supply-chain/suppliers"}
           onClick={() => navigate("/supply-chain/suppliers")}
+        />
+        {/* Shares cooper-green with Suppliers on purpose — it's part of the
+            SRM tool, and the section's other cards already use the other
+            three tones. Its own card so nobody has to go through Suppliers
+            to reach it (Tim, 2026-11-24). */}
+        <TypeCard
+          name="Cold Call Log"
+          icon={<PhoneCall className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Suppliers we don't do business with yet — somewhere to look when a new source is needed."
+          to={"/supply-chain/cold-call-log"}
+          onClick={() => navigate("/supply-chain/cold-call-log")}
         />
         <TypeCard
           name="Cost Impact Notices"

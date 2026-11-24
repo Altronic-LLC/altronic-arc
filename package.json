@@ -1,7 +1,7 @@
 {
   "name": "altronic-arc",
   "private": true,
-  "version": "0.231.0",
+  "version": "0.233.0",
   "type": "module",
   "engines": {
     "node": ">=24"

@@ -1,5 +1,6 @@
 import type { Supplier, SupplierContact, SupplierIssue } from "@/types/task";
 import type { SapSupplierPerformanceRow } from "@/lib/supplierPerformance";
+import type { SupplierColdCall } from "@/types/supplierColdCall";
 
 // =============================================================================
 // Sample SRM data for mock mode — Suppliers List is the anchor; Contacts and
@@ -193,5 +194,51 @@ export const MOCK_SUPPLIER_ISSUES: SupplierIssue[] = [
     hasAttachments: false,
     createdAt: daysAgo(400),
     modifiedAt: daysAgo(370),
+  },
+];
+
+/**
+ * Cold Call Log — companies we don't buy from yet. EVERY name, address and
+ * number here is INVENTED (rule 8): .example domains, 555-01xx numbers.
+ */
+export const MOCK_SUPPLIER_COLD_CALLS: SupplierColdCall[] = [
+  {
+    id: 1,
+    company: "Brightline Castings",
+    website: "brightline-castings.example",
+    commodity: "Aluminium die castings",
+    contactName: "Dana Whitlock",
+    contactEmail: "dana.whitlock@brightline-castings.example",
+    contactPhone: "(555) 010-2231",
+    notes: "Met at the spring trade show. Small runs (500+) welcome; 6-8 week lead time on new tooling.",
+    createdBy: { displayName: "Demo User", email: "demo.user@altronic-llc.com" },
+    createdAt: daysAgo(40),
+    modifiedAt: daysAgo(12),
+  },
+  {
+    id: 2,
+    company: "Northgate Wire & Cable",
+    website: "https://www.northgate-wire.example/harness",
+    commodity: "Custom wire harnesses",
+    contactName: "Priya Okafor",
+    contactEmail: "",
+    contactPhone: "(555) 010-4417",
+    notes: "Called us. UL-listed shop, quoted samples free. Worth a look if harness capacity gets tight.",
+    createdBy: { displayName: "Demo User", email: "demo.user@altronic-llc.com" },
+    createdAt: daysAgo(18),
+    modifiedAt: daysAgo(18),
+  },
+  {
+    id: 3,
+    company: "Kestrel Circuit Works",
+    website: "",
+    commodity: "PCB assembly",
+    contactName: "",
+    contactEmail: "sales@kestrel-circuits.example",
+    contactPhone: "",
+    notes: "",
+    createdBy: null,
+    createdAt: daysAgo(3),
+    modifiedAt: daysAgo(3),
   },
 ];
