@@ -12460,6 +12460,25 @@ track but aren't assigned to are remembering it or waiting for an email).
   predicate. A control that renders and filters nothing is worse than one
   that isn't offered.
 
+### The task filter bar has a Category axis — Altronic-LLC/BusinessIT#76
+
+Brandon Mirto, 2026-11-19: searching "label" finds every task that MENTIONS a
+label, when the question is which tasks ARE label changes. `category=` (a
+comma-separated list; no choice holds a comma) is in `FILTER_PARAM_KEYS`, and
+`Filters.categories` is a multi-select, ORed.
+
+- **`FilterBar` offers it only when given a `category` spec** —
+  `TASK_CATEGORY_FILTER` (Category, `CATEGORIES`) on the Engineering List and
+  Kanban, `OPERATIONS_TASK_TYPE_FILTER` (Task Type) on the Operations ones,
+  each matched by its own predicate (`category` / `taskType`).
+- **A task with no category never matches a selection.**
+- **Not in the "All tasks" scope**: Categories and Task Types are different
+  choice sets, so the view passes no spec there and `filterCombinedTasks`
+  drops `categories` — the project-filter rule, so a `category=` left in the
+  URL can't narrow the list invisibly.
+- **An ARC-wide tagging system was floated and NOT built** — Brandon only
+  asked for the dropdown. Revisit if tags are wanted across lists.
+
 ### Task filters live in the URL and must survive navigation
 
 `filterSearch(search)` in `useFilters.ts` extracts the filter params
@@ -12948,6 +12967,15 @@ the current task, and Cancel returns to the detail page) — the same narrow,
 per-feature file convention as `DetailView.projectRef` /
 `DetailView.watchers`, since `DetailView.tsx` has no broader test harness in
 this repo.
+
+**A child task starts with its parent's watchers** (Altronic-LLC/BusinessIT#78,
+Alexander Masgras, 2026-11-23). Only the starting value of the Watchers picker
+— the creator can add or remove anyone before Create, and `useCreateTask`
+still adds the creator. The parent's people are put FIRST in the picker's
+options (`allPeople`), because `PersonMultiSelect` rebuilds the selection from
+its options on every change and would drop a selected person who isn't among
+them — possible while the task list is a partial preview. Nothing else is
+inherited (assignees, dates, status).
 
 ### Task detail: "Create Build Request" — and the link that is DERIVED, not stored
 

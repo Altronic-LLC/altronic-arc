@@ -7,7 +7,7 @@ import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useFilters } from "@/hooks/useFilters";
 import { StatusPills } from "@/components/StatusPills";
 import { TaskStagePills } from "@/components/TaskStagePills";
-import { EMPTY_FILTERS, FilterBar } from "@/components/FilterBar";
+import { EMPTY_FILTERS, FilterBar, TASK_CATEGORY_FILTER } from "@/components/FilterBar";
 import {
   CombinedTaskResults,
   departmentField,
@@ -145,6 +145,7 @@ export function ListView() {
         projects={projects}
         people={people}
         replaceProjectWith={allScope ? departmentField(department, setDepartment) : undefined}
+        category={allScope ? undefined : TASK_CATEGORY_FILTER}
       />
 
       {preview && <TaskListPreviewNotice shown={tasks.length} />}

@@ -43,6 +43,7 @@ const NO_FILTERS: Filters = {
   assignedEmails: [],
   createdByEmail: null,
   watchedByEmail: null,
+  categories: [],
 };
 
 describe("collectPeople", () => {
@@ -249,7 +250,7 @@ describe("applyFilters", () => {
     it("matches Created By the same way", () => {
       const out = applyFilters([task({ assigned: [NICK_SP] })], null, {
         ...NO_FILTERS,
-        createdByEmail: NICK_MSAL_EMAIL, watchedByEmail: null,
+        createdByEmail: NICK_MSAL_EMAIL, watchedByEmail: null, categories: [],
       });
       expect(out).toHaveLength(1);
     });
@@ -340,5 +341,42 @@ describe("applyFilters — watching", () => {
       { ...NO_FILTERS, watchedByEmail: ALICE.email!, search: "Also" },
     );
     expect(out.map((t) => t.id)).toEqual([4]);
+  });
+});
+
+// =============================================================================
+// Category — Altronic-LLC/BusinessIT#76 (Brandon Mirto): searching "label"
+// finds every task that MENTIONS a label; the question is which tasks ARE
+// label changes.
+// =============================================================================
+describe("applyFilters — category", () => {
+  const labelChange = task({ id: 1, title: "Hub V4 label", category: "Label Change" });
+  const drawing = task({ id: 2, title: "Hub V4 drawing", category: "Drawing" });
+  const mentionsLabel = task({ id: 3, title: "Software that prints a label", category: "Software" });
+  const uncategorised = task({ id: 4, title: "Label something", category: null });
+  const all = [labelChange, drawing, mentionsLabel, uncategorised];
+
+  it("keeps only tasks in the chosen category, not ones that merely mention it", () => {
+    const out = applyFilters(all, null, { ...NO_FILTERS, categories: ["Label Change"] });
+    expect(out.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("ORs several categories", () => {
+    const out = applyFilters(all, null, { ...NO_FILTERS, categories: ["Label Change", "Drawing"] });
+    expect(out.map((t) => t.id)).toEqual([1, 2]);
+  });
+
+  it("never matches a task with no category", () => {
+    const out = applyFilters(all, null, { ...NO_FILTERS, categories: ["Software", "Drawing"] });
+    expect(out.map((t) => t.id)).not.toContain(4);
+  });
+
+  it("filters nothing when none is chosen", () => {
+    expect(applyFilters(all, null, NO_FILTERS)).toHaveLength(4);
+  });
+
+  it("combines with search — Brandon's 'label drawing on the Hub V4'", () => {
+    const out = applyFilters(all, null, { ...NO_FILTERS, categories: ["Drawing"], search: "hub" });
+    expect(out.map((t) => t.id)).toEqual([2]);
   });
 });

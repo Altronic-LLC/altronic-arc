@@ -139,7 +139,10 @@ export function filterCombinedTasks(
   filters: Filters,
   department: CombinedDepartment | null,
 ): CombinedTask[] {
-  const withoutProject: Filters = { ...filters, projectIds: [] };
+  // Category goes the same way: Engineering's Categories and Operations'
+  // Task Types are different choice sets, so the view offers no Category
+  // control in this scope and a `category=` left in the URL is ignored here.
+  const withoutProject: Filters = { ...filters, projectIds: [], categories: [] };
   const eng = department === "Operations" ? [] : applyFilters(engineering, null, withoutProject);
   const ops =
     department === "Engineering" ? [] : applyOperationsFilters(operations, null, withoutProject);

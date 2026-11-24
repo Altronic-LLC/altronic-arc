@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.231.0",
+    date: "2026-11-23",
+    changes: [
+      "Tasks: a Category filter on the task List and Kanban shows only tasks filed under the categories you pick — Label Change or Drawing, say — rather than every task that mentions the word",
+      "Operations tasks: the same filter, as Task Type",
+      "Tasks: New Child Task now starts with the parent task's watchers, and you can add or remove anyone before creating it",
+    ],
+  },
+  {
     version: "0.230.0",
     date: "2026-11-23",
     changes: [

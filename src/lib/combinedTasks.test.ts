@@ -94,6 +94,11 @@ describe("filterCombinedTasks", () => {
     expect(out).toHaveLength(3);
   });
 
+  it("IGNORES a category filter — Categories and Task Types are different choice sets", () => {
+    const withType = [opsTask(3, { taskType: "Programming" })];
+    const out = filterCombinedTasks(engineering, withType, { ...EMPTY_FILTERS, categories: ["Drawing"] }, null);
+    expect(out).toHaveLength(3);
+  });
   it("narrows to one department", () => {
     expect(
       filterCombinedTasks(engineering, operations, EMPTY_FILTERS, "Engineering").every(

@@ -115,6 +115,7 @@ describe("filterSearch — handing filters between List and Kanban", () => {
       "assigned",
       "createdBy",
       "watching",
+      "category",
     ]);
   });
 
@@ -123,6 +124,46 @@ describe("filterSearch — handing filters between List and Kanban", () => {
     expect(filterSearch("?watching=ray%40altronic-llc.com&status=Blocked")).toBe(
       "?watching=ray%40altronic-llc.com",
     );
+  });
+
+  it("carries the category filter across a view switch (BusinessIT#76)", () => {
+    expect(filterSearch("?category=Drawing%2CLabel+Change&status=Blocked")).toBe(
+      "?category=Drawing%2CLabel+Change",
+    );
+  });
+});
+
+describe("useFilters — category (BusinessIT#76)", () => {
+  it("parses a comma-separated category list", () => {
+    const { result } = renderHook(() => useFiltersAndLocation(), {
+      wrapper: wrapperFor("/?assigned=x&category=Drawing,Label%20Change"),
+    });
+    expect(result.current.filters.categories).toEqual(["Drawing", "Label Change"]);
+  });
+
+  it("is empty when absent", () => {
+    const { result } = renderHook(() => useFiltersAndLocation(), {
+      wrapper: wrapperFor("/?assigned=x"),
+    });
+    expect(result.current.filters.categories).toEqual([]);
+  });
+
+  it("writes the selection to the URL, and removes the param when cleared", () => {
+    const { result, rerender } = renderHook(() => useFiltersAndLocation(), {
+      wrapper: wrapperFor("/?assigned=x"),
+    });
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, categories: ["Drawing", "PCB"] });
+    });
+    rerender();
+    expect(result.current.search).toContain("category=Drawing%2CPCB");
+    expect(result.current.filters.categories).toEqual(["Drawing", "PCB"]);
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, categories: [] });
+    });
+    rerender();
+    expect(result.current.search).not.toContain("category=");
   });
 });
 
@@ -182,7 +223,7 @@ describe("useFilters — setFilters writes back", () => {
         search: "foo",
         projectIds: [10, 20],
         assignedEmails: ["alice@x.com", "bob@x.com"],
-        createdByEmail: "carol@x.com", watchedByEmail: null,
+        createdByEmail: "carol@x.com", watchedByEmail: null, categories: [],
       });
     });
     rerender();
@@ -201,7 +242,7 @@ describe("useFilters — setFilters writes back", () => {
         search: "",
         projectIds: [],
         assignedEmails: ["alice@x.com"],
-        createdByEmail: null, watchedByEmail: null,
+        createdByEmail: null, watchedByEmail: null, categories: [],
       });
     });
     rerender();
@@ -220,7 +261,7 @@ describe("useFilters — setFilters writes back", () => {
         search: "",
         projectIds: [],
         assignedEmails: [],
-        createdByEmail: null, watchedByEmail: null,
+        createdByEmail: null, watchedByEmail: null, categories: [],
       });
     });
     rerender();

@@ -22,7 +22,7 @@ import {
 import { filterSearch, useFilters } from "@/hooks/useFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { OPERATIONS_STATUSES, type OperationsStatus, type OperationsTask } from "@/types/task";
-import { FilterBar } from "@/components/FilterBar";
+import { FilterBar, OPERATIONS_TASK_TYPE_FILTER } from "@/components/FilterBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { OperationsKanbanCard } from "@/components/OperationsKanbanCard";
 import { OperationsTaskFormModal } from "@/components/OperationsTaskFormModal";
@@ -124,7 +124,13 @@ export function OperationsKanbanView() {
         </button>
       </div>
 
-      <FilterBar filters={filters} onChange={setFilters} projects={projects} people={people} />
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        projects={projects}
+        people={people}
+        category={OPERATIONS_TASK_TYPE_FILTER}
+      />
 
       <DndContext
         sensors={sensors}
