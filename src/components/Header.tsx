@@ -44,6 +44,7 @@ import {
   Moon,
   Receipt,
   PackageSearch,
+  PhoneCall,
   RefreshCw,
   Shield,
   Sun,
@@ -450,6 +451,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         // Contacts and Issue Tracking live on a supplier's own detail page,
         // not as separate screens — see CLAUDE.md.
         matchesPath: (p) => p.startsWith("/supply-chain/supplier"),
+      },
+      {
+        to: "/supply-chain/cold-call-log",
+        label: "Cold Call Log",
+        icon: <PhoneCall className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/cold-call-log"),
       },
       {
         to: "/supply-chain/cost-impact-notices",

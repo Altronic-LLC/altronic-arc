@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.234.0",
+    date: "2026-11-24",
+    changes: [
+      "Suppliers: a new Cold Call Log keeps suppliers we don't do business with yet — company, website, commodity, who you spoke to and notes — so anyone looking for a new source can start there",
+      "Open it from its own card on the Dashboard, the Cold Call Log button on the Suppliers list, or Departments → Supply Chain; anyone can add, edit or remove an entry",
+    ],
+  },
+  {
     version: "0.232.0",
     date: "2026-11-24",
     changes: [

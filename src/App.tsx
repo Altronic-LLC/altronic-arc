@@ -122,6 +122,7 @@ const CustomerNoteDetailView = lazy(() =>
 const SuppliersView = lazy(() =>
   import("@/views/SuppliersView").then((m) => ({ default: m.SuppliersView })),
 );
+const SupplierColdCallsView = lazy(() => import("@/views/SupplierColdCallsView"));
 const SupplierDetailView = lazy(() =>
   import("@/views/SupplierDetailView").then((m) => ({ default: m.SupplierDetailView })),
 );
@@ -683,6 +684,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the suppliers" />}>
                   <SuppliersView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/cold-call-log"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the cold call log" />}>
+                  <SupplierColdCallsView />
                 </Suspense>
               }
             />

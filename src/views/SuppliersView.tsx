@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { ExternalLink, MessageSquare, Plus, Truck } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ExternalLink, MessageSquare, PhoneCall, Plus, Truck } from "lucide-react";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import type { Supplier } from "@/types/task";
 import { SUPPLIER_CORE_COMPETENCIES, SUPPLIER_STATUSES } from "@/types/task";
@@ -164,6 +164,14 @@ export function SuppliersView() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <Link
+            to="/supply-chain/cold-call-log"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+            title="Suppliers we don't do business with yet"
+          >
+            <PhoneCall className="h-4 w-4" />
+            Cold Call Log
+          </Link>
           <a
             href={MEDIUS_SUPPLIER_DIRECTORY_URL}
             target="_blank"

@@ -542,6 +542,7 @@ src/
 │   ├── supplierContacts.ts       SRM Tool — Supplier Contacts CRUD + comments + watchers, scoped to a Supplier
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
 │   ├── supplierPerformance.ts    SRM Tool — SAP supplier performance from Fabric (`tbl_arc_supplier_performance`), the whole table in one paged read
+│   ├── supplierColdCalls.ts      SRM Tool — Supplier Cold Call Log CRUD (PMO site), diffed edits; anyone adds, edits and deletes
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
 │   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
 │   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download/rename/delete (recycle bin)
@@ -609,7 +610,7 @@ src/
 │   ├── qualityFixtureMockData.ts Sample Quality Fixture Log — INVENTED fixtures (a gap, a lettered pair, one retired) + roles
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
-│   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
+│   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues, cold call log (INVENTED)
 │   ├── costImpactMockData.ts     Sample Cost Impact Notices
 │   ├── scnMockData.ts            Sample SCNs — every status and category, one with all three review checklists, one Denied
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
@@ -682,6 +683,7 @@ src/
 │   ├── useSupplierContacts.ts    SRM Tool — Supplier Contacts queries, mutations + comments + watchers
 │   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
 │   ├── useSupplierPerformance.ts SRM Tool — SAP's performance table keyed by BP number, one cached read for the list and every supplier page
+│   ├── useSupplierColdCalls.ts   SRM Tool — Cold Call Log query + create / edit / delete (no gate)
 │   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
 │   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
 │   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
@@ -865,6 +867,7 @@ src/
 │   ├── supplierContactMapper.ts  Graph item → SupplierContact
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
 │   ├── supplierPerformance.ts    SAP performance rows → by BP number; supplierPerformanceFor = SAP first, ARC's typed scores as the fallback (pure)
+│   ├── supplierColdCalls.ts      Cold Call Log columns, Graph item ⇄ entry, diffed write, search, websiteHref (bare domain → https, nothing else linked) (pure)
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
 │   ├── scnFields.ts              SCN column descriptors (columns are DATA) — the four internal names that LIE are decoded here
@@ -983,6 +986,7 @@ src/
 │   ├── mcn.ts                    Manufacturing Change Notice types + constants (statuses, priorities, distribution roles, roles)
 │   ├── plant.ts                  Plant Map types + constants (roles, component categories, layout statuses, the layout doc)
 │   ├── qualityFixture.ts         Quality Fixture Log types + QUALITY_FIXTURE_ROLES (editor / admin)
+│   ├── supplierColdCall.ts       SRM Tool — Supplier Cold Call Log types
 │   └── panelBom.ts               Panel SAP BOM Builder types + PANEL_BOM_CLUSTERS (the ten clusters, which drive item numbers)
 │
 ├── components/
@@ -1068,6 +1072,7 @@ src/
 │   ├── SupplierClassChip.tsx         SRM Tool — SAP's A / B / C supplier class (letter + dot, colour never on the text)
 │   ├── SupplierLogo.tsx              SRM Tool — resolves and renders a supplier's Logo image column
 │   ├── SupplierLogoEditor.tsx        SRM Tool — Change/Remove links over SupplierLogo (detail page only)
+│   ├── SupplierColdCallFormModal.tsx SRM Tool — add / edit a Cold Call Log entry; Remove (after a confirm) in edit mode
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
 │   ├── ScnFormModal.tsx              Raise an SCN — Product/Description/Approval Status required, SCN# shown as "will be …"
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
@@ -1267,6 +1272,7 @@ src/
 │   ├── SupplierDetailView.tsx    SRM Tool — one supplier + inline Contacts/Issues cards
 │   ├── SupplierContactRedirect.tsx  Deep-link target for contact-comment emails
 │   ├── SupplierIssueRedirect.tsx    Deep-link target for issue-comment emails
+│   ├── SupplierColdCallsView.tsx    SRM Tool — Cold Call Log (/supply-chain/cold-call-log): suppliers we don't buy from yet; sortable, cards on a phone
 │   ├── CostImpactNoticesView.tsx    Cost Impact Notices list, search + Time of Impact filter (Supply Chain)
 │   ├── CostImpactNoticeDetailView.tsx  One notice — Part/Cost & Impact/Where Used/Notes cards, comments, attachments
 │   ├── ScnsView.tsx              SCNs list — search, status pills, Category/Year filters, sortable headers; cards on a phone (Supply Chain)
@@ -4551,6 +4557,38 @@ a row, 30 deliberately hasn't, to show the fallback). `VITE_FABRIC_IN_DEMO`
 is the Pricing Calculator's switch and does not reach this. Pinned in
 `api/supplierPerformance.real.test.ts` (the table name, paging) and the two
 `*.performance.test.tsx` view tests, verified by disabling the SAP-first rule.
+
+#### The Cold Call Log — suppliers we don't do business with yet
+
+BusinessIT#79 (Katie Fleming, via Feature Request #52; Tim's decisions,
+2026-11-24). `SupplierColdCallsView` at `/supply-chain/cold-call-log`, reached
+from its own Dashboard card (Supply Chain, cooper-green beside Suppliers — Tim:
+"I don't want them to have to go into suppliers first"), a **Cold Call Log**
+button on the Suppliers list, and the Departments menu. One list on `SITES.pmo`, **Supplier Cold Call Log**
+(`VITE_SP_SUPPLIER_COLD_CALLS_LIST_ID`, **no default** — unset, the screen
+says it isn't set up), created by `scripts/create-supplier-cold-call-list.ps1`
+(idempotent, `-WhatIf`, write/read-back check including a second Notes write
+to catch Append Changes). Columns: `Title` (shown Company, required),
+`Website`, `Commodity`, `ContactName`, `ContactEmail`, `ContactPhone`, `Notes`
+(multi-line plain). Five rules:
+
+- **Commodity is free text** (Tim), not the Suppliers List's Core Competency
+  choices.
+- **The contact is plain text**, never a person column — a person at another
+  company isn't in this tenant's directory.
+- **Anyone signed in adds, edits and DELETES** (Tim: "anyone edits"). It's an
+  address book of companies we might call, the Supplier Contacts arrangement,
+  not a record of something that happened. A 404 on delete counts as done.
+- **It links to nothing.** An entry has no BP number, so no lookup to the
+  Suppliers List; a company that becomes a supplier is onboarded through
+  Medius as usual. "Convert to supplier" wasn't asked for.
+- **Edits are diffed** against the cached row (an unchanged save sends
+  nothing), and `websiteHref` links only http(s) — a bare `acme.com` gets
+  `https://`, anything else (`javascript:`, text with spaces) stays text.
+
+Pinned in `lib/supplierColdCalls.test.ts`, `api/supplierColdCalls.real.test.ts`
+(request shapes, real mode) and `views/SupplierColdCallsView.test.tsx` (the
+row wiring verified by mapping the unsorted list and watching it fail).
 
 ### Cost Impact Notices (Supply Chain, ALTRONICSALESTEAM site)
 

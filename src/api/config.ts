@@ -1281,6 +1281,18 @@ export const SP_SUPPLIER_ISSUES_LIST_ID =
   import.meta.env.VITE_SP_SUPPLIER_ISSUES_LIST_ID || "8b22d37a-a520-46a1-8935-8537c46e4b54";
 
 /**
+ * "Supplier Cold Call Log" (BusinessIT#79) — suppliers we don't do business
+ * with yet, on the PMO site. Created by scripts/create-supplier-cold-call-list.ps1.
+ * NO default: unset means the screen says it isn't set up yet. It gates nothing,
+ * so setting it locks nobody out.
+ */
+export const SP_SUPPLIER_COLD_CALLS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_SUPPLIER_COLD_CALLS_LIST_ID || undefined;
+
+/** The Cold Call Log can be read and written — always in the demo. */
+export const SUPPLIER_COLD_CALLS_CONFIGURED = USE_MOCK || !!SP_SUPPLIER_COLD_CALLS_LIST_ID;
+
+/**
  * "Cost Impact Portal" — Supply Chain's notice that a purchased part's cost
  * has changed, on the **ALTRONICSALESTEAM site** (SITES.salesTeam) — a
  * Supply Chain feature living on a Sales-site list, the same arrangement as
