@@ -250,6 +250,7 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     { name: /Visit Reports/i, url: "/sales/visit-reports" },
     { name: /^Customers/i, url: "/sales/customers" },
     { name: /^Suppliers/i, url: "/supply-chain/suppliers" },
+    { name: /^Cold Call Log/i, url: "/supply-chain/cold-call-log" },
     { name: /Cost Impact Notices/i, url: "/supply-chain/cost-impact-notices" },
     { name: /^SCNs/i, url: "/supply-chain/scns" },
     { name: /Teradyne Log/i, url: "/operations/teradyne" },

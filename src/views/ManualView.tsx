@@ -57,7 +57,7 @@ const SECTIONS: ManualSection[] = [
       "calendar",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms, Quality Fixture Log), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool). Every date in ARC is picked from a calendar: the month and year at the top of it are dropdowns, so you can jump straight to a year instead of clicking the arrow a month at a time, which matters most for older dates like a CSA listing's Date Certified. A record's existing year is always offered however old it is.",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms, Quality Fixture Log), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool, Cold Call Log), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool). Every date in ARC is picked from a calendar: the month and year at the top of it are dropdowns, so you can jump straight to a year instead of clicking the arrow a month at a time, which matters most for older dates like a CSA listing's Date Certified. A record's existing year is always offered however old it is.",
     render: () => (
       <>
         <P>
@@ -221,7 +221,7 @@ const SECTIONS: ManualSection[] = [
       "quick link buttons",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log, QC Forms and the Quality Fixture Log; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project. The page shows its cards straight away; a card still waiting on its SharePoint list says Loading… and can't be opened until its count arrives, and during a refresh each card keeps its last count, stays clickable and shows Updating.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log, QC Forms and the Quality Fixture Log; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), the Cold Call Log, Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, the Cold Call Log, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project. The page shows its cards straight away; a card still waiting on its SharePoint list says Loading… and can't be opened until its count arrives, and during a refresh each card keeps its last count, stays clickable and shows Updating.",
     render: () => (
       <>
         <P>
@@ -6159,6 +6159,65 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "srm-cold-call-log",
+    title: "Cold Call Log",
+    group: "Supply Chain",
+    keywords: [
+      "cold call",
+      "cold call log",
+      "prospective supplier",
+      "new supplier",
+      "potential supplier",
+      "supplier ideas",
+      "commodity",
+      "trade show",
+    ],
+    searchText:
+      "The Cold Call Log at /supply-chain/cold-call-log — its own card on the Dashboard under Supply Chain, under Departments > Supply Chain, and the Cold Call Log button on the Suppliers list — is part of the SRM tool: a list of suppliers we don't do business with yet, so somebody needing a new source can look there first. Each entry has a Company (required), Website, Commodity (free text — what they make or sell), a Contact Name, Contact Email and Contact Phone, and Notes. New entry adds one; clicking an entry opens it to edit, and Remove takes it off the log after a confirm. Anyone signed in can add, edit and remove entries. The search box covers every field, notes and who added it included; the table sorts by any column, and the Commodity and Added by columns can be narrowed to the values you pick. A website typed without https:// still opens as a link, in a new tab. An entry is not a supplier on the Suppliers List and is not linked to one — when a company becomes a supplier, set it up in Medius (Supplier Onboarding) as usual.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → Cold Call Log</strong>{" "}
+          (<code>/supply-chain/cold-call-log</code>), also reached from its
+          card on the Dashboard and the <strong>Cold Call Log</strong> button
+          on the Suppliers list, keeps
+          suppliers we don&apos;t do business with yet — a company met at a
+          show, or one that called us — so anyone looking for a new source can
+          start there.
+        </P>
+        <UL>
+          <LI>
+            Each entry has a <strong>Company</strong> (the only required
+            field), <strong>Website</strong>, <strong>Commodity</strong> (free
+            text — what they make or sell), a <strong>Contact Name</strong>,{" "}
+            <strong>Contact Email</strong> and <strong>Contact Phone</strong>,
+            and <strong>Notes</strong>.
+          </LI>
+          <LI>
+            <strong>New entry</strong> adds one. Click an entry to edit it;{" "}
+            <strong>Remove</strong>, in the same form, takes it off the log
+            after you confirm.
+          </LI>
+          <LI>
+            Search covers every field, notes and who added it included. Sort
+            by any column; Commodity and Added by can be narrowed to the values
+            you pick.
+          </LI>
+          <LI>
+            A website typed as <code>example.com</code> still opens as a link,
+            in a new tab.
+          </LI>
+          <LI>Anyone signed in can add, edit and remove entries.</LI>
+        </UL>
+        <Tip>
+          An entry isn&apos;t a supplier on the Suppliers List and isn&apos;t
+          linked to one. When a company becomes a supplier, set it up through{" "}
+          <strong>Supplier Onboarding</strong> (Medius) as usual.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "cost-impact-notices",
     title: "Cost Impact Notices",
     group: "Supply Chain",
@@ -8888,7 +8947,7 @@ const SECTIONS: ManualSection[] = [
       "oldest first",
     ],
     searchText:
-      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Category (multi — Task Type on Operations tasks; shows only tasks filed under the categories picked, not ones that mention the word), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists. Most tables also SORT by any column: click the small arrows beside a column name, and click again to reverse. Clicking the column NAME instead opens a checkbox list of that column's values, so you can narrow to one project, supplier, status or person — several columns can be narrowed at once, and they combine. Dates and numbers sort as values rather than as text, and a blank always sinks to the bottom rather than floating to the top, whichever direction you pick. Sorting and column filters are available on Visit Reports, ECNs, FAITs, Suppliers, CSA Listings, the Teradyne Log, Gray Market Requests, MRB, QC Time Tracking and the Panel QC Issue Tracker.",
+      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Category (multi — Task Type on Operations tasks; shows only tasks filed under the categories picked, not ones that mention the word), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists. Most tables also SORT by any column: click the small arrows beside a column name, and click again to reverse. Clicking the column NAME instead opens a checkbox list of that column's values, so you can narrow to one project, supplier, status or person — several columns can be narrowed at once, and they combine. Dates and numbers sort as values rather than as text, and a blank always sinks to the bottom rather than floating to the top, whichever direction you pick. Sorting and column filters are available on Visit Reports, ECNs, FAITs, Suppliers, the Cold Call Log, CSA Listings, the Teradyne Log, Gray Market Requests, MRB, QC Time Tracking and the Panel QC Issue Tracker.",
     render: () => (
       <>
         <P>
