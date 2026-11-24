@@ -39,6 +39,7 @@ import { isPermissionDenied } from "@/lib/listWriteErrors";
 import { buildWorksheetWorkbook, worksheetFileName } from "@/lib/worksheetExcel";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PartCard, SubAssemblyCard, draftAsSubAssembly } from "@/components/SubAssemblyCard";
@@ -339,7 +340,11 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
 
   return (
     <PricingPage wide>
-      <DetailTopBar category="New Product Pricing" listTo="/sales/pricing/new-products" />
+      <DetailTopBar
+          category="New Product Pricing"
+          listTo="/sales/pricing/new-products"
+          keepOpenLabel={tabLabel(`${ws.worksheetNumber} R${ws.rev}`, ws.productName)}
+        />
 
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">

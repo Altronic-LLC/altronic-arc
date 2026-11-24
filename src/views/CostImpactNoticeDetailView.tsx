@@ -178,7 +178,11 @@ export function CostImpactNoticeDetailView() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Cost Impact Notices" listTo="/supply-chain/cost-impact-notices" />
+      <DetailTopBar
+          category="Cost Impact Notices"
+          listTo="/supply-chain/cost-impact-notices"
+          keepOpenLabel={notice.title || `Cost Impact Notice #${notice.id}`}
+        />
 
       <div className="flex flex-wrap items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">

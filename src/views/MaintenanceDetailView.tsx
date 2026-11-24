@@ -48,6 +48,7 @@ import { CommentComposer } from "@/components/CommentComposer";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DateField } from "@/components/DateField";
 import { ChoiceSelect, SingleSelect } from "@/components/SearchableSelect";
@@ -266,7 +267,11 @@ export function MaintenanceDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Maintenance" listTo="/operations/maintenance" />
+      <DetailTopBar
+          category="Maintenance"
+          listTo="/operations/maintenance"
+          keepOpenLabel={tabLabel(task.woNumber || `#${task.id}`, task.title)}
+        />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-4">

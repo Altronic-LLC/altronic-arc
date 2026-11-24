@@ -20,6 +20,7 @@ import { useDatasheet, useUploadDatasheet } from "@/hooks/useDatasheet";
 import { datasheetFileName, datasheetFileProblem } from "@/api/datasheets";
 import { describeListWriteFailure, isPermissionDenied } from "@/lib/listWriteErrors";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { PartKindChip, PartsDataGate, SignOffChip } from "@/components/partsAtoms";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
@@ -98,7 +99,7 @@ function PartDetail({ id }: { id: number }) {
   const query = useAltronicPart(id);
   const part = query.part;
   return (
-    <DetailShell>
+    <DetailShell keepOpenLabel={part && !isDeletedPart(part) ? tabLabel(part.partNumber, part.description) : undefined}>
       <PartsDataGate queries={[query]} listNames="Altronic Part List" noun="part">
         {!part ? <NotFound /> : isDeletedPart(part) ? <DeletedNotice part={part} /> : <PartBody part={part} />}
       </PartsDataGate>
@@ -110,7 +111,11 @@ function ComponentDetail({ id }: { id: number }) {
   const query = useAltronicComponent(id);
   const component = query.component;
   return (
-    <DetailShell>
+    <DetailShell
+      keepOpenLabel={
+        component && !isDeletedPart(component) ? tabLabel(component.partNumber, component.description) : undefined
+      }
+    >
       <PartsDataGate queries={[query]} listNames="Altronic Component List" noun="component">
         {!component ? (
           <NotFound />
@@ -157,10 +162,10 @@ function DeletedNotice({ part }: { part: { partNumber: string; comments: Comment
   );
 }
 
-function DetailShell({ children }: { children: ReactNode }) {
+function DetailShell({ children, keepOpenLabel }: { children: ReactNode; keepOpenLabel?: string }) {
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Parts List" listTo="/engineering/parts" />
+      <DetailTopBar category="Parts List" listTo="/engineering/parts" keepOpenLabel={keepOpenLabel} />
       {children}
     </div>
   );

@@ -44,7 +44,7 @@ export function TestSheetDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Test Sheets" listTo="/test-sheets" />
+      <DetailTopBar category="Test Sheets" listTo="/test-sheets" keepOpenLabel={sheet.title} />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-4">

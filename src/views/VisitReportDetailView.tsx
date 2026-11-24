@@ -19,6 +19,7 @@ import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { DateField } from "@/components/DateField";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { VisitReportFormModal } from "@/components/VisitReportFormModal";
 import { VisitStatusChip } from "@/components/visitReportAtoms";
@@ -74,7 +75,11 @@ export function VisitReportDetailView() {
 
   return (
     <div className="mx-auto flex max-w-[1100px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Visit Reports" listTo="/sales/visit-reports" />
+      <DetailTopBar
+          category="Visit Reports"
+          listTo="/sales/visit-reports"
+          keepOpenLabel={tabLabel(report.customerName || "Visit report", report.reasonForVisit)}
+        />
 
       <div className="flex flex-wrap items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">

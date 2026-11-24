@@ -206,7 +206,7 @@ export function PanelProjectDashboardView() {
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Panel Project Dashboard" listTo="/panels/projects" />
+      <DetailTopBar category="Panel Project Dashboard" listTo="/panels/projects" keepOpenLabel={project.title} />
 
       <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
         <div className="flex items-start gap-3">

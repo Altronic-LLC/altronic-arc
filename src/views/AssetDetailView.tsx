@@ -155,7 +155,7 @@ export function AssetDetailView({ now }: AssetDetailViewProps = {}) {
 
   return (
     <div className="mx-auto flex max-w-[1300px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Maintenance" listTo="/operations/maintenance/dashboard" />
+      <DetailTopBar category="Maintenance" listTo="/operations/maintenance/dashboard" keepOpenLabel={equipmentLabel(asset)} />
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
