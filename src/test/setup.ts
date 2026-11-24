@@ -20,11 +20,20 @@ import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { resetOpenDropdown } from "@/components/useDropdownClose";
 import { setMockLatency } from "@/api/mockLatency";
+import { OPEN_ITEMS_STORAGE_KEY, resetOpenItemsStore } from "@/hooks/useOpenItems";
 
 afterEach(() => {
   cleanup();
   resetOpenDropdown();
   setMockLatency(null);
+  // The records kept open (useOpenItems) are module state backed by
+  // localStorage; a tab one test keeps open must not appear in the next.
+  try {
+    localStorage.removeItem(OPEN_ITEMS_STORAGE_KEY);
+  } catch {
+    // no storage in this environment
+  }
+  resetOpenItemsStore();
 });
 
 // jsdom doesn't ship matchMedia. Some libraries (lucide-react animations,

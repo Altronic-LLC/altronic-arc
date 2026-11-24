@@ -28,6 +28,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.233.0",
+    date: "2026-11-24",
+    changes: [
+      "Keep a task, EIR, build request or any other record open: press Keep open at the top of its page, and it joins a row of tabs under the header so you can switch between the records you're working on",
+      "Drag a tab to move it, or press Ctrl+Shift+← / → on it; × closes a tab without changing the record",
+      "Up to 10 records can be kept open; on a phone they're an Open menu",
+      "The tabs are kept in this browser, so they're still there after a refresh",
+    ],
+  },
+  {
     version: "0.232.0",
     date: "2026-11-24",
     changes: [

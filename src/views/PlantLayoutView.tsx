@@ -86,10 +86,10 @@ function PlantLayoutPage() {
   return <LayoutDetail layout={layout} />;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, keepOpenLabel }: { children: React.ReactNode; keepOpenLabel?: string }) {
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Plant Map" listTo="/operations/plant-map" />
+      <DetailTopBar category="Plant Map" listTo="/operations/plant-map" keepOpenLabel={keepOpenLabel} />
       {children}
     </div>
   );
@@ -146,7 +146,7 @@ function LayoutDetail({ layout }: { layout: PlantLayout }) {
   const outdated = useMemo(() => outdatedItems(items, [...byId.values()]).length, [items, byId]);
 
   return (
-    <Shell>
+    <Shell keepOpenLabel={`${layout.title || `Layout #${layout.id}`} v${layout.version}`}>
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cooper-green/10 text-cooper-green">

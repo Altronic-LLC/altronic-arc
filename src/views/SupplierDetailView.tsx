@@ -160,7 +160,11 @@ export function SupplierDetailView() {
 
   return (
     <div className="mx-auto flex max-w-[1300px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Suppliers" listTo="/supply-chain/suppliers" />
+      <DetailTopBar
+          category="Suppliers"
+          listTo="/supply-chain/suppliers"
+          keepOpenLabel={supplier.title || `Supplier #${supplier.id}`}
+        />
 
       <div className="flex flex-wrap items-start gap-3">
         <SupplierLogoEditor supplier={supplier} />

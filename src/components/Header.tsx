@@ -76,6 +76,7 @@ import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PLANT_MAP_CONFIGU
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
+import { OpenItemsBar } from "@/components/OpenItemsBar";
 import { NotifyAppManagerButton } from "@/components/NotifyAppManagerButton";
 
 // =============================================================================
@@ -742,6 +743,7 @@ export function Header() {
           <UserMenu />
         </div>
       </div>
+      <OpenItemsBar />
     </header>
   );
 }

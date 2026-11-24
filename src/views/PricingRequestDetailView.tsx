@@ -32,6 +32,7 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PersonMultiField } from "@/components/PersonMultiField";
@@ -171,7 +172,7 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
 
   return (
     <PricingPage wide>
-      <DetailTopBar category="Pricing" listTo="/sales/pricing" />
+      <DetailTopBar category="Pricing" listTo="/sales/pricing" keepOpenLabel={tabLabel(r.requestNumber, r.description)} />
 
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
