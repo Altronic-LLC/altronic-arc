@@ -4907,7 +4907,7 @@ const SECTIONS: ManualSection[] = [
     group: "Customer Service / Sales",
     keywords: ["application photos", "photos", "pictures", "camera", "take photo", "ipad", "phone", "upload", "folder"],
     searchText:
-      "Application Photos at /sales/application-photos, under Departments > Customer Service / Sales: the Sales team's photo storehouse, General/A-Application Photos in the Documents library of the ALTRONICSALESTEAM SharePoint site, with its whole folder tree. Open folders, create subfolders with New folder, upload photos or any file (drag and drop, several at once), download, rename and delete files and folders. On a phone or iPad, Take photo opens the camera and saves the picture straight into the folder you are in, named by the date and time it was taken; Upload files there also lets you pick from the photo library. Open shows a photo in SharePoint. Deleted items go to the site's recycle bin for 93 days. Your SharePoint permissions on the folder decide what you can change.",
+      "Application Photos at /sales/application-photos, under Departments > Customer Service / Sales: the Sales team's photo storehouse, General/A-Application Photos in the Documents library of the ALTRONICSALESTEAM SharePoint site, with its whole folder tree. Open folders, create subfolders with New folder, upload photos or any file (drag and drop, several at once), download, rename and delete files and folders. On a phone or iPad, Take photo opens the camera and saves the picture straight into the folder you are in, named by the date and time it was taken; Upload files there also lets you pick from the photo library. It opens as a photo gallery: folders as tiles, then a picture of every photo. Click a photo to preview it larger before opening it — Previous and Next (or the arrow keys) step through the folder's files, Open shows the full image in SharePoint, and Download, Rename and Delete are on the preview too. Escape closes it. List switches to the table. Deleted items go to the site's recycle bin for 93 days. Your SharePoint permissions on the folder decide what you can change.",
     render: () => (
       <>
         <P>
@@ -4918,7 +4918,18 @@ const SECTIONS: ManualSection[] = [
           every folder and picture in it.
         </P>
         <P>
-          It works like Sales Documentation: click a folder to go into it,{" "}
+          It opens as a <strong>photo gallery</strong>: folders as tiles
+          first, then a picture of every photo in the folder. Click a photo
+          to <strong>preview</strong> it larger before opening it.{" "}
+          <strong>Previous</strong> and <strong>Next</strong> (or the ← →
+          keys) step through the folder&apos;s files, <strong>Open</strong>{" "}
+          shows the full image in SharePoint, and Download, Rename and Delete
+          are on the preview too. Escape closes it. A file that isn&apos;t a
+          picture shows a file icon and still opens. <strong>List</strong>{" "}
+          switches to the table, and the choice stays as you open folders.
+        </P>
+        <P>
+          Otherwise it works like Sales Documentation: click a folder to go into it,{" "}
           <strong>New folder</strong> makes a subfolder,{" "}
           <strong>Upload files</strong> adds photos (or drop them on the list),{" "}
           <strong>Open</strong> shows a photo in SharePoint,{" "}

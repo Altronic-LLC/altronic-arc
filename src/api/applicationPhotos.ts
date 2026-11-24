@@ -1,5 +1,5 @@
 import { SITES, SP_SALESTEAM_SITE_URL } from "./config";
-import { createDriveLibrary } from "./driveLibrary";
+import { createDriveLibrary, type PhotoSize } from "./driveLibrary";
 import type { DriveEntry, UploadProgress } from "./projectFiles";
 
 // =============================================================================
@@ -40,6 +40,9 @@ const library = createDriveLibrary({
     const compression = add(root, "Compression", "folder", 0, "2026-09-14T15:00:00Z");
     add(compression, "Photo 2026-09-14 10-12-40.jpg", "file", 2_300_000, "2026-09-14T15:00:00Z");
     add(compression, "Photo 2026-09-14 10-13-05.jpg", "file", 2_100_000, "2026-09-14T15:00:00Z");
+    add(compression, "Photo 2026-09-14 10-15-22.jpg", "file", 2_200_000, "2026-09-14T15:05:00Z");
+    add(compression, "Compressor skid nameplate.png", "file", 640_000, "2026-09-15T13:00:00Z");
+    add(compression, "Site notes.pdf", "file", 120_000, "2026-09-15T13:10:00Z");
     const power = add(root, "Power Generation", "folder", 0, "2026-08-02T15:00:00Z");
     add(power, "Panel install.jpg", "file", 3_400_000, "2026-08-02T15:00:00Z");
     add(root, "Pipeline", "folder", 0, "2026-07-21T15:00:00Z");
@@ -50,6 +53,9 @@ const library = createDriveLibrary({
 export const listApplicationPhotos = (folderId?: string): Promise<DriveEntry[]> => library.list(folderId);
 export const getApplicationPhotosPath = (folderId?: string) => library.getPath(folderId);
 export const downloadApplicationPhoto = (itemId: string): Promise<Blob> => library.download(itemId);
+/** A gallery tile's picture (`medium`) or the preview's (`large`). */
+export const applicationPhotoImage = (itemId: string, name: string, size: PhotoSize): Promise<Blob> =>
+  library.photo(itemId, name, size);
 export const createApplicationPhotosFolder = (parentId: string | null, name: string): Promise<DriveEntry> =>
   library.createFolder(parentId, name);
 export const uploadApplicationPhoto = (

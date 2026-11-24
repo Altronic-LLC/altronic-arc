@@ -181,3 +181,33 @@ export async function refreshSharePointAccess(): Promise<void> {
   const host = new URL(SP_SITE_URL).host;
   await instance.acquireTokenPopup({ scopes: [`https://${host}/AllSites.Manage`], account });
 }
+
+/**
+ * A drive item's THUMBNAIL bytes (Application Photos gallery, 2026-11-24).
+ *
+ * Graph hands back a thumbnail as a `*.svc.ms/transform/thumbnail?…` link.
+ * That service refuses a request with no token (checked live) and answers
+ * CORS for any origin with `authorization` allowed, so the browser can fetch
+ * it with a bearer token — SharePoint's own pages load thumbnails this way.
+ * The token is for the SharePoint resource (the tenant's SharePoint host), not
+ * Graph, and is acquired SILENTLY only, like every other SP REST call here.
+ *
+ * Which token the service accepts could NOT be proven from a developer
+ * machine (it refused the Azure CLI's), so the caller treats any failure as
+ * "no thumbnail" and falls back to the file's own download link.
+ */
+export async function fetchSharePointThumbnail(url: string): Promise<Blob> {
+  if (USE_MOCK) throw new Error("fetchSharePointThumbnail called while VITE_USE_MOCK is true.");
+  if (!SP_SITE_URL) throw new SharePointUnavailableError("VITE_SP_SITE_URL is not set.");
+  const instance = getMsalInstance();
+  const account = instance && resolveAccount(instance.getActiveAccount(), instance.getAllAccounts());
+  if (!instance || !account) throw new SharePointUnavailableError("Not signed in yet.");
+  const host = new URL(SP_SITE_URL).host;
+  const { accessToken } = await instance.acquireTokenSilent({
+    scopes: [`https://${host}/AllSites.Manage`],
+    account,
+  });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Thumbnail refused (${res.status}).`);
+  return res.blob();
+}

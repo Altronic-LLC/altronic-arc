@@ -1,6 +1,7 @@
 import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
+import { fetchSharePointThumbnail } from "./sharepoint";
 import {
   MAX_UPLOAD_BYTES,
   formatBytes,
@@ -301,6 +302,32 @@ export function createDriveLibrary(cfg: DriveLibraryConfig) {
     return res.blob();
   }
 
+  /**
+   * A picture of an image file, for a gallery tile (`"medium"`, ~176px) or its
+   * preview (`"large"`, ~800px).
+   *
+   * Tries SharePoint's own thumbnail first — small, and a JPEG even for an
+   * iPhone's HEIC — then falls back to the WHOLE file through `download`, the
+   * link the Download button already uses. Once the thumbnail service has
+   * refused this session, later calls skip straight to the fallback rather
+   * than asking it again for every tile.
+   */
+  async function photo(itemId: string, name: string, size: PhotoSize): Promise<Blob> {
+    if (USE_MOCK) return mockDelay(mockPhoto(name, size));
+    if (!thumbnailsRefused) {
+      try {
+        const res = await graphFetch<{ value?: Array<Record<string, { url?: string } | undefined>> }>(
+          `${DRIVE()}/items/${itemId}/thumbnails?$select=${size}`,
+        );
+        const url = res?.value?.[0]?.[size]?.url;
+        if (url) return await fetchSharePointThumbnail(url);
+      } catch {
+        thumbnailsRefused = true;
+      }
+    }
+    return download(itemId);
+  }
+
   // ---------------------------------------------------------------------------
   // Writing
   // ---------------------------------------------------------------------------
@@ -466,7 +493,42 @@ export function createDriveLibrary(cfg: DriveLibraryConfig) {
     }
   }
 
-  return { list, getPath, download, createFolder, upload, rename, remove, resetMock: seedMock };
+  return { list, getPath, download, photo, createFolder, upload, rename, remove, resetMock: seedMock };
 }
 
 export type DriveLibrary = ReturnType<typeof createDriveLibrary>;
+
+export type PhotoSize = "medium" | "large";
+
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif", "tif", "tiff"]);
+
+/** Is this file a picture the gallery can show? By extension. */
+export function isImageFile(name: string): boolean {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 && IMAGE_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+}
+
+/** Set once SharePoint's thumbnail service refuses; shared by every library. */
+let thumbnailsRefused = false;
+
+/** TESTS ONLY: forget that the thumbnail service refused. */
+export function __resetThumbnailRoute(): void {
+  thumbnailsRefused = false;
+}
+
+/** The demo's pictures — invented, drawn from the name so each looks different. */
+function mockPhoto(name: string, size: PhotoSize): Blob {
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const hue = hash % 360;
+  const px = size === "large" ? 800 : 176;
+  const h = Math.round(px * 0.75);
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${h}" viewBox="0 0 400 300">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="hsl(${hue},45%,62%)"/><stop offset="1" stop-color="hsl(${(hue + 40) % 360},50%,32%)"/>` +
+    `</linearGradient></defs><rect width="400" height="300" fill="url(#g)"/>` +
+    `<path d="M0 230 L110 140 L190 210 L270 120 L400 240 L400 300 L0 300 Z" fill="rgba(0,0,0,0.25)"/>` +
+    `<circle cx="320" cy="70" r="28" fill="rgba(255,255,255,0.55)"/>` + `</svg>`;
+  return new Blob([svg], { type: "image/svg+xml" });
+}

@@ -688,6 +688,7 @@ src/
 │   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
 │   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
 │   ├── driveLibraryHooks.ts      Shared hooks factory for every folder library (listing, breadcrumb, new folder, upload, rename, delete)
+│   ├── useDrivePhoto.ts          A gallery picture as an object URL (thumbnail, else the file), cached; useNearScreen for lazy tiles
 │   ├── useSupplyChainFiles.ts    Supply Chain Files — driveLibraryHooks configured for the PMO folder
 │   ├── useSalesDocumentation.ts  Sales Documentation — driveLibraryHooks configured for Main Channel
 │   ├── useApplicationPhotos.ts   Application Photos — driveLibraryHooks configured for General/A-Application Photos
@@ -1163,6 +1164,7 @@ src/
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
 │   ├── PendingAttachmentsCard.tsx  Files staged on a NEW form (EIR, MCN, Panel QC issue), uploaded once the item exists; renames same-name files
+│   ├── PhotoGallery.tsx          Photo tiles (folders first, lazy pictures) + the preview over the page (← →, Open / Download / Rename / Delete)
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
@@ -1281,7 +1283,7 @@ src/
 │   ├── ScnsView.tsx              SCNs list — search, status pills, Category/Year filters, sortable headers; cards on a phone (Supply Chain)
 │   ├── ScnDetailView.tsx         One SCN — Notice/Parts/Review/Outcome cards, the three review checklists, sidebar people, comments, attachments
 │   ├── ScnDocumentsView.tsx      SCN Documents library browser (?folder=) — breadcrumb, new folder, upload, Edit in Office, download, rename, delete; sortable, cards on a phone
-│   ├── DriveLibraryView.tsx      THE folder-library screen — SCN Documents, Supply Chain Files and Sales Documentation are thin configs of it
+│   ├── DriveLibraryView.tsx      THE folder-library screen — SCN Documents, Supply Chain Files and Sales Documentation are thin configs of it; `gallery` = photo tiles + preview (Application Photos)
 │   ├── SupplyChainFilesView.tsx  Supply Chain Files (/supply-chain/files)
 │   ├── SalesDocumentationView.tsx Sales Documentation (/sales/documentation) — Main Channel, AltronicDocumentation subsite
 │   ├── ApplicationPhotosView.tsx Application Photos (/sales/application-photos) — the photo storehouse, with Take photo on a phone or iPad
@@ -4999,12 +5001,40 @@ Sales folder). Pieces: `api/applicationPhotos.ts`,
   them), ` (2)` for a second from one capture. An iPhone hands every camera
   shot over as `image.jpg`, so without this the folder fills with image.jpg,
   image 1.jpg … The bytes and type are untouched.
-- **No thumbnails yet.** Open shows the photo in SharePoint's viewer. Graph
-  can hand back `thumbnails` for a drive item, but whether those URLs load
-  in an `<img>` from this origin is unverified — the Supplier Logo lesson
-  (an `<img>` carries no token, and a raw SharePoint file URL has no CORS).
-  Test that live before building a grid view.
-- Pinned in `applicationPhotos.real.test.ts` (`USE_MOCK: false`),
+- **It opens as a photo GALLERY** (Ray, 2026-11-24: "a photo gallery a user
+  can preview before clicking to open the image") — DriveLibraryView's
+  opt-in `gallery` prop (`components/PhotoGallery.tsx`,
+  `hooks/useDrivePhoto.ts`). Folder tiles first, then a picture tile per
+  file; a click opens a PREVIEW over the page (larger picture, ← → through
+  the folder's files, Open / Download / Rename / Delete; Rename and Delete
+  close the preview and open their dialog). `?view=list` is the table, and
+  folder links carry it. A tile asks for its picture only once it comes near
+  the screen (`useNearScreen`; with no IntersectionObserver everything counts
+  as visible, but the test setup's stub never fires, so tile pictures don't
+  load in tests — the preview's does).
+- **Where a picture comes from** (`photo()` in `api/driveLibrary.ts`):
+  - **SharePoint's thumbnail first**: `items/{id}/thumbnails?$select=medium|large`
+    gives a `*.svc.ms/transform/thumbnail?…` link. Checked live 2026-11-24:
+    it is **401 with no token** (so a plain `<img src>` can't work), answers
+    CORS `*` with `authorization` allowed, and the Graph `/content` endpoint
+    only 302s to it. So `fetchSharePointThumbnail` (`api/sharepoint.ts`)
+    fetches it with a SILENT SharePoint-resource token.
+  - **It is UNPROVEN which token that service accepts** — it refused the
+    Azure CLI's Graph and SharePoint tokens, and the CLI's tokens are refused
+    by SharePoint anyway (even the pre-signed download link 401'd for them,
+    though that link works in ARC). So:
+  - **Any failure falls back to the whole file** via `download()` (the
+    Download button's pre-authenticated link, proven), and the refusal is
+    remembered for the session (`thumbnailsRefused`) so a folder doesn't ask
+    once per tile. A browser that can't show the file (HEIC on Chrome) shows
+    the broken-picture icon; Open still works.
+  - **Check in the live app which path it takes** (DevTools → Network: a
+    `svc.ms/transform/thumbnail` 200, or `download.aspx` per tile). If it's
+    always the fallback, the thumbnail token is the thing to fix.
+  - Pictures are cached per item + size + modified time; object URLs are
+    revoked on unmount. The demo draws invented SVG landscapes.
+- Pinned in `applicationPhotos.photo.real.test.ts` (thumbnail, fallback, the
+  remembered refusal — verified by removing it), `applicationPhotos.real.test.ts` (`USE_MOCK: false`),
   `ApplicationPhotosView.test.tsx` (the camera button only on a touch
   screen, and the rename — verified by removing it) and `cameraPhoto.test.ts`.
 

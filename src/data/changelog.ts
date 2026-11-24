@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.236.0",
+    date: "2026-11-24",
+    changes: [
+      "Application Photos opens as a photo gallery — folders as tiles, then a picture of every photo in the folder",
+      "Click a photo to preview it larger before opening it: Previous / Next (or the arrow keys) step through the folder, and Open, Download, Rename and Delete are on the preview",
+      "Application Photos: a Gallery / List switch, so the table is still there when you want it",
+    ],
+  },
+  {
     version: "0.235.0",
     date: "2026-11-24",
     changes: [
