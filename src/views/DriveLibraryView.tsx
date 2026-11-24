@@ -9,6 +9,8 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  LayoutGrid,
+  List as ListIcon,
   Loader2,
   Pencil,
   TextCursorInput,
@@ -31,6 +33,8 @@ import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { pushToast } from "@/components/Toast";
 import { cn } from "@/lib/cn";
 import { renameCameraPhotos } from "@/lib/cameraPhoto";
+import { PhotoGrid, PhotoPreview } from "@/components/PhotoGallery";
+import type { PhotoLoader } from "@/hooks/useDrivePhoto";
 
 // =============================================================================
 // A folder-library browser — shared by SCN Documents (Ray, 2026-10-07: "create
@@ -158,6 +162,12 @@ export interface DriveLibraryViewProps {
    * saved under the time it was taken (BusinessIT#48 — Application Photos).
    */
   takePhoto?: boolean;
+  /**
+   * Show the folder as a PHOTO GALLERY — tiles with pictures and a preview
+   * before opening (Application Photos, 2026-11-24). `?view=list` switches to
+   * the table. `photo` fetches a tile's or the preview's picture.
+   */
+  gallery?: { keyPrefix: string; photo: PhotoLoader };
 }
 
 export function DriveLibraryView({
@@ -175,9 +185,12 @@ export function DriveLibraryView({
   hooks,
   download,
   takePhoto = false,
+  gallery,
 }: DriveLibraryViewProps) {
   const [params, setParams] = useSearchParams();
   const folderId = params.get("folder") || null;
+  const galleryView = !!gallery && params.get("view") !== "list";
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const { data: entries = [], isLoading, error, refetch } = hooks.useFolder(folderId);
   const { data: path } = hooks.usePath(folderId);
@@ -214,13 +227,33 @@ export function DriveLibraryView({
   const accessDenied = !!error && isPermissionDenied(error);
   const busy = upload.isPending;
 
+  // The gallery/list choice travels with folder links, so opening a folder
+  // keeps the view you were in.
+  const viewParam = params.get("view") === "list" ? "list" : null;
+
   function openFolder(entry: DriveEntry) {
-    setParams({ folder: entry.id });
+    setPreviewId(null);
+    setParams(viewParam ? { folder: entry.id, view: viewParam } : { folder: entry.id });
   }
 
   function crumbTo(id: string | null): string {
-    return id ? `${basePath}?folder=${encodeURIComponent(id)}` : basePath;
+    const q = new URLSearchParams();
+    if (id) q.set("folder", id);
+    if (viewParam) q.set("view", viewParam);
+    const qs = q.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
   }
+
+  function setView(next: "gallery" | "list") {
+    const q = new URLSearchParams(params);
+    if (next === "list") q.set("view", "list");
+    else q.delete("view");
+    setParams(q);
+  }
+
+  // What the preview steps through: this folder's files, in the order shown.
+  const previewFiles = useMemo(() => rows.filter((e) => !e.isFolder), [rows]);
+  const previewIndex = previewId ? previewFiles.findIndex((e) => e.id === previewId) : -1;
 
   function startUpload(files: File[]) {
     if (files.length === 0 || busy) return;
@@ -432,6 +465,34 @@ export function DriveLibraryView({
               </button>
             </>
           )}
+          {gallery && (
+            <div role="group" aria-label="View" className="inline-flex overflow-hidden rounded-md border border-border">
+              <button
+                type="button"
+                onClick={() => setView("gallery")}
+                aria-pressed={galleryView}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium",
+                  galleryView ? "bg-surface-2 text-fg" : "bg-surface text-fg-muted hover:text-fg",
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Gallery
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                aria-pressed={!galleryView}
+                className={cn(
+                  "inline-flex items-center gap-1.5 border-l border-border px-3 py-1.5 text-sm font-medium",
+                  !galleryView ? "bg-surface-2 text-fg" : "bg-surface text-fg-muted hover:text-fg",
+                )}
+              >
+                <ListIcon className="h-4 w-4" />
+                List
+              </button>
+            </div>
+          )}
           {currentWebUrl && (
             <a
               href={currentWebUrl}
@@ -445,7 +506,9 @@ export function DriveLibraryView({
           )}
         </div>
         <p className="text-xs text-fg-muted">
-          {takePhoto
+          {gallery && galleryView
+            ? "Click a photo to preview it larger — ← → step through the folder, and Open shows the full image in SharePoint. On a phone or iPad, Take photo opens the camera and saves the picture here, named by when it was taken."
+            : takePhoto
             ? "Open shows a photo in SharePoint. On a phone or iPad, Take photo opens the camera and saves the picture to this folder, named by when it was taken."
             : "Edit opens the file in Word / Excel for the web — changes save straight back to this folder."}
         </p>
@@ -568,6 +631,14 @@ export function DriveLibraryView({
             <p className="font-medium text-fg">This folder is empty.</p>
             <p className="mt-1">Drop files here, or use Upload files or New folder.</p>
           </div>
+        ) : gallery && galleryView ? (
+          <PhotoGrid
+            entries={rows}
+            keyPrefix={gallery.keyPrefix}
+            loader={gallery.photo}
+            onPreview={(entry) => setPreviewId(entry.id)}
+            onOpenFolder={openFolder}
+          />
         ) : (
           <>
             {/* Phone: cards. */}
@@ -642,6 +713,29 @@ export function DriveLibraryView({
         )}
       </div>
 
+      {gallery && previewIndex >= 0 && (
+        <PhotoPreview
+          files={previewFiles}
+          index={previewIndex}
+          onIndex={(i) => setPreviewId(previewFiles[i]?.id ?? null)}
+          onClose={() => setPreviewId(null)}
+          keyPrefix={gallery.keyPrefix}
+          loader={gallery.photo}
+          actions={{
+            onDownload: (entry) => void handleDownload(entry),
+            downloadingId: downloading,
+            // A dialog replaces the preview rather than stacking over it.
+            onRename: (entry) => {
+              setPreviewId(null);
+              setRenaming(entry);
+            },
+            onDelete: (entry) => {
+              setPreviewId(null);
+              setDeleting(entry);
+            },
+          }}
+        />
+      )}
       {renaming && (
         <RenameDialog entry={renaming} hooks={hooks} onClose={() => setRenaming(null)} />
       )}

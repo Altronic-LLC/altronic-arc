@@ -1,17 +1,22 @@
-import { APPLICATION_PHOTOS_FOLDER_URL, downloadApplicationPhoto } from "@/api/applicationPhotos";
+import {
+  APPLICATION_PHOTOS_FOLDER_URL,
+  applicationPhotoImage,
+  downloadApplicationPhoto,
+} from "@/api/applicationPhotos";
 import { applicationPhotosHooks } from "@/hooks/useApplicationPhotos";
 import { DriveLibraryView } from "./DriveLibraryView";
 
 // Application Photos (BusinessIT#48) — General/A-Application Photos in the
 // ALTRONICSALESTEAM Documents library, a storehouse for pictures. All
 // behaviour lives in DriveLibraryView; `takePhoto` adds the camera button on
-// a phone or iPad.
+// a phone or iPad, and `gallery` shows the folder as photo tiles with a
+// preview before opening (Ray, 2026-11-24).
 
 export function ApplicationPhotosView() {
   return (
     <DriveLibraryView
       title="Application Photos"
-      description="The Sales team's photo storehouse (Documents › General › A-Application Photos) — browse and create subfolders, add or take photos, download, rename and delete."
+      description="The Sales team's photo storehouse (Documents › General › A-Application Photos) — browse the photos, preview one before opening it, add or take photos, create subfolders, download, rename and delete."
       category="Sales"
       listTo="/"
       basePath="/sales/application-photos"
@@ -24,6 +29,7 @@ export function ApplicationPhotosView() {
       hooks={applicationPhotosHooks}
       download={downloadApplicationPhoto}
       takePhoto
+      gallery={{ keyPrefix: "application-photos", photo: applicationPhotoImage }}
     />
   );
 }
