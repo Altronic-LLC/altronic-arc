@@ -5,15 +5,15 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, FileText, MessageSquare, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
 import { QUOTES_CONFIGURED } from "@/api/config";
 import { listQuoteAssemblies } from "@/api/quoteAssemblies";
-import { QUOTE_ASSEMBLIES_KEY, useQuotes } from "@/hooks/useQuotes";
+import { QUOTE_ASSEMBLIES_KEY, useQuoteStatusChoices, useQuotes } from "@/hooks/useQuotes";
 import { useQuoteCustomers } from "@/hooks/useQuoteCustomers";
 import { useMyQuoteAccess, type MyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { QUOTE_CUSTOMER_TYPES, QUOTE_STATUSES, type Quote, type QuoteCustomer, type QuoteStatus } from "@/types/quote";
 import { isLatestRevision, latestRevisions } from "@/lib/quoteNumber";
-import { priceQuote } from "@/lib/quotePricing";
+import { priceQuote, quoteTargetSummary } from "@/lib/quotePricing";
 import { quoteExpiryDate } from "@/lib/quotePdfModel";
 import { accessQuotesGate, createQuoteGate, seeCostGate } from "@/lib/quoteRoles";
-import { formatDisplayDate, toIsoDate } from "@/lib/dateInput";
+import { toIsoDate } from "@/lib/dateInput";
 import { tokenizeQuery } from "@/lib/itemSearch";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
 import type { SortColumn } from "@/lib/tableSort";
@@ -34,8 +34,11 @@ import { cn } from "@/lib/cn";
 // latest is derived, never stored). "Show earlier revisions" lists every rev,
 // and a superseded one is chipped so it is never mistaken for the current one.
 //
-// The Total is the SELL price (one of each assembly at its base tier), so
-// every role sees it. GM % is cost-derived and appears ONLY for someone
+// Annual Revenue (Ray, 2026-11-24 — it was "Total") is each line's price at
+// its quoted quantity × its estimated EAU, summed over the lines that have an
+// EAU — the same figure as the quote's Target & volume card. It is the SELL
+// side, so every role sees it. Created and Expires were taken off the list
+// the same day, and the Assemblies count after it. GM % is cost-derived and appears ONLY for someone
 // `seeCostGate` allows — hidden, not masked. That is UI-only: Graph still
 // returns the cost columns, and SharePoint list permissions are the boundary.
 //
@@ -58,26 +61,38 @@ export function quoteExpiry(quote: Pick<Quote, "createdAt" | "validityDays">): s
   return quoteExpiryDate(toIsoDate(created), quote.validityDays);
 }
 
-const STATUS_TONE: Record<QuoteStatus, string> = {
-  Draft: "bg-surface-2 text-fg-muted border-border",
+const NEUTRAL_TONE = "bg-surface-2 text-fg-muted border-border";
+// Statuses come from SharePoint's live choices, so any status not named here
+// (every "Waiting on…" one, a new one, an old Draft) is the neutral tone.
+const STATUS_TONE: Record<string, string> = {
   Sent: "bg-superior-blue/10 text-superior-blue border-superior-blue/30",
   Won: "bg-cooper-green/10 text-cooper-green border-cooper-green/30",
   Lost: "bg-cooper-red/10 text-cooper-red border-cooper-red/30",
   Expired: "bg-ajax-yellow/15 text-fg border-ajax-yellow/40",
 };
 
+/** How a status reads on screen — a blank one says so. */
+export function quoteStatusLabel(status: QuoteStatus): string {
+  return status || "No status";
+}
+
 export function QuoteStatusChip({ status }: { status: QuoteStatus }) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-        STATUS_TONE[status] ?? STATUS_TONE.Draft,
+        STATUS_TONE[status] ?? NEUTRAL_TONE,
       )}
     >
-      {status}
+      {quoteStatusLabel(status)}
     </span>
   );
 }
+
+/** The `status=` value for quotes with no status set. */
+const STATUS_NOT_SET = "none";
+/** A status pill's key — the status, or STATUS_NOT_SET for none. */
+const statusKey = (s: QuoteStatus) => s || STATUS_NOT_SET;
 
 /**
  * The three things every quote screen says before it shows anything: the
@@ -149,10 +164,8 @@ interface QuoteRow {
   id: number;
   quote: Quote;
   customer: QuoteCustomer | null;
-  assemblyCount: number;
-  total: number | null;
+  annualRevenue: number | null;
   gmPct: number | null;
-  expires: string;
   latest: boolean;
 }
 
@@ -177,20 +190,13 @@ function buildColumns(canSeeCost: boolean): SortColumn<QuoteRow>[] {
       value: (r) => r.quote.customerReference,
       noFilter: true,
     },
-    { key: "status", label: "Status", value: (r) => r.quote.status },
+    { key: "status", label: "Status", value: (r) => quoteStatusLabel(r.quote.status) },
     {
-      key: "assemblies",
-      label: "Assemblies",
+      key: "annualRevenue",
+      label: "Annual Revenue",
       kind: "number",
-      value: (r) => String(r.assemblyCount),
-      sortValue: (r) => r.assemblyCount,
-    },
-    {
-      key: "total",
-      label: "Total",
-      kind: "number",
-      value: (r) => (r.total === null ? "" : formatMoney(r.total)),
-      sortValue: (r) => r.total,
+      value: (r) => (r.annualRevenue === null ? "" : formatMoney(r.annualRevenue)),
+      sortValue: (r) => r.annualRevenue,
       noFilter: true,
     },
   ];
@@ -204,22 +210,6 @@ function buildColumns(canSeeCost: boolean): SortColumn<QuoteRow>[] {
       noFilter: true,
     });
   }
-  cols.push(
-    {
-      key: "created",
-      label: "Created",
-      kind: "date",
-      value: (r) => (r.quote.createdAt ? toIsoDate(new Date(r.quote.createdAt)) : ""),
-      sortValue: (r) => (r.quote.createdAt ? new Date(r.quote.createdAt) : null),
-    },
-    {
-      key: "expires",
-      label: "Expires",
-      kind: "date",
-      value: (r) => r.expires,
-      sortValue: (r) => (r.expires ? new Date(`${r.expires}T12:00:00`) : null),
-    },
-  );
   return cols;
 }
 
@@ -230,6 +220,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
 
   const { data: quotes = [], isLoading, error, refetch } = useQuotes();
   const { data: customers = [] } = useQuoteCustomers();
+  const { data: liveStatuses = QUOTE_STATUSES as readonly string[] } = useQuoteStatusChoices();
   const { data: assemblies = [] } = useQuery({
     queryKey: QUOTE_ASSEMBLIES_KEY,
     queryFn: listQuoteAssemblies,
@@ -270,10 +261,8 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
         id: quote.id,
         quote,
         customer: quote.customerId === null ? null : (customerById.get(quote.customerId) ?? null),
-        assemblyCount: own.length,
-        total: pricing.quoteTotal,
+        annualRevenue: quoteTargetSummary(own).annualRevenue,
         gmPct: pricing.quoteGmPct,
-        expires: quoteExpiry(quote),
         latest: isLatestRevision(quote, quotes),
       };
     });
@@ -310,13 +299,15 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
 
   const counts = useMemo(() => {
     const out: Record<string, number> = { [ALL]: byOtherAxes.length };
-    for (const s of QUOTE_STATUSES) out[s] = 0;
-    for (const r of byOtherAxes) out[r.quote.status] = (out[r.quote.status] ?? 0) + 1;
+    for (const r of byOtherAxes) {
+      const k = statusKey(r.quote.status);
+      out[k] = (out[k] ?? 0) + 1;
+    }
     return out;
   }, [byOtherAxes]);
 
   const filtered = useMemo(
-    () => (status === ALL ? byOtherAxes : byOtherAxes.filter((r) => r.quote.status === status)),
+    () => (status === ALL ? byOtherAxes : byOtherAxes.filter((r) => statusKey(r.quote.status) === status)),
     [byOtherAxes, status],
   );
 
@@ -335,7 +326,17 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
   }, [q, customerFilter, typeFilter, status, showEarlier]);
 
   const shown = showAll ? table.rows : table.rows.slice(0, INITIAL_ROWS);
-  const pills = [ALL, ...QUOTE_STATUSES];
+  // The live choices, then any status a quote still holds that the column no
+  // longer offers (an old Draft), then "No status" while a quote has none.
+  const pills = useMemo(() => {
+    const keys = [...liveStatuses];
+    for (const r of rows) {
+      const k = statusKey(r.quote.status);
+      if (k !== STATUS_NOT_SET && !keys.includes(k)) keys.push(k);
+    }
+    if (rows.some((r) => !r.quote.status)) keys.push(STATUS_NOT_SET);
+    return [ALL, ...keys];
+  }, [liveStatuses, rows]);
   const open = (id: number) => navigate(`/sales/quotes/${id}`);
 
   return (
@@ -374,7 +375,7 @@ function QuotesList({ access }: { access: MyQuoteAccess }) {
                 status === pill ? "bg-surface text-fg shadow-xs" : "text-fg-muted hover:text-fg",
               )}
             >
-              {pill}
+              {pill === STATUS_NOT_SET ? "No status" : pill}
               <span className="rounded-full bg-surface-2 px-1.5 text-[10px] font-bold tabular-nums">
                 {counts[pill] ?? 0}
               </span>
@@ -532,10 +533,8 @@ function SupersededChip({ row }: { row: QuoteRow }) {
 
 function QuoteCard({ row, canSeeCost, onOpen }: { row: QuoteRow; canSeeCost: boolean; onOpen: () => void }) {
   const lines: Array<[string, string]> = [
-    ["Assemblies", String(row.assemblyCount)],
-    ["Total", formatMoney(row.total)],
+    ["Annual revenue", formatMoney(row.annualRevenue)],
     ...(canSeeCost ? ([["GM %", formatPct(row.gmPct)]] as Array<[string, string]>) : []),
-    ["Expires", formatDisplayDate(row.expires) ?? "—"],
   ];
   return (
     <button
@@ -601,13 +600,8 @@ function Row({ row, canSeeCost, onOpen }: { row: QuoteRow; canSeeCost: boolean; 
       <td className="px-4 py-2">
         <QuoteStatusChip status={quote.status} />
       </td>
-      <td className="px-4 py-2 tabular-nums text-fg-muted">{row.assemblyCount}</td>
-      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg">{formatMoney(row.total)}</td>
+      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg">{formatMoney(row.annualRevenue)}</td>
       {canSeeCost && <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg-muted">{formatPct(row.gmPct)}</td>}
-      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg-muted">
-        {quote.createdAt ? (formatDisplayDate(toIsoDate(new Date(quote.createdAt))) ?? "—") : "—"}
-      </td>
-      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-fg-muted">{formatDisplayDate(row.expires) ?? "—"}</td>
       <td className="px-2 py-2">
         {quote.hasAttachments && <Paperclip className="h-3 w-3 text-fg-muted" aria-label="Has attachments" />}
       </td>

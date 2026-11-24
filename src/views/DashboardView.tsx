@@ -71,6 +71,7 @@ import { useMyMcnAccess } from "@/hooks/useMcnRoles";
 import { useMyPlantMapAccess } from "@/hooks/usePlantMapRoles";
 import { MCNS_CONFIGURED, PANEL_BOM_LIVE, PANEL_PLANNING_LIVE, PLANT_MAP_CONFIGURED } from "@/api/config";
 import { latestRevisions } from "@/lib/quoteNumber";
+import { QUOTE_OUTCOME_STATUSES } from "@/types/quote";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
@@ -1685,10 +1686,11 @@ function InsourcingQuotesCard({ onOpen }: { onOpen: () => void }) {
 function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
   const quotesQ = useQuotes();
   const { data: quotes = [] } = quotesQ;
-  // Open = the LATEST rev of each quote, still Draft or Sent. An R1 that was
+  // Open = the LATEST rev of each quote that has no outcome yet (Won / Lost /
+  // Expired) — Sent, any "Waiting on…" status, or none. An R1 that was
   // superseded by an R2 is history, not work.
   const open = useMemo(
-    () => latestRevisions(quotes).filter((q) => q.status === "Draft" || q.status === "Sent").length,
+    () => latestRevisions(quotes).filter((q) => !QUOTE_OUTCOME_STATUSES.includes(q.status)).length,
     [quotes],
   );
   // ajax-yellow: in Supply Chain, where the card lives for now, green

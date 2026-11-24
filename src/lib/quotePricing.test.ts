@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { QuoteAssembly } from "@/types/quote";
 import {
+  eurToUsd,
+  quoteLinePartNumber,
   quoteTargetSummary,
   lineCostBreakdown,
   priceAtGM,
@@ -28,6 +30,8 @@ function assembly(over: Partial<QuoteAssembly> = {}): QuoteAssembly {
     targetGM: 50,
     manualPrice: null,
     targetPrice: null,
+    targetPriceEur: null,
+    eurUsdRate: null,
     estimatedEau: null,
     customerPrice: null,
     ...over,
@@ -472,5 +476,29 @@ describe("quoteTargetSummary — price vs target, revenue and GM at the EAU", ()
       linesMissingTarget: 1,
     });
     expect(quoteTargetSummary([]).lines).toEqual([]);
+  });
+});
+
+describe("eurToUsd", () => {
+  it("is euros × rate, to the cent", () => {
+    expect(eurToUsd(100, 1.12)).toBe(112);
+    expect(eurToUsd(937.5, 1.12)).toBe(1050);
+    expect(eurToUsd(50, 1.085)).toBe(54.25);
+    expect(eurToUsd(0.3333, 1.12)).toBe(0.37);
+  });
+  it("is null unless both are positive numbers", () => {
+    expect(eurToUsd(null, 1.12)).toBeNull();
+    expect(eurToUsd(100, null)).toBeNull();
+    expect(eurToUsd(100, 0)).toBeNull();
+    expect(eurToUsd(-5, 1.12)).toBeNull();
+    expect(eurToUsd(NaN, 1.12)).toBeNull();
+  });
+});
+
+describe("quoteLinePartNumber", () => {
+  it("is the customer's part number, else ours, else blank", () => {
+    expect(quoteLinePartNumber({ customerPartNumber: " C-1 ", altronicPartNumber: "791950-08" })).toBe("C-1");
+    expect(quoteLinePartNumber({ customerPartNumber: "", altronicPartNumber: "791950-08" })).toBe("791950-08");
+    expect(quoteLinePartNumber({ customerPartNumber: "", altronicPartNumber: "" })).toBe("");
   });
 });

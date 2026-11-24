@@ -20,10 +20,12 @@ import {
   useEditQuoteComment,
   useQuote,
   useQuoteRevisions,
+  useQuoteStatusChoices,
   useQuotes,
   useSetQuoteWatchers,
   useUpdateQuoteFields,
 } from "@/hooks/useQuotes";
+import { withCurrentChoice } from "@/api/columnChoices";
 import { useDeleteQuoteAssembly, useQuoteAssemblies } from "@/hooks/useQuoteAssemblies";
 import { useQuoteCustomers } from "@/hooks/useQuoteCustomers";
 import type { MyQuoteAccess } from "@/hooks/useQuoteRoles";
@@ -34,7 +36,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import type { Comment, Person } from "@/types/task";
 import { QUOTE_STATUSES, type Quote, type QuoteAssembly, type QuoteAlternate, type QuoteStatus } from "@/types/quote";
 import { isLatestRevision, nextRevFor } from "@/lib/quoteNumber";
-import { priceQuote, type QuoteAssemblyPricing } from "@/lib/quotePricing";
+import { priceQuote, quoteLinePartNumber, type QuoteAssemblyPricing } from "@/lib/quotePricing";
 import type { QuotePatch } from "@/lib/quoteMapper";
 import { createQuoteGate, editQuoteGate, generatePdfGate, seeCostGate, setQuoteStatusGate } from "@/lib/quoteRoles";
 import { formatDisplayDate } from "@/lib/dateInput";
@@ -53,6 +55,7 @@ import { CustomerNotes, PRINTED_NOTE, QuoteFormModal } from "@/components/QuoteF
 import { QuoteAssemblyFormModal } from "@/components/QuoteAssemblyFormModal";
 import { AlternatesEditor, QuoteAlternatesCard } from "@/components/QuoteAlternatesCard";
 import { QuoteLinksPanel } from "@/components/QuoteLinksPanel";
+import { QuoteProjectFolderCard } from "@/components/QuoteProjectFolderCard";
 import { QuoteTargetSummaryCard } from "@/components/QuoteTargetSummaryCard";
 import { QuoteToTaskModal } from "@/components/QuoteToTaskModal";
 import { quoteTaskRefusal } from "@/lib/quoteToTask";
@@ -582,7 +585,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
           </section>
 
           {/* Quote roll-up */}
-          <Card title="Quote total">
+          <Card title="Quote total" tone="sell">
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Quote total">
               <ReadField label="Total">{formatMoney(pricing.quoteTotal)}</ReadField>
               {canSeeCost && <ReadField label="Total cost">{formatMoney(pricing.quoteCost)}</ReadField>}
@@ -606,6 +609,10 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             canEdit={canEdit}
             onEdit={() => guard(() => setModal({ kind: "alternates" }))}
           />
+
+          {/* The quote's project folder in General/IC Quotes (Ray, 2026-11-24) —
+              every rev shares it. */}
+          <QuoteProjectFolderCard quote={q} allQuotes={quotes} canSetUp={canEdit} setUpHint={editGate.hint} />
 
           {/* The customer's data package and supplier quotes — full main-column
               width, directly above the Discussion. */}
@@ -711,7 +718,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             },
           ]}
         >
-          Delete line {confirm.assembly.altronicPartNumber || confirm.assembly.lineNo}?
+          Delete line {quoteLinePartNumber(confirm.assembly) || confirm.assembly.lineNo}?
         </ConfirmDialog>
       )}
       {confirm?.kind === "newRev" && (
@@ -794,7 +801,10 @@ function StatusControl({
   access: MyQuoteAccess;
   onPick: (to: QuoteStatus) => void;
 }) {
-  const gates = QUOTE_STATUSES.map((s) => ({
+  // The column's LIVE choices, plus this quote's own status if the column no
+  // longer offers it (an old "Draft") — so it still shows as current.
+  const { data: live = QUOTE_STATUSES as readonly string[] } = useQuoteStatusChoices();
+  const gates = withCurrentChoice(live, quote.status).map((s) => ({
     status: s,
     gate: s === quote.status ? null : setQuoteStatusGate(access, quote.status, s),
   }));
@@ -866,23 +876,26 @@ function AssemblyCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const name = assembly.altronicPartNumber || `line ${assembly.lineNo}`;
+  const name = quoteLinePartNumber(assembly) || `line ${assembly.lineNo}`;
   return (
     <article
       className="rounded-xl border border-border bg-surface p-4 sm:p-5"
-      aria-label={`Line ${assembly.altronicPartNumber}`}
+      aria-label={`Line ${quoteLinePartNumber(assembly) || assembly.lineNo}`}
     >
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Line {assembly.lineNo}</p>
-          <h3 className="font-display text-base font-semibold text-fg">{assembly.altronicPartNumber || "No part #"}</h3>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Line {assembly.lineNo}</p>
+          {/* Leads with the customer's part number, like the PDF; the Altronic
+              number is optional (Ray, 2026-11-24). */}
+          <h3 className="font-display text-base font-semibold text-fg">{quoteLinePartNumber(assembly) || "No part #"}</h3>
           <p className="text-sm text-fg">{assembly.description}</p>
           <p className="mt-1 text-xs text-fg-muted">
-            SAP # {assembly.sapPartNumber || "—"} · Customer part # {assembly.customerPartNumber || "—"}
+            Altronic # {assembly.altronicPartNumber || "—"} · SAP # {assembly.sapPartNumber || "—"} · Customer part #{" "}
+            {assembly.customerPartNumber || "—"}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Price</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Price</p>
           <p className="font-display text-lg font-semibold tabular-nums text-fg">
             {pricing?.price === null || pricing?.price === undefined ? "Not priced" : formatMoney(pricing.price)}
           </p>
@@ -912,7 +925,7 @@ function AssemblyCard({
       {pricing && (
         <dl
           aria-label="Quoted quantity"
-          className="mt-3 grid grid-cols-3 gap-3 rounded-lg border border-border p-3 text-sm sm:grid-cols-6"
+          className={cn("mt-3 grid grid-cols-3 gap-3 rounded-lg border p-3 text-sm sm:grid-cols-6", SECTION_TONE.sell)}
         >
           <ReadField label="Qty">{String(pricing.quotedQty)}</ReadField>
           <ReadField label="Unit price">{formatMoney(pricing.quotedUnitPrice)}</ReadField>
@@ -1041,9 +1054,33 @@ function SavedPdfs({ quoteBase }: { quoteBase: string }) {
 // Small shared bits
 // -----------------------------------------------------------------------------
 
-function Card({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+/**
+ * Each kind of section has its own fill so the page separates at a glance
+ * (Ray, 2026-11-24). Colour by MEANING, the Pricing screens' rule: green is
+ * what we SELL at (totals, the quoted quantity), blue what we compare against
+ * (the customer's targets), yellow the alternates; details stay plain. A tint
+ * only — the brand colours never go on text.
+ */
+export const SECTION_TONE = {
+  plain: "border-border bg-surface",
+  sell: "border-cooper-green/40 bg-cooper-green/10",
+  target: "border-superior-blue/30 bg-superior-blue/10",
+  alternates: "border-ajax-yellow/50 bg-ajax-yellow/10",
+} as const;
+
+function Card({
+  title,
+  action,
+  tone = "plain",
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  tone?: keyof typeof SECTION_TONE;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
+    <section className={cn("rounded-xl border p-4 sm:p-5", SECTION_TONE[tone])} data-tone={tone}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">{title}</h2>
         {action}
@@ -1066,7 +1103,7 @@ function ReadField({
 }) {
   return (
     <div className={wide ? "sm:col-span-2" : undefined}>
-      <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</dt>
+      <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">{label}</dt>
       <dd className="whitespace-pre-wrap text-sm text-fg">
         {children === null || children === undefined || children === "" ? (
           <span className="text-fg-muted">Not set</span>
@@ -1082,7 +1119,7 @@ function ReadField({
 function SidebarField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</div>
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-accent">{label}</div>
       {children}
     </div>
   );

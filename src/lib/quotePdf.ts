@@ -337,9 +337,9 @@ function drawBudgetary(
 //   QUOTED ITEMS
 //   ┌ PART #        DESCRIPTION            PRICE                  QTY   SUBTOTAL ┐  ← light grey band
 //   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ← black rule
-//     1026-6521-00  HUB V4 NO SAT          1 – 249 pcs  $1,178.00    12  $14,136.00
-//     SAP 1003-…                           ─────────────────────
-//     Cust. WTS-…                          250 – 499 pcs $1,119.10
+//     WTS-4471-A    HUB V4 NO SAT          1 – 249 pcs  $1,178.00    12  $14,136.00
+//     Altronic 1026-…                      ─────────────────────
+//     SAP 1003-…                           250 – 499 pcs $1,119.10
 //   ─────────────────────────────────────────────────────────────────────────────  ← hairline
 //
 // No vertical lines and no boxed cells. The Part # and Price cells hold
@@ -348,11 +348,19 @@ function drawBudgetary(
 // the room) and drawn by hand in didDrawCell. The range label lives in a
 // FIXED-width sub-column, wrapping if it must, so it can never run into the
 // price beside it.
+//
+// The CUSTOMER's part number leads (Ray, 2026-11-24): insourced parts rarely
+// get an Altronic or SAP number, so the bold line is the customer's number,
+// with ours in small print beneath when there is one. A line with no customer
+// number keeps the Altronic number in bold. QTY is wide enough for a
+// five-digit quantity and its letter-spaced header on one line — at 6% of
+// the width it wrapped — and SUBTOTAL for an eight-figure amount; both came
+// out of Description and Part #.
 
-const COL_PART = CONTENT_W * 0.22;
-const COL_DESC = CONTENT_W * 0.36;
+const COL_PART = CONTENT_W * 0.19;
+const COL_DESC = CONTENT_W * 0.32;
 const COL_PRICE = CONTENT_W * 0.24;
-const COL_QTY = CONTENT_W * 0.06;
+const COL_QTY = CONTENT_W * 0.1;
 const COL_SUB = CONTENT_W - COL_PART - COL_DESC - COL_PRICE - COL_QTY;
 
 const CELL_PAD_X = 5;
@@ -399,10 +407,12 @@ function partCell(doc: jsPDF, a: QuotePdfAssembly): PartCell {
   const innerW = COL_PART - CELL_PAD_X * 2;
   doc.setFont("courier", "bold");
   doc.setFontSize(PART_SIZE);
-  const partLines = doc.splitTextToSize(a.altronicPartNumber.trim(), innerW) as string[];
+  const customer = a.customerPartNumber.trim();
+  const altronic = a.altronicPartNumber.trim();
+  const partLines = doc.splitTextToSize(customer || altronic, innerW) as string[];
   const meta: string[] = [];
+  if (customer && altronic) meta.push(`Altronic ${altronic}`);
   if (a.sapPartNumber.trim()) meta.push(`SAP ${a.sapPartNumber.trim()}`);
-  if (a.customerPartNumber.trim()) meta.push(`Cust. ${a.customerPartNumber.trim()}`);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(META_SIZE);
   const metaLines = meta.flatMap((m) => doc.splitTextToSize(m, innerW) as string[]);

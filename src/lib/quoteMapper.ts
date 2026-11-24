@@ -1,7 +1,6 @@
 import type { GraphListItem, Person } from "@/types/task";
 import {
   QUOTE_CUSTOMER_TYPES,
-  QUOTE_STATUSES,
   type Quote,
   type QuoteAssembly,
   type QuoteCustomer,
@@ -103,6 +102,13 @@ export const QUOTE_ASSEMBLY_SELECT = [
   "CustomerPrice",
 ].join(",");
 
+/**
+ * The euro target's two columns (Ray, 2026-11-24), added after the list was
+ * live. Selected SEPARATELY so a list without them can still be read —
+ * `listQuoteAssemblies` retries without these on a 400 and remembers.
+ */
+export const QUOTE_ASSEMBLY_EUR_COLUMNS = ["TargetPriceEur", "EurUsdRate"] as const;
+
 export const QUOTE_CUSTOMER_SELECT = ["Title", "CustomerCode", "CustomerNumber", "Active", "Note"].join(",");
 
 /** `PersonName`, never `DisplayName` — Graph silently drops a field called DisplayName. */
@@ -161,15 +167,6 @@ function parseCreatedBy(item: GraphListItem): Person | null {
   return { displayName: user.displayName ?? user.email ?? "", email: user.email };
 }
 
-/**
- * A status the column declares. An UNKNOWN value (somebody added a choice in
- * SharePoint first, or typed one in its own views) reads as "Draft" — the
- * domain type is a closed union and every screen switches on it, so an
- * unrecognised string would fall through every branch. Draft is the safe
- * reading: it gates nothing (no outcome rule applies) and shows the quote as
- * still being worked on. Because edits are DIFFED, the stored value is never
- * overwritten unless somebody actually picks a different status.
- */
 /** A stored Customer Type, or null when blank or not one of the three. */
 export function toCustomerType(value: unknown): QuoteCustomerType | null {
   return (QUOTE_CUSTOMER_TYPES as readonly unknown[]).includes(value) ? (value as QuoteCustomerType) : null;
@@ -181,9 +178,14 @@ export function parseEau(value: unknown): number | null {
   return n !== null && Number.isInteger(n) && n >= 1 ? n : null;
 }
 
+/**
+ * The stored status, AS STORED — `""` when blank. Statuses are added and
+ * removed in SharePoint (Draft went on 2026-11-24), so an old value is kept
+ * and shown rather than re-read as something else; edits are diffed, so it is
+ * only replaced when somebody picks another.
+ */
 function toStatus(value: unknown): QuoteStatus {
-  const v = text(value).trim();
-  return (QUOTE_STATUSES as readonly string[]).includes(v) ? (v as QuoteStatus) : "Draft";
+  return text(value).trim();
 }
 
 // -----------------------------------------------------------------------------
@@ -359,6 +361,7 @@ export function toQuote(item: GraphListItem): Quote {
     customerReference: text(f.CustomerReference).trim(),
     customerType: toCustomerType(f.CustomerType),
     projectContext: text(f.ProjectContext),
+    projectFolder: text(f.ProjectFolder).trim(),
     alternates: alternates.rows,
     alternatesCorrupt: alternates.corrupt,
     comments: parseCommunication(text(f.Communication)),
@@ -401,6 +404,8 @@ export function toQuoteAssembly(item: GraphListItem): QuoteAssembly {
     targetGM: num(f.TargetGM),
     manualPrice: num(f.ManualPrice),
     targetPrice: num(f.TargetPrice),
+    targetPriceEur: num(f.TargetPriceEur),
+    eurUsdRate: num(f.EurUsdRate),
     estimatedEau: parseEau(f.EstimatedEAU),
     customerPrice: num(f.CustomerPrice),
   };
@@ -503,6 +508,7 @@ export interface QuoteCreateFieldsInput {
   customerReference?: string;
   customerType?: QuoteCustomerType | null;
   projectContext?: string;
+  projectFolder?: string;
   alternates?: QuoteAlternate[];
   engineeringTaskId?: number | null;
   operationsTaskId?: number | null;
@@ -524,10 +530,11 @@ export function buildQuoteCreateFields(input: QuoteCreateFieldsInput): Record<st
     Title: input.quoteNumber,
     QuoteBase: input.quoteBase,
     Rev: input.rev,
-    Status: input.status,
     ValidityDays: input.validityDays,
     Budgetary: input.budgetary,
   };
+  // The column has no default and Draft is gone: a new quote starts with none.
+  if (input.status.trim()) fields.Status = input.status.trim();
   if (input.customerId !== null) fields.CustomerRefLookupId = input.customerId;
   if (input.contactName.trim()) fields.ContactName = input.contactName.trim();
   if (input.contactEmail.trim()) fields.ContactEmail = input.contactEmail.trim();
@@ -536,6 +543,7 @@ export function buildQuoteCreateFields(input: QuoteCreateFieldsInput): Record<st
   if (input.customerReference?.trim()) fields.CustomerReference = input.customerReference.trim();
   if (input.customerType) fields.CustomerType = input.customerType;
   if (input.projectContext?.trim()) fields.ProjectContext = input.projectContext;
+  if (input.projectFolder?.trim()) fields.ProjectFolder = input.projectFolder.trim();
   const alternates = serializeAlternates(input.alternates ?? []);
   if (alternates) fields.Alternates = alternates;
   if (input.engineeringTaskId) fields.EngineeringTaskId = input.engineeringTaskId;
@@ -562,6 +570,7 @@ export type QuotePatch = Partial<
     | "customerReference"
     | "customerType"
     | "projectContext"
+    | "projectFolder"
     | "alternates"
     | "engineeringTaskId"
     | "operationsTaskId"
@@ -572,7 +581,7 @@ export type QuotePatch = Partial<
 
 const QUOTE_COLUMNS: ColumnSpec<Required<QuotePatch>> = {
   customerId: { column: "CustomerRefLookupId", write: bareLookup },
-  status: { column: "Status", write: (v) => v },
+  status: { column: "Status", write: (v) => (typeof v === "string" && v.trim() ? v.trim() : null) },
   validityDays: { column: "ValidityDays", write: nullableNum },
   contactName: { column: "ContactName", write: trimmed },
   contactEmail: { column: "ContactEmail", write: trimmed },
@@ -583,6 +592,7 @@ const QUOTE_COLUMNS: ColumnSpec<Required<QuotePatch>> = {
   // A strict choice column: one of the three, or null to clear.
   customerType: { column: "CustomerType", write: (v) => toCustomerType(v) },
   projectContext: { column: "ProjectContext", write: str },
+  projectFolder: { column: "ProjectFolder", write: trimmed },
   alternates: { column: "Alternates", write: (v) => serializeAlternates(Array.isArray(v) ? v : []) },
   // A positive id, or null — the same rule as a bare lookup.
   engineeringTaskId: { column: "EngineeringTaskId", write: bareLookup },
@@ -634,8 +644,12 @@ export interface QuoteAssemblyInput {
   /** The ONE margin on the line (percent). */
   targetGM: number | null;
   manualPrice: number | null;
-  /** The customer's target price per unit. */
+  /** The customer's target price per unit, in DOLLARS. */
   targetPrice: number | null;
+  /** The customer's target in euros, when given (optional). */
+  targetPriceEur?: number | null;
+  /** The rate the euro target was converted at. */
+  eurUsdRate?: number | null;
   /** Estimated annual usage — whole number ≥ 1, or null. */
   estimatedEau: number | null;
   customerPrice: number | null;
@@ -645,12 +659,13 @@ export type QuoteAssemblyPatch = Partial<Omit<QuoteAssembly, "id" | "quoteId">>;
 
 export function buildQuoteAssemblyCreateFields(input: QuoteAssemblyInput): Record<string, unknown> {
   const fields: Record<string, unknown> = {
-    Title: input.altronicPartNumber.trim(),
     QuoteRefLookupId: input.quoteId,
     LineNo: input.lineNo,
     // Always sent: the quantity is never blank.
     QuotedQty: parseQuotedQty(input.quotedQty),
   };
+  // Title (the Altronic part #) is optional — left out when blank.
+  if (input.altronicPartNumber.trim()) fields.Title = input.altronicPartNumber.trim();
   if (input.materialCost !== null) fields.Cost = input.materialCost;
   if (input.laborCost !== null) fields.LaborCost = input.laborCost;
   if (input.materialOverheadPct !== null) fields.MaterialOverheadPct = input.materialOverheadPct;
@@ -662,6 +677,10 @@ export function buildQuoteAssemblyCreateFields(input: QuoteAssemblyInput): Recor
   if (input.targetGM !== null) fields.TargetGM = input.targetGM;
   if (input.manualPrice !== null) fields.ManualPrice = input.manualPrice;
   if (input.targetPrice !== null) fields.TargetPrice = input.targetPrice;
+  if (typeof input.targetPriceEur === "number") fields.TargetPriceEur = input.targetPriceEur;
+  if (typeof input.targetPriceEur === "number" && typeof input.eurUsdRate === "number") {
+    fields.EurUsdRate = input.eurUsdRate;
+  }
   const eau = parseEau(input.estimatedEau);
   if (eau !== null) fields.EstimatedEAU = eau;
   if (input.customerPrice !== null) fields.CustomerPrice = input.customerPrice;
@@ -682,6 +701,8 @@ const ASSEMBLY_COLUMNS: ColumnSpec<Required<QuoteAssemblyPatch>> = {
   targetGM: { column: "TargetGM", write: nullableNum },
   manualPrice: { column: "ManualPrice", write: nullableNum },
   targetPrice: { column: "TargetPrice", write: nullableNum },
+  targetPriceEur: { column: "TargetPriceEur", write: nullableNum },
+  eurUsdRate: { column: "EurUsdRate", write: nullableNum },
   estimatedEau: { column: "EstimatedEAU", write: (v) => parseEau(v) },
   customerPrice: { column: "CustomerPrice", write: nullableNum },
 };

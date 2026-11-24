@@ -212,10 +212,11 @@ const isOutcome = (s: QuoteStatus) => QUOTE_OUTCOME_STATUSES.includes(s);
 /**
  * May they move a quote from `from` to `to`?
  *
- * A quoter moves a quote between Draft and Sent. Only a manager may set an
- * outcome (Won / Lost / Expired) — or LEAVE one: reopening a Won quote to
- * Draft is as much an outcome decision as setting it, and a quoter undoing a
- * manager's Lost would otherwise be one click.
+ * A quoter moves a quote between the working statuses (Sent, the "Waiting
+ * on…" ones, …). Only a manager may set an outcome (Won / Lost / Expired) —
+ * or LEAVE one: reopening a Won quote is as much an outcome decision as
+ * setting it, and a quoter undoing a manager's Lost would otherwise be one
+ * click.
  */
 export function setQuoteStatusGate(
   access: QuoteAccess,

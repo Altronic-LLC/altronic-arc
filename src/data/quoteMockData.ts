@@ -89,7 +89,7 @@ export const MOCK_QUOTE_ROLES: QuoteRoleEntry[] = [
 function quote(partial: Partial<Quote> & Pick<Quote, "id" | "quoteNumber" | "quoteBase" | "rev">): Quote {
   return {
     customerId: null,
-    status: "Draft",
+    status: "",
     validityDays: 30,
     contactName: "",
     contactEmail: "",
@@ -99,6 +99,7 @@ function quote(partial: Partial<Quote> & Pick<Quote, "id" | "quoteNumber" | "quo
     customerReference: "",
     customerType: null,
     projectContext: "",
+    projectFolder: "",
     alternates: [],
     alternatesCorrupt: false,
     comments: [],
@@ -142,10 +143,12 @@ export const MOCK_QUOTES: Quote[] = [
     quoteBase: "IQ-COO-0001",
     rev: 2,
     customerId: 1,
-    status: "Draft",
+    status: "Waiting on labor",
     contactName: "Mark Balent",
     contactEmail: "mark.balent@example.com",
     customerType: "Cooper",
+    // The demo folder seeded in api/quoteFolders.ts (DEMO_QUOTE_FOLDER).
+    projectFolder: "IQ-COO-0001 Cooper CPU-95 retrofit",
     projectContext:
       "Cooper is moving the CPU-95 retrofit kits off its current supplier for the 2027 fleet refresh. Volumes are their estimate for the first full year; the target came from the buyer on the 9/24 call.",
     customerReference: "RFQ 4471 — CPU-95 retrofit kits",
@@ -210,7 +213,7 @@ export const MOCK_QUOTES: Quote[] = [
     quoteBase: "IQ-INN-0003",
     rev: 1,
     customerId: 3,
-    status: "Draft",
+    status: "Waiting on customer",
     contactName: "Luis Ortega",
     contactEmail: "luis.ortega@example.com",
     budgetary: true,
@@ -247,6 +250,8 @@ function line(
     targetGM: null,
     manualPrice: null,
     targetPrice: null,
+    targetPriceEur: null,
+    eurUsdRate: null,
     estimatedEau: null,
     customerPrice: null,
     ...partial,

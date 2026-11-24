@@ -2,6 +2,7 @@ import type { Comment } from "@/types/task";
 import type { Quote, QuoteAssembly } from "@/types/quote";
 import { serializeComments } from "@/lib/communicationParser";
 import { formatQuoteNumber, nextRevFor, parseQuoteNumber } from "@/lib/quoteNumber";
+import { quoteLinePartNumber } from "@/lib/quotePricing";
 import { copyAttachments } from "./attachments";
 import { createQuoteWithNumbering, getQuote } from "./quotes";
 import { createQuoteAssembly, listQuoteAssemblies } from "./quoteAssemblies";
@@ -59,7 +60,7 @@ function errText(err: unknown): string {
 }
 
 function assemblyLabel(a: QuoteAssembly): string {
-  return a.altronicPartNumber || `line ${a.lineNo}`;
+  return quoteLinePartNumber(a) || `line ${a.lineNo}`;
 }
 
 export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quote; warnings: string[] }> {
@@ -79,7 +80,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
     },
     {
       customerId: source.customerId,
-      status: "Draft",
+      // A new rev hasn't been sent; it starts with no status (Draft is gone).
+      status: "",
       validityDays: source.validityDays,
       contactName: source.contactName,
       contactEmail: source.contactEmail,
@@ -89,6 +91,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
       customerReference: source.customerReference,
       customerType: source.customerType,
       projectContext: source.projectContext,
+      // Every rev shares the quote's one project folder.
+      projectFolder: source.projectFolder,
       alternates: source.alternates,
       engineeringTaskId: source.engineeringTaskId,
       operationsTaskId: source.operationsTaskId,
@@ -128,6 +132,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
         targetGM: a.targetGM,
         manualPrice: a.manualPrice,
         targetPrice: a.targetPrice,
+        targetPriceEur: a.targetPriceEur,
+        eurUsdRate: a.eurUsdRate,
         estimatedEau: a.estimatedEau,
         customerPrice: a.customerPrice,
       });

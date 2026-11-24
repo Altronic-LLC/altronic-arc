@@ -35,6 +35,8 @@ describe("quote assemblies API (mock mode)", () => {
       targetGM: 35,
       manualPrice: null,
       targetPrice: null,
+      targetPriceEur: null,
+      eurUsdRate: null,
       estimatedEau: null,
       customerPrice: 300,
     });

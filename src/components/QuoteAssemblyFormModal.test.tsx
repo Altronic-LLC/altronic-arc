@@ -271,6 +271,104 @@ describe("QuoteAssemblyFormModal — customer target price and estimated EAU", (
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("the target is in USD unless EUR is picked, and the rate only shows for EUR", async () => {
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={vi.fn()} />);
+    expect(screen.getByRole("radio", { name: "USD" })).toBeChecked();
+    expect(screen.getByLabelText(/Customer target price \(\$\)/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/EUR → USD rate/)).toBeNull();
+    await userEvent.click(screen.getByRole("radio", { name: "EUR" }));
+    expect(screen.getByLabelText(/Customer target price \(€\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/EUR → USD rate/)).toHaveValue(1.12);
+  });
+
+  it("a EUR target shows its dollars at the 1.12 default, and saves euros, rate and dollars", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-1");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.click(screen.getByRole("radio", { name: "EUR" }));
+    await userEvent.type(screen.getByLabelText(/Customer target price/), "100");
+    expect(screen.getByTestId("line-target-inputs")).toHaveTextContent("= $112.00 at the rate.");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const created = quoteMockDb.assemblies.find((a) => a.altronicPartNumber === "NEW-1")!;
+    expect(created.targetPriceEur).toBe(100);
+    expect(created.eurUsdRate).toBe(1.12);
+    expect(created.targetPrice).toBe(112);
+  });
+
+  it("the rate can be changed, and the dollars follow it", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-2");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.click(screen.getByRole("radio", { name: "EUR" }));
+    await userEvent.type(screen.getByLabelText(/Customer target price/), "50");
+    const rate = screen.getByLabelText(/EUR → USD rate/);
+    await userEvent.clear(rate);
+    await userEvent.type(rate, "1.085");
+    expect(screen.getByTestId("line-target-inputs")).toHaveTextContent("= $54.25 at the rate.");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const created = quoteMockDb.assemblies.find((a) => a.altronicPartNumber === "NEW-2")!;
+    expect(created.targetPrice).toBe(54.25);
+    expect(created.eurUsdRate).toBe(1.085);
+  });
+
+  it("a USD target saves no euro figure or rate", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-3");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.type(screen.getByLabelText(/Customer target price/), "40");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const created = quoteMockDb.assemblies.find((a) => a.altronicPartNumber === "NEW-3")!;
+    expect(created.targetPrice).toBe(40);
+    expect(created.targetPriceEur).toBeNull();
+    expect(created.eurUsdRate).toBeNull();
+  });
+
+  it("switching an EUR line back to USD saves the amount as dollars and drops the euros", async () => {
+    const asm = { ...quoteMockDb.assemblies.find((a) => a.id === 3)!, targetPriceEur: 900, eurUsdRate: 1.1, targetPrice: 990 };
+    quoteMockDb.assemblies = quoteMockDb.assemblies.map((a) => (a.id === 3 ? asm : a));
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={2} assembly={asm} nextLineNo={3} canSeeCost onClose={onClose} />);
+    await userEvent.click(screen.getByRole("radio", { name: "USD" }));
+    const box = screen.getByLabelText(/Customer target price/);
+    await userEvent.clear(box);
+    await userEvent.type(box, "1000");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const after = quoteMockDb.assemblies.find((a) => a.id === 3)!;
+    expect(after.targetPrice).toBe(1000);
+    expect(after.targetPriceEur).toBeNull();
+    expect(after.eurUsdRate).toBeNull();
+  });
+
+  it("refuses a rate of 0 in EUR", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText(/Part Number/), "NEW-4");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.click(screen.getByRole("radio", { name: "EUR" }));
+    await userEvent.type(screen.getByLabelText(/Customer target price/), "50");
+    await userEvent.clear(screen.getByLabelText(/EUR → USD rate/));
+    await userEvent.type(screen.getByLabelText(/EUR → USD rate/), "0");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("rate must be more than 0");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("an edit of a EUR line opens in EUR, with its euros and the rate it was converted at", async () => {
+    const asm = { ...quoteMockDb.assemblies.find((a) => a.id === 3)!, targetPriceEur: 900, eurUsdRate: 1.1, targetPrice: 990 };
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={2} assembly={asm} nextLineNo={3} canSeeCost onClose={vi.fn()} />);
+    expect(screen.getByRole("radio", { name: "EUR" })).toBeChecked();
+    expect(screen.getByLabelText(/Customer target price \(€\)/)).toHaveValue(900);
+    expect(screen.getByLabelText(/EUR → USD rate/)).toHaveValue(1.1);
+    expect(screen.getByTestId("line-target-inputs")).toHaveTextContent("= $990.00 at the rate.");
+  });
+
   it("an edit shows the stored figures and clears one back to blank", async () => {
     const asm = quoteMockDb.assemblies.find((a) => a.id === 3)!; // target 1,050, EAU 120
     const onClose = vi.fn();
@@ -283,5 +381,30 @@ describe("QuoteAssemblyFormModal — customer target price and estimated EAU", (
     const after = quoteMockDb.assemblies.find((a) => a.id === 3)!;
     expect(after.estimatedEau).toBeNull();
     expect(after.targetPrice).toBe(1050);
+  });
+});
+
+describe("QuoteAssemblyFormModal — the Altronic part number is optional (Ray, 2026-11-24)", () => {
+  it("saves a line with only the customer's part number", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    expect(screen.getByLabelText(/Altronic Part Number/)).not.toBeRequired();
+    await userEvent.type(screen.getByLabelText(/Customer part #/), "CUST-42");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const created = quoteMockDb.assemblies.find((a) => a.customerPartNumber === "CUST-42")!;
+    expect(created.altronicPartNumber).toBe("");
+  });
+
+  it("refuses a line with neither part number", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Enter the customer's part number or an Altronic part number.",
+    );
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

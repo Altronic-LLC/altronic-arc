@@ -26,6 +26,7 @@ function quote(over: Partial<Quote> = {}): Quote {
     customerReference: "  RFQ 4471 — retrofit  ",
     customerType: null,
     projectContext: "",
+    projectFolder: "",
     alternates: [
       {
         designator: "",
@@ -97,6 +98,8 @@ function assembly(over: Partial<QuoteAssembly> = {}): QuoteAssembly {
     targetGM: 37.77,
     manualPrice: null,
     targetPrice: null,
+    targetPriceEur: null,
+    eurUsdRate: null,
     estimatedEau: null,
     customerPrice: 999.01,
     ...over,
@@ -257,7 +260,7 @@ describe("buildQuotePdfModel", () => {
     });
     expect(unpriced.model).toBeNull();
     expect(unpriced.problems).toEqual([
-      "Line 1 (791950-08) has no price yet — enter its material and/or labor cost and a target GM, or set a manual price.",
+      "Line 1 (ACME-77) has no price yet — enter its material and/or labor cost and a target GM, or set a manual price.",
     ]);
 
     const none = buildQuotePdfModel({ ...base, assemblies: [assembly({ quoteId: 2 })] });

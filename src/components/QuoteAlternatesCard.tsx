@@ -44,7 +44,11 @@ interface QuoteAlternatesCardProps {
 
 export function QuoteAlternatesCard({ rows, corrupt, canEdit, onEdit }: QuoteAlternatesCardProps) {
   return (
-    <section className="rounded-xl border border-border bg-surface p-4 sm:p-5" aria-label="Alternates">
+    <section
+      className="rounded-xl border border-ajax-yellow/50 bg-ajax-yellow/10 p-4 sm:p-5"
+      aria-label="Alternates"
+      data-tone="alternates"
+    >
       <div className="mb-1 flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Alternates</h2>
         {canEdit && !corrupt && (
