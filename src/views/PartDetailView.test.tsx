@@ -470,3 +470,60 @@ describe("PartDetailView — deleting a part number", () => {
     expect(screen.queryByRole("button", { name: /Edit/ })).not.toBeInTheDocument();
   });
 });
+
+describe("PartDetailView — replacing a datasheet", () => {
+  // Component 5, 601466: has a mock datasheet (184,320 bytes). Mock mode's
+  // demo user holds every tag, SAP admin included.
+  const pdf = () => new File([new Uint8Array([37, 80, 68, 70])], "601466 rev B.pdf", { type: "application/pdf" });
+
+  it("lets the SAP admin replace it, after a confirm", async () => {
+    renderPart("/engineering/parts/component/5");
+    await screen.findByRole("button", { name: /Replace datasheet/ });
+    await userEvent.upload(screen.getByLabelText("Replacement datasheet PDF"), pdf());
+
+    const dialog = await screen.findByRole("dialog", { name: "Replace 601466.pdf?" });
+    expect(within(dialog).getByText(/version history/)).toBeInTheDocument();
+    expect((await findDatasheet("601466"))?.size).toBe(184_320);
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Replace datasheet" }));
+    await waitFor(() => expect(pushToast).toHaveBeenCalledWith({ message: "601466.pdf replaced." }));
+    expect((await findDatasheet("601466"))?.size).toBe(4);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("writes nothing when the confirm is cancelled", async () => {
+    renderPart("/engineering/parts/component/5");
+    await screen.findByRole("button", { name: /Replace datasheet/ });
+    await userEvent.upload(screen.getByLabelText("Replacement datasheet PDF"), pdf());
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect((await findDatasheet("601466"))?.size).toBe(184_320);
+    expect(pushToast).not.toHaveBeenCalled();
+  });
+
+  it("refuses a file that isn't a PDF before asking", async () => {
+    renderPart("/engineering/parts/component/5");
+    await screen.findByRole("button", { name: /Replace datasheet/ });
+    await userEvent.setup({ applyAccept: false }).upload(
+      screen.getByLabelText("Replacement datasheet PDF"),
+      new File(["x"], "drawing.dwg", { type: "application/octet-stream" }),
+    );
+    expect(pushToast).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringMatching(/isn't a PDF/), variant: "error" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("offers Replace to nobody but the SAP admin", async () => {
+    __resetPartsRolesMockStore([{ ...EDITOR_ONLY, roles: ["hco editor", "reviewing engineer"] }]);
+    renderPart("/engineering/parts/component/5");
+    expect(await screen.findByRole("link", { name: /Open datasheet/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Replace datasheet/ })).not.toBeInTheDocument();
+  });
+
+  it("offers Replace on a Part List part's datasheet too", async () => {
+    // Part 4, 204602: in the folder.
+    renderPart("/engineering/parts/part/4");
+    expect(await screen.findByRole("button", { name: /Replace datasheet/ })).toBeInTheDocument();
+  });
+});

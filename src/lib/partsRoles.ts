@@ -223,6 +223,16 @@ export function suggestCorrectionGate(access: PartsAccess, component: boolean): 
 }
 
 /**
+ * May this person REPLACE a datasheet that is already there? The SAP admin
+ * only (Tim, 2026-11-24) — on both lists. Adding a missing one changes
+ * nothing anybody relied on (addDatasheetGate); replacing one changes the
+ * sheet every engineer reading that part opens, so it stays with one role.
+ */
+export function replaceDatasheetGate(access: PartsAccess): PartsGate {
+  return gate(access, (r) => r.approveSap, `Only the SAP admin can replace a datasheet. ${ASK}`);
+}
+
+/**
  * May this person delete a part number? The SAP admin only (Tim, 2026-09-28)
  * — on both lists. A deleted number is handed out again for a new part, so a
  * delete changes what the number means to every drawing, BOM and SAP record

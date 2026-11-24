@@ -8184,9 +8184,16 @@ const SECTIONS: ManualSection[] = [
           so and you choose it again. A part
           with no datasheet shows <strong>Upload datasheet</strong> on its page
           to anyone who can edit it or add parts to its list — the Add role
-          included — for an existing part or if an upload didn't go through. Only PDFs are accepted, and ARC never
-          replaces a datasheet already in the folder: to swap one, replace the
-          file in SharePoint.
+          included — for an existing part or if an upload didn't go through. Only PDFs are accepted, and an
+          upload never replaces a datasheet that is already there.
+        </P>
+        <P>
+          To swap a datasheet for a newer one, the SAP admin presses{" "}
+          <strong>Replace datasheet</strong> beside Open datasheet, chooses the new
+          PDF and confirms. It's saved under the same part-number name, so the
+          link doesn't change, and the old PDF stays in the file's SharePoint
+          version history if it's ever needed again. Nobody is emailed. Nobody
+          else sees the button.
         </P>
         <P>
           <strong>Sign-off status</strong> shows where a new part is in its

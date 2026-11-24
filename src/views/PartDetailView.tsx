@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { deletionReason, isDeletedPart, partEvent } from "@/lib/partLifecycle";
 import { useDatasheet, useUploadDatasheet } from "@/hooks/useDatasheet";
-import { datasheetFileName, datasheetFileProblem } from "@/api/datasheets";
+import { datasheetFileName, datasheetFileProblem, readDatasheetFile } from "@/api/datasheets";
 import { describeListWriteFailure, isPermissionDenied } from "@/lib/listWriteErrors";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { tabLabel } from "@/lib/openItems";
@@ -26,6 +26,7 @@ import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditMo
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { pushToast } from "@/components/Toast";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
+import { RichTextWarningDialog } from "@/components/RichTextWarningDialog";
 import {
   useAltronicComponent,
   useAltronicPart,
@@ -59,6 +60,7 @@ import {
   editPartGate,
   nextSignOff,
   parseSapResponse,
+  replaceDatasheetGate,
   sapResponseNeedsComment,
   suggestCorrectionGate,
   type PartsGate,
@@ -282,7 +284,11 @@ function PartBody({ part }: { part: AltronicPart }) {
           {field("itemValue")}
           {/* The Part List has no Has Data Sheet column, so the folder is the
               whole answer here (Tim, 2026-09-28). */}
-          <DatasheetField partNumber={part.partNumber} canUpload={addDatasheetGate(access, partPrefix(part.partNumber) ?? "", false).allowed} />
+          <DatasheetField
+            partNumber={part.partNumber}
+            canUpload={addDatasheetGate(access, partPrefix(part.partNumber) ?? "", false).allowed}
+            canReplace={replaceDatasheetGate(access).allowed}
+          />
         </Card>
         <NotesCard notes={part.notes} onEdit={edit.allowed ? () => cards.setEditing("Notes") : undefined} />
         <HistoryCard comments={part.comments} />
@@ -347,6 +353,7 @@ function ComponentBody({ component }: { component: AltronicComponent }) {
             partNumber={component.partNumber}
             flagged={component.hasDataSheet}
             canUpload={addDatasheetGate(access, partPrefix(component.partNumber) ?? "", true).allowed}
+            canReplace={replaceDatasheetGate(access).allowed}
             componentId={component.id}
           />
         </Card>
@@ -817,41 +824,48 @@ function DatasheetField({
   partNumber,
   flagged,
   canUpload,
+  canReplace,
   componentId,
 }: {
   partNumber: string;
   flagged?: boolean;
   /** addDatasheetGate — whoever can edit the part or add to its list sees Upload. */
   canUpload: boolean;
+  /** replaceDatasheetGate — the SAP admin sees Replace beside Open datasheet. */
+  canReplace: boolean;
   /** Set for a component, whose Has Data Sheet flag the upload turns on. */
   componentId?: number;
 }) {
   const { data: sheet, isLoading, error } = useDatasheet(partNumber);
   const upload = useUploadDatasheet();
   const picker = useRef<HTMLInputElement>(null);
+  const replacePicker = useRef<HTMLInputElement>(null);
+  /** The replacement PDF, read into memory, waiting on the confirm. */
+  const [pendingReplace, setPendingReplace] = useState<File | null>(null);
   let value: ReactNode;
   let note: string | null = null;
 
-  function send(file: File) {
+  function send(file: File, via: "edit" | "replace") {
     const problem = datasheetFileProblem(file);
     if (problem) {
       pushToast({ message: problem, variant: "error" });
       return;
     }
     upload.mutate(
-      { partNumber, file, via: "edit", componentId },
+      { partNumber, file, via, componentId },
       {
         onSuccess: ({ flagError }) => {
+          const done = via === "replace" ? "replaced" : "uploaded";
           pushToast(
             flagError
-              ? { message: `The datasheet uploaded, but Has Data Sheet couldn't be set: ${flagError}`, variant: "error" }
-              : { message: `${datasheetFileName(partNumber)} uploaded.` },
+              ? { message: `The datasheet ${done}, but Has Data Sheet couldn't be set: ${flagError}`, variant: "error" }
+              : { message: `${datasheetFileName(partNumber)} ${done}.` },
           );
         },
         onError: (err) => {
           pushToast({
             message: describeListWriteFailure(err, {
-              action: "upload the datasheet",
+              action: via === "replace" ? "replace the datasheet" : "upload the datasheet",
               site: "Altronic_Engineering",
               permission: "editing",
             }),
@@ -861,6 +875,24 @@ function DatasheetField({
       },
     );
   }
+
+  /**
+   * A replacement is checked and READ when it's picked — the confirm can sit
+   * open a while, and a File handle goes stale if the PDF changes on disk
+   * (readDatasheetFile) — then confirmed before anything is written.
+   */
+  async function pickReplacement(file: File) {
+    const problem = datasheetFileProblem(file);
+    if (problem) {
+      pushToast({ message: problem, variant: "error" });
+      return;
+    }
+    try {
+      setPendingReplace(await readDatasheetFile(file));
+    } catch (err) {
+      pushToast({ message: err instanceof Error ? err.message : "That PDF couldn't be read.", variant: "error" });
+    }
+  }
   if (isLoading) {
     value = <span className="text-fg-muted">Checking…</span>;
   } else if (error) {
@@ -869,7 +901,7 @@ function DatasheetField({
       ? "Your account can't open the Datasheets folder in the Altronic_Engineering documents library."
       : "The Datasheets folder couldn't be read just now — reload to try again.";
   } else if (sheet) {
-    value = (
+    const open = (
       <a
         href={sheet.webUrl}
         target="_blank"
@@ -880,6 +912,34 @@ function DatasheetField({
         Open datasheet
         <ExternalLink className="h-3 w-3" />
       </a>
+    );
+    value = canReplace ? (
+      <span className="inline-flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+        {open}
+        <input
+          ref={replacePicker}
+          type="file"
+          accept="application/pdf,.pdf"
+          className="sr-only"
+          aria-label="Replacement datasheet PDF"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void pickReplacement(file);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => replacePicker.current?.click()}
+          disabled={upload.isPending}
+          className="inline-flex items-center gap-1 font-medium text-accent hover:underline disabled:opacity-60"
+        >
+          {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          {upload.isPending ? "Replacing…" : "Replace datasheet"}
+        </button>
+      </span>
+    ) : (
+      open
     );
     if (flagged === false) note = `${sheet.name} is in the Datasheets folder, though Has Data Sheet is set to No.`;
   } else {
@@ -894,7 +954,7 @@ function DatasheetField({
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = "";
-            if (file) send(file);
+            if (file) send(file, "edit");
           }}
         />
         <button
@@ -919,6 +979,22 @@ function DatasheetField({
         <dd className="text-right text-fg">{value}</dd>
       </div>
       {note && <p className="mt-1 text-right text-[11px] text-fg-muted">{note}</p>}
+      {pendingReplace && (
+        <RichTextWarningDialog
+          title={`Replace ${datasheetFileName(partNumber)}?`}
+          detail={`"${pendingReplace.name}" will be saved as ${datasheetFileName(partNumber)}, in place of the datasheet everyone opens for this part.`}
+          notifyNote="Nobody is emailed about a datasheet change."
+          trailing="The current PDF stays in the file's SharePoint version history, so it can be restored from there."
+          confirmLabel="Replace datasheet"
+          cancelLabel="Cancel"
+          onConfirm={() => {
+            const file = pendingReplace;
+            setPendingReplace(null);
+            send(file, "replace");
+          }}
+          onCancel={() => setPendingReplace(null)}
+        />
+      )}
     </div>
   );
 }
