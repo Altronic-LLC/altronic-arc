@@ -6,6 +6,7 @@ import {
   editQuoteComment,
   getQuote,
   listQuotes,
+  listQuoteStatusChoices,
   AlternatesUnreadableError,
   setQuoteWatchers,
   updateQuoteFields,
@@ -70,6 +71,15 @@ export function useQuotes() {
     queryKey: QUOTES_KEY,
     queryFn: listQuotes,
     staleTime: 60_000,
+  });
+}
+
+/** The Status column's live choices (falls back to QUOTE_STATUSES). */
+export function useQuoteStatusChoices() {
+  return useQuery<string[]>({
+    queryKey: ["quoteStatusChoices"],
+    queryFn: listQuoteStatusChoices,
+    staleTime: 10 * 60_000,
   });
 }
 

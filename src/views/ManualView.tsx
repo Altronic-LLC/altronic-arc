@@ -6397,7 +6397,7 @@ const SECTIONS: ManualSection[] = [
       "manager",
     ],
     searchText:
-      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote and shows in the quotes list. A Customer type (Cooper, Arcline or External) is set on the quote and never prints. Each line can carry the customer's target price and estimated EAU; the Target & volume card shows our price against their target, a year's revenue at the EAU, its GM and GM in dollars (quoters and managers), and a free-text Project context — none of it prints. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. An Alternates table — a designator per row, up to three options, each a manufacturer, its part number and lead time, plus the reason for choosing the alternate — typed or pasted from Excel, prints on its own page of the PDF under Alternate 1, 2 and 3. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the Alternates table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
+      "Insourcing Quotes at /sales/quotes, under Departments > Supply Chain (listed there for now). It takes the final cost of each part being quoted and turns it into a selling price, and is where Sales, Engineering, Supply Chain and Operations discuss the quote. Each line carries its final Material cost, Labor cost and Overhead as a percent of material (18% unless you change it); the line's target gross margin prices it from that total cost, with up to three quantity breaks and an optional manual price. A Customer reference / description prints on the quote and shows in the quotes list. A Customer type (Cooper, Arcline or External) is set on the quote and never prints. Each line can carry the customer's target price and estimated EAU, and the target is in USD or EUR (EUR converted at a changeable EUR → USD rate, 1.12 by default); the Target & volume card shows each part on its own — our price against its target, a year's revenue at its EAU, its GM and GM in dollars (quoters and managers) — and a free-text Project context; none of it prints. Statuses come from the SharePoint list (Sent, Won, Lost, Expired and the Waiting on… statuses); a new quote has none. The quotes list shows Annual Revenue. The PDF leads each line with the customer's part number. Each quote has a Project folder in General/IC Quotes — create and name it from the quote or link an existing one, then open and create subfolders and upload files in the quote; every rev shares it. The customer's notes from the customer list show on each of their quotes but never print. Link a quote to an Engineering or Operations task and project in the right-hand panel. An Alternates table — a designator per row, up to three options, each a manufacturer, its part number and lead time, plus the reason for choosing the alternate — typed or pasted from Excel, prints on its own page of the PDF under Alternate 1, 2 and 3. SAP part numbers are entered as ####-####-## (10 digits), formatted as you type. Quote numbers look like IQ-COO-0042-R1: the customer code, a running number and the rev. Three roles on the Quote Roles list: viewer (sees quotes and sell prices, comments, attaches), quoter (sees cost and margin, creates and edits quotes and lines, links tasks, new revs, generates the PDF), manager (also sets Won, Lost or Expired, creates customers and manages roles). No role means no access. Viewers can't see cost or margin on screen, but that is not a security boundary. New revision keeps what was sent; editing updates the current rev in place and asks first if it was Sent. Generate the customer PDF locally; it names you, whoever generates it, as Prepared by. Save PDF to folder writes it to General/IC Quotes on the Altronic_PMO site, and Saved PDFs on the quote lists every one saved for any rev. Budgetary text, quote notes, the customer reference and the Alternates table print on the customer's quote; comments, attachments, customer notes, cost and margin never do.",
     render: () => (
       <>
         <P>
@@ -6483,8 +6483,23 @@ const SECTIONS: ManualSection[] = [
           numbers it for you —{" "}
           <code>IQ-COO-0042-R1</code> is customer code COO, quote 42, rev 1.
           The running number is shared by every customer, so two quotes can
-          never get the same number. A new quote starts as{" "}
-          <strong>Draft</strong>.
+          never get the same number. A new quote starts with{" "}
+          <strong>no status</strong>.
+        </P>
+        <H3>Status</H3>
+        <P>
+          The <strong>Status</strong> panel offers the statuses on the
+          SharePoint list: <strong>Sent</strong>, <strong>Won</strong>,{" "}
+          <strong>Lost</strong>, <strong>Expired</strong>,{" "}
+          <strong>Waiting on labor</strong>, <strong>Waiting on customer</strong>,{" "}
+          <strong>Waiting on material quotes</strong>,{" "}
+          <strong>Revisiting COGS</strong> and{" "}
+          <strong>Engineering Task in process</strong>. A status added there
+          shows up in ARC with no update. Quoters move a quote between the
+          working statuses; only a manager sets or leaves Won, Lost or Expired.
+          A quote from before Draft was removed keeps showing Draft until
+          someone picks another status. The quotes list has a pill for each
+          status, and <strong>No status</strong> while any quote has none.
         </P>
         <H3>Adding lines</H3>
         <P>
@@ -6532,16 +6547,26 @@ const SECTIONS: ManualSection[] = [
           one and their <strong>estimated EAU</strong> (estimated annual usage,
           units a year). Both are optional and internal — they never print.
         </P>
+        <P>
+          The target is in <strong>USD</strong> or <strong>EUR</strong> —
+          pick which beside it. In EUR, the <strong>EUR → USD rate</strong>{" "}
+          appears — 1.12, the 2026 average, unless you change it — and the form
+          shows what the target comes to in dollars. The line keeps the rate it
+          was converted at, so changing the rate on a new line never changes
+          an older one.
+        </P>
         <H3>Target &amp; volume</H3>
         <P>
           The <strong>Target &amp; volume</strong> card, right under the quote details,
-          shows each line's price against the customer's target — how much
-          above or below, in dollars and percent — and what a year at their
-          EAU is worth in revenue. Our price is the line's unit price at its
-          quoted quantity, the same price as its Subtotal. Quoters and
-          managers also see the GM % and the GM in dollars a year. The totals
-          add up only the lines that have an EAU, and the card says how many
-          are left out.
+          shows <strong>each part on its own</strong> — every line with a
+          target or an EAU set, led by the customer's part number. For each
+          part: its target (and the euros it came from, if given in euros),
+          our price, how much above or below the target in dollars and
+          percent, its EAU, and what a year at that EAU is worth in revenue.
+          Our price is the line's unit price at its quoted quantity, the same
+          price as its Subtotal. Quoters and managers also see each part's GM %
+          and GM in dollars a year. The parts are not added up; a line with no
+          target or EAU isn't shown, and the card says how many.
         </P>
         <P>
           The <strong>Project context</strong> at the bottom of the card is a
@@ -6554,6 +6579,26 @@ const SECTIONS: ManualSection[] = [
           components. ARC no longer shows those components — open the line and
           enter its final material and labor cost to price it again.
         </Tip>
+        <H3>Project folder</H3>
+        <P>
+          Each quote can have a <strong>project folder</strong> in{" "}
+          <strong>General / IC Quotes</strong> on the Altronic_PMO site, shown
+          in the <strong>Project folder</strong> card above Attachments. A
+          quoter or manager names it — the quote number is filled in to start
+          with — and presses <strong>Create folder</strong>, or uses{" "}
+          <strong>Link an existing folder</strong> to pick one already in IC
+          Quotes. Every revision of the quote shares the same folder.
+        </P>
+        <P>
+          Once it's set, the card shows what's in the folder. Click a subfolder
+          to open it and the path above to go back; you can't go above the
+          quote's own folder. <strong>New subfolder</strong> makes a folder
+          wherever you are, <strong>Upload files</strong> adds files there, and{" "}
+          <strong>Open in SharePoint</strong> opens the folder you're in — rename
+          or delete things there. If the folder is renamed or moved in
+          SharePoint, the card says it can't find it and offers to link it
+          again.
+        </P>
         <H3>Linked work</H3>
         <P>
           The <strong>Linked work</strong> panel on the right links the quote
@@ -6660,7 +6705,9 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
         <P>
-          The quote list shows the latest rev of each quote. Tick{" "}
+          The quotes list shows each quote's <strong>Annual Revenue</strong> —
+          every line's price at its quoted quantity times its estimated EAU,
+          added up over the lines that have an EAU. The quote list shows the latest rev of each quote. Tick{" "}
           <strong>Show earlier revisions</strong> to list the older ones too, and
           a quote's page links to its other revs.
         </P>
@@ -6671,10 +6718,11 @@ const SECTIONS: ManualSection[] = [
           PDF shows the quote number with its rev, the date and expiry, the
           customer, and — under <strong>Prepared by</strong> — your name and
           email, since you generated it, so the customer knows who to
-          contact. Each line runs across the full width of the page: its part
-          number and description in a grey band with the SAP and customer
-          part numbers under them, then the quantity quoted, unit price and
-          Subtotal, and the volume pricing when the line has quantity breaks.
+          contact. Each line leads with the <strong>customer's part
+          number</strong> in bold, with ours (Altronic and SAP) in small print
+          under it when there is one; a line with no customer part number
+          leads with ours. Then the description, the price and any volume
+          pricing, the quantity quoted and the Subtotal.
           The Total comes after the last line, then the quote notes, and the
           Alternates table on a page of its own. Your customer reference prints
           under the customer. It never shows material, labor, overhead, cost,

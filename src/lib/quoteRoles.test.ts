@@ -163,9 +163,10 @@ describe("ARC admins through the gates", () => {
 });
 
 describe("setQuoteStatusGate", () => {
-  it("lets a quoter move between Draft and Sent", () => {
-    expect(setQuoteStatusGate(access(["quoter"]), "Draft", "Sent").allowed).toBe(true);
-    expect(setQuoteStatusGate(access(["quoter"]), "Sent", "Draft").allowed).toBe(true);
+  it("lets a quoter move between the working statuses (and from none)", () => {
+    expect(setQuoteStatusGate(access(["quoter"]), "", "Sent").allowed).toBe(true);
+    expect(setQuoteStatusGate(access(["quoter"]), "Sent", "Waiting on customer").allowed).toBe(true);
+    expect(setQuoteStatusGate(access(["quoter"]), "Waiting on labor", "Revisiting COGS").allowed).toBe(true);
   });
 
   it("refuses a viewer any status change", () => {

@@ -53,7 +53,8 @@ describe("quotes API (mock mode)", () => {
     expect(q.quoteNumber).toBe("IQ-WAB-0004-R1");
     expect(q.quoteBase).toBe("IQ-WAB-0004");
     expect(q.rev).toBe(1);
-    expect(q.status).toBe("Draft");
+    // A new quote starts with no status — Draft was removed (2026-11-24).
+    expect(q.status).toBe("");
     expect(q.watchers).toEqual([RAY]);
     const next = await createQuote({ ...input, customerCode: "coo", status: "Sent" });
     expect(next.quoteNumber).toBe("IQ-COO-0005-R1");

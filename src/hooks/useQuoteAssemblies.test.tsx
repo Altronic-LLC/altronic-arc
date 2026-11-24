@@ -61,6 +61,8 @@ const NEW = {
   targetGM: 35,
   manualPrice: null,
   targetPrice: null,
+  targetPriceEur: null,
+  eurUsdRate: null,
   estimatedEau: null,
   customerPrice: null,
 };

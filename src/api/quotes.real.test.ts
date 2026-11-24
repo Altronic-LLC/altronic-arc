@@ -182,11 +182,12 @@ describe("createQuote", () => {
       Title: "IQ-COO-0008-R1",
       QuoteBase: "IQ-COO-0008",
       Rev: 1,
-      Status: "Draft",
       CustomerRefLookupId: 3,
       "WatchersLookupId@odata.type": "Collection(Edm.Int32)",
       WatchersLookupId: [40],
     });
+    // Draft is gone and the column has no default: a new quote has no status.
+    expect(fields).not.toHaveProperty("Status");
     expect(typeof fields.CustomerRefLookupId).toBe("number");
     expect(fields).not.toHaveProperty("CustomerRefLookupId@odata.type");
     expect(Object.keys(fields).some((k) => /Link/.test(k))).toBe(false);
@@ -309,6 +310,8 @@ describe("lines", () => {
     await createQuoteAssembly({
       quoteId: 12, lineNo: 1, altronicPartNumber: "A", sapPartNumber: "", customerPartNumber: "",
       targetPrice: null,
+      targetPriceEur: null,
+      eurUsdRate: null,
       estimatedEau: null,
       description: "", priceBreaks: [], targetGM: 35, manualPrice: null, customerPrice: null,
       materialCost: 12.5, laborCost: 4, materialOverheadPct: 18, quotedQty: 3,
@@ -414,7 +417,6 @@ describe("createQuoteRevision — order", () => {
       Title: "IQ-COO-0042-R2",
       QuoteBase: "IQ-COO-0042",
       Rev: 2,
-      Status: "Draft",
       CustomerReference: "RFQ 4471",
       Alternates: '[{"designator":"","sources":[{"manufacturer":"TE","partNumber":"P1","leadTime":"3 wk"},{"manufacturer":"","partNumber":"","leadTime":""},{"manufacturer":"","partNumber":"","leadTime":""}],"reason":"R"}]',
       EngineeringTaskId: 9,

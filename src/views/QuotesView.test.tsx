@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { __resetQuoteMockStores } from "@/data/quoteMockData";
+import { __resetQuoteMockStores, quoteMockDb } from "@/data/quoteMockData";
 import { QuotesView } from "./QuotesView";
 
 // =============================================================================
@@ -50,11 +50,40 @@ describe("QuotesView", () => {
     expect(screen.getAllByText("Superseded").length).toBeGreaterThan(0);
   });
 
-  it("Total is the quote's Total at the quoted quantities", async () => {
+  it("Annual Revenue is each line's price at its quoted quantity × its EAU, summed", async () => {
     renderList();
-    // IQ-WAB-0002: 25 sensors at the 25+ break ($88.75) = $2,218.75, plus one
-    // spare part at $76.80 = $2,295.55.
-    await waitFor(() => expect(screen.getAllByText("$2,295.55").length).toBeGreaterThan(0));
+    await waitForRows();
+    expect(screen.getByRole("button", { name: "Sort by Annual Revenue" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sort by Total" })).toBeNull();
+    // IQ-COO-0001-R2: 30 modules at the 10+ break ($1,106.11) × 120 a year =
+    // $132,733.20, plus the harness at $115 × 600 = $69,000.
+    await waitFor(() => expect(screen.getAllByText("$201,733.20").length).toBeGreaterThan(0));
+    // The quoted-quantity total it replaced is no longer shown.
+    expect(screen.queryByText("$2,295.55")).toBeNull();
+  });
+
+  it("has no Created, Expires or Assemblies column (Ray, 2026-11-24)", async () => {
+    renderList();
+    await waitForRows();
+    expect(screen.queryByRole("button", { name: "Sort by Created" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sort by Expires" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sort by Assemblies" })).toBeNull();
+    expect(screen.queryByText("Expires")).toBeNull();
+    expect(screen.queryByText("Assemblies")).toBeNull();
+  });
+
+  it("offers the live statuses as pills, and a No status pill while a quote has none", async () => {
+    // A quote raised after Draft went starts with no status.
+    quoteMockDb.quotes.find((q) => q.quoteNumber === "IQ-INN-0003-R1")!.status = "";
+    renderList();
+    await waitForRows();
+    expect(screen.getByRole("button", { name: /^Waiting on labor/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Draft/ })).toBeNull();
+    const none = screen.getByRole("button", { name: /^No status/ });
+    expect(within(none).getByText("1")).toBeInTheDocument();
+    await userEvent.click(none);
+    await waitFor(() => expect(screen.queryByText("IQ-WAB-0002-R1")).toBeNull());
+    expect(screen.getAllByText("IQ-INN-0003-R1").length).toBeGreaterThan(0);
   });
 
   it("filters by the status pills, with counts", async () => {
@@ -127,7 +156,7 @@ describe("QuotesView", () => {
     who.email = VIEWER;
     renderList();
     await waitForRows();
-    expect(screen.getByRole("button", { name: "Sort by Total" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Annual Revenue" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sort by GM %" })).toBeNull();
     expect(document.body.textContent).not.toMatch(/GM %/);
     expect(screen.queryByRole("button", { name: /New quote/ })).toBeNull();

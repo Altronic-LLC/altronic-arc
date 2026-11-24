@@ -1,9 +1,10 @@
-import { graphFetch, graphFetchAll } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PMO_SITE_URL, SP_QUOTES_LIST_ID, USE_MOCK } from "./config";
 import { resolvePeopleLookupIds } from "./siteUsers";
+import { readColumnChoices } from "./columnChoices";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem, Person } from "@/types/task";
-import type { Quote, QuoteCustomerType, QuoteStatus } from "@/types/quote";
+import { QUOTE_STATUSES, type Quote, type QuoteCustomerType, type QuoteStatus } from "@/types/quote";
 import {
   QUOTE_ITEM_LEVEL_SELECT,
   QUOTE_SELECT,
@@ -111,12 +112,68 @@ export function requireSomeResolved(people: Person[], resolved: Person[], column
 // Reads
 // -----------------------------------------------------------------------------
 
+/**
+ * The Status column's LIVE choices, in SharePoint's order — so a status added
+ * or removed there shows up with no deploy. `QUOTE_STATUSES` when the column
+ * can't be read (and in the demo).
+ */
+export async function listQuoteStatusChoices(): Promise<string[]> {
+  if (USE_MOCK) return mockDelay([...QUOTE_STATUSES]);
+  return readColumnChoices(SITES.pmo, SP_QUOTES_LIST_ID, "Status", QUOTE_STATUSES);
+}
+
+// `ProjectFolder` (Ray, 2026-11-24) was added after the list was live.
+// Selecting a column a list hasn't got 400s the WHOLE read — every quote would
+// vanish — so reads ask for it and, on a 400 only, retry without and remember
+// for the session. A write naming it is then refused, naming the script.
+let folderColumnAvailable: boolean | null = null;
+
+/** Test hook — forget what was learned about the ProjectFolder column. */
+export function __resetQuoteFolderColumn(): void {
+  folderColumnAvailable = null;
+}
+
+/** Can a quote's project folder be stored? False only once a read proved the column missing. */
+export function quoteFolderColumnAvailable(): boolean {
+  return folderColumnAvailable !== false;
+}
+
+const fieldsSelect = (withFolder: boolean) => (withFolder ? `${QUOTE_SELECT},ProjectFolder` : QUOTE_SELECT);
+
+async function readWithFolderFallback<T>(read: (select: string) => Promise<T>): Promise<T> {
+  if (folderColumnAvailable === false) return read(fieldsSelect(false));
+  try {
+    const result = await read(fieldsSelect(true));
+    folderColumnAvailable = true;
+    return result;
+  } catch (err) {
+    // Only a 400 can mean a missing column, and only on the first read.
+    const missing = err instanceof GraphError && err.status === 400;
+    if (folderColumnAvailable !== null || !missing) throw err;
+    const result = await read(fieldsSelect(false));
+    folderColumnAvailable = false;
+    return result;
+  }
+}
+
+function refuseFolderWithoutColumn(fields: Record<string, unknown>): void {
+  if (folderColumnAvailable === false && "ProjectFolder" in fields) {
+    throw new Error(
+      "The project folder can't be linked yet: the Quotes list has no ProjectFolder column. " +
+        "Run scripts/create-quote-lists.ps1 to add it.",
+    );
+  }
+}
+
 /** Every quote revision, newest first. `[]` when the list isn't configured. */
 export async function listQuotes(): Promise<Quote[]> {
   if (USE_MOCK) return mockDelay([...quoteMockDb.quotes].sort(compareQuotes).map(quoteMockClone.quote));
   if (!SP_QUOTES_LIST_ID) return [];
-  const items = await graphFetchAll<GraphListItem>(
-    `${listPath(SP_QUOTES_LIST_ID)}?$select=${QUOTE_ITEM_LEVEL_SELECT}&$expand=fields($select=${QUOTE_SELECT})&$top=999`,
+  const listId = SP_QUOTES_LIST_ID;
+  const items = await readWithFolderFallback((select) =>
+    graphFetchAll<GraphListItem>(
+      `${listPath(listId)}?$select=${QUOTE_ITEM_LEVEL_SELECT}&$expand=fields($select=${select})&$top=999`,
+    ),
   );
   return items.map(toQuote).sort(compareQuotes);
 }
@@ -132,8 +189,11 @@ export async function getQuote(id: number): Promise<Quote | null> {
     return mockDelay(found ? quoteMockClone.quote(found) : null);
   }
   if (!SP_QUOTES_LIST_ID) return null;
-  const item = await graphFetch<GraphListItem>(
-    `${listPath(SP_QUOTES_LIST_ID)}/${id}?$select=${QUOTE_ITEM_LEVEL_SELECT}&$expand=fields($select=${QUOTE_SELECT})`,
+  const listId = SP_QUOTES_LIST_ID;
+  const item = await readWithFolderFallback((select) =>
+    graphFetch<GraphListItem>(
+      `${listPath(listId)}/${id}?$select=${QUOTE_ITEM_LEVEL_SELECT}&$expand=fields($select=${select})`,
+    ),
   ).catch((err: unknown) => {
     if (isNotFound(err)) return null;
     throw err;
@@ -202,6 +262,7 @@ async function postQuote(numbering: QuoteNumbering, body: QuoteRowBody): Promise
       customerReference: (body.customerReference ?? "").trim(),
       customerType: body.customerType ?? null,
       projectContext: body.projectContext ?? "",
+      projectFolder: (body.projectFolder ?? "").trim(),
       alternates: (body.alternates ?? []).map((r) => ({ designator: r.designator, sources: r.sources.map((x) => ({ ...x })), reason: r.reason })),
       alternatesCorrupt: false,
       comments: parseCommunication(body.communication ?? ""),
@@ -222,6 +283,9 @@ async function postQuote(numbering: QuoteNumbering, body: QuoteRowBody): Promise
   const listId = requireListId("create a quote");
   const watchers = await resolveQuotePeople(body.watchers);
   const fields = buildQuoteCreateFields({ ...body, ...numbering, watchers });
+  // A new rev carries the folder forward — unless the column is known missing,
+  // when sending it would refuse the whole create.
+  if (folderColumnAvailable === false) delete fields.ProjectFolder;
   const created = await graphFetch<GraphListItem>(listPath(listId), {
     method: "POST",
     body: JSON.stringify({ fields }),
@@ -260,7 +324,7 @@ export async function createQuote(input: QuoteCreateInput): Promise<Quote> {
     },
     {
       customerId: input.customerId,
-      status: input.status ?? "Draft",
+      status: input.status ?? "",
       validityDays: input.validityDays,
       contactName: input.contactName,
       contactEmail: input.contactEmail,
@@ -316,6 +380,7 @@ export async function updateQuoteFields(id: number, changes: QuotePatch, previou
   if (USE_MOCK) return mockReplace(id, (q) => applyQuotePatch(q, changes));
   const fields = buildQuoteUpdateFields(changes, previous);
   if (Object.keys(fields).length === 0) return previous;
+  refuseFolderWithoutColumn(fields);
   return patchQuoteColumns(id, fields);
 }
 

@@ -153,7 +153,7 @@ function LinkField({ label, open, children }: { label: string; open?: string | n
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">{label}</span>
         {open && (
           <Link
             to={open}

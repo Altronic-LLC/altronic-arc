@@ -256,6 +256,7 @@ describe("toQuote", () => {
       customerReference: "RFQ 4471",
       customerType: "Arcline",
       projectContext: "Fleet refresh, 2027",
+      projectFolder: "",
       alternates: [{ designator: "", sources: [{ manufacturer: "TE", partNumber: "P1", leadTime: "3 wk" }, { manufacturer: "", partNumber: "", leadTime: "" }, { manufacturer: "", partNumber: "", leadTime: "" }], reason: "R" }],
       alternatesCorrupt: false,
       engineeringTaskId: 5,
@@ -274,8 +275,9 @@ describe("toQuote", () => {
   it("reads an expanded lookup object too, and defaults sensibly", () => {
     const q = toQuote(item({ CustomerRef: { LookupId: 9, LookupValue: "Cooper" }, Status: "Superseded" }));
     expect(q.customerId).toBe(9);
-    // Unknown status → Draft (documented in toStatus).
-    expect(q.status).toBe("Draft");
+    // A status the app doesn't know is kept AS STORED — statuses are added
+    // and removed in SharePoint, and an old one must not be re-read as another.
+    expect(q.status).toBe("Superseded");
     expect(q.rev).toBe(1);
     expect(q.validityDays).toBe(30);
     expect(q.budgetary).toBe(false);
@@ -308,6 +310,8 @@ describe("toQuoteAssembly / toQuoteCustomer / toQuoteRoleEntry", () => {
         TargetGM: 40,
         ManualPrice: null,
         TargetPrice: 1050,
+        TargetPriceEur: 937.5,
+        EurUsdRate: 1.12,
         EstimatedEAU: "120",
         CustomerPrice: 1070.26,
       }),
@@ -328,6 +332,8 @@ describe("toQuoteAssembly / toQuoteCustomer / toQuoteRoleEntry", () => {
       targetGM: 40,
       manualPrice: null,
       targetPrice: 1050,
+      targetPriceEur: 937.5,
+      eurUsdRate: 1.12,
       estimatedEau: 120,
       customerPrice: 1070.26,
     });
@@ -408,6 +414,7 @@ const QUOTE: Quote = {
   customerReference: "",
   customerType: null,
   projectContext: "",
+  projectFolder: "",
   alternates: [],
   alternatesCorrupt: false,
   comments: [],
@@ -536,6 +543,8 @@ const ASSEMBLY: QuoteAssembly = {
   targetGM: 35,
   manualPrice: null,
   targetPrice: null,
+  targetPriceEur: null,
+  eurUsdRate: null,
   estimatedEau: null,
   customerPrice: 100,
 };

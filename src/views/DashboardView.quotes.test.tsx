@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { __resetQuoteMockStores, MOCK_QUOTES } from "@/data/quoteMockData";
+import { QUOTE_OUTCOME_STATUSES } from "@/types/quote";
 import { latestRevisions } from "@/lib/quoteNumber";
 
 // =============================================================================
@@ -35,9 +36,8 @@ describe("DashboardView — Insourcing Quotes card", () => {
   it("is shown, with the open-quote count, to someone with a quote role", async () => {
     who.emails = ["brandon.mirto@altronic-llc.com"]; // a viewer
     renderWithProviders(<DashboardView />);
-    const expected = latestRevisions(MOCK_QUOTES).filter(
-      (q) => q.status === "Draft" || q.status === "Sent",
-    ).length;
+    // Open = no outcome yet (Sent, a "Waiting on…" status, or none).
+    const expected = latestRevisions(MOCK_QUOTES).filter((q) => !QUOTE_OUTCOME_STATUSES.includes(q.status)).length;
     // Roles, then quotes, load asynchronously — and the full suite runs slowly.
     const card = await waitFor(() => within(supplyChainGrid()).getByRole("button", { name: /Insourcing Quotes/ }), { timeout: 10_000 });
     await waitFor(() => expect(card).toHaveTextContent(String(expected)), { timeout: 10_000 });

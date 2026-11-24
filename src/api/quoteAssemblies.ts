@@ -1,9 +1,10 @@
-import { graphFetch, graphFetchAll } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_QUOTE_ASSEMBLIES_LIST_ID, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem } from "@/types/task";
 import type { QuoteAssembly } from "@/types/quote";
 import {
+  QUOTE_ASSEMBLY_EUR_COLUMNS,
   QUOTE_ASSEMBLY_SELECT,
   applyQuoteAssemblyPatch,
   buildQuoteAssemblyCreateFields,
@@ -42,19 +43,70 @@ function listPath(listId: string): string {
   return `/sites/${SITES.pmo}/lists/${listId}/items`;
 }
 
+// The euro-target columns (TargetPriceEur, EurUsdRate) were added after the
+// list was live, by scripts/create-quote-lists.ps1. Selecting a column a list
+// hasn't got 400s the WHOLE read, which would blank every quote's lines — so
+// the read asks for them, and on a 400 only retries without and remembers for
+// the session (the MRB Watchers / EIR latest-columns arrangement). A write
+// naming them while they're missing is refused, naming the script.
+let eurColumnsAvailable: boolean | null = null;
+
+/** Test hook — forget what was learned about the euro columns. */
+export function __resetQuoteAssemblyEurColumns(): void {
+  eurColumnsAvailable = null;
+}
+
+/** Can a line's euro target be stored? False only once a read proved the columns missing. */
+export function quoteAssemblyEurColumnsAvailable(): boolean {
+  return eurColumnsAvailable !== false;
+}
+
+function selectFor(withEur: boolean): string {
+  return withEur ? `${QUOTE_ASSEMBLY_SELECT},${QUOTE_ASSEMBLY_EUR_COLUMNS.join(",")}` : QUOTE_ASSEMBLY_SELECT;
+}
+
+async function readWithEurFallback<T>(read: (select: string) => Promise<T>): Promise<T> {
+  if (eurColumnsAvailable === false) return read(selectFor(false));
+  try {
+    const result = await read(selectFor(true));
+    eurColumnsAvailable = true;
+    return result;
+  } catch (err) {
+    // Only a 400 can mean a missing column, and only on the first read; a
+    // throttle or a refusal must never read as "the columns aren't there".
+    const missing = err instanceof GraphError && err.status === 400;
+    if (eurColumnsAvailable !== null || !missing) throw err;
+    const result = await read(selectFor(false));
+    eurColumnsAvailable = false;
+    return result;
+  }
+}
+
+function refuseEurWithoutColumns(fields: Record<string, unknown>): void {
+  if (eurColumnsAvailable !== false) return;
+  if (QUOTE_ASSEMBLY_EUR_COLUMNS.some((c) => c in fields)) {
+    throw new Error(
+      "The euro target can't be saved yet: the Quote Assemblies list has no TargetPriceEur / EurUsdRate " +
+        "columns. Run scripts/create-quote-lists.ps1 to add them, or clear the euro target and enter dollars.",
+    );
+  }
+}
+
 async function readAssembly(listId: string, id: number): Promise<QuoteAssembly> {
-  const item = await graphFetch<GraphListItem>(
-    `${listPath(listId)}/${id}?$expand=fields($select=${QUOTE_ASSEMBLY_SELECT})`,
+  return readWithEurFallback(async (select) =>
+    toQuoteAssembly(
+      await graphFetch<GraphListItem>(`${listPath(listId)}/${id}?$expand=fields($select=${select})`),
+    ),
   );
-  return toQuoteAssembly(item);
 }
 
 /** Every assembly on every quote, in line order. `[]` when the list isn't configured. */
 export async function listQuoteAssemblies(): Promise<QuoteAssembly[]> {
   if (USE_MOCK) return mockDelay([...quoteMockDb.assemblies].sort(compareLines).map(quoteMockClone.assembly));
   if (!SP_QUOTE_ASSEMBLIES_LIST_ID) return [];
-  const items = await graphFetchAll<GraphListItem>(
-    `${listPath(SP_QUOTE_ASSEMBLIES_LIST_ID)}?$expand=fields($select=${QUOTE_ASSEMBLY_SELECT})&$top=999`,
+  const listId = SP_QUOTE_ASSEMBLIES_LIST_ID;
+  const items = await readWithEurFallback((select) =>
+    graphFetchAll<GraphListItem>(`${listPath(listId)}?$expand=fields($select=${select})&$top=999`),
   );
   return items.map(toQuoteAssembly).sort(compareLines);
 }
@@ -77,6 +129,8 @@ export async function createQuoteAssembly(input: QuoteAssemblyInput): Promise<Qu
       targetGM: input.targetGM,
       manualPrice: input.manualPrice,
       targetPrice: input.targetPrice,
+      targetPriceEur: input.targetPriceEur ?? null,
+      eurUsdRate: input.targetPriceEur != null ? (input.eurUsdRate ?? null) : null,
       estimatedEau: input.estimatedEau,
       customerPrice: input.customerPrice,
     };
@@ -84,9 +138,11 @@ export async function createQuoteAssembly(input: QuoteAssemblyInput): Promise<Qu
     return mockDelay(quoteMockClone.assembly(row));
   }
   const listId = requireListId("add an assembly");
+  const createFields = buildQuoteAssemblyCreateFields(input);
+  refuseEurWithoutColumns(createFields);
   const created = await graphFetch<GraphListItem>(listPath(listId), {
     method: "POST",
-    body: JSON.stringify({ fields: buildQuoteAssemblyCreateFields(input) }),
+    body: JSON.stringify({ fields: createFields }),
   });
   return readAssembly(listId, parseInt(created.id, 10));
 }
@@ -107,6 +163,7 @@ export async function updateQuoteAssemblyFields(
   const listId = requireListId("update an assembly");
   const fields = buildQuoteAssemblyUpdateFields(changes, previous);
   if (Object.keys(fields).length === 0) return previous;
+  refuseEurWithoutColumns(fields);
   await graphFetch(`${listPath(listId)}/${id}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
   return readAssembly(listId, id);
 }

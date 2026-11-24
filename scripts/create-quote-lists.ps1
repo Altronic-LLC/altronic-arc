@@ -29,7 +29,9 @@
                            SapPartNumber, CustomerPartNumber, Description,
                            PriceBreaks (JSON), TargetGM (the ONE margin on the
                            line), ManualPrice, TargetPrice (the customer's
-                           target), EstimatedEAU, CustomerPrice
+                           target), TargetPriceEur + EurUsdRate (the same
+                           target in euros, optional), EstimatedEAU,
+                           CustomerPrice
 
     COLUMNS ADDED IN v0.209.0 (Ray, 2026-10-29/30) — CustomerReference,
     CustomerType, ProjectContext, Alternates, EngineeringTaskId,
@@ -37,6 +39,11 @@
     and EstimatedEAU on Quote Assemblies. ARC selects them, and selecting a
     column a list hasn't got 400s the WHOLE read, so re-run this script
     against the live lists BEFORE that version deploys.
+
+    COLUMNS ADDED IN v0.232.0 (Ray, 2026-11-24) — TargetPriceEur and
+    EurUsdRate on Quote Assemblies, and ProjectFolder (text) on Quotes. ARC reads without them if they're missing
+    (and refuses a euro target until they exist), so this one is safe either
+    way round — but run it to turn the euro target on.
 
     RETIRED, never deleted: Quotes' EngineeringTaskLink / OperationsTaskLink
     (Hyperlink — Graph can't write one, so the links became number columns),
@@ -195,8 +202,10 @@ $Lists = @(
             (Lookup "CustomerRef" "Customer" "Quote Customers"),
             @{
                 name = "Status"; displayName = "Status"
-                choice = @{ choices = @("Draft", "Sent", "Won", "Lost", "Expired"); displayAs = "dropDownMenu"; allowTextEntry = $false }
-                defaultValue = @{ value = "Draft" }
+                # The live column as of 2026-11-24: Draft removed, the "Waiting
+                # on…" statuses added, no default (a new quote has no status).
+                # ARC reads the LIVE choices, so a later change needs no code.
+                choice = @{ choices = @("Sent", "Won", "Lost", "Expired", "Waiting on labor", "Waiting on customer", "Waiting on material quotes", "Revisiting COGS", "Engineering Task in process"); displayAs = "dropDownMenu"; allowTextEntry = $false }
             },
             (Number "ValidityDays" "Validity Days" "none" 30),
             (Text "ContactName" "Contact Name"),
@@ -214,6 +223,9 @@ $Lists = @(
             # Internal: background on the project, shown in the Target &
             # volume summary. Plain text, never rich.
             (Note "ProjectContext" "Project Context"),
+            # The NAME of the quote's project folder directly under
+            # General/IC Quotes (Ray, 2026-11-24). Shared by every rev.
+            (Text "ProjectFolder" "Project Folder"),
             # JSON: the page-two Alternates table (three manufacturer options
             # + a reason per row). Plain text, never rich.
             (Note "Alternates" "Alternates"),
@@ -257,6 +269,10 @@ $Lists = @(
             # Internal (never printed): the customer's target price for one,
             # and their estimated annual usage — the Target & volume summary.
             (Currency "TargetPrice" "Target Price"),
+            # The same target in EUROS, when the customer gave one, and the
+            # rate it was converted at (Ray, 2026-11-24). Optional.
+            (Number "TargetPriceEur" "Target Price (EUR)"),
+            (Number "EurUsdRate" "EUR to USD Rate"),
             (Number "EstimatedEAU" "Estimated EAU" "none"),
             (Currency "CustomerPrice" "Customer Price")
         )
@@ -544,7 +560,7 @@ Write-Host "  the second must REPLACE the stored value, not double the thread." 
 
 Write-Host "`nWRITE / READ-BACK CHECK: a 2xx from a write is not proof a value landed (the DisplayName trap)." -ForegroundColor Yellow
 Write-Host "  Before building on these lists, write one value into each column through Graph and read it back" -ForegroundColor Yellow
-Write-Host "  — at minimum PersonName on Quote Roles, the lookups (bare integers), LaborCost, Alternates, the task ids, CustomerType, TargetPrice and EstimatedEAU." -ForegroundColor Yellow
+Write-Host "  — at minimum PersonName on Quote Roles, the lookups (bare integers), LaborCost, Alternates, the task ids, CustomerType, TargetPrice, TargetPriceEur, EurUsdRate, EstimatedEAU and ProjectFolder." -ForegroundColor Yellow
 
 Write-Host "`nList ids — add to .env.local, to the GitHub repo variables, and to deploy.yml's named list:" -ForegroundColor Cyan
 foreach ($spec in $Lists) { Write-Host "  $($spec.envVar)=$($listIds[$spec.name])" -ForegroundColor Green }

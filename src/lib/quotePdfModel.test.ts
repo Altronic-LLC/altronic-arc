@@ -26,6 +26,7 @@ function quote(over: Partial<Quote> = {}): Quote {
     customerReference: "  RFQ 4471 — retrofit  ",
     customerType: null,
     projectContext: "",
+    projectFolder: "",
     alternates: [
       {
         designator: "",
@@ -97,6 +98,8 @@ function assembly(over: Partial<QuoteAssembly> = {}): QuoteAssembly {
     targetGM: 37.77,
     manualPrice: null,
     targetPrice: null,
+    targetPriceEur: null,
+    eurUsdRate: null,
     estimatedEau: null,
     customerPrice: 999.01,
     ...over,

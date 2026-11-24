@@ -172,14 +172,29 @@ describe("the quote PDF", () => {
     expect(text.indexOf("$15,833.20")).toBeLessThan(text.indexOf("Lead time six weeks ARO."));
   });
 
-  it("prints SAP / Cust. numbers under the part number only when they are set", async () => {
+  it("keeps a five-digit quantity on ONE line — the QTY column used to wrap it", async () => {
+    const base = model();
+    const assemblies = base.assemblies.map((a, i) => (i === 1 ? { ...a, quotedQty: 12500, lineTotal: 12346750 } : a));
+    const { text } = await render(model({ assemblies }));
+    expect(text.split("\n")).toContain("12500");
+    // …and its eight-figure subtotal stays on one line too.
+    expect(text.split("\n")).toContain("$12,346,750.00");
+  });
+
+  it("leads with the CUSTOMER's part number, ours in small print beneath", async () => {
     const { text, raw } = await render(model());
     const lines = text.split("\n");
+    // Line 1 has a customer number: it is the bold line, Altronic's beneath.
+    expect(lines).toContain("CUST-9");
+    expect(lines).toContain("Altronic 601110");
+    expect(lines).not.toContain("601110");
+    expect(text).not.toContain("Cust. ");
+    // Line 2 has none: its Altronic number stays the bold line, SAP beneath.
+    expect(lines).toContain("791950-16");
     expect(lines).toContain("SAP SAP-77");
-    expect(lines).toContain("Cust. CUST-9");
     // Line 1 has no SAP number, line 2 no customer number — no empty labels.
     expect(lines.filter((l) => l.startsWith("SAP "))).toHaveLength(1);
-    expect(lines.filter((l) => l.startsWith("Cust. "))).toHaveLength(1);
+    expect(lines.filter((l) => l.startsWith("Altronic "))).toHaveLength(1);
     // The part number, its description, the first price and the qty share a baseline.
     const y = (s: string) => {
       const esc = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -187,9 +202,10 @@ describe("the quote PDF", () => {
       if (!m) throw new Error(`no text run for ${s}`);
       return Number(m[1]);
     };
-    expect(y("Harness assembly")).toBeCloseTo(y("601110"), 1);
-    expect(y("1 - 9 pcs")).toBeCloseTo(y("601110"), 1);
-    expect(y("12")).toBeCloseTo(y("601110"), 1);
+    expect(y("Harness assembly")).toBeCloseTo(y("CUST-9"), 1);
+    expect(y("1 - 9 pcs")).toBeCloseTo(y("CUST-9"), 1);
+    expect(y("12")).toBeCloseTo(y("CUST-9"), 1);
+    expect(y("Altronic 601110")).toBeLessThan(y("CUST-9"));
     // The SAP line sits BELOW its part number (PDF y grows upward).
     expect(y("SAP SAP-77")).toBeLessThan(y("791950-16"));
     // Part numbers are set in bold Courier.
@@ -424,9 +440,9 @@ describe("the quote PDF", () => {
     expect(pages).toBeGreaterThan(1);
     expect(pageCount(raw)).toBe(pages);
     for (let p = 1; p <= pages; p++) expect(text).toContain(`Page ${p} of ${pages}`);
-    for (const a of assemblies) expect(text).toContain(a.altronicPartNumber);
+    for (const a of assemblies) expect(text).toContain(a.customerPartNumber);
     // The table header repeats at the top of every page the table runs onto.
-    const tablePages = raw.split(/\/Type \/Page\b/).slice(1).filter((p) => /\(PN-\d+\) Tj/.test(p));
+    const tablePages = raw.split(/\/Type \/Page\b/).slice(1).filter((p) => /\(C-\d+\) Tj/.test(p));
     expect(tablePages.length).toBeGreaterThan(1);
     for (const p of tablePages) {
       for (const h of ["PART #", "DESCRIPTION", "PRICE", "QTY", "SUBTOTAL"]) expect(p).toContain(`(${h}) Tj`);

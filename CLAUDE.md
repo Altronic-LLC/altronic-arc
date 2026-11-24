@@ -558,6 +558,7 @@ src/
 │   ├── quoteRoles.ts             Quote Roles list CRUD (viewer / quoter / manager) — unset = nobody has access
 │   ├── quoteRevisions.ts         New rev — copies header (reference, alternates, links), lines, comments, attachments; best-effort after the header
 │   ├── quotePdfFiles.ts          Save a quote PDF to General/IC Quotes (PMO library) — rename on clash, never creates the folder
+│   ├── quoteFolders.ts           A quote's project folder under General/IC Quotes — list / create there, and a driveLibrary rooted at each quote's folder
 │   ├── pricingLookup.ts          Sales Pricing's ONE seam to SAP (Fabric warehouse) — parts, customers, discounts, comparables; mock now, real throws PricingDataNotConnectedError
 │   ├── pricingRequests.ts        Pricing Requests CRUD + comments + watchers (salesTeam site) — PR-YYYY-####, final price only, DIFFED edits, no delete
 │   ├── pricingHistory.ts         Pricing History — one row per request, JSON History APPENDED per pricing; refuses to write over a History it can't parse
@@ -695,6 +696,7 @@ src/
 │   ├── useQuoteCustomers.ts      Quote Customers queries + manager-gated mutations
 │   ├── useQuoteRoles.ts          Quote Roles CRUD + useMyQuoteAccess / useResolveQuoteAccess (awaited in every mutationFn)
 │   ├── useQuotePdf.ts            Generate the customer PDF (local download) + the explicit Save to folder
+│   ├── useQuoteFolder.ts         A quote's project folder — browse / subfolder / upload hooks per folder, and the edit-gated create-or-link
 │   ├── useQuoteToTask.ts         A Won quote → an Engineering / Operations task: carries the discussion, links it back, emails the watchers
 │   ├── usePricingRoles.ts        Pricing Roles CRUD + useMyPricingAccess / useResolvePricingAccess — the preview switch sits in front of both
 │   ├── usePricingLookup.ts       SAP facts as queries — each answers `notConnected` so a screen falls back to typed entry
@@ -1076,7 +1078,8 @@ src/
 │   ├── QuoteToTaskModal.tsx          Create task from a Won quote — Engineering / Operations, title, project (sets the number)
 │   ├── FromQuoteLink.tsx             "From quote: IQ-…" on a task created from a quote, read off its own thread
 │   ├── QuoteLinksPanel.tsx           A quote's Linked work — Engineering / Operations task (item id) and project (title) pickers, saved on pick
-│   ├── QuoteTargetSummaryCard.tsx    A quote's Target & volume card — price vs the customer's target, a year's revenue at the EAU, GM % / GM $ (cost-gated), Project context
+│   ├── QuoteTargetSummaryCard.tsx    A quote's Target & volume card — each part on its own: price vs its target (USD or EUR), revenue at its EAU, GM % / GM $ (cost-gated), Project context
+│   ├── QuoteProjectFolderCard.tsx    A quote's Project folder — create or link one in General/IC Quotes, then browse it, add subfolders, upload
 │   ├── QuoteAlternatesCard.tsx       A quote's Alternates table (designator, 3 × manufacturer / part # / lead time, reason) + its editor (typed, or pasted from Excel) — printed on its own PDF page
 │   ├── QuoteCustomerFormModal.tsx    New/edit a quote customer — proposed code, clash candidates, similar-name warning (manager)
 │   ├── pricingAtoms.tsx              Sales Pricing status chip, sub-nav (Requests / New Products / Customer Quotes / Roles), access gate, card shells
@@ -5040,8 +5043,65 @@ column doesn't declare.
 carries the customer's `TargetPrice` (currency) and `EstimatedEAU` (number,
 whole ≥ 1 — `parseEau` reads anything else as null), both optional, entered
 on the line form. Per line, not per quote: a quote is several parts, each
-with its own target and volume. `quoteTargetSummary` (lib/quotePricing.ts)
-is the maths:
+with its own target and volume.
+
+**The card shows EACH PART ON ITS OWN, never totals** (Ray, 2026-11-24): one
+block per line with a target or an EAU set, led by the customer's part number
+(else ours), with its target, our price, vs target, EAU, annual revenue and —
+for `canSeeCost` — GM % and GM $. A line with neither is left out and counted
+in a note. The quote-level totals `quoteTargetSummary` still computes are not
+shown on the card; the quotes list's **Annual Revenue** column (it replaced
+"Total" the same day, when Created and Expires also left the list) is
+`quoteTargetSummary(lines).annualRevenue`. Don't put totals back on the card.
+
+**A target can be given in EUROS** (Ray, 2026-11-24) — `TargetPriceEur` and
+`EurUsdRate` (both Number) on Quote Assemblies, optional. The form has ONE
+target box and a USD / EUR choice ("target can be either USD OR EUR"); in
+EUR the rate box appears and the dollars are shown (`eurToUsd`: € × rate, to
+the cent). The rate defaults to `DEFAULT_EUR_USD_RATE` (1.12, the 2026
+average) on a new line; a line with a euro target opens in EUR with its own
+rate, so changing the default never re-prices an old line. All three are
+stored; everything else reads `TargetPrice`. A USD target = both euro
+columns null (switching a EUR line to USD clears them).
+
+**Each quote has a PROJECT FOLDER** (Ray, 2026-11-24) — a folder directly
+under `General/IC Quotes` in the PMO Documents library (where the PDFs are
+saved too), in a card above Attachments. Pieces: `api/quoteFolders.ts`,
+`hooks/useQuoteFolder.ts`, `components/QuoteProjectFolderCard.tsx`. Rules:
+- **The quote stores the folder's NAME** in `ProjectFolder` (text on Quotes),
+  not an id, so the link reads in SharePoint too. A new rev copies it, and
+  `quoteFolderFor` also finds it on another rev of the same base, so a rev
+  made before the folder existed still shows it. A folder renamed or moved in
+  SharePoint 404s; the card says so and offers "Link a different folder".
+- **Two `driveLibrary` configs, no new Graph code**: one rooted at IC Quotes
+  (list folders to link; create one, `conflictBehavior: fail`), and one
+  rooted AT each quote's folder (`quoteFolderLibrary(name)`, cached per
+  name; its hooks from `quoteFolderHooks(name)`, cached too). The card's
+  breadcrumb therefore never goes above the quote's folder. Navigation is
+  card state, not the URL.
+- **Creating or linking needs the quote EDIT right**, asked inside
+  `useSetUpQuoteFolder`'s mutationFn BEFORE the folder is created (verified
+  by removing it). A folder created but not linked says so, so nobody makes
+  a second. Subfolders and uploads are open to every quote role, like
+  attachments; rename and delete are left to SharePoint.
+- **`ProjectFolder` came after the list was live**, so `listQuotes` /
+  `getQuote` select it and, on a 400 only, retry without and remember
+  (`quoteFolderColumnAvailable`); a write naming it is then refused naming
+  `create-quote-lists.ps1`, and a create leaves it out. Pinned in
+  `quotes.projectFolder.real.test.ts`.
+
+**Quote page styling** (Ray, 2026-11-24): field labels are `text-accent`
+(red; section headings stay grey), and sections are tinted by MEANING —
+`SECTION_TONE` in QuoteDetailView: green = what we sell at (Quote total,
+each line's quoted-quantity panel), blue = the customer's targets (Target &
+volume, with its part blocks on plain surface), yellow = Alternates. Tints
+only, never coloured text; checked by eye in both themes.
+The two columns came after the list was live, so `listQuoteAssemblies` /
+`readAssembly` select them and, **on a 400 only**, retry without and remember
+(`quoteAssemblyEurColumnsAvailable`); a write naming them is then refused,
+naming `create-quote-lists.ps1`. Pinned in `quoteAssemblies.eur.real.test.ts`.
+
+`quoteTargetSummary` (lib/quotePricing.ts) is the maths:
 - **Our price is the unit price at the line's QUOTED quantity** (the
   Subtotal's tier), not the base price.
 - Annual revenue = that price × EAU; annual cost = unit cost × EAU; GM $ =
@@ -5137,6 +5197,25 @@ Parts Roles / CMMS pattern). Each tag implies the ones below it.
   them. A separate restricted cost list was considered and **deliberately not
   built**; SharePoint list permissions are the real boundary. Don't describe
   the viewer role as securing cost — the Manual says this plainly too.
+
+**Statuses come from the LIVE column** (Ray, 2026-11-24, when Draft was
+removed and Waiting on labor / Waiting on customer / Waiting on material
+quotes / Revisiting COGS / Engineering Task in process were added in
+SharePoint). `listQuoteStatusChoices` → `useQuoteStatusChoices` reads the
+`Status` choices; `QUOTE_STATUSES` is only the fallback (and the demo's).
+Four rules:
+- **`QuoteStatus` is a `string`, read AS STORED** — an old "Draft" (one live
+  quote had it) is kept and shown, offered in its own picker
+  (`withCurrentChoice`) and as a list pill, never re-read as something else.
+- **A new quote and a new rev start with NO status** (`""`, left out of the
+  create POST): the column has no default and isn't required. The list has a
+  "No status" pill (`?status=none`) while any quote has none; a `""` write
+  clears the column (`null`).
+- **Outcomes are still `QUOTE_OUTCOME_STATUSES`** (Won / Lost / Expired —
+  manager only); every other status is a working one any quoter sets. The
+  Dashboard's open count is "latest rev with no outcome".
+- **The Sent-edit guard and the save-PDF prompt still key on the literal
+  `"Sent"`** — renaming that choice in SharePoint breaks both.
 
 **Pricing — `lib/quotePricing.ts`, pure, the single source of truth.** GM is
 `(price − cost) / price`.
@@ -5251,15 +5330,20 @@ made deliberate. **The latest rev is DERIVED** (highest `Rev` for a
   `useCurrentUser()`'s display name and MAILBOX (never `account.username`)
   through a ref, and the model carries them field by field (`preparedBy`, null
   when both blank). It sits beside "Prepared for".
-- **Each line spans the page width** (Ray, 2026-10-09): a grey band with the
-  number + part # in bold and the description on the SAME line after an em
-  dash (wrapping under the part number), then a smaller grey "SAP part no. … ·
-  Your part no. …" line (blanks omitted); a full-width "Quantity | Unit price |
-  Subtotal" row at the quoted quantity; a "Volume pricing" table only when the
-  line has breaks; and a right-aligned "Total" after the lines. The band moves
-  to the next page unless it and the next table's header + row fit. Pinned by
-  tests reading x / y positions out of the content stream (the em dash is the
-  WinAnsi byte 0x97 there).
+- **The lines are ONE "QUOTED ITEMS" table** — PART # | DESCRIPTION | PRICE
+  (every tier, range label in a fixed sub-column) | QTY | SUBTOTAL — with the
+  header repeated on every page and a right-aligned Total after it. The Part
+  and Price cells are drawn by hand (several fonts in one cell).
+- **The CUSTOMER's part number leads** (Ray, 2026-11-24: insourced parts are
+  never given an Altronic number): bold Courier is `customerPartNumber`, with
+  "Altronic …" and "SAP …" in small print beneath when set. A line with no
+  customer number leads with the Altronic number. Screens are unchanged.
+- **Column widths are tuned against wrapping** (`COL_*` in lib/quotePdf.ts):
+  QTY is 10% so a five-digit quantity stays on one line (6% wrapped it), and
+  SUBTOTAL is 15% for an eight-figure amount; both came out of Part # and
+  Description. Pinned by a test asserting `12500` and `$12,346,750.00` are
+  single text runs — verified by restoring 6% and watching it fail. Check a
+  width change by rendering the PDF and looking (the QC Forms recipe).
 
 **Saving is EXPLICIT.** Generate downloads locally and saves nothing; **Save
 to folder** (`api/quotePdfFiles.ts`) writes to `General/IC Quotes` in the PMO

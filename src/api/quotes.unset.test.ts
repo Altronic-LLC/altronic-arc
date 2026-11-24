@@ -53,6 +53,8 @@ describe("quote lists not configured", () => {
       createQuoteAssembly({
         quoteId: 1, lineNo: 1, altronicPartNumber: "A", sapPartNumber: "", customerPartNumber: "",
         targetPrice: null,
+        targetPriceEur: null,
+        eurUsdRate: null,
         estimatedEau: null,
         description: "", priceBreaks: [], targetGM: null, manualPrice: null, customerPrice: null,
         materialCost: null, laborCost: null, materialOverheadPct: null, quotedQty: 1,

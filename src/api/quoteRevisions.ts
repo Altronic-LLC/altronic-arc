@@ -79,7 +79,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
     },
     {
       customerId: source.customerId,
-      status: "Draft",
+      // A new rev hasn't been sent; it starts with no status (Draft is gone).
+      status: "",
       validityDays: source.validityDays,
       contactName: source.contactName,
       contactEmail: source.contactEmail,
@@ -89,6 +90,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
       customerReference: source.customerReference,
       customerType: source.customerType,
       projectContext: source.projectContext,
+      // Every rev shares the quote's one project folder.
+      projectFolder: source.projectFolder,
       alternates: source.alternates,
       engineeringTaskId: source.engineeringTaskId,
       operationsTaskId: source.operationsTaskId,
@@ -128,6 +131,8 @@ export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quo
         targetGM: a.targetGM,
         manualPrice: a.manualPrice,
         targetPrice: a.targetPrice,
+        targetPriceEur: a.targetPriceEur,
+        eurUsdRate: a.eurUsdRate,
         estimatedEau: a.estimatedEau,
         customerPrice: a.customerPrice,
       });

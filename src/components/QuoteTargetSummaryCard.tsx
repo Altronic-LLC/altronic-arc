@@ -8,10 +8,12 @@ import { FieldEditModal } from "./FieldEditModal";
 // =============================================================================
 // The quote's TARGET & VOLUME summary (Ray, 2026-10-30).
 //
-// Where our price sits against the customer's target price, what a year at
-// their estimated EAU is worth, and — for whoever can see cost — the GM % and
-// GM $ that year carries. The maths is `quoteTargetSummary`
-// (lib/quotePricing.ts); this card only lays it out.
+// PER PART, never totalled (Ray, 2026-11-24): one block for each line that
+// has a target or an EAU set — where our price sits against that part's
+// target (and the euros it came from, when given in euros), what a year at
+// its EAU is worth, and — for whoever can see cost — its GM % and GM $. Lines
+// with neither are left out, and the card says how many. The maths is
+// `quoteTargetSummary` (lib/quotePricing.ts); this card only lays it out.
 //
 // Everything here is INTERNAL: target price, EAU and Project context are
 // never printed. GM % and GM $ are cost-derived, so they show only with
@@ -35,10 +37,17 @@ interface Props {
 export function QuoteTargetSummaryCard({ quote, assemblies, canSeeCost, canEdit, onSaveContext, busy }: Props) {
   const summary = useMemo(() => quoteTargetSummary(assemblies), [assemblies]);
   const [editing, setEditing] = useState(false);
-  const anyFigures = summary.lines.some((l) => l.targetPrice !== null || l.estimatedEau !== null);
+  // Each part is shown on its own, and only where a target or EAU is SET on
+  // it (Ray, 2026-11-24) — never added up into quote totals.
+  const setLines = summary.lines.filter((l) => l.targetPrice !== null || l.estimatedEau !== null);
+  const unsetCount = summary.lines.length - setLines.length;
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-4 sm:p-5" aria-label="Target and volume">
+    <section
+      className="rounded-xl border border-superior-blue/30 bg-superior-blue/10 p-4 sm:p-5"
+      aria-label="Target and volume"
+      data-tone="target"
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Target &amp; volume</h2>
         {canEdit && (
@@ -54,75 +63,65 @@ export function QuoteTargetSummaryCard({ quote, assemblies, canSeeCost, canEdit,
         )}
       </div>
 
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Summary">
-        <Stat label="Our price vs target">
-          <VsTarget amount={summary.vsTarget} pct={summary.vsTargetPct} />
-          {summary.targetRevenue !== null && (
-            <span className="block text-[11px] text-fg-muted">
-              a year, against {formatMoney(summary.targetRevenue)} at their target
-            </span>
-          )}
-        </Stat>
-        <Stat label="Annual revenue at EAU">{formatMoney(summary.annualRevenue)}</Stat>
-        {canSeeCost && <Stat label="GM %">{formatPct(summary.annualGmPct)}</Stat>}
-        {canSeeCost && <Stat label="GM $ a year">{formatMoney(summary.annualGm)}</Stat>}
-      </dl>
-
-      {summary.lines.length > 0 && (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[40rem] whitespace-nowrap text-left text-xs" aria-label="Target and volume by line">
-            <thead className="text-[11px] uppercase tracking-wider text-fg-muted">
-              <tr>
-                <th className="px-2 py-1 font-semibold">Line</th>
-                <th className="px-2 py-1 text-right font-semibold">Target</th>
-                <th className="px-2 py-1 text-right font-semibold">Our price</th>
-                <th className="px-2 py-1 text-right font-semibold">vs target</th>
-                <th className="px-2 py-1 text-right font-semibold">EAU</th>
-                <th className="px-2 py-1 text-right font-semibold">Annual revenue</th>
-                {canSeeCost && <th className="px-2 py-1 text-right font-semibold">GM %</th>}
-                {canSeeCost && <th className="px-2 py-1 text-right font-semibold">GM $ a year</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {summary.lines.map((l) => (
-                <tr key={l.assemblyId} className="border-t border-border tabular-nums">
-                  <td className="px-2 py-1 text-fg">
-                    {l.lineNo}
-                    {l.partNumber && <span className="ml-1.5 text-fg-muted">{l.partNumber}</span>}
-                  </td>
-                  <td className="px-2 py-1 text-right text-fg">{formatMoney(l.targetPrice)}</td>
-                  <td className="px-2 py-1 text-right text-fg">{formatMoney(l.unitPrice)}</td>
-                  <td className="px-2 py-1 text-right">
-                    <VsTarget amount={l.vsTarget} pct={l.vsTargetPct} />
-                  </td>
-                  <td className="px-2 py-1 text-right text-fg">
-                    {l.estimatedEau === null ? "—" : l.estimatedEau.toLocaleString("en-US")}
-                  </td>
-                  <td className="px-2 py-1 text-right text-fg">{formatMoney(l.annualRevenue)}</td>
-                  {canSeeCost && <td className="px-2 py-1 text-right text-fg-muted">{formatPct(l.gmPct)}</td>}
-                  {canSeeCost && <td className="px-2 py-1 text-right text-fg-muted">{formatMoney(l.annualGm)}</td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {setLines.length > 0 && (
+        <ul className="space-y-3" aria-label="Target and volume by part">
+          {setLines.map((l) => (
+            <li
+              key={l.assemblyId}
+              className="rounded-lg border border-border bg-surface p-3"
+              aria-label={`Line ${l.lineNo} ${partLabel(l)}`}
+            >
+              <p className="mb-2 text-sm font-medium text-fg">
+                <span className="text-fg-muted">Line {l.lineNo}</span>
+                {partLabel(l) && <span className="ml-1.5">{partLabel(l)}</span>}
+              </p>
+              {/* Columns fit the card, never a fixed count: the vs-target chip
+                  doesn't wrap, and at six fixed columns it ran into EAU. */}
+              <dl className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3">
+                <Stat label="Target">
+                  {formatMoney(l.targetPrice)}
+                  {l.targetPriceEur !== null && (
+                    <span className="block text-[11px] text-fg-muted">
+                      €{l.targetPriceEur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {l.eurUsdRate !== null && ` at ${l.eurUsdRate}`}
+                    </span>
+                  )}
+                </Stat>
+                <Stat label="Our price">{formatMoney(l.unitPrice)}</Stat>
+                <Stat label="vs target">
+                  <VsTarget amount={l.vsTarget} pct={l.vsTargetPct} />
+                </Stat>
+                <Stat label="EAU">{l.estimatedEau === null ? "—" : l.estimatedEau.toLocaleString("en-US")}</Stat>
+                <Stat label="Annual revenue">{formatMoney(l.annualRevenue)}</Stat>
+                {canSeeCost && (
+                  <Stat label="GM">
+                    {formatPct(l.gmPct)}
+                    {l.annualGm !== null && (
+                      <span className="block text-[11px] text-fg-muted">{formatMoney(l.annualGm)} a year</span>
+                    )}
+                  </Stat>
+                )}
+              </dl>
+            </li>
+          ))}
+        </ul>
       )}
 
       <div className="mt-2 space-y-0.5 text-[11px] text-fg-muted">
-        {!anyFigures && summary.lines.length > 0 && (
-          <p>Add each line's customer target price and estimated EAU (Edit on the line) to fill this in.</p>
+        {setLines.length === 0 && summary.lines.length > 0 && (
+          <p>Add a line's customer target price and estimated EAU (Edit on the line) to show it here.</p>
         )}
-        {anyFigures && summary.linesMissingEau > 0 && (
+        {setLines.length > 0 && unsetCount > 0 && (
           <p>
-            {summary.linesMissingEau} line{summary.linesMissingEau === 1 ? " has" : "s have"} no EAU or no price yet and{" "}
-            {summary.linesMissingEau === 1 ? "is" : "are"} left out of the annual figures.
+            {unsetCount} line{unsetCount === 1 ? " has" : "s have"} no target or EAU set and {unsetCount === 1 ? "isn't" : "aren't"}{" "}
+            shown.
           </p>
         )}
-        <p>Our price is each line's unit price at its quoted quantity. Internal — none of this is printed.</p>
+        <p>Our price is each part's unit price at its quoted quantity. Internal — none of this is printed.</p>
       </div>
 
       <div className="mt-4 border-t border-border pt-3">
-        <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Project context</dt>
+        <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">Project context</dt>
         <dd className="whitespace-pre-wrap text-sm text-fg" data-testid="project-context">
           {quote.projectContext.trim() ? quote.projectContext : <span className="text-fg-muted">Not set</span>}
         </dd>
@@ -155,10 +154,15 @@ export function QuoteTargetSummaryCard({ quote, assemblies, canSeeCost, canEdit,
   );
 }
 
+/** The customer's part number when there is one, else ours. */
+function partLabel(l: { customerPartNumber: string; partNumber: string }): string {
+  return l.customerPartNumber || l.partNumber;
+}
+
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</dt>
+      <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">{label}</dt>
       <dd className="text-sm tabular-nums text-fg">{children}</dd>
     </div>
   );

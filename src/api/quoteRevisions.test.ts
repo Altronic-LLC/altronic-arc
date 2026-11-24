@@ -36,7 +36,7 @@ describe("carriedQuoteCommunication", () => {
 });
 
 describe("createQuoteRevision (mock mode)", () => {
-  it("copies the header forward as the next rev, Draft, same base", async () => {
+  it("copies the header forward as the next rev, with no status, same base", async () => {
     // Quote 1 is R1 of a base that already has R2 — the new rev is R3, not R2.
     await updateQuoteFields(1, { quoteNotes: "R1 notes" }, (await getQuote(1))!);
     const { quote, warnings } = await createQuoteRevision(1);
@@ -45,7 +45,7 @@ describe("createQuoteRevision (mock mode)", () => {
       quoteNumber: "IQ-COO-0001-R3",
       quoteBase: "IQ-COO-0001",
       rev: 3,
-      status: "Draft",
+      status: "",
       customerId: 1,
       quoteNotes: "R1 notes",
     });
@@ -72,7 +72,7 @@ describe("createQuoteRevision (mock mode)", () => {
     expect(sources).toHaveLength(2);
   });
 
-  it("copies the reference, customer type, project context, alternates and task / project links", async () => {
+  it("copies the reference, customer type, project context, project folder, alternates and task / project links", async () => {
     const source = (await getQuote(2))!;
     await updateQuoteFields(
       2,
@@ -84,6 +84,8 @@ describe("createQuoteRevision (mock mode)", () => {
       customerReference: "RFQ 4471 — CPU-95 retrofit kits",
       customerType: "Cooper",
       projectContext: source.projectContext,
+      // Every rev shares the quote's one project folder.
+      projectFolder: "IQ-COO-0001 Cooper CPU-95 retrofit",
       engineeringTaskId: 47,
       operationsTaskId: 3,
       engineeringProjectRef: "0042-NGI",

@@ -178,18 +178,21 @@ describe("QuoteDetailView — revisions", () => {
 });
 
 describe("QuoteDetailView — status", () => {
-  it("a QUOTER can move Draft → Sent but the outcomes are refused, with the reason on screen", async () => {
+  it("a QUOTER can move between the working statuses but the outcomes are refused, with the reason on screen", async () => {
     who.email = QUOTER;
     renderQuote(2);
     await waitForWorksheet();
     const group = screen.getByRole("group", { name: "Quote status" });
     expect(within(group).getByRole("button", { name: "Sent" })).not.toHaveAttribute("aria-disabled");
+    expect(within(group).getByRole("button", { name: "Waiting on customer" })).not.toHaveAttribute("aria-disabled");
+    // Draft is no longer a status.
+    expect(within(group).queryByRole("button", { name: "Draft" })).toBeNull();
     const won = within(group).getByRole("button", { name: "Won" });
     expect(won).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText(/Only a quote manager can mark a quote Won/)).toBeInTheDocument();
 
     await userEvent.click(won);
-    expect(quoteMockDb.quotes.find((q) => q.id === 2)?.status).toBe("Draft");
+    expect(quoteMockDb.quotes.find((q) => q.id === 2)?.status).toBe("Waiting on labor");
   });
 
   it("a MANAGER may set an outcome", async () => {
@@ -233,7 +236,7 @@ describe("QuoteDetailView — editing a Sent quote", () => {
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
   });
 
-  it("does NOT ask on a Draft quote", async () => {
+  it("does NOT ask on a quote that hasn't been sent", async () => {
     renderQuote(2);
     await waitForWorksheet();
     await userEvent.click(screen.getByRole("button", { name: "Edit quote details" }));
@@ -517,31 +520,50 @@ describe("QuoteDetailView — layout", () => {
 });
 
 describe("QuoteDetailView — target & volume summary, project context, customer type", () => {
-  it("a QUOTER sees each line's price against the target, a year's revenue at the EAU, and its GM", async () => {
+  it("a QUOTER sees EACH PART on its own — target, price, EAU, revenue and GM — never a quote total", async () => {
     who.email = QUOTER;
     renderQuote(2);
     await waitForWorksheet();
     const card = screen.getByRole("region", { name: "Target and volume" });
+    // Line 1 leads with the customer's part number; line 2 has none, so ours.
     // Line 1: 30 off at the 10-off break — $1,106.11 against $1,050.00, 120 a year.
     // Line 2: manual $115.00 against $120.00, 600 a year.
-    const rows = within(within(card).getByRole("table")).getAllByRole("row");
-    expect(rows[1]).toHaveTextContent("$1,050.00");
-    expect(rows[1]).toHaveTextContent("$1,106.11");
-    expect(rows[1]).toHaveTextContent(/\$56\.11.*above/);
-    expect(rows[1]).toHaveTextContent("$132,733.20");
-    expect(rows[2]).toHaveTextContent(/\$5\.00.*below/);
-    expect(rows[2]).toHaveTextContent("$69,000.00");
-    expect(within(card).getByText("$201,733.20")).toBeInTheDocument();
-    expect(within(card).getAllByText("GM $ a year").length).toBeGreaterThan(0);
+    const one = within(card).getByRole("listitem", { name: /Line 1 CMS-IGN-0808/ });
+    expect(one).toHaveTextContent("$1,050.00");
+    expect(one).toHaveTextContent("$1,106.11");
+    expect(one).toHaveTextContent(/\$56\.11.*above/);
+    expect(one).toHaveTextContent("$132,733.20");
+    expect(one).toHaveTextContent("GM");
+    const two = within(card).getByRole("listitem", { name: /Line 2 693005-1/ });
+    expect(two).toHaveTextContent(/\$5\.00.*below/);
+    expect(two).toHaveTextContent("$69,000.00");
+    // The two parts are never added up.
+    expect(card).not.toHaveTextContent("$201,733.20");
     expect(within(card).getByTestId("project-context")).toHaveTextContent(/fleet refresh/);
   });
 
-  it("a VIEWER sees price vs target and revenue, but no GM", async () => {
+  it("leaves out a part with no target or EAU, says so, and shows a euro target beside its dollars", async () => {
+    who.email = QUOTER;
+    const two = quoteMockDb.assemblies.find((a) => a.id === 4)!;
+    two.targetPrice = null;
+    two.estimatedEau = null;
+    const one = quoteMockDb.assemblies.find((a) => a.id === 3)!;
+    one.targetPriceEur = 937.5;
+    one.eurUsdRate = 1.12;
+    renderQuote(2);
+    await waitForWorksheet();
+    const card = screen.getByRole("region", { name: "Target and volume" });
+    expect(within(card).getAllByRole("listitem")).toHaveLength(1);
+    expect(card).toHaveTextContent("1 line has no target or EAU set and isn't shown.");
+    expect(within(card).getByRole("listitem")).toHaveTextContent("€937.50 at 1.12");
+  });
+
+  it("a VIEWER sees each part's price vs target and revenue, but no GM", async () => {
     who.email = VIEWER;
     renderQuote(2);
     await waitForWorksheet();
     const card = screen.getByRole("region", { name: "Target and volume" });
-    expect(within(card).getByText("$201,733.20")).toBeInTheDocument();
+    expect(within(card).getByText("$132,733.20")).toBeInTheDocument();
     expect(card).not.toHaveTextContent("GM");
     expect(within(card).queryByRole("button", { name: "Edit project context" })).toBeNull();
   });

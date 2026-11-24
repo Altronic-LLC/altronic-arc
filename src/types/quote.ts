@@ -19,9 +19,32 @@
 
 import type { Comment, Person } from "./task";
 
-/** A quote's workflow status. Choice column `Status` on Quotes. */
-export const QUOTE_STATUSES = ["Draft", "Sent", "Won", "Lost", "Expired"] as const;
-export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+/**
+ * A quote's workflow status — choice column `Status` on Quotes.
+ *
+ * The screens read the column's LIVE choices (`listQuoteStatusChoices`), so a
+ * status added in SharePoint appears with no deploy; this list is only the
+ * FALLBACK when the column can't be read (and the demo's choices). It mirrors
+ * the live column as of 2026-11-24, when Draft was removed and the
+ * "Waiting on…" statuses added (Ray).
+ *
+ * A plain string, not a closed union: a stored value the column no longer
+ * offers (an old "Draft") is kept and shown as it is, never re-read as
+ * something else. `""` = no status set — a new quote starts there, since the
+ * column has no default.
+ */
+export const QUOTE_STATUSES = [
+  "Sent",
+  "Won",
+  "Lost",
+  "Expired",
+  "Waiting on labor",
+  "Waiting on customer",
+  "Waiting on material quotes",
+  "Revisiting COGS",
+  "Engineering Task in process",
+] as const;
+export type QuoteStatus = string;
 
 /**
  * Who the customer is (Ray, 2026-10-30). Choice column `CustomerType` on
@@ -49,6 +72,13 @@ export const QUOTE_OUTCOME_STATUSES: readonly QuoteStatus[] = ["Won", "Lost", "E
  */
 export const QUOTE_ROLES = ["viewer", "quoter", "manager"] as const;
 export type QuoteRole = (typeof QUOTE_ROLES)[number];
+
+/**
+ * The EUR → USD rate a NEW line's euro target is converted at — the 2026
+ * average (Ray, 2026-11-24). Changeable per line; each line stores the rate
+ * it was converted at, so changing this default never re-prices an old one.
+ */
+export const DEFAULT_EUR_USD_RATE = 1.12;
 
 /** Default validity, in days, of a new quote (AQT's default). */
 export const DEFAULT_QUOTE_VALIDITY_DAYS = 30;
@@ -157,6 +187,14 @@ export interface Quote {
    * the Target & volume summary. Internal, never printed.
    */
   projectContext: string;
+  /**
+   * `ProjectFolder` — the NAME of the quote's project folder directly under
+   * General/IC Quotes in the PMO Documents library (Ray, 2026-11-24). "" when
+   * none. Shared by every rev (a new rev copies it). A name, not an id, so
+   * the link reads in SharePoint too; a folder renamed there stops matching
+   * and the card says so.
+   */
+  projectFolder: string;
   /** `Alternates` JSON — the page-two alternates table. */
   alternates: QuoteAlternate[];
   /**
@@ -236,6 +274,14 @@ export interface QuoteAssembly {
    * never printed. null = not given.
    */
   targetPrice: number | null;
+  /**
+   * `TargetPriceEur` — the customer's target in EUROS, when they gave one.
+   * Optional. When set, `targetPrice` is worked out from it at `eurUsdRate`
+   * (the form fills the dollars in); everything else reads `targetPrice`.
+   */
+  targetPriceEur: number | null;
+  /** `EurUsdRate` — the rate `targetPriceEur` was converted at. null when no euro target. */
+  eurUsdRate: number | null;
   /**
    * `EstimatedEAU` — the customer's estimated annual usage, units a year.
    * Whole number ≥ 1, or null. Drives the summary's annual revenue and GM.

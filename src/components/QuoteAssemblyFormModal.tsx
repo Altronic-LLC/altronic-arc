@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Boxes, Loader2, Plus, Trash2, X } from "lucide-react";
 import {
+  DEFAULT_EUR_USD_RATE,
   DEFAULT_QUOTE_OVERHEAD_PCT,
   MAX_QUOTE_PRICE_BREAKS,
   type QuoteAssembly,
   type QuotePriceBreak,
 } from "@/types/quote";
 import type { QuoteAssemblyPatch } from "@/lib/quoteMapper";
-import { priceBreakProblems, priceQuoteAssembly } from "@/lib/quotePricing";
+import { eurToUsd, priceBreakProblems, priceQuoteAssembly } from "@/lib/quotePricing";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import {
   SAP_PART_NUMBER_PLACEHOLDER,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/sapPartNumber";
 import { useCreateQuoteAssembly, useUpdateQuoteAssembly } from "@/hooks/useQuoteAssemblies";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { ChoicePills } from "./ChoicePills";
 import { Field } from "./QuoteFormModal";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
@@ -38,7 +40,13 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 //
 // The customer's TARGET PRICE and ESTIMATED EAU (Ray, 2026-10-30) are
 // internal — never printed — and feed the worksheet's Target & volume
-// summary. Both optional; EAU is a whole number of units a year. Every
+// summary. Both optional; EAU is a whole number of units a year.
+//
+// The target is given in USD OR EUR (Ray, 2026-11-24): one amount box and a
+// USD / EUR choice. In EUR the rate shows — DEFAULT_EUR_USD_RATE (the 2026
+// average) unless changed — with the dollars it comes to (€ × rate, to the
+// cent). The line stores the euros, the rate and the dollars, so everything
+// else keeps reading the dollar target. Every
 // cost / margin figure shows only when `canSeeCost` — though only editors open
 // this form, and every editor can see cost. The SAP # formats as ####-####-##.
 // =============================================================================
@@ -119,7 +127,20 @@ export function QuoteAssemblyFormModal({
   );
   const [targetGM, setTargetGM] = useState(numStr(assembly?.targetGM));
   const [manualPrice, setManualPrice] = useState(numStr(assembly?.manualPrice));
-  const [targetPrice, setTargetPrice] = useState(numStr(assembly?.targetPrice));
+  // A line with a euro target opens in EUR showing the euros; otherwise USD.
+  const [targetCurrency, setTargetCurrency] = useState<"USD" | "EUR">(
+    assembly?.targetPriceEur != null ? "EUR" : "USD",
+  );
+  const [targetAmount, setTargetAmount] = useState(
+    numStr(assembly?.targetPriceEur != null ? assembly.targetPriceEur : assembly?.targetPrice),
+  );
+  // A line with a euro target keeps the rate it was converted at; otherwise
+  // the current default.
+  const [eurRate, setEurRate] = useState(
+    assembly?.targetPriceEur != null && assembly.eurUsdRate != null
+      ? String(assembly.eurUsdRate)
+      : String(DEFAULT_EUR_USD_RATE),
+  );
   const [eau, setEau] = useState(numStr(assembly?.estimatedEau));
   const [rows, setRows] = useState<BreakRow[]>(toRows(assembly?.priceBreaks ?? []));
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +169,12 @@ export function QuoteAssemblyFormModal({
   const overheadPct = parseNum(overhead);
   const qty = parseNum(quotedQty);
   const qtyOk = qty !== null && Number.isInteger(qty) && qty >= 1;
-  const target = parseNum(targetPrice);
+  const amount = parseNum(targetAmount);
+  const rate = parseNum(eurRate);
+  const usingEur = targetCurrency === "EUR" && amount !== null;
+  const eur = usingEur ? amount : null;
+  // In EUR the dollars ARE the conversion — never typed.
+  const target = targetCurrency === "EUR" ? eurToUsd(amount, rate) : amount;
   const eauNum = parseNum(eau);
 
   const preview = useMemo(() => {
@@ -168,6 +194,8 @@ export function QuoteAssemblyFormModal({
       priceBreaks: breakProblems.length === 0 ? breaks : [],
       manualPrice: manual !== null && Number.isFinite(manual) && manual > 0 ? manual : null,
       targetPrice: null,
+      targetPriceEur: null,
+      eurUsdRate: null,
       estimatedEau: null,
       customerPrice: null,
     };
@@ -224,6 +252,14 @@ export function QuoteAssemblyFormModal({
       }
     }
     if (breakProblems.length > 0) return setError(breakProblems[0]);
+    if (usingEur) {
+      if (!Number.isFinite(eur) || (eur as number) <= 0) {
+        return setError("The customer's target price must be more than 0, or left blank.");
+      }
+      if (rate === null || !Number.isFinite(rate) || rate <= 0) {
+        return setError("The EUR → USD rate must be more than 0.");
+      }
+    }
     if (target !== null && (!Number.isFinite(target) || target <= 0)) {
       return setError("The customer's target price must be more than 0, or left blank.");
     }
@@ -248,6 +284,8 @@ export function QuoteAssemblyFormModal({
       priceBreaks: breaks,
       manualPrice: manual,
       targetPrice: target,
+      targetPriceEur: usingEur ? eur : null,
+      eurUsdRate: usingEur ? rate : null,
       estimatedEau: eauNum,
     };
     try {
@@ -267,6 +305,8 @@ export function QuoteAssemblyFormModal({
         if (values.description !== assembly.description) patch.description = values.description;
         if (values.manualPrice !== assembly.manualPrice) patch.manualPrice = values.manualPrice;
         if (values.targetPrice !== assembly.targetPrice) patch.targetPrice = values.targetPrice;
+        if (values.targetPriceEur !== assembly.targetPriceEur) patch.targetPriceEur = values.targetPriceEur;
+        if (values.eurUsdRate !== assembly.eurUsdRate) patch.eurUsdRate = values.eurUsdRate;
         if (values.estimatedEau !== assembly.estimatedEau) patch.estimatedEau = values.estimatedEau;
         if (JSON.stringify(values.priceBreaks) !== JSON.stringify(assembly.priceBreaks)) {
           patch.priceBreaks = values.priceBreaks;
@@ -393,19 +433,50 @@ export function QuoteAssemblyFormModal({
               <legend className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                 Customer target and volume — internal, not printed
               </legend>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Customer target price ($)" hint="What the customer wants to pay for one.">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <ChoicePills
+                  label="Target currency"
+                  name="target-currency"
+                  options={["USD", "EUR"]}
+                  value={targetCurrency}
+                  onChange={(v) => setTargetCurrency(v === "EUR" ? "EUR" : "USD")}
+                  disabled={busy}
+                />
+                <Field
+                  label={`Customer target price (${targetCurrency === "EUR" ? "€" : "$"})`}
+                  hint={
+                    targetCurrency === "EUR"
+                      ? target !== null
+                        ? `= ${formatMoney(target)} at the rate.`
+                        : "What the customer wants to pay for one, in euros."
+                      : "What the customer wants to pay for one."
+                  }
+                >
                   <input
                     type="number"
                     min={0}
                     step="any"
                     inputMode="decimal"
-                    value={targetPrice}
-                    onChange={(e) => setTargetPrice(e.target.value)}
+                    value={targetAmount}
+                    onChange={(e) => setTargetAmount(e.target.value)}
                     className="input"
                     disabled={busy}
                   />
                 </Field>
+                {targetCurrency === "EUR" && (
+                  <Field label="EUR → USD rate" hint={`Default ${DEFAULT_EUR_USD_RATE} (2026 average).`}>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      inputMode="decimal"
+                      value={eurRate}
+                      onChange={(e) => setEurRate(e.target.value)}
+                      className="input"
+                      disabled={busy}
+                    />
+                  </Field>
+                )}
                 <Field label="Estimated EAU" hint="Estimated annual usage — units a year.">
                   <input
                     type="number"

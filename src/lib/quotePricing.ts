@@ -49,6 +49,17 @@ export function roundCents(n: number): number {
   return (Math.sign(n) * Math.round(cents)) / 100;
 }
 
+/**
+ * A euro target in dollars (Ray, 2026-11-24): `eur × rate`, to the cent. null
+ * unless both are positive numbers — a blank or nonsense rate never turns a
+ * euro figure into a dollar one.
+ */
+export function eurToUsd(eur: number | null, rate: number | null): number | null {
+  if (eur === null || rate === null || !Number.isFinite(eur) || !Number.isFinite(rate)) return null;
+  if (eur <= 0 || rate <= 0) return null;
+  return roundCents(eur * rate);
+}
+
 function isNum(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n);
 }
@@ -402,7 +413,12 @@ export interface QuoteLineTargetSummary {
   assemblyId: number;
   lineNo: number;
   partNumber: string;
+  /** The customer's own part number — what the card leads with when set. */
+  customerPartNumber: string;
   targetPrice: number | null;
+  /** The euro target the dollar one came from, and its rate; null when given in dollars. */
+  targetPriceEur: number | null;
+  eurUsdRate: number | null;
   /** Our unit price at the quoted quantity. */
   unitPrice: number | null;
   /** unitPrice − targetPrice. Positive = above their target. */
@@ -452,7 +468,10 @@ export function quoteTargetSummary(assemblies: QuoteAssembly[]): QuoteTargetSumm
       assemblyId: a.id,
       lineNo: a.lineNo,
       partNumber: a.altronicPartNumber.trim(),
+      customerPartNumber: a.customerPartNumber.trim(),
       targetPrice: target,
+      targetPriceEur: target !== null && isNum(a.targetPriceEur) && a.targetPriceEur > 0 ? a.targetPriceEur : null,
+      eurUsdRate: target !== null && isNum(a.targetPriceEur) && isNum(a.eurUsdRate) ? a.eurUsdRate : null,
       unitPrice,
       vsTarget,
       vsTargetPct: vsTarget !== null && target !== null ? (vsTarget / target) * 100 : null,

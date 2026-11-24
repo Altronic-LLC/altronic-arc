@@ -20,6 +20,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.232.0",
+    date: "2026-11-24",
+    changes: [
+      "Insourcing Quotes: statuses now match the SharePoint list — Draft is gone, and Waiting on labor, Waiting on customer, Waiting on material quotes, Revisiting COGS and Engineering Task in process are offered. A new quote starts with no status",
+      "Insourcing Quotes: the quotes list shows Annual Revenue (price × estimated EAU) in place of Total, and no longer shows Created, Expires or the Assemblies count",
+      "Insourcing Quotes: a line's customer target is entered in USD or EUR — in EUR it is converted to dollars at the EUR → USD rate, which starts at 1.12 (the 2026 average) and can be changed",
+      "Insourcing Quotes: Target & volume shows each part on its own, with its own target, price, EAU and annual revenue, instead of quote totals",
+      "Insourcing Quotes: the customer PDF leads each line with the customer's part number, and the quantity and subtotal no longer wrap",
+      "Insourcing Quotes: each quote has a Project folder in General / IC Quotes on the Altronic_PMO site — name and create it from the quote, or link one already there, then open subfolders, create subfolders and upload files without leaving the quote. Every revision of the quote shares it",
+      "Insourcing Quotes: field labels on a quote are shown in red, so a label and its value are easier to tell apart",
+      "Insourcing Quotes: sections on a quote are shaded so they stand apart — totals and the quoted quantity in green, Target & volume in blue, Alternates in yellow",
+    ],
+  },
+  {
     version: "0.231.0",
     date: "2026-11-23",
     changes: [
