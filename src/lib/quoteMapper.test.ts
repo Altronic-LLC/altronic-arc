@@ -550,6 +550,12 @@ const ASSEMBLY: QuoteAssembly = {
 };
 
 describe("assembly builders", () => {
+  it("create leaves Title out when there's no Altronic part number — it's optional", () => {
+    const fields = buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 12, altronicPartNumber: "  " });
+    expect(fields).not.toHaveProperty("Title");
+    expect(buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 12 }).Title).toBe("791950-08");
+  });
+
   it("create writes QuoteRef as a bare integer", () => {
     const fields = buildQuoteAssemblyCreateFields({ ...ASSEMBLY, quoteId: 12 });
     expect(fields).toEqual({

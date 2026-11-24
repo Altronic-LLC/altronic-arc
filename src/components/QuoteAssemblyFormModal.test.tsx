@@ -383,3 +383,28 @@ describe("QuoteAssemblyFormModal — customer target price and estimated EAU", (
     expect(after.targetPrice).toBe(1050);
   });
 });
+
+describe("QuoteAssemblyFormModal — the Altronic part number is optional (Ray, 2026-11-24)", () => {
+  it("saves a line with only the customer's part number", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    expect(screen.getByLabelText(/Altronic Part Number/)).not.toBeRequired();
+    await userEvent.type(screen.getByLabelText(/Customer part #/), "CUST-42");
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const created = quoteMockDb.assemblies.find((a) => a.customerPartNumber === "CUST-42")!;
+    expect(created.altronicPartNumber).toBe("");
+  });
+
+  it("refuses a line with neither part number", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<QuoteAssemblyFormModal quoteId={4} nextLineNo={2} canSeeCost onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText(/Target gross margin %/), "35");
+    await userEvent.click(screen.getByRole("button", { name: "Add line" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Enter the customer's part number or an Altronic part number.",
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

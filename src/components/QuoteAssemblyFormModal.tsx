@@ -8,7 +8,7 @@ import {
   type QuotePriceBreak,
 } from "@/types/quote";
 import type { QuoteAssemblyPatch } from "@/lib/quoteMapper";
-import { eurToUsd, priceBreakProblems, priceQuoteAssembly } from "@/lib/quotePricing";
+import { eurToUsd, priceBreakProblems, priceQuoteAssembly, quoteLinePartNumber } from "@/lib/quotePricing";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import {
   SAP_PART_NUMBER_PLACEHOLDER,
@@ -227,7 +227,11 @@ export function QuoteAssemblyFormModal({
     e.preventDefault();
     const line = Number(lineNo);
     if (!Number.isInteger(line) || line < 1) return setError("Line # must be a whole number, 1 or more.");
-    if (!altronicPartNumber.trim()) return setError("Part Number is required.");
+    // The Altronic number is optional (Ray, 2026-11-24); a line still needs
+    // SOME part number to be known by on the quote and the PDF.
+    if (!altronicPartNumber.trim() && !customerPartNumber.trim()) {
+      return setError("Enter the customer's part number or an Altronic part number.");
+    }
     if (!qtyOk) return setError("Quantity quoted must be a whole number, 1 or more.");
     const sapProblem = sapPartNumberProblem(sapPartNumber);
     if (sapProblem) return setError(`${sapProblem}.`);
@@ -321,7 +325,7 @@ export function QuoteAssemblyFormModal({
     }
   }
 
-  const title = editing ? `Edit line ${assembly.altronicPartNumber}` : "Add line";
+  const title = editing ? `Edit line ${quoteLinePartNumber(assembly) || assembly.lineNo}` : "Add line";
 
   return (
     <div
@@ -356,7 +360,7 @@ export function QuoteAssemblyFormModal({
             Part numbers, description and the quantity-break prices are printed on the customer's quote.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Part Number" required>
+            <Field label="Altronic Part Number" hint="Optional — insourced parts often have none.">
               <input
                 ref={firstFieldRef}
                 value={altronicPartNumber}

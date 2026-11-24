@@ -8,7 +8,7 @@ import {
   type QuotePdfModel,
 } from "@/types/quote";
 import { isCommittableDate } from "@/lib/dateInput";
-import { priceBreakProblems, priceQuoteAssembly, roundCents } from "@/lib/quotePricing";
+import { priceBreakProblems, priceQuoteAssembly, quoteLinePartNumber, roundCents } from "@/lib/quotePricing";
 
 // =============================================================================
 // The ONE mapper from a quote record to the customer-facing PDF model.
@@ -54,7 +54,7 @@ function preparedByOf(p: { name: string; email: string } | null | undefined): Qu
 }
 
 function assemblyName(a: QuoteAssembly): string {
-  const pn = a.altronicPartNumber.trim();
+  const pn = quoteLinePartNumber(a);
   return pn ? `Line ${a.lineNo} (${pn})` : `Line ${a.lineNo}`;
 }
 

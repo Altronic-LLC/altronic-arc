@@ -2,6 +2,7 @@ import type { Comment } from "@/types/task";
 import type { Quote, QuoteAssembly } from "@/types/quote";
 import { serializeComments } from "@/lib/communicationParser";
 import { formatQuoteNumber, nextRevFor, parseQuoteNumber } from "@/lib/quoteNumber";
+import { quoteLinePartNumber } from "@/lib/quotePricing";
 import { copyAttachments } from "./attachments";
 import { createQuoteWithNumbering, getQuote } from "./quotes";
 import { createQuoteAssembly, listQuoteAssemblies } from "./quoteAssemblies";
@@ -59,7 +60,7 @@ function errText(err: unknown): string {
 }
 
 function assemblyLabel(a: QuoteAssembly): string {
-  return a.altronicPartNumber || `line ${a.lineNo}`;
+  return quoteLinePartNumber(a) || `line ${a.lineNo}`;
 }
 
 export async function createQuoteRevision(quoteId: number): Promise<{ quote: Quote; warnings: string[] }> {

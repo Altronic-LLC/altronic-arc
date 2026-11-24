@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Insourcing Quotes: a line's customer target is entered in USD or EUR — in EUR it is converted to dollars at the EUR → USD rate, which starts at 1.12 (the 2026 average) and can be changed",
       "Insourcing Quotes: Target & volume shows each part on its own, with its own target, price, EAU and annual revenue, instead of quote totals",
       "Insourcing Quotes: the customer PDF leads each line with the customer's part number, and the quantity and subtotal no longer wrap",
+      "Insourcing Quotes: a line's Altronic part number is optional — a line needs the customer's part number or an Altronic one, and is shown by the customer's number first",
       "Insourcing Quotes: each quote has a Project folder in General / IC Quotes on the Altronic_PMO site — name and create it from the quote, or link one already there, then open subfolders, create subfolders and upload files without leaving the quote. Every revision of the quote shares it",
       "Insourcing Quotes: field labels on a quote are shown in red, so a label and its value are easier to tell apart",
       "Insourcing Quotes: sections on a quote are shaded so they stand apart — totals and the quoted quantity in green, Target & volume in blue, Alternates in yellow",

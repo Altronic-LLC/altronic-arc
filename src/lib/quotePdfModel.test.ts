@@ -260,7 +260,7 @@ describe("buildQuotePdfModel", () => {
     });
     expect(unpriced.model).toBeNull();
     expect(unpriced.problems).toEqual([
-      "Line 1 (791950-08) has no price yet — enter its material and/or labor cost and a target GM, or set a manual price.",
+      "Line 1 (ACME-77) has no price yet — enter its material and/or labor cost and a target GM, or set a manual price.",
     ]);
 
     const none = buildQuotePdfModel({ ...base, assemblies: [assembly({ quoteId: 2 })] });

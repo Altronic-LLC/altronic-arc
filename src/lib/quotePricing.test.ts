@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { QuoteAssembly } from "@/types/quote";
 import {
   eurToUsd,
+  quoteLinePartNumber,
   quoteTargetSummary,
   lineCostBreakdown,
   priceAtGM,
@@ -491,5 +492,13 @@ describe("eurToUsd", () => {
     expect(eurToUsd(100, 0)).toBeNull();
     expect(eurToUsd(-5, 1.12)).toBeNull();
     expect(eurToUsd(NaN, 1.12)).toBeNull();
+  });
+});
+
+describe("quoteLinePartNumber", () => {
+  it("is the customer's part number, else ours, else blank", () => {
+    expect(quoteLinePartNumber({ customerPartNumber: " C-1 ", altronicPartNumber: "791950-08" })).toBe("C-1");
+    expect(quoteLinePartNumber({ customerPartNumber: "", altronicPartNumber: "791950-08" })).toBe("791950-08");
+    expect(quoteLinePartNumber({ customerPartNumber: "", altronicPartNumber: "" })).toBe("");
   });
 });

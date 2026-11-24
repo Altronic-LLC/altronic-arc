@@ -659,12 +659,13 @@ export type QuoteAssemblyPatch = Partial<Omit<QuoteAssembly, "id" | "quoteId">>;
 
 export function buildQuoteAssemblyCreateFields(input: QuoteAssemblyInput): Record<string, unknown> {
   const fields: Record<string, unknown> = {
-    Title: input.altronicPartNumber.trim(),
     QuoteRefLookupId: input.quoteId,
     LineNo: input.lineNo,
     // Always sent: the quantity is never blank.
     QuotedQty: parseQuotedQty(input.quotedQty),
   };
+  // Title (the Altronic part #) is optional — left out when blank.
+  if (input.altronicPartNumber.trim()) fields.Title = input.altronicPartNumber.trim();
   if (input.materialCost !== null) fields.Cost = input.materialCost;
   if (input.laborCost !== null) fields.LaborCost = input.laborCost;
   if (input.materialOverheadPct !== null) fields.MaterialOverheadPct = input.materialOverheadPct;

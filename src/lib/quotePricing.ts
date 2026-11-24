@@ -352,8 +352,17 @@ export interface QuotePricing {
   gmPct: number | null;
 }
 
+/**
+ * The number a line is known by: the CUSTOMER's part number, else ours, else
+ * "" (Ray, 2026-11-24 — the Altronic number is optional, as insourced parts
+ * rarely get one). The PDF leads with the same choice.
+ */
+export function quoteLinePartNumber(a: Pick<QuoteAssembly, "customerPartNumber" | "altronicPartNumber">): string {
+  return a.customerPartNumber.trim() || a.altronicPartNumber.trim();
+}
+
 function assemblyLabel(a: QuoteAssembly): string {
-  const pn = a.altronicPartNumber.trim();
+  const pn = quoteLinePartNumber(a);
   return pn ? `Line ${a.lineNo} (${pn})` : `Line ${a.lineNo}`;
 }
 

@@ -5338,6 +5338,13 @@ made deliberate. **The latest rev is DERIVED** (highest `Rev` for a
   never given an Altronic number): bold Courier is `customerPartNumber`, with
   "Altronic …" and "SAP …" in small print beneath when set. A line with no
   customer number leads with the Altronic number. Screens are unchanged.
+- **The Altronic part number (`Title`) is OPTIONAL** (Ray, 2026-11-24). A
+  line needs the customer's part number OR an Altronic one (form rule), and
+  `quoteLinePartNumber` (customer first, else ours) is how a line is named
+  everywhere — card heading, aria-label, delete confirm, PDF problems,
+  revision warnings. The create POST leaves `Title` out when blank. Title is
+  still marked REQUIRED on the SharePoint list; Graph doesn't enforce that,
+  but SharePoint's own edit form does until it's switched off there.
 - **Column widths are tuned against wrapping** (`COL_*` in lib/quotePdf.ts):
   QTY is 10% so a five-digit quantity stays on one line (6% wrapped it), and
   SUBTOTAL is 15% for an eight-figure amount; both came out of Part # and

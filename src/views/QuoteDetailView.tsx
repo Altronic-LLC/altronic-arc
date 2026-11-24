@@ -36,7 +36,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import type { Comment, Person } from "@/types/task";
 import { QUOTE_STATUSES, type Quote, type QuoteAssembly, type QuoteAlternate, type QuoteStatus } from "@/types/quote";
 import { isLatestRevision, nextRevFor } from "@/lib/quoteNumber";
-import { priceQuote, type QuoteAssemblyPricing } from "@/lib/quotePricing";
+import { priceQuote, quoteLinePartNumber, type QuoteAssemblyPricing } from "@/lib/quotePricing";
 import type { QuotePatch } from "@/lib/quoteMapper";
 import { createQuoteGate, editQuoteGate, generatePdfGate, seeCostGate, setQuoteStatusGate } from "@/lib/quoteRoles";
 import { formatDisplayDate } from "@/lib/dateInput";
@@ -718,7 +718,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             },
           ]}
         >
-          Delete line {confirm.assembly.altronicPartNumber || confirm.assembly.lineNo}?
+          Delete line {quoteLinePartNumber(confirm.assembly) || confirm.assembly.lineNo}?
         </ConfirmDialog>
       )}
       {confirm?.kind === "newRev" && (
@@ -876,19 +876,22 @@ function AssemblyCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const name = assembly.altronicPartNumber || `line ${assembly.lineNo}`;
+  const name = quoteLinePartNumber(assembly) || `line ${assembly.lineNo}`;
   return (
     <article
       className="rounded-xl border border-border bg-surface p-4 sm:p-5"
-      aria-label={`Line ${assembly.altronicPartNumber}`}
+      aria-label={`Line ${quoteLinePartNumber(assembly) || assembly.lineNo}`}
     >
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Line {assembly.lineNo}</p>
-          <h3 className="font-display text-base font-semibold text-fg">{assembly.altronicPartNumber || "No part #"}</h3>
+          {/* Leads with the customer's part number, like the PDF; the Altronic
+              number is optional (Ray, 2026-11-24). */}
+          <h3 className="font-display text-base font-semibold text-fg">{quoteLinePartNumber(assembly) || "No part #"}</h3>
           <p className="text-sm text-fg">{assembly.description}</p>
           <p className="mt-1 text-xs text-fg-muted">
-            SAP # {assembly.sapPartNumber || "—"} · Customer part # {assembly.customerPartNumber || "—"}
+            Altronic # {assembly.altronicPartNumber || "—"} · SAP # {assembly.sapPartNumber || "—"} · Customer part #{" "}
+            {assembly.customerPartNumber || "—"}
           </p>
         </div>
         <div className="text-right">

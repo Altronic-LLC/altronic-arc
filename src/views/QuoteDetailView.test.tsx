@@ -73,7 +73,7 @@ function renderQuote(id: number) {
 /** Wait until the worksheet's lines have loaded (the CPU-95 line on quotes 1 and 2). */
 async function waitForWorksheet() {
   await screen.findByRole("heading", { level: 1 }, { timeout: 10_000 });
-  await waitFor(() => expect(screen.getByRole("article", { name: "Line 791950-08" })).toBeInTheDocument(), {
+  await waitFor(() => expect(screen.getByRole("article", { name: "Line CMS-IGN-0808" })).toBeInTheDocument(), {
     timeout: 10_000,
   });
 }
@@ -128,8 +128,8 @@ describe("QuoteDetailView — cost is hidden from viewers", () => {
   it("a VIEWER sees a no-labor line's price but not its material, overhead or target GM", async () => {
     who.email = VIEWER;
     renderQuote(3);
-    await waitForLine("610225-ELEM");
-    const line = screen.getByRole("article", { name: "Line 610225-ELEM" });
+    await waitForLine("WTS-55102-SP");
+    const line = screen.getByRole("article", { name: "Line WTS-55102-SP" });
     expect(within(line).getAllByText("$76.80").length).toBeGreaterThan(0);
     const text = document.body.textContent ?? "";
     for (const s of ["38.40", "42.24", "3.84", "45.0%", "10%", ...COST_STRINGS]) {
@@ -229,7 +229,7 @@ describe("QuoteDetailView — editing a Sent quote", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add line" }));
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    await userEvent.click(screen.getByRole("button", { name: "Edit line 791950-08" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit line CMS-IGN-0808" }));
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(/was sent to the customer/);
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await userEvent.click(screen.getByRole("button", { name: "Edit alternates" }));
@@ -429,8 +429,8 @@ describe("QuoteDetailView — quoted quantity, Subtotal and Total", () => {
   it("everyone sees each line's Qty, Unit price and Subtotal, and the quote Total; cost at qty is gated", async () => {
     who.email = VIEWER;
     renderQuote(3);
-    await waitForLine("610225-ELEM");
-    const sensor = screen.getByRole("article", { name: "Line 610225-2" });
+    await waitForLine("WTS-55102-SP");
+    const sensor = screen.getByRole("article", { name: "Line WTS-55102" });
     const qty = within(sensor).getByLabelText("Quoted quantity");
     // $96.47 less the 25+ break's 8% = $88.75; × 25 = $2,218.75.
     expect(within(qty).getByText("25")).toBeInTheDocument();
@@ -446,8 +446,8 @@ describe("QuoteDetailView — quoted quantity, Subtotal and Total", () => {
   it("a quoter also sees cost, profit and GM at the quoted quantity", async () => {
     who.email = QUOTER;
     renderQuote(3);
-    await waitForLine("610225-ELEM");
-    const qty = within(screen.getByRole("article", { name: "Line 610225-2" })).getByLabelText("Quoted quantity");
+    await waitForLine("WTS-55102-SP");
+    const qty = within(screen.getByRole("article", { name: "Line WTS-55102" })).getByLabelText("Quoted quantity");
     expect(within(qty).getByText("Cost at qty")).toBeInTheDocument();
     expect(within(qty).getByText("GM at qty")).toBeInTheDocument();
     expect(within(screen.getByLabelText("Quote total")).getByText("Total cost")).toBeInTheDocument();
@@ -472,7 +472,7 @@ describe("QuoteDetailView — the line's cost", () => {
     who.email = QUOTER;
     renderQuote(2);
     await waitForWorksheet();
-    const card = screen.getByRole("article", { name: "Line 791950-08" });
+    const card = screen.getByRole("article", { name: "Line CMS-IGN-0808" });
     const strip = within(card).getByLabelText("Line cost");
     const labels = [...strip.querySelectorAll("dt")].map((d) => (d.textContent ?? "").trim());
     expect(labels).toEqual([
@@ -497,8 +497,8 @@ describe("QuoteDetailView — the line's cost", () => {
   it("a line with no labor says so rather than inventing one", async () => {
     who.email = QUOTER;
     renderQuote(3);
-    await waitForLine("610225-ELEM");
-    const strip = within(screen.getByRole("article", { name: "Line 610225-ELEM" })).getByLabelText("Line cost");
+    await waitForLine("WTS-55102-SP");
+    const strip = within(screen.getByRole("article", { name: "Line WTS-55102-SP" })).getByLabelText("Line cost");
     expect(within(strip).getByText("Overhead (10%)")).toBeInTheDocument();
     expect(within(strip).getByText("$3.84")).toBeInTheDocument();
     expect(within(strip).getByText("$42.24")).toBeInTheDocument();
