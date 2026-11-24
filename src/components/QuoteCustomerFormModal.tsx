@@ -279,15 +279,16 @@ export function QuoteCustomerFormModal({
           {editing && (
             <div className="flex flex-col gap-1 text-xs">
               <ChoicePills
-                label="Active"
+                label="Status"
                 name="quote-customer-active"
-                options={["Yes", "No"]}
-                value={active ? "Yes" : "No"}
-                onChange={(v) => setActive(v === "Yes")}
+                options={["Active", "Retired"]}
+                value={active ? "Active" : "Retired"}
+                onChange={(v) => setActive(v === "Active")}
                 disabled={pending}
               />
               <span className="text-[11px] text-fg-muted">
-                A retired customer leaves the picker; quotes already naming it keep showing it.
+                Retired hides the customer from this list and from New quote, so nobody can quote them. Quotes
+                already naming it keep showing it. Leave a customer Active while you wait for their SAP number.
               </span>
             </div>
           )}

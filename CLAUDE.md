@@ -5338,7 +5338,13 @@ names are compared case- and punctuation-insensitively. `CustomerCode` has
 Enforce Unique Values; the in-app check only gives the friendly message first.
 **Only a manager creates or edits customers**, and a customer is **retired**
 (`Active`), never deleted — quotes point at it. `CustomerNumber` is TEXT so
-SAP leading zeros survive.
+SAP leading zeros survive. The edit form says **Status: Active / Retired**,
+not a bare Yes/No under "Active" — on 2026-11-24 a new customer was retired
+by mistake in the same edit that typed "TBD" as its number, then looked
+missing everywhere. The customer list shows EVERY customer, retired ones
+marked (no "Show retired" toggle — a hidden row can't be switched back). Only
+New quote's picker leaves retired ones out, and it NAMES them, with a link to
+the customer list.
 
 **Revisions.** Two actions: **New rev** (`api/quoteRevisions.ts`) copies the
 header (customer reference, alternates and links included, all in the create

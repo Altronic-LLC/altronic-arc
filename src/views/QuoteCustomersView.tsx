@@ -25,14 +25,17 @@ import { cn } from "@/lib/cn";
 // for everyone else the Add and Edit controls are simply absent, never dead.
 //
 // No delete: quotes point at these rows, so a customer is RETIRED (Active =
-// No). Retired rows are hidden by default and one toggle away.
+// No). EVERY customer is listed, retired ones marked (Ray, 2026-11-24): a
+// manager must be able to switch a customer between Active and Retired at any
+// time, and a hidden row can't be found to switch back. Only New quote's
+// picker leaves retired customers out — and it names them.
 // =============================================================================
 
 export const QUOTE_CUSTOMER_COLUMNS: SortColumn<QuoteCustomer>[] = [
   { key: "name", label: "Name", value: (c) => c.name, noFilter: true },
   { key: "code", label: "Code", value: (c) => c.code },
   { key: "customerNumber", label: "Customer #", value: (c) => c.customerNumber },
-  { key: "active", label: "Active", value: (c) => (c.active ? "Yes" : "No") },
+  { key: "active", label: "Status", value: (c) => (c.active ? "Active" : "Retired") },
   { key: "note", label: "Customer notes", value: (c) => c.note, noFilter: true },
 ];
 
@@ -85,15 +88,14 @@ function CustomersRegister({ canManage }: { canManage: boolean }) {
   const { data: customers = [], isLoading, error, refetch } = useQuoteCustomers();
   const listUnavailable = !!error && isPermissionDenied(error);
   const [q, setQ] = useState("");
-  const [showRetired, setShowRetired] = useState(false);
   // undefined = closed, null = create, a row = edit.
   const [editing, setEditing] = useState<QuoteCustomer | null | undefined>(undefined);
 
   const retiredCount = customers.filter((c) => !c.active).length;
   const filtered = useMemo(() => {
     const tokens = tokenizeQuery(q);
-    return customers.filter((c) => (showRetired || c.active) && matchesSearch(c, tokens));
-  }, [customers, q, showRetired]);
+    return customers.filter((c) => matchesSearch(c, tokens));
+  }, [customers, q]);
 
   const table = useSortableTable<QuoteCustomer>({
     rows: filtered,
@@ -134,15 +136,11 @@ function CustomersRegister({ canManage }: { canManage: boolean }) {
         <div className="flex-1">
           <SearchInput value={q} onChange={setQ} placeholder="Name, code, customer number…" />
         </div>
-        <label className="inline-flex items-center gap-2 text-sm text-fg">
-          <input
-            type="checkbox"
-            checked={showRetired}
-            onChange={(e) => setShowRetired(e.target.checked)}
-            className="h-3.5 w-3.5 accent-accent"
-          />
-          Show retired{retiredCount > 0 ? ` (${retiredCount})` : ""}
-        </label>
+        {retiredCount > 0 && (
+          <p className="text-xs text-fg-muted sm:max-w-[22rem]">
+            {retiredCount} retired — listed here, but not offered on New quote. Edit one to make it Active again.
+          </p>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -224,7 +222,7 @@ function CustomersRegister({ canManage }: { canManage: boolean }) {
                       <td className="px-4 py-2 font-medium text-fg">{c.name}</td>
                       <td className="px-4 py-2 font-mono text-xs font-semibold text-fg">{c.code}</td>
                       <td className="px-4 py-2 font-mono text-xs text-fg-muted">{c.customerNumber || "—"}</td>
-                      <td className="px-4 py-2 text-fg-muted">{c.active ? "Yes" : <RetiredChip />}</td>
+                      <td className="px-4 py-2 text-fg-muted">{c.active ? "Active" : <RetiredChip />}</td>
                       <td className="max-w-[20rem] truncate px-4 py-2 text-fg-muted" title={c.note}>
                         {c.note || "—"}
                       </td>

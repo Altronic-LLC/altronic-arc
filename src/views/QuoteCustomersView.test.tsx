@@ -26,16 +26,15 @@ function table() {
 }
 
 describe("QuoteCustomersView", () => {
-  it("lists active customers, hiding retired ones until asked", async () => {
-    const user = userEvent.setup();
+  it("lists EVERY customer — a retired one stays listed, marked Retired, so it can be made Active again", async () => {
     renderWithProviders(<QuoteCustomersView />, { route: "/sales/quotes/customers" });
     await waitFor(() => expect(table()).toBeInTheDocument());
     expect(within(table()).getByText("Cooper Machinery Services")).toBeInTheDocument();
     expect(within(table()).getByText("0001042")).toBeInTheDocument();
-    expect(within(table()).queryByText("Hoerbiger Service Inc.")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("checkbox", { name: /Show retired/ }));
-    expect(within(table()).getByText("Hoerbiger Service Inc.")).toBeInTheDocument();
+    const retiredRow = within(table()).getByText("Hoerbiger Service Inc.").closest("tr")!;
+    expect(within(retiredRow).getByText("Retired")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Show retired/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/1 retired — listed here, but not offered on New quote/)).toBeInTheDocument();
   });
 
   it("searches", async () => {
@@ -83,6 +82,6 @@ describe("QuoteCustomersView", () => {
       .getAllByRole("row")
       .slice(1)
       .map((r) => r.querySelectorAll("td")[1]?.textContent);
-    expect(codes).toEqual(["COO", "INN", "WAB"]);
+    expect(codes).toEqual(["COO", "HOE", "INN", "WAB"]);
   });
 });

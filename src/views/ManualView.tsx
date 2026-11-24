@@ -6575,7 +6575,13 @@ const SECTIONS: ManualSection[] = [
           The code is fixed once the customer is created. Renaming the
           customer later changes neither its code nor any quote number. A
           customer you no longer quote to is <strong>retired</strong>, never
-          deleted, because its quotes still point at it. A quoter who needs a
+          deleted, because its quotes still point at it. Retiring is the
+          customer&apos;s <strong>Status</strong> in its Edit form (Active /
+          Retired), and a manager can switch it either way at any time. Every
+          customer stays on the customer list, retired ones marked Retired. A
+          retired customer isn&apos;t offered on New quote, which names the
+          retired customers it leaves out. Leave a customer Active while you wait for
+          their SAP number. A quoter who needs a
           new customer picks from the existing ones and asks a manager to add
           it.
         </P>

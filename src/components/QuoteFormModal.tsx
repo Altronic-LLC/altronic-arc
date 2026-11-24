@@ -104,6 +104,12 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
         .map((c) => ({ value: String(c.id), label: `${c.name} (${c.code})` })),
     [customers],
   );
+  // Retired customers aren't offered — but say who they are, so a customer
+  // retired by mistake doesn't just look missing (Insignia, 2026-11-24).
+  const retiredCustomers = useMemo(
+    () => customers.filter((c) => !c.active).sort((a, b) => a.name.localeCompare(b.name)),
+    [customers],
+  );
   const currentCustomer = quote
     ? customers.find((c) => c.id === quote.customerId)
     : customers.find((c) => String(c.id) === customerId);
@@ -282,6 +288,19 @@ export function QuoteFormModal({ quote, onClose, onSaved }: QuoteFormModalProps)
                       </Link>
                     )}
                   </p>
+                  {retiredCustomers.length > 0 && (
+                    <p className="mt-1 text-[11px] text-fg-muted">
+                      Retired, so not listed:{" "}
+                      {retiredCustomers.length <= 5
+                        ? retiredCustomers.map((c) => `${c.name} (${c.code})`).join(", ")
+                        : `${retiredCustomers.length} customers`}
+                      . A quote manager can make one Active again on the{" "}
+                      <Link to="/sales/quotes/customers" className="text-accent underline-offset-2 hover:underline">
+                        customer list
+                      </Link>
+                      .
+                    </p>
+                  )}
                 </>
               )}
               {currentCustomer?.note.trim() && <CustomerNotes note={currentCustomer.note} />}
