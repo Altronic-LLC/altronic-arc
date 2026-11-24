@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.234.2",
+    date: "2026-11-24",
+    changes: [
+      "Insourcing Quotes: a customer's edit form now says Status: Active / Retired, and explains that Retired hides the customer from New quote",
+      "Insourcing Quotes: the customer list always shows every customer — retired ones are marked Retired rather than hidden — so a manager can switch a customer between Active and Retired at any time",
+      "Insourcing Quotes: New quote names any retired customers it leaves out of the picker, with a link to the customer list to make one Active again",
+    ],
+  },
+  {
     version: "0.234.1",
     date: "2026-11-24",
     changes: [

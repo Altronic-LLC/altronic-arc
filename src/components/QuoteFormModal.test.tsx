@@ -49,6 +49,12 @@ describe("QuoteFormModal — create", () => {
     expect(screen.getByRole("link", { name: "Add a customer" })).toHaveAttribute("href", "/sales/quotes/customers");
   });
 
+  it("names the retired customers it leaves out, so one retired by mistake doesn't just look missing", async () => {
+    renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);
+    expect(await screen.findByText(/Retired, so not listed:\s+Hoerbiger Service Inc\. \(HOE\)/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "customer list" })).toHaveAttribute("href", "/sales/quotes/customers");
+  });
+
   it("a quoter is not offered the add-customer link", async () => {
     who.email = "katie.fleming@altronic-llc.com";
     renderWithProviders(<QuoteFormModal onClose={vi.fn()} />);

@@ -118,7 +118,7 @@ describe("QuoteCustomerFormModal — editing", () => {
     expect(screen.getByText("WAB")).toBeInTheDocument();
     expect(screen.getByText(/fixed once a customer is created/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: "No" }));
+    await user.click(screen.getByRole("radio", { name: "Retired" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const row = quoteMockDb.customers.find((c) => c.id === customer.id)!;
