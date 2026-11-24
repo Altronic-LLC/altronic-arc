@@ -119,7 +119,7 @@ export function FeatureRequestDetailView() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Feature Requests" listTo="/feature-requests" />
+      <DetailTopBar category="Feature Requests" listTo="/feature-requests" keepOpenLabel={featureRequestLabel(request)} />
 
       <div className="flex flex-wrap items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-ajax-yellow/10 text-ajax-yellow">

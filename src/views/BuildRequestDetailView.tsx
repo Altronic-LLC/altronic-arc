@@ -53,6 +53,7 @@ import { PersonMultiField } from "@/components/PersonMultiField";
 import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { parseIsoDate, toIsoDate } from "@/lib/dateInput";
@@ -236,7 +237,7 @@ export function BuildRequestDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Build Requests" listTo="/build-requests" />
+      <DetailTopBar category="Build Requests" listTo="/build-requests" keepOpenLabel={tabLabel(br.brNo || `Build request #${br.id}`, br.title)} />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Main column */}

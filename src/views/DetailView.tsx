@@ -462,7 +462,7 @@ export function DetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <DetailTopBar category="Engineering Tasks" listTo="/list" />
+      <DetailTopBar category="Engineering Tasks" listTo="/list" keepOpenLabel={task.numberedTitle || task.title} />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Main column.

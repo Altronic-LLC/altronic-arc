@@ -178,6 +178,7 @@ export function GrayMarketRequestDetailView() {
       <DetailTopBar
         category="Gray Market Requests"
         listTo="/supply-chain/gray-market-requests"
+        keepOpenLabel={grayMarketLabel(request)}
       />
 
       <div className="flex flex-wrap items-start gap-3">

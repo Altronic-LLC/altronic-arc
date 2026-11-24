@@ -45,6 +45,7 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PersonMultiField } from "@/components/PersonMultiField";
@@ -376,7 +377,7 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
 
   return (
     <Page>
-      <DetailTopBar category="Insourcing Quotes" listTo="/sales/quotes" />
+      <DetailTopBar category="Insourcing Quotes" listTo="/sales/quotes" keepOpenLabel={tabLabel(q.quoteNumber, customer?.name)} />
 
       <div className="flex flex-wrap items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-superior-blue/10 text-superior-blue">
