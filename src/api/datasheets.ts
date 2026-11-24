@@ -32,8 +32,17 @@ import { MOCK_DATASHEET_PART_NUMBERS } from "@/data/altronicPartsMockData";
 //    upload and then never be found.
 //  - It NEVER overwrites. Graph's `conflictBehavior: fail` answers 409 when
 //    the name is taken, and that is reported as DatasheetExistsError. Replacing
-//    a datasheet other parts' engineers rely on is a deliberate act in
-//    SharePoint, not a side effect of adding a part.
+//    a datasheet other parts' engineers rely on is a deliberate act, not a side
+//    effect of adding a part.
+//
+// REPLACING (Tim, 2026-11-24) is that deliberate act: `replaceDatasheet`, the
+// SAP admin only (replaceDatasheetGate), from a Replace button beside Open
+// datasheet. It writes over `<pn>.pdf` in place (`conflictBehavior: replace`),
+// so the file keeps its id and link, and the old PDF stays in the file's
+// SharePoint version history — SharePoint Online keeps versions on every
+// document library, so that is the undo. Moving the old file aside first was
+// the alternative, and was turned down: two writes, and a failed upload in
+// between would leave the part with no datasheet at all.
 // =============================================================================
 
 export const DATASHEETS_PATH = "General/Datasheets";
@@ -202,13 +211,35 @@ export async function uploadDatasheet(
   file: File,
   onProgress?: UploadProgress,
 ): Promise<Datasheet> {
+  return putDatasheet(partNumber, file, "fail", onProgress);
+}
+
+/**
+ * Write `file` over the part's datasheet, `<partNumber>.pdf`, in place. The
+ * old PDF stays in SharePoint's version history; the link doesn't change.
+ * Creates the file if there somehow isn't one. Refuses a file that isn't a PDF.
+ */
+export async function replaceDatasheet(
+  partNumber: string,
+  file: File,
+  onProgress?: UploadProgress,
+): Promise<Datasheet> {
+  return putDatasheet(partNumber, file, "replace", onProgress);
+}
+
+async function putDatasheet(
+  partNumber: string,
+  file: File,
+  conflict: "fail" | "replace",
+  onProgress?: UploadProgress,
+): Promise<Datasheet> {
   const pn = partNumber.trim();
   if (!pn) throw new Error("A datasheet needs the part number it belongs to.");
   const problem = datasheetFileProblem(file);
   if (problem) throw new Error(problem);
 
   if (USE_MOCK) {
-    if (mockStore.has(pn.toLowerCase())) throw new DatasheetExistsError(pn);
+    if (conflict === "fail" && mockStore.has(pn.toLowerCase())) throw new DatasheetExistsError(pn);
     const sheet = mockDatasheet(pn, file.size);
     mockStore.set(pn.toLowerCase(), sheet);
     onProgress?.(1);
@@ -216,12 +247,12 @@ export async function uploadDatasheet(
   }
   try {
     const item = await uploadToDriveTarget(`/sites/${SITES.engineering}/drive/root:/${drivePath(pn)}:`, file, {
-      conflict: "fail",
+      conflict,
       onProgress,
     });
     return { name: item.name, webUrl: item.webUrl, size: item.size ?? file.size };
   } catch (err) {
-    if (err instanceof GraphError && err.status === 409) throw new DatasheetExistsError(pn);
+    if (conflict === "fail" && err instanceof GraphError && err.status === 409) throw new DatasheetExistsError(pn);
     throw err;
   }
 }

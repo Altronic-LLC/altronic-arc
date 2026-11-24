@@ -24,7 +24,14 @@ vi.mock("./config", async (importOriginal) => {
   return { ...actual, USE_MOCK: false, SITES: { ...actual.SITES, engineering: "engineering-site" } };
 });
 
-import { DatasheetExistsError, DatasheetUnreadableError, findDatasheet, readDatasheetFile, uploadDatasheet } from "./datasheets";
+import {
+  DatasheetExistsError,
+  DatasheetUnreadableError,
+  findDatasheet,
+  readDatasheetFile,
+  replaceDatasheet,
+  uploadDatasheet,
+} from "./datasheets";
 
 describe("readDatasheetFile", () => {
   it("hands back an in-memory copy with the same name, type and bytes", async () => {
@@ -150,5 +157,39 @@ describe("uploadDatasheet (real mode)", () => {
     } finally {
       fetchSpy.mockRestore();
     }
+  });
+});
+
+describe("replaceDatasheet (real mode)", () => {
+  const pdf = (bytes = 4) => new File([new Uint8Array(bytes)], "new rev.pdf", { type: "application/pdf" });
+
+  it("PUTs over <part #>.pdf in place, with conflictBehavior replace", async () => {
+    graphFetch.mockResolvedValue({ id: "x", name: "601466.pdf", webUrl: "https://sp/601466.pdf", size: 4 });
+    const sheet = await replaceDatasheet("601466", pdf());
+    const [path, init] = graphFetch.mock.calls[0];
+    expect(path).toBe(
+      "/sites/engineering-site/drive/root:/General/Datasheets/601466.pdf:/content?@microsoft.graph.conflictBehavior=replace",
+    );
+    expect(init.method).toBe("PUT");
+    expect(sheet).toEqual({ name: "601466.pdf", webUrl: "https://sp/601466.pdf", size: 4 });
+  });
+
+  it("uses replace on the upload session over 4 MB too", async () => {
+    const big = pdf(4 * 1024 * 1024 + 1);
+    graphFetch.mockResolvedValue({ uploadUrl: "https://upload.example/session" });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "x", name: "601466.pdf", webUrl: "u", size: big.size }), { status: 201 }),
+    );
+    try {
+      await replaceDatasheet("601466", big);
+      expect(JSON.parse(graphFetch.mock.calls[0][1].body)).toEqual({ item: { "@microsoft.graph.conflictBehavior": "replace" } });
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("refuses a non-PDF without sending anything", async () => {
+    await expect(replaceDatasheet("601466", new File(["x"], "x.png", { type: "image/png" }))).rejects.toThrow(/isn't a PDF/);
+    expect(graphFetch).not.toHaveBeenCalled();
   });
 });

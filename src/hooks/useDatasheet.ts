@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { findDatasheet, uploadDatasheet, type Datasheet } from "@/api/datasheets";
+import { findDatasheet, replaceDatasheet, uploadDatasheet, type Datasheet } from "@/api/datasheets";
 import { updateAltronicComponent } from "@/api/altronicComponents";
-import { addDatasheetGate, addPartGate } from "@/lib/partsRoles";
+import { addDatasheetGate, addPartGate, replaceDatasheetGate } from "@/lib/partsRoles";
 import { isComponentPrefix, partPrefix } from "@/lib/altronicPartMapper";
 import { useResolvePartsAccess } from "./usePartsRoles";
 import { ALTRONIC_COMPONENTS_KEY, upsert } from "./useAltronicParts";
@@ -33,8 +33,10 @@ export interface UploadDatasheetVars {
    * applies (an editor may add a component they can't later edit).
    * `edit` — from the part's own page: whoever can edit the part OR add
    *   parts to its list (addDatasheetGate) — an upload never replaces a file.
+   * `replace` — the part's page's Replace button: writes over the datasheet
+   *   that is there, so the SAP admin only (replaceDatasheetGate).
    */
-  via: "new" | "edit";
+  via: "new" | "edit" | "replace";
   /** The Component List item to mark Has Data Sheet = Yes, for a component. */
   componentId?: number;
 }
@@ -64,10 +66,15 @@ export function useUploadDatasheet() {
       const prefix = partPrefix(partNumber) ?? "";
       const component = isComponentPrefix(prefix);
       const access = await resolveAccess();
-      const gate = via === "new" ? addPartGate(access, prefix, component) : addDatasheetGate(access, prefix, component);
+      const gate =
+        via === "new"
+          ? addPartGate(access, prefix, component)
+          : via === "replace"
+            ? replaceDatasheetGate(access)
+            : addDatasheetGate(access, prefix, component);
       if (!gate.allowed) throw new Error(gate.hint);
 
-      const sheet = await uploadDatasheet(partNumber, file);
+      const sheet = via === "replace" ? await replaceDatasheet(partNumber, file) : await uploadDatasheet(partNumber, file);
       qc.setQueryData(datasheetKey(partNumber), sheet);
 
       let flagError: string | null = null;

@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.235.0",
+    date: "2026-11-24",
+    changes: [
+      "Parts List: the SAP admin can replace a part's datasheet with a newer PDF from the part's page — Replace datasheet, beside Open datasheet",
+      "The replaced datasheet keeps the same link, and the old PDF stays in its SharePoint version history",
+    ],
+  },
+  {
     version: "0.234.1",
     date: "2026-11-24",
     changes: [

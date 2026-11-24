@@ -54,3 +54,33 @@ describe("uploading a missing datasheet from a part's page", () => {
     expect(await findDatasheet("722044")).toBeNull();
   });
 });
+
+describe("replacing a datasheet that is there", () => {
+  // 601466 (component 5) has a mock datasheet, 184,320 bytes.
+  it("lets the SAP admin write over it", async () => {
+    asDemo(["sap admin"]);
+    const { result } = renderHook(() => useUploadDatasheet(), { wrapper: wrapper() });
+    await act(() => result.current.mutateAsync({ partNumber: "601466", file: pdf(), via: "replace", componentId: 5 }));
+    expect((await findDatasheet("601466"))?.size).toBe(4);
+  });
+
+  it("refuses a parts editor, and leaves the datasheet as it was", async () => {
+    asDemo(["hco editor", "reviewing engineer"]);
+    const { result } = renderHook(() => useUploadDatasheet(), { wrapper: wrapper() });
+    await act(() =>
+      expect(
+        result.current.mutateAsync({ partNumber: "601466", file: pdf(), via: "replace", componentId: 5 }),
+      ).rejects.toThrow(/Only the SAP admin can replace a datasheet/),
+    );
+    expect((await findDatasheet("601466"))?.size).toBe(184_320);
+  });
+
+  it("still refuses an ordinary upload over a datasheet that is there", async () => {
+    asDemo(["sap admin"]);
+    const { result } = renderHook(() => useUploadDatasheet(), { wrapper: wrapper() });
+    await act(() =>
+      expect(result.current.mutateAsync({ partNumber: "601466", file: pdf(), via: "edit" })).rejects.toThrow(/wasn't replaced/),
+    );
+    expect((await findDatasheet("601466"))?.size).toBe(184_320);
+  });
+});

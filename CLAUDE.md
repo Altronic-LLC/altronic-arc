@@ -2696,13 +2696,24 @@ one — none had a PDF when this shipped). `uploadDatasheet` writes
 `<part #>.pdf` into the same folder, so the lookup needs no second record.
 Seven things that are load-bearing:
 
-- **It NEVER overwrites.** `conflictBehavior: fail` on both the simple PUT
+- **An UPLOAD never overwrites.** `conflictBehavior: fail` on both the simple PUT
   and the upload session; a 409 becomes `DatasheetExistsError`, which says
-  the existing file was kept. Replacing a datasheet is a deliberate act in
-  SharePoint, not a side effect of adding a part. `uploadToDriveTarget` in
+  the existing file was kept. Replacing a datasheet is a deliberate act (the
+  next bullet), not a side effect of adding a part. `uploadToDriveTarget` in
   `api/projectFiles.ts` was lifted out of the project-folder upload for this
   — that one still uses `rename` — so the >4 MB session path is shared.
   Pinned in `datasheets.real.test.ts`, verified by switching it to `rename`.
+- **Replacing is the SAP admin's alone** (Tim, 2026-11-24) —
+  `replaceDatasheetGate`, asked by the **Replace datasheet** button beside
+  Open datasheet (hidden from everyone else) AND in `useUploadDatasheet`'s
+  mutationFn (`via: "replace"`; verified by swapping the gate). It is
+  `replaceDatasheet`, the same PUT with `conflictBehavior: replace`, so the
+  file keeps its id and link and the old PDF stays in SharePoint's version
+  history (versioning is always on for an SPO document library) — that is the
+  undo. Moving the old file aside first was turned down: two writes, and a
+  failed upload between them leaves the part with no datasheet. The PDF is
+  read when it's picked (the confirm can sit open), then a confirm names the
+  file. No email. A component's Has Data Sheet is set Yes after, as on upload.
 - **PDF only, checked BEFORE the part is created** (`datasheetFileProblem`).
   The lookup only asks for `.pdf`, so anything else would upload and never be
   found; checking first means a wrong pick leaves no part behind with no file.
@@ -2945,8 +2956,6 @@ from that data; the unit rule and the screen wiring were each verified by
 breaking them and watching tests fail.
 
 Not built yet:
-- **Replacing a datasheet** from ARC. Upload only ever adds a missing one;
-  a wrong PDF is replaced in SharePoint.
 - **Rejecting** a part at a review step. The old app only had Approve; an
   engineer corrects the part and approves it.
 

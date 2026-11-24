@@ -12,6 +12,7 @@ import {
   parseSapResponse,
   sapResponseNeedsComment,
   partsRightsFor,
+  replaceDatasheetGate,
   serializePartsRoles,
   suggestCorrectionGate,
   type PartsAccess,
@@ -225,6 +226,23 @@ describe("addDatasheetGate — a missing datasheet from the part page", () => {
 
   it("waits, rather than refusing, while the roles load", () => {
     expect(addDatasheetGate(access([], { resolving: true }), "604", false)).toMatchObject({ allowed: false, resolving: true });
+  });
+});
+
+describe("replaceDatasheetGate — writing over a datasheet that is there", () => {
+  it("is the SAP admin's alone", () => {
+    expect(replaceDatasheetGate(access(["sap admin"])).allowed).toBe(true);
+    for (const role of ["editor", "hco editor", "reviewing engineer"] as const) {
+      expect(replaceDatasheetGate(access([role]))).toMatchObject({
+        allowed: false,
+        hint: expect.stringMatching(/Only the SAP admin can replace a datasheet/),
+      });
+    }
+  });
+
+  it("waits while the roles load, and refuses when they couldn't be read", () => {
+    expect(replaceDatasheetGate(access(["sap admin"], { resolving: true }))).toMatchObject({ allowed: false, resolving: true });
+    expect(replaceDatasheetGate(access(["sap admin"], { failed: true })).allowed).toBe(false);
   });
 });
 
