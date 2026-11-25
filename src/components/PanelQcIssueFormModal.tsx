@@ -30,6 +30,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { pushToast } from "./Toast";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
 
 const emptyInput: PanelQcIssueInput = {
   panelSerialNumber: "", panelPartNumber: "", date: null, subComponentPartNumber: "", partDescription: "",
@@ -294,9 +295,9 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
 
           <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Communication</h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer notifies={commentAudience(live?.watchers)} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(live?.watchers)}
                 comments={live.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

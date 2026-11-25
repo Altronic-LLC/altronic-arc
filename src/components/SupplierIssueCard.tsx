@@ -21,6 +21,7 @@ import { CommentComposer } from "./CommentComposer";
 import { CommentThread } from "./CommentThread";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
 
 interface SupplierIssueCardProps {
   issue: SupplierIssue;
@@ -163,9 +164,9 @@ export function SupplierIssueCard({
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">
                   Comments
                 </h4>
-                <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+                <CommentComposer notifies={commentAudience(issue.watchers)} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
                 <div className="mt-4">
-                  <CommentThread
+                  <CommentThread notifies={commentAudience(issue.watchers)}
                     comments={issue.comments}
                     currentUserEmail={currentUser.email}
                     currentUserName={currentUser.displayName}

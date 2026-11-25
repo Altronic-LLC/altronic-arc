@@ -40,6 +40,7 @@ import { PersonMultiField } from "@/components/PersonMultiField";
 import { GrayMarketStatusChip, TestResultChip } from "@/components/grayMarketAtoms";
 import { SourceBuildRequestsCard } from "@/components/SourceBuildRequestsCard";
 import { grayMarketBuildRequestNo, sourceFromGrayMarket } from "@/lib/buildRequestFromSource";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One gray market request.
@@ -248,14 +249,14 @@ export function GrayMarketRequestDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(request.watchers, request.requestor)}
               draftKey={`grayMarket:${requestId}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(request.watchers, request.requestor)}
                 uploadFile={uploadCommentFile}
                 comments={request.comments}
                 currentUserEmail={currentUser.email}

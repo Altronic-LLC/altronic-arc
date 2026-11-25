@@ -60,6 +60,7 @@ import {
   ReadField,
 } from "@/components/pricingAtoms";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One New Product Pricing worksheet (/sales/pricing/new-product/:id).
@@ -1041,9 +1042,9 @@ function WorksheetDiscussion({ ws }: { ws: NewProductWorksheet }) {
   return (
     <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
       <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Discussion</h2>
-      <CommentComposer draftKey={`npWorksheet:${ws.id}`} uploadFile={uploadCommentFile} onSubmit={handleAddComment} mentionablePeople={people} />
+      <CommentComposer notifies={commentAudience(ws.watchers)} draftKey={`npWorksheet:${ws.id}`} uploadFile={uploadCommentFile} onSubmit={handleAddComment} mentionablePeople={people} />
       <div className="mt-5">
-        <CommentThread
+        <CommentThread notifies={commentAudience(ws.watchers)}
           uploadFile={uploadCommentFile}
           comments={ws.comments}
           currentUserEmail={me.email}

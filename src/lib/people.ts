@@ -226,6 +226,17 @@ export function mergePeople(...lists: Array<Person[] | undefined>): Person[] {
  * Nobody is ever REMOVED here. Unassigning someone leaves them watching, which
  * is the right default — they were involved, and Unwatch is one click away.
  */
+/**
+ * Who a new comment on a record emails besides the people mentioned in it —
+ * its watchers and assignees, merged and de-duplicated. Each page passes its
+ * own thread's rule (the arguments its add-comment hook gives
+ * `commentNotifyRecipients`), for the comment box's out-of-office check
+ * (Altronic-LLC/BusinessIT#4).
+ */
+export function commentAudience(...groups: Array<Person | Person[] | null | undefined>): Person[] {
+  return autoWatchers(...groups);
+}
+
 export function autoWatchers(
   ...groups: Array<Person | Person[] | null | undefined>
 ): Person[] {

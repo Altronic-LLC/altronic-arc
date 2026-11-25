@@ -43,6 +43,7 @@ import {
   type EditableFieldSpec,
 } from "@/components/FieldEditModal";
 import { MrbArchiveChip, MrbDispositionChip } from "@/components/mrbAtoms";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One MRB entry.
@@ -302,14 +303,14 @@ export function MrbDetailView() {
             </span>
           )}
         </div>
-        <CommentComposer
+        <CommentComposer notifies={commentAudience(entry.watchers)}
           draftKey={`mrb:${entryId}`}
           uploadFile={uploadCommentFile}
           onSubmit={handleAddComment}
           mentionablePeople={mentionCandidates}
         />
         <div className="mt-5">
-          <CommentThread
+          <CommentThread notifies={commentAudience(entry.watchers)}
             uploadFile={uploadCommentFile}
             comments={entry.comments}
             currentUserEmail={currentUser.email}

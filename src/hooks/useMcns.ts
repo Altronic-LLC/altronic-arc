@@ -75,7 +75,7 @@ export function collectMcnPeople(mcns: Mcn[]): Person[] {
 }
 
 /** The people a comment reaches besides the watchers. */
-function mcnAssignees(m: Mcn): Person[] {
+export function mcnAssignees(m: Mcn): Person[] {
   return [m.originatedBy, m.assignedEngineer].filter((p): p is Person => !!p);
 }
 

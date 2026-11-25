@@ -72,6 +72,7 @@ import { mergePeople } from "@/lib/people";
 import { fromDateInputValue, toDateInputValue, toSpDateOnly, formatSpDate } from "@/lib/spDates";
 import { toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
 
 /**
  * One work order.
@@ -410,10 +411,10 @@ export function MaintenanceDetailView() {
             </h2>
             {/* A failed post is reported by the composer, which puts the
                 comment back in the box. */}
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(task.watchers, task.assigned)}
               draftKey={`workOrder:${taskId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(task.watchers, task.assigned)}
                 uploadFile={uploadCommentFile}
                 comments={task.comments}
                 currentUserEmail={currentUser.email}

@@ -38,6 +38,7 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { tabLabel } from "@/lib/openItems";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { EcnFlagChip, EcnOnHoldChip } from "@/components/ecnAtoms";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One ECN.
@@ -278,14 +279,14 @@ ${ecn.title || "No title"}
                 ? `Posting here emails ${submitter}, who submitted this ECN, and anyone you @-mention. ECNs have no watchers.`
                 : "Posting here emails anyone you @-mention. ECNs have no watchers."}
             </p>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(ecn.submittedBy)}
               draftKey={`ecn:${ecnId}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(ecn.submittedBy)}
                 uploadFile={uploadCommentFile}
                 comments={ecn.comments}
                 currentUserEmail={currentUser.email}

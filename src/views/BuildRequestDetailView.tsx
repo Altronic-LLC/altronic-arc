@@ -70,6 +70,7 @@ import {
   BUILD_REQUEST_FINAL_ALERTS,
   BUILD_REQUEST_PRODUCTION_ALERTS,
 } from "@/api/config";
+import { commentAudience } from "@/lib/people";
 
 export function BuildRequestDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -320,10 +321,10 @@ export function BuildRequestDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments on this request
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(br.watchers, br.engineerAssigned)}
               draftKey={`buildRequest:${brId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(br.watchers, br.engineerAssigned)}
                 uploadFile={uploadCommentFile}
                 comments={br.comments}
                 currentUserEmail={currentUser.email}

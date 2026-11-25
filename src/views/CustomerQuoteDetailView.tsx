@@ -49,6 +49,7 @@ import { PersonMultiField } from "@/components/PersonMultiField";
 import { QuoteLineModal } from "@/components/QuoteLineModal";
 import { ActionButton, PricingCard, PricingManagerGate, PricingPage, ReadField } from "@/components/pricingAtoms";
 import { CustomerQuoteStatusChip } from "./CustomerQuotesView";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One customer quote (/sales/pricing/quote/:id). Managers and admins only.
@@ -451,9 +452,9 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
 
           <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Discussion</h2>
-            <CommentComposer draftKey={`customerQuote:${q.id}`} uploadFile={uploadCommentFile} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer notifies={commentAudience(q.watchers)} draftKey={`customerQuote:${q.id}`} uploadFile={uploadCommentFile} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(q.watchers)}
                 uploadFile={uploadCommentFile}
                 comments={q.comments}
                 currentUserEmail={me.email}

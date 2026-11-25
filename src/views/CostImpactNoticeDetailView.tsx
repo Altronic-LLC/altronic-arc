@@ -25,6 +25,7 @@ import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { CostImpactDeltaChip } from "@/components/costImpactAtoms";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One Cost Impact Notice.
@@ -286,10 +287,10 @@ export function CostImpactNoticeDetailView() {
                 ? `Posting here emails ${submitter}, who raised this notice, and anyone you @-mention. Cost impact notices have no watchers.`
                 : "Posting here emails anyone you @-mention. Cost impact notices have no watchers."}
             </p>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(notice.submittedBy)}
               draftKey={`costImpact:${noticeId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(notice.submittedBy)}
                 uploadFile={uploadCommentFile}
                 comments={notice.comments}
                 currentUserEmail={currentUser.email}
