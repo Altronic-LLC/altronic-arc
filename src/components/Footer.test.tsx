@@ -80,3 +80,20 @@ describe("Footer — hide and show", () => {
     expect(screen.queryByRole("button", { name: /show footer/i })).toBeNull();
   });
 });
+
+describe("Footer — the maintainer line (BusinessIT#81)", () => {
+  it("names Ray rather than spelling out the address, and still mails it", () => {
+    // 9 characters instead of 26 (Jason Lamb), so it fits one row.
+    renderWithProviders(<Footer />);
+    const link = screen.getByRole("link", { name: "Ray White" });
+    expect(link).toHaveAttribute("href", "mailto:ray.white@altronic-llc.com");
+    expect(link).toHaveAttribute("title", "ray.white@altronic-llc.com");
+  });
+
+  it("never wraps or gives up its width to the access notice", () => {
+    // A long access sentence used to squeeze this line onto several rows.
+    renderWithProviders(<Footer />);
+    const line = screen.getByText(/Developed and managed by/).parentElement as HTMLElement;
+    expect(line.className.split(" ")).toEqual(expect.arrayContaining(["shrink-0", "whitespace-nowrap"]));
+  });
+});

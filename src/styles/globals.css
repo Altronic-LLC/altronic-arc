@@ -42,6 +42,10 @@
 
   --animate-fade-in: fadeIn 150ms ease-out;
   --animate-kiosk-fade: kioskFade 1000ms ease-in-out;
+  /* The footer's scrolling access notice (components/Marquee.tsx). The
+     component sets animation-duration inline per message, so the speed stays
+     the same however long it is; 20s is only the fallback. */
+  --animate-marquee: marquee 20s linear infinite;
 
   @keyframes fadeIn {
     0% {
@@ -59,6 +63,16 @@
     }
     100% {
       opacity: 1;
+    }
+  }
+  /* Half the track = one copy of the text plus its gap, so the second copy
+     lands exactly where the first began. */
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
     }
   }
 }

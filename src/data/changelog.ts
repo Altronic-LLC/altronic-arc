@@ -31,6 +31,15 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.236.1",
+    date: "2026-11-25",
+    changes: [
+      "The footer stays one row on a computer: a SharePoint access notice too long to fit now scrolls sideways instead of making the footer taller — hover to pause it, click to read it in full",
+      "The footer names the maintainer as Ray White (still a link to email him) rather than spelling out the address",
+      "On a phone the footer is two rows: the access alert icon now sits beside the About and version buttons",
+    ],
+  },
+  {
     version: "0.236.0",
     date: "2026-11-24",
     changes: [

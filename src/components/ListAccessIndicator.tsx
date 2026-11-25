@@ -6,6 +6,7 @@ import { clearAccessDenials, useAccessDenials } from "@/hooks/useListAccess";
 import { describeAccessGap } from "@/lib/listAccess";
 import { cn } from "@/lib/cn";
 import { dropdownKeyHandler, useDropdownClose } from "./useDropdownClose";
+import { Marquee } from "./Marquee";
 
 /**
  * A warning colour that works on BOTH grounds.
@@ -29,10 +30,12 @@ const WARNING_TEXT = "text-amber-700 dark:text-amber-400";
 //
 // Two renderings of the same thing:
 //
-//   - Wide enough: the sentence inline, with Check again beside it. The
-//     sentence is also a button, because it TRUNCATES — naming three apps and
-//     a site outruns a footer row, and a message you can't finish reading is
-//     no message at all.
+//   - Wide enough: the sentence inline, with Check again beside it. Naming
+//     three apps and a site outruns a footer row, so a sentence that doesn't
+//     fit SCROLLS sideways (Marquee, BusinessIT#81) — it used to truncate,
+//     and before that it wrapped, which made the footer taller and broke the
+//     maintainer line over two rows. It is also a button, opening the popup,
+//     so it can be read standing still.
 //   - Too narrow: one alert icon. Tapping it opens the same popup.
 //
 // The breakpoint is `lg`, not a measurement: below it the footer is already
@@ -74,23 +77,25 @@ export function ListAccessIndicator() {
   return (
     <div
       ref={containerRef}
-      className="relative flex min-w-0 items-center gap-2"
+      // Takes whatever the footer row has left, so the sentence gets the room
+      // and the maintainer line and buttons keep theirs.
+      className="relative flex min-w-0 items-center gap-2 lg:flex-1"
       onKeyDown={dropdownKeyHandler(open, close)}
     >
       {/* Wide: the sentence, truncated, plus the action. */}
-      <div className="hidden min-w-0 items-center gap-2 lg:flex">
+      <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={cn(
-            "flex min-w-0 items-center gap-1.5 text-left transition-colors hover:text-fg",
+            "group flex min-w-0 flex-1 items-center gap-1.5 text-left transition-colors hover:text-fg",
             WARNING_TEXT,
           )}
           title={message}
         >
           <Lock className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 truncate">{message}</span>
+          <Marquee text={message} className="flex-1" />
         </button>
         <button
           type="button"
