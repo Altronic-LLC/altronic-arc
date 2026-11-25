@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.238.0",
+    date: "2026-11-25",
+    changes: [
+      "Comments: if someone your comment will email is out of office, the comment box says so before you send — with their automatic reply, and the date they're back when it's scheduled",
+      "People you @-mention are checked as you pick them; the item's watchers and assignees once you start writing",
+      "If ARC can't check, nothing is shown and your comment goes out as normal",
+    ],
+  },
+  {
     version: "0.237.0",
     date: "2026-11-25",
     changes: [

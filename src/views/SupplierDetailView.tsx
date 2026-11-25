@@ -47,6 +47,7 @@ import { SupplierLogoEditor } from "@/components/SupplierLogoEditor";
 import { SupplierClassChip } from "@/components/SupplierClassChip";
 import { useSupplierPerformanceIndex } from "@/hooks/useSupplierPerformance";
 import { supplierPerformanceFor } from "@/lib/supplierPerformance";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One supplier — the SRM tool's "supplier 360" page. Details/Notes are a card
@@ -251,10 +252,10 @@ export function SupplierDetailView() {
             <h2 className="mb-1 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(supplier.watchers, supplier.assignedBuyer)}
               draftKey={`supplier:${supplierId}`} onSubmit={handleAddComment} mentionablePeople={allPeople} uploadFile={uploadCommentFile} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(supplier.watchers, supplier.assignedBuyer)}
                 uploadFile={uploadCommentFile}
                 comments={supplier.comments}
                 currentUserEmail={currentUser.email}

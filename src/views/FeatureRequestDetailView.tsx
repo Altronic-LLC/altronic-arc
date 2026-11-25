@@ -28,6 +28,7 @@ import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One ARC Feature Request.
@@ -155,14 +156,14 @@ export function FeatureRequestDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(request.watchers, request.requestedBy)}
               draftKey={`featureRequest:${requestId}`}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
               uploadFile={uploadCommentFile}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(request.watchers, request.requestedBy)}
                 comments={request.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

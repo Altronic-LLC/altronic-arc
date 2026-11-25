@@ -52,6 +52,8 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { ScnApprovalChip, ScnCategoryChip, ScnStatusChip } from "@/components/scnAtoms";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
+import { scnAssignees } from "@/hooks/useScns";
 
 // =============================================================================
 // One SCN — a Supply Chain Notice.
@@ -269,14 +271,14 @@ export function ScnDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(scn.watchers, scnAssignees(scn))}
               draftKey={`scn:${scnId}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(scn.watchers, scnAssignees(scn))}
                 uploadFile={uploadCommentFile}
                 comments={scn.comments}
                 currentUserEmail={currentUser.email}

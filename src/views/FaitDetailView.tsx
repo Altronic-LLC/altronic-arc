@@ -42,6 +42,7 @@ import { ChoiceSelect, SingleSelect } from "@/components/SearchableSelect";
 import { FaitStatusChip, FirstPassChip, SignOffChip } from "@/components/faitAtoms";
 import { SourceBuildRequestsCard } from "@/components/SourceBuildRequestsCard";
 import { sourceFromFait } from "@/lib/buildRequestFromSource";
+import { commentAudience } from "@/lib/people";
 
 const KAM_FIELD_KEYS = new Set(["kamSignOff", "kamInitials", "kamApprovalNotes"]);
 
@@ -288,14 +289,14 @@ export function FaitDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(fait.watchers, fait.initiator, fait.assignedEngineer, fait.kam)}
               draftKey={`fait:${faitId}`}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
               uploadFile={uploadFaitCommentFile}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(fait.watchers, fait.initiator, fait.assignedEngineer, fait.kam)}
                 comments={fait.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

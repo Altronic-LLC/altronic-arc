@@ -75,10 +75,12 @@ describe("scopes", () => {
     expect(graphScopes).toEqual(["User.Read", "Sites.Selected", "Mail.Send.Shared"]);
   });
 
-  it("keeps the directory and Fabric scopes OUT of sign-in", async () => {
-    const { graphScopes, directoryScopes, fabricScopes } = await load({ mock: true });
+  it("keeps the directory, mail tips and Fabric scopes OUT of sign-in", async () => {
+    const { graphScopes, directoryScopes, mailTipsScopes, fabricScopes } = await load({ mock: true });
     expect(directoryScopes).toEqual(["User.ReadBasic.All"]);
+    // Mail tips only — never Mail.Read, which would read the signer's inbox.
+    expect(mailTipsScopes).toEqual(["MailTips.ReadBasic.Shared"]);
     expect(fabricScopes).toEqual(["https://analysis.windows.net/powerbi/api/GraphQLApi.Execute.All"]);
-    for (const s of [...directoryScopes, ...fabricScopes]) expect(graphScopes).not.toContain(s);
+    for (const s of [...directoryScopes, ...mailTipsScopes, ...fabricScopes]) expect(graphScopes).not.toContain(s);
   });
 });

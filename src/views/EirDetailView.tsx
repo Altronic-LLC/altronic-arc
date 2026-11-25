@@ -78,6 +78,7 @@ import {
 } from "@/lib/richText";
 import { DescriptionView } from "@/components/DescriptionView";
 import { SourceBuildRequestsCard } from "@/components/SourceBuildRequestsCard";
+import { commentAudience } from "@/lib/people";
 import { sourceFromEir } from "@/lib/buildRequestFromSource";
 import {
   convertToChecklist,
@@ -462,10 +463,10 @@ export function EirDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(eir.watchers, eir.assignedEngineers)}
               draftKey={`eir:${eirId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(eir.watchers, eir.assignedEngineers)}
                 uploadFile={uploadCommentFile}
                 comments={eir.comments}
                 currentUserEmail={currentUser.email}

@@ -33,6 +33,7 @@ import { AttachmentsSection } from "./AttachmentsSection";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
 import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
+import { commentAudience } from "@/lib/people";
 
 interface BuildRequestItemCardProps {
   item: BuildRequestItem;
@@ -299,9 +300,9 @@ export function BuildRequestItemCard({
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">
                   Comments on this part
                 </h4>
-                <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+                <CommentComposer notifies={commentAudience(item.watchers)} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
                 <div className="mt-4">
-                  <CommentThread
+                  <CommentThread notifies={commentAudience(item.watchers)}
                     comments={item.comments}
                     currentUserEmail={currentUser.email}
                     currentUserName={currentUser.displayName}

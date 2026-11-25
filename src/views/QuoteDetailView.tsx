@@ -64,6 +64,7 @@ import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { cn } from "@/lib/cn";
 import { QuoteAccessGate, QuoteStatusChip, quoteExpiry } from "./QuotesView";
 import { formatMoney, formatPct, formatUnitCost } from "@/lib/quoteMoney";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One quote revision — the WORKSHEET (/sales/quotes/:id).
@@ -628,14 +629,14 @@ function QuoteWorksheet({ access }: { access: MyQuoteAccess }) {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Discussion
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(q.watchers)}
               draftKey={`quote:${quoteId}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(q.watchers)}
                 uploadFile={uploadCommentFile}
                 comments={q.comments}
                 currentUserEmail={currentUser.email}

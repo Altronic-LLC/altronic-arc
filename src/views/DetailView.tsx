@@ -78,6 +78,7 @@ import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
 import { DateField } from "@/components/DateField";
 import { toLabelsField } from "@/lib/labels";
 import { PersonMultiField } from "@/components/PersonMultiField";
+import { commentAudience } from "@/lib/people";
 import { MultiSelect } from "@/components/SearchableSelect";
 import { BuildRequestFormModal } from "@/components/BuildRequestFormModal";
 import { buildRequestStatusColor } from "@/components/buildRequestAtoms";
@@ -772,7 +773,7 @@ export function DetailView() {
             </h2>
             {/* A failed post is reported by the composer itself, which puts
                 the comment back in the box — see handleAddComment. */}
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(task.watchers, task.assigned)}
               draftKey={`task:${taskId}`}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
@@ -792,7 +793,7 @@ export function DetailView() {
               />
             )}
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(task.watchers, task.assigned)}
                 comments={displayedComments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

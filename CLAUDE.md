@@ -579,6 +579,7 @@ src/
 │   ├── qzPrint.ts                QZ Tray browser-side client — silent print to a named printer, never throws
 │   ├── fabric.ts                 Microsoft Fabric API for GraphQL — READ-ONLY SAP warehouse transport, silent token, no write export
 │   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
+│   ├── mailTips.ts               Who is OUT OF OFFICE — Graph getMailTips on MailTips.ReadBasic.Shared, silent, cached per person 15 min, never throws
 │   ├── errorReport.ts            "Report issue" mail to the app manager
 │   └── editFailureReport.ts      Emails the user their input when a write can't be saved
 │
@@ -743,6 +744,7 @@ src/
 │   ├── mentionAutoWatch.ts       @-mention → watcher from onMutate: chips now, write on success (every comment thread)
 │   ├── useCommentMirror.ts       fanOutComment() — resolves the links, writes the mirrors, notifies each side
 │   ├── useDraft.ts               One field's draft in localStorage (comments)
+│   ├── useOutOfOffice.ts         Who among a comment's recipients is out of office — plain state over api/mailTips' 15-minute per-person cache
 │   ├── useFormDraft.ts           A whole form's draft — title + description together
 │   └── useIsPhone.ts             Narrow-viewport media query
 │
@@ -970,6 +972,7 @@ src/
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
 │   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
 │   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
+│   ├── outOfOffice.ts            Out of office (pure) — who is away now from getMailTips, the reply excerpt, the headline
 │   ├── erLayout.ts               About-page ER diagram geometry — department groups packed, connectors routed round cards (pure)
 │   ├── cameraPhoto.ts            Photos from the phone/iPad camera — renamed "Photo YYYY-MM-DD HH-MM-SS.jpg" (an iPhone calls every shot image.jpg)
 │   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
@@ -1162,7 +1165,8 @@ src/
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
 │   ├── MonthTrendHeadline.tsx    This month's figure + a green/red arrow vs last month, above every Reports chart
 │   ├── CommentThread.tsx         Sorted comment list + inline edit (own mention picker)
-│   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
+│   ├── CommentComposer.tsx       New-comment editor (+ @-mentions, + who it will email that is out of office)
+│   ├── OutOfOfficeNote.tsx       The "is out of office" line above a comment box (BusinessIT#4)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
 │   ├── PendingAttachmentsCard.tsx  Files staged on a NEW form (EIR, MCN, Panel QC issue), uploaded once the item exists; renames same-name files
 │   ├── PhotoGallery.tsx          Photo tiles (folders first, lazy pictures) + the preview over the page (← →, Open / Download / Rename / Delete)
@@ -11646,6 +11650,55 @@ This fires for comments on **six entities** — Engineering tasks, EIRs, Operati
 If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mode) or console.info (mock mode) — no mail goes out, comments still post normally.
 
 **A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
+
+### Out of office — shown in the comment box, before Send (BusinessIT#4)
+
+Brandon Mirto: the Power Apps app sent mail AS the commenter, so automatic
+replies reached them; ARC sends from the shared mailbox, so they land there
+unread. Now a line above every comment box says who the comment will email
+that is out of office (`components/OutOfOfficeNote.tsx`, `hooks/useOutOfOffice.ts`,
+`api/mailTips.ts`, rules in `lib/outOfOffice.ts`). Built 2026-11-25. It was
+first an after-send toast; Tim asked for before-Send, so the toast was removed
+— don't bring both back, or people are told twice.
+
+- **The scope is `MailTips.ReadBasic.Shared`** (`mailTipsScopes`), NOT
+  Mail.Read. The Graph docs list Mail.Read as "least privileged", but it reads
+  the signer's inbox; Exchange's own refusal (tested with the az CLI token)
+  named MailTips.ReadBasic.Shared as accepted, and it is user-consentable.
+  Plain `MailTips.ReadBasic` is not a delegated scope on the Graph service
+  principal. Asked SILENTLY, like `directoryScopes`, never in `graphScopes`.
+  **It must be added to ARC's app registration** (and ideally admin-consented)
+  before the line ever shows; until then the call fails and nothing is shown.
+- **Looked up when someone becomes relevant, never as a company-wide sweep.**
+  A daily all-directory cache was considered and turned down (Tim agreed):
+  replies change during the day, a morning copy misses the sick-day case, and
+  storing everyone's reply in localStorage leaves it on shared PCs.
+- **Each PERSON is cached in memory for 15 minutes** (`MAIL_TIPS_CACHE_MS`),
+  "not away" included, so adding a mention asks only about the new name. A
+  failure pauses asking for 15 minutes. `findOutOfOffice` never throws.
+- **Who is checked**: mentions from the moment they're picked, while their
+  `@Name` is still in the text; the page's `notifies` (watchers + assignees,
+  `commentAudience(...)` with the same arguments the page's add-comment hook
+  gives `commentNotifyRecipients`) only once something is written, so opening
+  a page costs nothing; on a reply, also the person replied to. **Never the
+  signer** — `findOutOfOffice` drops every address `resolveMyIdentity()` has.
+  Copies to a linked record (task / BR mirrors) are not checked.
+- **Every comment box must be given `notifies`** — the composer AND the
+  thread. `views/commentOutOfOffice.wiring.test.ts` reads all 25 files; a new
+  comment box belongs in its list. Customer Notes (mentions only) passes none.
+- **The hook is plain state, not React Query**: the composer renders in many
+  places with no query client, and it sets state only when the set of away
+  people changes, so the usual "nobody away" never re-renders the box.
+- **Only replies active NOW count** (blank message = off; a start in the
+  future or an end in the past is skipped; times asked in UTC); a recipient
+  Exchange answers with an `error` is skipped. Demo mode: the synthetic
+  Marcus Webb is always away.
+
+UNVERIFIED until the scope is on the app registration: a real successful call,
+what Exchange returns for a scheduled-not-started reply, and for a guest's
+external address. Pinned in `lib/outOfOffice.test.ts`,
+`api/mailTips.real.test.ts`, `components/CommentComposer.outOfOffice.test.tsx`
+and the wiring test — each guard verified by removing it.
 
 ### One email per reason, Bcc'd — not one per person
 

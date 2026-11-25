@@ -18,6 +18,8 @@ import { plainTextToHtml } from "@/lib/richText";
 import { linkifyHtml } from "@/lib/linkify";
 import { isEditConflict } from "@/lib/listWriteErrors";
 import { RichTextEditor } from "./RichTextEditor";
+import { OutOfOfficeNote } from "./OutOfOfficeNote";
+import { useOutOfOffice } from "@/hooks/useOutOfOffice";
 import {
   RichTextWarningDialog,
   WATCHERS_STILL_NOTIFIED,
@@ -66,6 +68,14 @@ interface CommentComposerProps {
   placeholder?: string;
   /** Focus the box on mount — a reply box opens because Reply was pressed. */
   autoFocus?: boolean;
+  /**
+   * Who a new comment here emails besides the people @-mentioned in it — the
+   * item's watchers and assignees, by the thread's own rule (see the page's
+   * add-comment hook). Checked for out of office once the commenter starts
+   * writing (BusinessIT#4); mentions are checked as they're picked. Omit it on
+   * a thread that emails only mentions (Customer Notes).
+   */
+  notifies?: Person[];
 }
 
 /**
@@ -125,6 +135,7 @@ export function CommentComposer({
   richTextNotifyNote = WATCHERS_STILL_NOTIFIED,
   draftKey,
   placeholder = "Write a comment…",
+  notifies,
   autoFocus,
 }: CommentComposerProps) {
   // A half-written comment survives navigating away to look something up —
@@ -486,6 +497,16 @@ export function CommentComposer({
   const hasBody = rich ? nonEmptyHtml(richHtml) !== "" : text.trim().length > 0;
   const canSend = (hasBody || attachments.length > 0) && !busy;
 
+  // Who is out of office (BusinessIT#4), before Send. Mentions count from the
+  // moment they're picked — and only while their @Name is still in the text, as
+  // that's what decides whether they're emailed. Watchers and assignees are
+  // asked about only once something is written, so opening a page costs no
+  // lookup.
+  const writtenText = rich ? richHtml : text;
+  const liveMentions = mentions.filter((p) => writtenText.includes(`@${p.displayName}`));
+  const outOfOfficeWho = hasBody || attachments.length > 0 ? [...liveMentions, ...(notifies ?? [])] : liveMentions;
+  const away = useOutOfOffice(outOfOfficeWho);
+
   return (
     <div
       className={cn(
@@ -527,6 +548,8 @@ export function CommentComposer({
           </div>
         </div>
       )}
+
+      <OutOfOfficeNote away={away} />
 
       {rich ? (
         <RichTextEditor

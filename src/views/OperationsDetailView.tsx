@@ -60,6 +60,7 @@ import { mergePeople } from "@/lib/people";
 import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
 import { DateField } from "@/components/DateField";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
 
 /**
  * Operations task detail — mirrors DetailView.tsx's structure and behavior,
@@ -377,13 +378,13 @@ export function OperationsDetailView() {
             </h2>
             {/* A failed post is reported by the composer, which puts the
                 comment back in the box. */}
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(task.watchers, task.assigned)}
               draftKey={`opsTask:${taskId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             {newExternalComments.length > 0 && (
               <NewCommentsBanner comments={newExternalComments} onShow={handleShowNewComments} />
             )}
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(task.watchers, task.assigned)}
                 uploadFile={uploadCommentFile}
                 comments={displayedComments}
                 currentUserEmail={currentUser.email}

@@ -55,6 +55,8 @@ import {
   McnScopeDialog,
 } from "@/components/McnDialogs";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
+import { mcnAssignees } from "@/hooks/useMcns";
 
 // =============================================================================
 // One MCN, laid out in MFGFRM-021's order (BusinessIT#38).
@@ -316,14 +318,14 @@ function McnDetail() {
             <div className="mb-3">
               <CardTitle>Discussion</CardTitle>
             </div>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(current.watchers, mcnAssignees(current))}
               draftKey={`mcn:${current.id}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={people}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(current.watchers, mcnAssignees(current))}
                 uploadFile={uploadCommentFile}
                 comments={current.comments}
                 currentUserEmail={me.email}

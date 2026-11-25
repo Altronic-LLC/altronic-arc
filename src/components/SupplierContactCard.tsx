@@ -24,6 +24,7 @@ import { CommentComposer } from "./CommentComposer";
 import { CommentThread } from "./CommentThread";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { cn } from "@/lib/cn";
+import { commentAudience } from "@/lib/people";
 
 interface SupplierContactCardProps {
   contact: SupplierContact;
@@ -170,9 +171,9 @@ export function SupplierContactCard({
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">
                   Comments
                 </h4>
-                <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+                <CommentComposer notifies={commentAudience(contact.watchers)} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
                 <div className="mt-4">
-                  <CommentThread
+                  <CommentThread notifies={commentAudience(contact.watchers)}
                     comments={contact.comments}
                     currentUserEmail={currentUser.email}
                     currentUserName={currentUser.displayName}

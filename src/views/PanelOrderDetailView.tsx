@@ -57,6 +57,7 @@ import { cn } from "@/lib/cn";
 import { legacyPanelOrderId, OLD_PANEL_ORDER_LIST, panelOrderCreatedAt } from "@/lib/panelOrderArchive";
 import { panelProjectLabel, panelProjectPath } from "@/lib/panelProjectDashboard";
 import { panelOrderDrawingNumberAvailable } from "@/api/panelOrders";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One Panel Order. READ-ONLY until you press a section's Edit button (Tim,
@@ -417,10 +418,10 @@ export function PanelOrderDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(order.watchers, order.engineerAssigned)}
               draftKey={`panelOrder:${orderId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(order.watchers, order.engineerAssigned)}
                 uploadFile={uploadCommentFile}
                 comments={order.comments}
                 currentUserEmail={currentUser.email}

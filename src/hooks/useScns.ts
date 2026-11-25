@@ -78,7 +78,7 @@ export function collectScnPeople(scns: Scn[]): Person[] {
 }
 
 /** The people a comment or a status change reaches besides the watchers. */
-function scnAssignees(scn: Scn): Person[] {
+export function scnAssignees(scn: Scn): Person[] {
   return mergePeople(scn.assignedTo, scn.owner);
 }
 

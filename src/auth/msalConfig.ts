@@ -99,6 +99,23 @@ export const graphScopes = [
 export const directoryScopes = ["User.ReadBasic.All"];
 
 /**
+ * Graph scope for reading who is OUT OF OFFICE (Altronic-LLC/BusinessIT#4) —
+ * getMailTips' automatic replies, so the comment box can say, before Send,
+ * that somebody the comment will email is away (see `api/mailTips.ts`).
+ *
+ * MailTips.ReadBasic.Shared reads mail TIPS only, never mail, and each person
+ * can consent to it themselves. The Graph docs list Mail.Read as the "least
+ * privileged" option, but that reads the signer's inbox — far too much for
+ * this. Exchange's own refusal (2026-11-25) named this scope as accepted.
+ *
+ * Like `directoryScopes`: requested lazily and SILENTLY, never in
+ * `graphScopes`, so it can't break sign-in. Until it's on ARC's app
+ * registration (API permissions → Microsoft Graph → Delegated →
+ * MailTips.ReadBasic.Shared) and consented, the note simply never shows.
+ */
+export const mailTipsScopes = ["MailTips.ReadBasic.Shared"];
+
+/**
  * Scope for Microsoft Fabric's API for GraphQL — READ-ONLY reference data
  * (see `api/fabric.ts`). A different RESOURCE from Graph, so it is always a
  * SEPARATE token, and deliberately NOT in `graphScopes`.

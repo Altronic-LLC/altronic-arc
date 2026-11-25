@@ -46,6 +46,7 @@ import {
   PricingStatusChip,
   ReadField,
 } from "@/components/pricingAtoms";
+import { commentAudience } from "@/lib/people";
 
 // =============================================================================
 // One pricing request (/sales/pricing/request/:id).
@@ -293,14 +294,14 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
 
           <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Discussion</h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(r.watchers)}
               draftKey={`pricingRequest:${r.id}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
             />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(r.watchers)}
                 uploadFile={uploadCommentFile}
                 comments={r.comments}
                 currentUserEmail={currentUser.email}

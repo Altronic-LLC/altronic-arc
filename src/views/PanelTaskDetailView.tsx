@@ -65,6 +65,7 @@ import { estimatedHoursProblem, parseEstimatedHours, scheduleProblem } from "@/l
 import { panelTaskWorkItem } from "@/lib/panelCapacity";
 import { pushToast } from "@/components/Toast";
 import { chainWaitingOn, ORDER_HOLD_TASK_STATUS } from "@/lib/panelOrderChain";
+import { commentAudience } from "@/lib/people";
 
 export function PanelTaskDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -271,10 +272,10 @@ export function PanelTaskDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer
+            <CommentComposer notifies={commentAudience(task.watchers, task.assigned)}
               draftKey={`panelTask:${taskId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
-              <CommentThread
+              <CommentThread notifies={commentAudience(task.watchers, task.assigned)}
                 uploadFile={uploadCommentFile}
                 comments={task.comments}
                 currentUserEmail={currentUser.email}

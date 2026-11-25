@@ -80,6 +80,11 @@ interface CommentThreadProps {
   draftKey?: string;
   /** Passed through to the reply box — see `CommentComposer`'s prop. */
   richTextNotifyNote?: string;
+  /**
+   * Passed through to the reply box — see `CommentComposer`'s prop. The
+   * person being replied to is added there, since a reply emails them too.
+   */
+  notifies?: Person[];
 }
 
 const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
@@ -99,6 +104,7 @@ export function CommentThread({
   onReply,
   draftKey,
   richTextNotifyNote,
+  notifies,
 }: CommentThreadProps) {
   // Which comment the open reply box answers. Kept by KEY, not object: the
   // list refetches after every write and hands back new objects.
@@ -164,6 +170,7 @@ export function CommentThread({
                     uploadFile={uploadFile}
                     draftKey={draftKey}
                     richTextNotifyNote={richTextNotifyNote}
+                    notifies={notifies}
                   />
                 )}
               </div>
@@ -188,6 +195,7 @@ function ReplyBox({
   uploadFile,
   draftKey,
   richTextNotifyNote,
+  notifies,
 }: {
   parent: Comment;
   onReply: NonNullable<CommentThreadProps["onReply"]>;
@@ -196,8 +204,13 @@ function ReplyBox({
   uploadFile?: CommentThreadProps["uploadFile"];
   draftKey?: string;
   richTextNotifyNote?: string;
+  notifies?: Person[];
 }) {
   const name = parent.authorName || parent.authorEmail || "this comment";
+  // A reply emails the person it answers (replyRecipient in lib/mentions.ts).
+  const replyNotifies = parent.authorEmail
+    ? [{ displayName: parent.authorName || parent.authorEmail, email: parent.authorEmail }, ...(notifies ?? [])]
+    : notifies;
   return (
     <div aria-label={`Reply to ${name}`} role="group">
       <div className="mb-1.5 flex items-center justify-between gap-2 text-xs text-fg-muted">
@@ -226,6 +239,7 @@ function ReplyBox({
         draftKey={draftKey ? `${draftKey}:reply:${parent.timestamp.getTime()}` : undefined}
         placeholder="Write a reply…"
         autoFocus
+        notifies={replyNotifies}
       />
     </div>
   );
