@@ -21,6 +21,7 @@ import { cleanup } from "@testing-library/react";
 import { resetOpenDropdown } from "@/components/useDropdownClose";
 import { setMockLatency } from "@/api/mockLatency";
 import { OPEN_ITEMS_STORAGE_KEY, resetOpenItemsStore } from "@/hooks/useOpenItems";
+import { SAVED_FILTERS_STORAGE_KEY, resetSavedFiltersStore } from "@/hooks/useSavedFilters";
 
 afterEach(() => {
   cleanup();
@@ -30,10 +31,14 @@ afterEach(() => {
   // localStorage; a tab one test keeps open must not appear in the next.
   try {
     localStorage.removeItem(OPEN_ITEMS_STORAGE_KEY);
+    localStorage.removeItem(SAVED_FILTERS_STORAGE_KEY);
   } catch {
     // no storage in this environment
   }
   resetOpenItemsStore();
+  // Saved filters (useSavedFilters) — same arrangement: a filter one test
+  // saves, or stars as the default, must not open the next test's list on it.
+  resetSavedFiltersStore();
 });
 
 // jsdom doesn't ship matchMedia. Some libraries (lucide-react animations,

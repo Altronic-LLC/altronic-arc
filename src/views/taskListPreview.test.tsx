@@ -26,6 +26,8 @@ vi.mock("@/hooks/useTasks", async (importOriginal) => ({
 
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ displayName: "Demo User", email: "demo.user@altronic-llc.com", lookupId: 0 }),
+  // The Saved filters button matches your own address with this.
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
 vi.mock("@/hooks/useIsPhone", () => ({

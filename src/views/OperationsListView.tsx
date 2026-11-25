@@ -38,7 +38,7 @@ import { OPERATIONS_STATUSES, type OperationsStatus, type Task } from "@/types/t
 // so the memos below don't recompute on every render.
 const NO_TASKS: Task[] = [];
 
-/** Mirrors ListView.tsx's readInitialStatus — lets the Dashboard deep-link to a status. */
+/** Mirrors ListView.tsx's readStatusParam — lets the Dashboard deep-link to a status. */
 function readInitialStatus(raw: string | null): OperationsStatusFilter {
   if (raw === "ALL_ACTIVE") return "ALL_ACTIVE";
   if (raw && (OPERATIONS_STATUSES as readonly string[]).includes(raw)) return raw as OperationsStatus;

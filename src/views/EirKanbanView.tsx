@@ -19,7 +19,8 @@ import { useEirs, useUpdateEirFields } from "@/hooks/useEirs";
 import { pushToast } from "@/components/Toast";
 import { useCanEditEirWorkflow } from "@/hooks/useEirWorkflowAccess";
 import { EIR_WORKFLOW_HINT } from "@/lib/eirWorkflowEditors";
-import { eirFilterSearch, useEirFilters } from "@/hooks/useEirFilters";
+import { EIR_SAVED_FILTER_SPEC, eirFilterSearch, useEirFilters } from "@/hooks/useEirFilters";
+import { SavedFiltersMenu } from "@/components/SavedFiltersMenu";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { EIR_STATUSES, type Eir, type EirStatus } from "@/types/task";
@@ -67,6 +68,9 @@ export function planEirStatusDrop(
   if (!canEditWorkflow) return { refusal: EIR_WORKFLOW_HINT };
   return { status: target };
 }
+
+// The board's columns ARE the statuses, so it saves and compares no status.
+const BOARD_EXCLUDES = ["status"] as const;
 
 export function EirKanbanView() {
   const navigate = useNavigate();
@@ -177,14 +181,17 @@ export function EirKanbanView() {
     <div className="mx-auto flex h-[calc(100dvh-12rem)] max-w-full flex-col gap-3 px-4 py-3 sm:h-[calc(100dvh-7rem)] sm:gap-4 sm:px-6 sm:py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <EirViewTabs eirs={filteredByBar} view={view} onChange={setView} />
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New EIR</span>
-          <span className="sm:hidden">New</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <SavedFiltersMenu spec={EIR_SAVED_FILTER_SPEC} exclude={BOARD_EXCLUDES} />
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New EIR</span>
+            <span className="sm:hidden">New</span>
+          </button>
+        </div>
       </div>
 
       <EirFilterBar

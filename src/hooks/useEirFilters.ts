@@ -1,5 +1,8 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { applySavedQuery, isBareSearch, type SavedFilterSpec } from "@/lib/savedFilters";
+import { useCurrentUser } from "./useCurrentUser";
+import { readDefaultSavedFilter } from "./useSavedFilters";
 import type { EirStatus } from "@/types/task";
 import { eirViewIgnoresStatus } from "@/lib/eirFilters";
 import type { EirFilters, EirStatusFilter, EirView } from "@/lib/eirFilters";
@@ -22,6 +25,16 @@ import type { EirFilters, EirStatusFilter, EirView } from "@/lib/eirFilters";
  * reasoning as the task switcher, which leaves `status` behind too.
  */
 export const EIR_FILTER_PARAM_KEYS = ["q", "project", "reporter", "engineer", "view"] as const;
+
+/**
+ * What a saved EIR filter holds (Altronic-LLC/BusinessIT#12): the filter bar,
+ * the view tab and the list's status pill.
+ */
+export const EIR_SAVED_FILTER_SPEC: SavedFilterSpec = {
+  list: "eirs",
+  keys: [...EIR_FILTER_PARAM_KEYS, "status"],
+  personKeys: ["reporter", "engineer"],
+};
 
 /**
  * Pick just the EIR filter params out of a location's search string and
@@ -59,6 +72,28 @@ export interface EirFilterState {
 
 export function useEirFilters(): EirFilterState {
   const [searchParams, setSearchParams] = useSearchParams();
+  const me = useCurrentUser();
+  const defaulted = useRef(false);
+
+  // Reached with no filter in the URL, the list opens on the person's default
+  // saved filter if they have one; otherwise unfiltered, as it always has.
+  // Once per mount, like the task list's "assigned to me".
+  useEffect(() => {
+    if (defaulted.current) return;
+    if (!isBareSearch(searchParams, EIR_SAVED_FILTER_SPEC)) {
+      defaulted.current = true;
+      return;
+    }
+    const preset = readDefaultSavedFilter("eirs");
+    if (!preset) {
+      defaulted.current = true;
+      return;
+    }
+    const next = applySavedQuery(searchParams, preset.query, EIR_SAVED_FILTER_SPEC, me.email || null);
+    if (!next) return; // it names "me" — wait until we know who that is
+    setSearchParams(next, { replace: true });
+    defaulted.current = true;
+  }, [me.email, searchParams, setSearchParams]);
 
   const write = useCallback(
     (key: string, value: string | null) => {

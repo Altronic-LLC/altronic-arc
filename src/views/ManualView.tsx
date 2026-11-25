@@ -468,7 +468,7 @@ const SECTIONS: ManualSection[] = [
       "combined task list",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Category, Assigned, Search, Created By, Watching), and a New Task button. The Category filter shows only tasks filed under the categories you pick — Label Change or Drawing, say — rather than every task that mentions the word. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page. While every task is loading, the List and Kanban show the 200 most recently updated tasks with a note, Kanban cards can't be dragged, and New Task waits so the new task is numbered correctly.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Category, Assigned, Search, Created By, Watching), and a New Task button. The Category filter shows only tasks filed under the categories you pick — Label Change or Drawing, say — rather than every task that mentions the word. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable, and the Saved filters button keeps the ones you use often in this browser — star one to open the list on it. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page. While every task is loading, the List and Kanban show the 200 most recently updated tasks with a note, Kanban cards can't be dragged, and New Task waits so the new task is numbered correctly.",
     render: () => (
       <>
         <P>
@@ -561,7 +561,9 @@ const SECTIONS: ManualSection[] = [
         </UL>
         <P>
           Click any row to open the task's detail page. Filters live in the
-          URL, so you can bookmark or share a filtered view as a link.
+          URL, so you can bookmark or share a filtered view as a link. The{" "}
+          <strong>Saved filters</strong> button keeps the ones you use often in
+          this browser, status pill included — see Filters.
         </P>
       </>
     ),
@@ -7140,7 +7142,9 @@ const SECTIONS: ManualSection[] = [
           No / MFG / P/N / description, and Reporter (single-select). The view,
           status, and filters all live in the URL so a view is shareable — with
           the one exception above: a status in the URL is ignored while At Risk
-          Parts is the active tab.
+          Parts is the active tab. The <strong>Saved filters</strong> button
+          beside New EIR keeps the tab, status and filters you use often in this
+          browser; star one and the EIR list opens on it — see Filters.
         </P>
         <P>
           Each row shows <strong>the date the EIR was raised</strong>, beside its
@@ -9028,6 +9032,11 @@ const SECTIONS: ManualSection[] = [
       "filter by status",
       "share filter",
       "bookmark filter",
+      "saved filter",
+      "save filter",
+      "preset",
+      "favourite filter",
+      "default filter",
       "url filter",
       "sort",
       "sorting",
@@ -9039,7 +9048,7 @@ const SECTIONS: ManualSection[] = [
       "oldest first",
     ],
     searchText:
-      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Category (multi — Task Type on Operations tasks; shows only tasks filed under the categories picked, not ones that mention the word), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists. Most tables also SORT by any column: click the small arrows beside a column name, and click again to reverse. Clicking the column NAME instead opens a checkbox list of that column's values, so you can narrow to one project, supplier, status or person — several columns can be narrowed at once, and they combine. Dates and numbers sort as values rather than as text, and a blank always sinks to the bottom rather than floating to the top, whichever direction you pick. Sorting and column filters are available on Visit Reports, ECNs, FAITs, Suppliers, the Cold Call Log, CSA Listings, the Teradyne Log, Gray Market Requests, MRB, QC Time Tracking and the Panel QC Issue Tracker.",
+      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Category (multi — Task Type on Operations tasks; shows only tasks filed under the categories picked, not ones that mention the word), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. Saved filters, beside New Task on the List and Kanban and beside New EIR on the EIR list and board, keep a set of filters under a name in this browser: save what's on screen, pick one to apply it, rename or delete it, and star one to open the list on it whenever you reach the list with no filters in the link. Your own name is saved as you, so a saved 'assigned to me' filter follows whoever is signed in. On the List the status pill is saved too; the boards leave status out because their columns are the statuses. Saved filters stay in this browser — they are not on your phone or another PC, and nobody else sees them. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists. Most tables also SORT by any column: click the small arrows beside a column name, and click again to reverse. Clicking the column NAME instead opens a checkbox list of that column's values, so you can narrow to one project, supplier, status or person — several columns can be narrowed at once, and they combine. Dates and numbers sort as values rather than as text, and a blank always sinks to the bottom rather than floating to the top, whichever direction you pick. Sorting and column filters are available on Visit Reports, ECNs, FAITs, Suppliers, the Cold Call Log, CSA Listings, the Teradyne Log, Gray Market Requests, MRB, QC Time Tracking and the Panel QC Issue Tracker.",
     render: () => (
       <>
         <P>
@@ -9114,6 +9123,49 @@ const SECTIONS: ManualSection[] = [
         <Tip>
           Filters live in the URL (<code>?assigned=…&amp;project=…</code>) — so
           you can bookmark a particular view or share it as a link.
+        </Tip>
+
+        <H3>Saved filters (Tasks and EIRs)</H3>
+        <P>
+          The <strong>Saved filters</strong> button sits beside New Task on the
+          task List and Kanban, and beside New EIR on the EIR list and board.
+          Set the filters you use often, open the button and choose{" "}
+          <strong>Save current filters…</strong>, then give them a name.
+        </P>
+        <UL>
+          <LI>
+            <strong>Pick a saved filter to apply it.</strong> It replaces the
+            filters on screen; Back returns to the ones you had.
+          </LI>
+          <LI>
+            The button shows the <strong>name of the saved filter on screen</strong>,
+            so you can always tell when one is narrowing the list.
+          </LI>
+          <LI>
+            <strong>Star</strong> one to open the list on it whenever you reach
+            the list with no filters in the link — from the menu, a Back to list
+            button, or the Dashboard's EIRs card. A link that already carries
+            filters is opened as it is. Star it again to stop.
+          </LI>
+          <LI>
+            <strong>Your own name is saved as you.</strong> A saved "assigned to
+            me" filter means whoever is signed in, not one fixed address.
+          </LI>
+          <LI>
+            On the task List and the EIR list the <strong>status pill</strong>{" "}
+            is saved too. The boards leave status out, because their columns
+            are the statuses.
+          </LI>
+          <LI>
+            Saving under a name you already have <strong>replaces</strong> it —
+            that's how you update one. Rename and delete are beside each one,
+            and a delete can be undone from the message that appears.
+          </LI>
+        </UL>
+        <Tip>
+          Saved filters are kept <strong>in this browser</strong>. They are not
+          on your phone or another PC, nobody else sees them, and clearing the
+          browser's site data removes them.
         </Tip>
 
         <H3>Sorting a table, and filtering one column</H3>

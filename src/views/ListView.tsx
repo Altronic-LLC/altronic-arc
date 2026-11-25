@@ -4,7 +4,8 @@ import { Plus } from "lucide-react";
 import { useProjects, useTaskListWithPreview } from "@/hooks/useTasks";
 import { TaskListPreviewNotice } from "@/components/TaskListPreviewNotice";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
-import { useFilters } from "@/hooks/useFilters";
+import { TASK_SAVED_FILTER_SPEC, useFilters } from "@/hooks/useFilters";
+import { SavedFiltersMenu } from "@/components/SavedFiltersMenu";
 import { StatusPills } from "@/components/StatusPills";
 import { TaskStagePills } from "@/components/TaskStagePills";
 import { EMPTY_FILTERS, FilterBar, TASK_CATEGORY_FILTER } from "@/components/FilterBar";
@@ -41,15 +42,22 @@ import { STATUSES, type OperationsTask, type Status } from "@/types/task";
 const NO_OPS_TASKS: OperationsTask[] = [];
 
 /**
- * Read the initial status filter from a `?status=` URL param so the
- * Dashboard cards can deep-link to specific status views. Accepts any
- * known Status value or the literal "ALL_ACTIVE". Unknown values fall
- * back to ALL_ACTIVE (the default).
+ * The status pill, read from `?status=`. It lives in the URL so the Dashboard
+ * cards can deep-link to a status AND so a saved filter can carry it
+ * (Altronic-LLC/BusinessIT#12). Absent (or unknown) is the default, Active;
+ * `ALL` is the pill switched off, every status.
  */
-function readInitialStatus(raw: string | null): StatusFilter {
+export function readStatusParam(raw: string | null): StatusFilter {
+  if (raw === "ALL") return null;
   if (raw === "ALL_ACTIVE") return "ALL_ACTIVE";
   if (raw && (STATUSES as readonly string[]).includes(raw)) return raw as Status;
   return "ALL_ACTIVE";
+}
+
+/** The `status` value for a pill — null (no param) for the default. */
+export function statusParamFor(filter: StatusFilter): string | null {
+  if (filter === "ALL_ACTIVE") return null;
+  return filter === null ? "ALL" : filter;
 }
 
 /**
@@ -72,12 +80,21 @@ export function ListView() {
   const opsQuery = useOperationsTasks({ enabled: allScope });
   const opsTasks = allScope ? (opsQuery.data ?? NO_OPS_TASKS) : NO_OPS_TASKS;
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() =>
-    readInitialStatus(searchParams.get("status")),
-  );
+  const statusFilter = readStatusParam(searchParams.get("status"));
+  const setStatusFilter = (next: StatusFilter) =>
+    setSearchParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        const value = statusParamFor(next);
+        if (value === null) out.delete("status");
+        else out.set("status", value);
+        return out;
+      },
+      { replace: true },
+    );
   const [stageFilter, setStageFilter] = useState<TaskStageFilter>("ACTIVE");
   const [department, setDepartment] = useState<CombinedDepartment | null>(null);
-  const [filters, setFilters] = useFilters();
+  const [filters, setFilters] = useFilters({ savedFilters: true });
   const [showNewTask, setShowNewTask] = useState(false);
   const currentUser = useCurrentUser();
 
@@ -115,22 +132,25 @@ export function ListView() {
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <TaskScopeToggle
           allScope={allScope}
           ownLabel="Engineering"
           allLabel="Engineering + Operations"
           onChange={setAllScope}
         />
-        <button
-          onClick={() => setShowNewTask(true)}
-          title="New Engineering task"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New Task</span>
-          <span className="sm:hidden">New</span>
-        </button>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <SavedFiltersMenu spec={TASK_SAVED_FILTER_SPEC} />
+          <button
+            onClick={() => setShowNewTask(true)}
+            title="New Engineering task"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Task</span>
+            <span className="sm:hidden">New</span>
+          </button>
+        </div>
       </div>
 
       {allScope ? (

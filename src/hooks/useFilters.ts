@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Filters } from "@/components/FilterBar";
 import { useCurrentUser } from "./useCurrentUser";
+import { readDefaultSavedFilter } from "./useSavedFilters";
+import { applySavedQuery, isBareSearch, type SavedFilterSpec } from "@/lib/savedFilters";
 
 /**
  * The URL params that carry filter state. Anything that links between two
@@ -9,6 +11,18 @@ import { useCurrentUser } from "./useCurrentUser";
  * filters reset — see `filterSearch()`.
  */
 export const FILTER_PARAM_KEYS = ["q", "project", "assigned", "createdBy", "watching", "category"] as const;
+
+/**
+ * What a saved Engineering task filter holds (Altronic-LLC/BusinessIT#12): the
+ * filter bar's params plus the List's status pill. `ALL_ACTIVE` is the pill's
+ * default, so it is the same as no `status` at all.
+ */
+export const TASK_SAVED_FILTER_SPEC: SavedFilterSpec = {
+  list: "tasks",
+  keys: [...FILTER_PARAM_KEYS, "status"],
+  personKeys: ["assigned", "createdBy", "watching"],
+  defaults: { status: "ALL_ACTIVE" },
+};
 
 /**
  * Pick just the filter params out of a location's search string and return
@@ -24,10 +38,9 @@ export const FILTER_PARAM_KEYS = ["q", "project", "assigned", "createdBy", "watc
  * encoding of an explicit "Anyone", and dropping it lets the first-visit
  * default re-apply on the other view.
  *
- * Only these params travel. `status` is left behind on purpose — the status
- * pills are component state that the URL isn't kept in step with, so
- * carrying a stale `status=` back to the List would restore a filter the
- * user had already clicked away from.
+ * Only these params travel. `status` is left behind on purpose — the board's
+ * columns ARE the statuses, so it has no pill, and a `status=` carried there
+ * and back would come back as a pill nobody on the board could see or change.
  */
 export function filterSearch(search: string): string {
   const from = new URLSearchParams(search);
@@ -61,16 +74,34 @@ export function filterSearch(search: string): string {
  *
  * Because the state lives in the URL, any link BETWEEN two views of the same
  * list has to carry these params along — that's what `filterSearch()` is for.
+ *
+ * `savedFilters` (the Engineering List and board only — Operations shares this
+ * hook and has no saved filters yet): reached with NO filter in the URL, the
+ * list opens on the person's default saved filter, if they have one, instead
+ * of "assigned to me".
  */
-export function useFilters(): [Filters, (next: Filters) => void] {
+export function useFilters(options?: {
+  savedFilters?: boolean;
+}): [Filters, (next: Filters) => void] {
   const [searchParams, setSearchParams] = useSearchParams();
   const me = useCurrentUser();
   const defaulted = useRef(false);
+  const savedFilters = options?.savedFilters ?? false;
 
   // First-visit default: only fires when `assigned` is absent from the URL.
   // useRef guards against double-fire under React 18 strict-mode dev rendering.
   useEffect(() => {
     if (defaulted.current) return;
+    if (savedFilters && isBareSearch(searchParams, TASK_SAVED_FILTER_SPEC)) {
+      const preset = readDefaultSavedFilter("tasks");
+      if (preset) {
+        const next = applySavedQuery(searchParams, preset.query, TASK_SAVED_FILTER_SPEC, me.email || null);
+        if (!next) return; // it names "me" — wait until we know who that is
+        setSearchParams(next, { replace: true });
+        defaulted.current = true;
+        return;
+      }
+    }
     if (searchParams.has("assigned")) {
       defaulted.current = true;
       return;
@@ -88,7 +119,7 @@ export function useFilters(): [Filters, (next: Filters) => void] {
       { replace: true },
     );
     defaulted.current = true;
-  }, [me.email, searchParams, setSearchParams]);
+  }, [me.email, savedFilters, searchParams, setSearchParams]);
 
   const filters: Filters = useMemo(() => {
     const projectRaw = searchParams.get("project");

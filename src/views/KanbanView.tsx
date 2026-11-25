@@ -16,7 +16,8 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Plus } from "lucide-react";
 import { useProjects, useSetStatus, useTaskListWithPreview } from "@/hooks/useTasks";
 import { TaskListPreviewNotice } from "@/components/TaskListPreviewNotice";
-import { filterSearch, useFilters } from "@/hooks/useFilters";
+import { filterSearch, TASK_SAVED_FILTER_SPEC, useFilters } from "@/hooks/useFilters";
+import { SavedFiltersMenu } from "@/components/SavedFiltersMenu";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { STATUSES, type Status, type Task } from "@/types/task";
 import { FilterBar, TASK_CATEGORY_FILTER } from "@/components/FilterBar";
@@ -87,6 +88,9 @@ export function planTaskStatusDrop({
   return { taskId: task.id, target };
 }
 
+// The board's columns ARE the statuses, so it saves and compares no status.
+const BOARD_EXCLUDES = ["status"] as const;
+
 export function KanbanView() {
   const navigate = useNavigate();
   const { search } = useLocation();
@@ -96,7 +100,7 @@ export function KanbanView() {
   // list that isn't there yet, so the card wouldn't move.
   const { data: tasks = [], isLoading, preview } = useTaskListWithPreview();
   const { data: projects = [] } = useProjects();
-  const [filters, setFilters] = useFilters();
+  const [filters, setFilters] = useFilters({ savedFilters: true });
   const setStatus = useSetStatus();
   const { data: buildRequests = [], isLoading: buildRequestsLoading } = useBuildRequests();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -183,6 +187,7 @@ export function KanbanView() {
     // app chrome (Header + Footer + padding); a few pixels off is fine.
     <div className="mx-auto flex h-[calc(100dvh-12rem)] max-w-full flex-col gap-3 px-4 py-3 sm:h-[calc(100dvh-7rem)] sm:gap-4 sm:px-6 sm:py-4">
       <div className="flex items-start justify-end gap-3">
+        <SavedFiltersMenu spec={TASK_SAVED_FILTER_SPEC} exclude={BOARD_EXCLUDES} />
         <button
           onClick={() => setShowNewTask(true)}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"

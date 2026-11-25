@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.240.0",
+    date: "2026-11-25",
+    changes: [
+      "Engineering tasks and EIRs: a Saved filters button keeps the filters you use often under a name, in this browser",
+      "Pick a saved filter to apply it; the button shows its name while it is on screen",
+      "Star a saved filter to open the task list or EIR list on it whenever you arrive with no filters in the link",
+      "A saved filter that includes you means whoever is signed in, and on the task List it keeps the status pill too",
+      "The task List remembers its status pill in the link, so a refresh or a shared link keeps it",
+    ],
+  },
+  {
     version: "0.239.0",
     date: "2026-11-25",
     changes: [

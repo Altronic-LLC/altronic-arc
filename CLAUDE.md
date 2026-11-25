@@ -733,8 +733,9 @@ src/
 │   ├── useTaskLinkedFiles.ts     A task's linked library files — read, link, unlink (never deletes), each file's current state
 │   ├── useProjectFolders.ts      Project-folder browsing queries
 │   ├── useAttachments.ts         List-item attachment upload/list/delete
-│   ├── useFilters.ts             URL-backed task filter state + filterSearch()
-│   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
+│   ├── useFilters.ts             URL-backed task filter state + filterSearch() + TASK_SAVED_FILTER_SPEC; `savedFilters` opens on the starred one
+│   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch() + EIR_SAVED_FILTER_SPEC; opens on the starred saved filter
+│   ├── useSavedFilters.ts        Saved filters (#12) — a module store in this browser's localStorage, per list, in step across ARC tabs
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
 │   ├── useListAccess.ts          Shared "SharePoint refused this list" store (banner + nav gating)
 │   ├── useEmptyListCheck.ts      An empty list: really empty, or trimmed away from you?
@@ -919,6 +920,7 @@ src/
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
 │   ├── openItems.ts              Records kept open as tabs (pure) — parse, add (refused when full), remove, move, rename, tabLabel
+│   ├── savedFilters.ts           Saved filters (pure) — a named canonical query, @me for your own address, apply / match / save / rename / default
 │   ├── agenda.ts                 My agenda (pure) — whose tasks/EIRs, which dates, the window, LOCAL-day grouping, the badge count
 │   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
 │   ├── openOrders.ts             Open Orders maths — aging, rollups, repairs split, filenames
@@ -1010,6 +1012,7 @@ src/
 │   ├── MovedTo.tsx               Redirect for a moved route that KEEPS the query string (old /operations/harness-log links)
 │   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages + the record's Keep open button (#74)
 │   ├── OpenItemsBar.tsx          The strip of records kept open, inside the sticky header — tabs, drag/Ctrl+Shift+arrow to reorder; an Open menu on a phone
+│   ├── SavedFiltersMenu.tsx      The Saved filters button + panel beside New Task / New EIR — apply, save current, rename, delete (Undo), star the default
 │   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
@@ -12565,6 +12568,11 @@ itself.
 `/eirs` shows every EIR — every status, every engineer — until somebody sets a
 filter. Nothing applies one on their behalf.
 
+**The one exception is the person's OWN starred saved filter** (BusinessIT#12,
+below): a plain `/eirs` opens on it. That is the person's choice, made in their
+own browser, and the Saved filters button names it while it's on screen — not
+a filter ARC applies for them. Don't add any other default.
+
 The dashboard's EIRs card used to send `engineer=<me>` whenever the dashboard
 was in **Mine** scope, which is its default. So following that card landed
 people on their own EIRs only, and it was reported as the filter being broken —
@@ -12796,9 +12804,59 @@ to "Anyone" got silently undone.
 
 Two details: a present-but-empty `assigned=` is preserved (that's how "Anyone" is
 encoded — drop it and the default comes back), and `status=` is deliberately NOT
-carried, since the status pills are component state the URL isn't kept in step
-with. Keep the URL as the source of truth — a filtered view being shareable is
-promised in the manual.
+carried to the board, whose columns ARE the statuses. Keep the URL as the source
+of truth — a filtered view being shareable is promised in the manual.
+
+**The List's status pill IS in the URL now** (BusinessIT#12, 2026-11-25), so a
+saved filter can carry it: `readStatusParam` / `statusParamFor` in
+`ListView.tsx`. Absent = Active (the default), `ALL` = the pill switched off,
+a status = that status. It used to be component state read once from
+`?status=` for the Dashboard's deep links. The Operations and CMMS lists still
+read it once; they have no saved filters yet.
+
+### Saved filters — named queries kept in this browser (BusinessIT#12)
+
+Thomas Terhune (ARC Feature Request #19). Tim's decisions, 2026-11-25: **per
+browser**, **Engineering tasks and EIRs first**. Pieces: `lib/savedFilters.ts`
+(pure), `hooks/useSavedFilters.ts` (the store — the Keep open tabs arrangement:
+localStorage `arc-saved-filters`, every access in try/catch, the `storage` event
+keeps ARC tabs in step, `src/test/setup.ts` clears it), and
+`components/SavedFiltersMenu.tsx` beside New Task (List, Kanban) and New EIR
+(list, board). Ray asked on the issue (2026-10-06) to hold it for something he
+and Matt discussed; Tim went ahead with the per-browser version, which a
+SharePoint list could back later.
+
+- **A saved filter is a NAMED QUERY STRING**, because every filter already
+  lives in the URL. Each list declares a `SavedFilterSpec` beside its URL hook
+  (`TASK_SAVED_FILTER_SPEC` in useFilters, `EIR_SAVED_FILTER_SPEC` in
+  useEirFilters): its keys, which keys hold people, and values that mean "the
+  default" (`status=ALL_ACTIVE` on tasks). A new list adds a spec and its id to
+  `SavedFilterListId` — never a second engine.
+- **The query is CANONICAL** (`toSavedQuery`: the spec's keys only, in its
+  order, defaults dropped), so "which saved filter is on screen" is a string
+  compare. The button shows that name — a list opened on a default must never
+  look narrowed for no reason.
+- **Your own address is saved as `@me`** (`SAVED_FILTER_ME`, matched against
+  every address `useCurrentUserEmails` gives) and put back as the mailbox when
+  applied. A filter that names `@me` waits (`applySavedQuery` → null) until the
+  user is known.
+- **Applying replaces every key in the spec and leaves the rest** (the task
+  list's `scope`), as a PUSH, so Back undoes it.
+- **The boards pass `exclude={["status"]}`**: they neither save nor compare
+  status. A filter saved on the List still applies its other keys there.
+- **Starred = "open the list on this"**, one per list. It applies ONLY when
+  the URL holds none of the spec's keys (`isBareSearch`) — the header's menu, a
+  Back to list button, the Dashboard's EIRs card. A shared link, the List ⇄
+  Kanban switch (which always carries `assigned`) and the Dashboard's task card
+  are left as they are. On tasks it REPLACES the "assigned to me" first-visit
+  default, inside `useFilters`'s one effect, so the two can't race; it is opt-in
+  (`useFilters({ savedFilters: true })`) because Operations shares the hook.
+- **Same name (any case) REPLACES**, keeping its place and its star — that's
+  how one is updated; the save box starts on the name of the filter on screen.
+  At most 20 per list, names up to 60 characters, a delete has Undo.
+- **The panel is clamped inside the window** (a layout effect on open): on a
+  phone the button sits left of New, and a panel hung from its right edge ran
+  off the left of the screen.
 
 ### A test must not depend on a `VITE_*` var being set — CI has none
 

@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, FileText, Plus } from "lucide-react";
 import { useProjects } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
-import { useEirFilters } from "@/hooks/useEirFilters";
+import { EIR_SAVED_FILTER_SPEC, useEirFilters } from "@/hooks/useEirFilters";
+import { SavedFiltersMenu } from "@/components/SavedFiltersMenu";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { EirFilterBar } from "@/components/EirFilterBar";
 import { EirViewTabs } from "@/components/EirViewTabs";
@@ -177,14 +178,17 @@ export function EirsView() {
             />
           ))}
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New EIR</span>
-          <span className="sm:hidden">New</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <SavedFiltersMenu spec={EIR_SAVED_FILTER_SPEC} />
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-xs transition-all hover:bg-accent/90"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New EIR</span>
+            <span className="sm:hidden">New</span>
+          </button>
+        </div>
       </div>
 
       <EirFilterBar
