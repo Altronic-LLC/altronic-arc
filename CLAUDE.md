@@ -995,6 +995,7 @@ src/
 ├── components/
 │   ├── Header.tsx                Top nav (departments menu, view switcher, theme, Report issue)
 │   ├── Footer.tsx                Maintainer contact + version → changelog modal
+│   ├── Marquee.tsx               One line that scrolls sideways only when it doesn't fit (the footer's access notice); truncates under reduced motion
 │   ├── UserMenu.tsx              Account avatar menu
 │   ├── Toast.tsx                 Toast + undo container (pushToast)
 │   ├── UpdateAvailableBanner.tsx "A new version of ARC is available"
@@ -14152,9 +14153,23 @@ Four pieces, each with one job:
   standing fact about the account, not news about this page, and a permanent
   stripe above every screen pushed the page down a row for anyone missing one
   list. Two renderings, chosen by the `lg` breakpoint rather than a
-  measurement: the sentence inline (truncating, and clickable because it
-  truncates), or a single alert icon that opens the same popup. The popup opens
-  UPWARD — the footer is pinned to the bottom of the window.
+  measurement: the sentence inline (clickable, opening the full message), or a
+  single alert icon that opens the same popup. The popup opens UPWARD — the
+  footer is pinned to the bottom of the window.
+  **A sentence too long for the row SCROLLS** (`components/Marquee.tsx`,
+  BusinessIT#81, 2026-11-25). It used to wrap, which made the footer taller and
+  squeezed the maintainer line onto several rows; truncating hid most of it.
+  The marquee measures the text against its box (ResizeObserver) and scrolls
+  only when it overflows, at a constant 40 px/s, two copies (the second
+  `aria-hidden`) sliding by half the track, edges faded, paused on hover or
+  keyboard focus; under reduced motion it truncates instead. **Its duration is
+  set inline (`animationDuration`)**, never through a CSS variable in the
+  `--animate-marquee` theme value: a var() there resolves at `:root`, so a
+  per-element value never reaches it (found by checking the computed style).
+  The maintainer line is `shrink-0 whitespace-nowrap` and names "Ray White"
+  (the link still mails the address); the notice takes the spare width
+  (`lg:flex-1`). On a phone the alert icon shares the buttons' row, so the
+  footer is two rows.
 
 Seven things that are load-bearing:
 

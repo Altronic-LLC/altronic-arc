@@ -134,3 +134,16 @@ describe("Footer placement", () => {
     expect(screen.getByText(/Developed and managed by/)).toBeInTheDocument();
   });
 });
+
+describe("ListAccessIndicator — a sentence too long for the row (BusinessIT#81)", () => {
+  it("takes the row's spare width on a wide screen, and scrolls inside it", () => {
+    markSiteDenied(SITES.panelTeam);
+    const { container } = renderWithProviders(<ListAccessIndicator />);
+    expect((container.firstElementChild as HTMLElement).className).toContain("lg:flex-1");
+    // The sentence is a Marquee: it scrolls when it doesn't fit, rather than
+    // wrapping (which made the footer taller) or truncating.
+    const sentence = screen.getByTitle(/don't have SharePoint access/);
+    expect(sentence.className.split(" ")).toContain("group");
+    expect(sentence.querySelector("span.block")).not.toBeNull();
+  });
+});
