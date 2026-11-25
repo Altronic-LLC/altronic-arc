@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { AtSign, Paperclip, Pencil, Reply, Type, X } from "lucide-react";
 import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
@@ -85,6 +85,10 @@ interface CommentThreadProps {
    * person being replied to is added there, since a reply emails them too.
    */
   notifies?: Person[];
+  /** Passed through to the reply box — see `CommentComposer`'s prop. */
+  renderLibraryPicker?: ComponentProps<typeof CommentComposer>["renderLibraryPicker"];
+  /** Passed through to the reply box — see `CommentComposer`'s prop. */
+  onLibraryFilesSent?: ComponentProps<typeof CommentComposer>["onLibraryFilesSent"];
 }
 
 const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
@@ -105,6 +109,8 @@ export function CommentThread({
   draftKey,
   richTextNotifyNote,
   notifies,
+  renderLibraryPicker,
+  onLibraryFilesSent,
 }: CommentThreadProps) {
   // Which comment the open reply box answers. Kept by KEY, not object: the
   // list refetches after every write and hands back new objects.
@@ -171,6 +177,8 @@ export function CommentThread({
                     draftKey={draftKey}
                     richTextNotifyNote={richTextNotifyNote}
                     notifies={notifies}
+                    renderLibraryPicker={renderLibraryPicker}
+                    onLibraryFilesSent={onLibraryFilesSent}
                   />
                 )}
               </div>
@@ -196,6 +204,8 @@ function ReplyBox({
   draftKey,
   richTextNotifyNote,
   notifies,
+  renderLibraryPicker,
+  onLibraryFilesSent,
 }: {
   parent: Comment;
   onReply: NonNullable<CommentThreadProps["onReply"]>;
@@ -205,6 +215,8 @@ function ReplyBox({
   draftKey?: string;
   richTextNotifyNote?: string;
   notifies?: Person[];
+  renderLibraryPicker?: CommentThreadProps["renderLibraryPicker"];
+  onLibraryFilesSent?: CommentThreadProps["onLibraryFilesSent"];
 }) {
   const name = parent.authorName || parent.authorEmail || "this comment";
   // A reply emails the person it answers (replyRecipient in lib/mentions.ts).
@@ -240,6 +252,8 @@ function ReplyBox({
         placeholder="Write a reply…"
         autoFocus
         notifies={replyNotifies}
+        renderLibraryPicker={renderLibraryPicker}
+        onLibraryFilesSent={onLibraryFilesSent}
       />
     </div>
   );

@@ -3,6 +3,9 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
+  Library,
+  Link2,
+  Link2Off,
   Paperclip,
   Trash2,
   Upload,
@@ -19,7 +22,16 @@ import {
   useTaskListAttachments,
   useUploadTaskFile,
 } from "@/hooks/useTaskFiles";
+import {
+  useLinkTaskFiles,
+  useLinkedFileStates,
+  useTaskLinkedFiles,
+  useUnlinkTaskFile,
+} from "@/hooks/useTaskLinkedFiles";
+import { LinkedFilesColumnMissingError, type LinkedFileState } from "@/api/taskLinkedFiles";
+import type { LinkedFile } from "@/lib/linkedFiles";
 import type { Task } from "@/types/task";
+import { LibraryFilePicker } from "./LibraryFilePicker";
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import { useFileDrop } from "./useFileDrop";
 import { cn } from "@/lib/cn";
@@ -47,10 +59,28 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
   const remove = useDeleteTaskFile(task);
   const removeListAttachment = useDeleteTaskListAttachment(task);
 
+  // Files LINKED from the library (BusinessIT#62) — pointers, never copies.
+  const linkedQuery = useTaskLinkedFiles(task.id);
+  const linked = linkedQuery.data?.files ?? [];
+  const linkedCorrupt = linkedQuery.data?.corrupt ?? false;
+  const linkingProblem =
+    linkedQuery.error instanceof LinkedFilesColumnMissingError
+      ? linkedQuery.error.message
+      : linkedCorrupt
+        ? "This task's linked files couldn't be read, so ARC won't change them. Ask an ARC admin to check the task's LinkedFiles column."
+        : linkedQuery.error
+          ? `Couldn't read the linked files: ${(linkedQuery.error as Error).message}`
+          : null;
+  const linkStates = useLinkedFileStates(linked);
+  const linkFiles = useLinkTaskFiles(task.id);
+  const unlinkFile = useUnlinkTaskFile(task.id);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const canLink = linkedQuery.isSuccess && !linkedCorrupt;
+
   // Task-specific (list-item) attachments take priority — they were uploaded
   // explicitly to this task, vs. the project folder files which are shared
   // across every task in the same project.
-  const totalCount = listAttachments.length + files.length;
+  const totalCount = listAttachments.length + linked.length + files.length;
 
   // Unnamed screenshots wait here for the user to name them before they're
   // uploaded — one dialog at a time, so pasting several in a row prompts for
@@ -92,6 +122,7 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
 
   return (
     <div
+      data-testid="task-attachments"
       tabIndex={0}
       onPaste={handlePaste}
       {...dropProps}
@@ -124,6 +155,20 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
             </a>
           )}
           <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            disabled={!canLink || linkFiles.isPending}
+            title={
+              canLink
+                ? "Link files already in the project folder library — nothing is copied"
+                : (linkingProblem ?? "Checking the linked files…")
+            }
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:border-fg-muted disabled:opacity-50"
+          >
+            <Library className="h-3.5 w-3.5" />
+            {linkFiles.isPending ? "Linking…" : "From library"}
+          </button>
+          <button
             onClick={() => fileInput.current?.click()}
             disabled={upload.isPending || !resolved}
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:border-fg-muted disabled:opacity-50"
@@ -146,7 +191,8 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
             <>
               Files upload to both this task in SharePoint and the project
               folder <span className="font-mono">{resolved.folder.name}</span>.
-              Task-specific files appear first.
+              Already in the library? Use From library to link it instead — no
+              second copy.
             </>
           ) : (
             <>
@@ -156,6 +202,12 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
               stay findable.
             </>
           )}
+        </div>
+      )}
+
+      {linkingProblem && (
+        <div className="mb-3 rounded-md border border-dashed border-ajax-yellow/60 bg-ajax-yellow/10 px-2.5 py-1.5 text-[11px] text-fg">
+          {linkingProblem}
         </div>
       )}
 
@@ -174,7 +226,7 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
         <div className="rounded-md border border-dashed border-border py-6 text-center text-xs text-fg-muted">
           {dragging
             ? "Drop to attach"
-            : `No attachments yet. Drag files here, paste a screenshot, or click "Add file" — they go on this task and in the project folder.`}
+            : `No attachments yet. Link files already in the project folder with "From library", or drag files here, paste a screenshot, or click "Add file" to upload.`}
         </div>
       ) : (
         <div className="space-y-3">
@@ -225,6 +277,31 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {linked.length > 0 && (
+            <div>
+              <SubHeading>Linked from the library ({linked.length})</SubHeading>
+              <ul className="flex flex-col gap-1.5">
+                {linked.map((f) => (
+                  <LinkedFileRow
+                    key={f.id}
+                    file={f}
+                    state={linkStates.get(f.id)}
+                    disabled={unlinkFile.isPending || linkedCorrupt}
+                    onUnlink={() => {
+                      if (
+                        window.confirm(
+                          `Unlink "${f.name}" from this task? The file stays where it is in SharePoint.`,
+                        )
+                      ) {
+                        unlinkFile.mutate(f);
+                      }
+                    }}
+                  />
                 ))}
               </ul>
             </div>
@@ -324,6 +401,18 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
         </div>
       )}
 
+      {pickerOpen && (
+        <LibraryFilePicker
+          startFolder={resolved ? { id: resolved.folder.id, name: resolved.folder.name } : null}
+          alreadyLinked={new Set(linked.map((f) => f.id))}
+          onClose={() => setPickerOpen(false)}
+          onPick={(picked) => {
+            setPickerOpen(false);
+            linkFiles.mutate(picked);
+          }}
+        />
+      )}
+
       {namingQueue.length > 0 && (
         <NameAttachmentDialog
           file={namingQueue[0]}
@@ -335,6 +424,87 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * One linked file. Shows it as SharePoint has it NOW once the lookup has
+ * answered — a rename or a move inside the library keeps the link — and says
+ * so plainly when the file is gone. Unlink never deletes anything.
+ */
+function LinkedFileRow({
+  file,
+  state,
+  disabled,
+  onUnlink,
+}: {
+  file: LinkedFile;
+  state: LinkedFileState | undefined;
+  disabled: boolean;
+  onUnlink: () => void;
+}) {
+  const gone = state?.status === "gone";
+  const found = state?.status === "found" ? state : null;
+  const name = found?.name ?? file.name;
+  const webUrl = found?.webUrl ?? file.webUrl;
+  const folderPath = found ? found.folderPath : file.folderPath;
+  const linkedOn = file.linkedAt ? new Date(file.linkedAt) : null;
+  const who = [
+    file.linkedBy,
+    linkedOn && !Number.isNaN(linkedOn.getTime()) ? linkedOn.toLocaleDateString() : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return (
+    <li className="flex items-center gap-2 rounded-md border border-superior-blue/30 bg-superior-blue/5 px-2.5 py-1.5 text-sm">
+      <Link2 className="h-4 w-4 shrink-0 text-superior-blue" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        {gone ? (
+          <span className="block truncate text-fg-muted line-through" title={name}>
+            {name}
+          </span>
+        ) : (
+          <a
+            href={webUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block truncate text-fg hover:text-accent hover:underline"
+            title={name}
+          >
+            {name}
+          </a>
+        )}
+        <span className="block truncate text-[10px] text-fg-muted" title={folderPath}>
+          {gone
+            ? "No longer in SharePoint — deleted, or moved out of the library"
+            : folderPath || "Project Folders"}
+          {who && ` · linked by ${who}`}
+        </span>
+      </div>
+      {!gone && (
+        <a
+          href={webUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-fg-muted hover:text-fg"
+          aria-label={`Open ${name}`}
+          title="Open"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
+      <button
+        type="button"
+        onClick={onUnlink}
+        disabled={disabled}
+        className="text-fg-muted hover:text-cooper-red disabled:opacity-50"
+        aria-label={`Unlink ${file.name}`}
+        title="Unlink from this task (the file stays in SharePoint)"
+      >
+        <Link2Off className="h-3.5 w-3.5" />
+      </button>
+    </li>
   );
 }
 
