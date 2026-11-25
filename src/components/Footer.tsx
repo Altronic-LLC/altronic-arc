@@ -8,6 +8,10 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 import { ListAccessIndicator } from "./ListAccessIndicator";
 
 const MAINTAINER_EMAIL = "ray.white@altronic-llc.com";
+// Shown instead of the address (BusinessIT#81, Jason Lamb): 9 characters, not
+// 26, so the line fits on one row. The link still mails the address, and the
+// tooltip shows it.
+const MAINTAINER_NAME = "Ray White";
 const VERSION_SEEN_KEY = "arc-version-seen";
 
 export function Footer() {
@@ -105,50 +109,57 @@ export function Footer() {
           >
             <ChevronLeft className="h-3.5 w-3.5 transition-[translate] duration-200 group-hover:-translate-x-0.5 motion-reduce:transition-none" />
           </button>
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-1.5">
+          {/* Two rows at most on a phone (BusinessIT#81): the maintainer line,
+              then the access icon beside the buttons. One row from `sm`, where
+              the maintainer line never wraps and never shrinks — the access
+              sentence between it and the buttons is what gives way. */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
               <Mail className="h-3.5 w-3.5" />
               <span>
                 Developed and managed by{" "}
                 <a
                   href={`mailto:${MAINTAINER_EMAIL}`}
+                  title={MAINTAINER_EMAIL}
                   className="font-medium text-fg underline-offset-2 hover:text-accent hover:underline"
                 >
-                  {MAINTAINER_EMAIL}
+                  {MAINTAINER_NAME}
                 </a>
               </span>
             </div>
 
-            {/* Between the maintainer line and the About button (Tim,
-                2026-09-24). `min-w-0` so its truncating sentence gives way to
-                the buttons rather than squeezing them off the row. */}
-            <ListAccessIndicator />
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              {/* Between the maintainer line and the About button (Tim,
+                  2026-09-24). It takes the row's spare width (`lg:flex-1`) and
+                  scrolls its sentence when that isn't enough. */}
+              <ListAccessIndicator />
 
-            <div className="flex shrink-0 items-center gap-2">
-              <Link
-                to="/about"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] text-fg-muted transition-colors hover:border-fg-muted hover:text-fg"
-              >
-                <Info className="h-3 w-3" />
-                About
-              </Link>
-              <button
-                onClick={openHistory}
-                className={
-                  "inline-flex items-center gap-1.5 rounded-md border bg-surface px-2.5 py-1 font-mono text-[11px] transition-colors " +
-                  (highlightVersion
-                    ? "border-cooper-red text-cooper-red hover:border-cooper-red/80 hover:text-cooper-red/90"
-                    : "border-border text-fg-muted hover:border-fg-muted hover:text-fg")
-                }
-              >
-                <History className="h-3 w-3" />
-                v{CURRENT_VERSION}
-                {highlightVersion && (
-                  <span className="ml-1 rounded-full bg-cooper-red px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
-                    NEW
-                  </span>
-                )}
-              </button>
+              <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                <Link
+                  to="/about"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] text-fg-muted transition-colors hover:border-fg-muted hover:text-fg"
+                >
+                  <Info className="h-3 w-3" />
+                  About
+                </Link>
+                <button
+                  onClick={openHistory}
+                  className={
+                    "inline-flex items-center gap-1.5 rounded-md border bg-surface px-2.5 py-1 font-mono text-[11px] transition-colors " +
+                    (highlightVersion
+                      ? "border-cooper-red text-cooper-red hover:border-cooper-red/80 hover:text-cooper-red/90"
+                      : "border-border text-fg-muted hover:border-fg-muted hover:text-fg")
+                  }
+                >
+                  <History className="h-3 w-3" />
+                  v{CURRENT_VERSION}
+                  {highlightVersion && (
+                    <span className="ml-1 rounded-full bg-cooper-red px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                      NEW
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
