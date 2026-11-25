@@ -14,7 +14,9 @@
     just says linking isn't set up. Run it before people need the button.
 
     Idempotent: an existing column is checked (multi-line, plain text, Append
-    Changes off) and not recreated.
+    Changes off) and not recreated. A NEW column is read back and checked the
+    same way - Graph created the live one with Append Changes ON although this
+    request asks for it off (2026-11-25), and turning it off took List settings.
 
     -WriteCheckTaskId <id> also WRITES AND READS BACK a test value on that task,
     then puts the task's own value back. Use a test task: the write changes the
@@ -69,15 +71,25 @@ Write-Host "Reading existing columns..." -ForegroundColor Cyan
 $existing = (Invoke-MgGraphRequest -Method GET -Uri "$graph/columns").value
 $found = $existing | Where-Object { $_["name"] -eq $column.name }
 
-if ($found) {
-    Write-Host "SKIP   $($column.name) - already exists" -ForegroundColor Yellow
-    $t = $found["text"]
+# Checked on an existing column AND straight after creating one: Graph can
+# create the column with Append Changes ON even though the request asks for it
+# off (it did on 2026-11-25), and says nothing about it.
+function Test-LinkedFilesColumn($col) {
+    $t = $col["text"]
     if (-not $t -or -not $t["allowMultipleLines"] -or $t["textType"] -ne "plain") {
         Write-Host "  It is NOT multi-line plain text - ARC needs that. Fix it in list settings." -ForegroundColor Red
     }
     if ($t -and $t["appendChangesToExistingText"]) {
-        Write-Host "  Graph says Append Changes is ON. Turn it off in list settings, then run with -WriteCheckTaskId." -ForegroundColor Red
+        Write-Host "  Graph says Append Changes to Existing Text is ON. Turn it off in List settings > Linked Files," -ForegroundColor Red
+        Write-Host "  then run again with -WriteCheckTaskId <a test task's id>. Don't let anyone link files until then." -ForegroundColor Red
+    } elseif ($t) {
+        Write-Host "  Multi-line plain text, Append Changes off." -ForegroundColor Green
     }
+}
+
+if ($found) {
+    Write-Host "SKIP   $($column.name) - already exists" -ForegroundColor Yellow
+    Test-LinkedFilesColumn $found
 } elseif ($WhatIf) {
     Write-Host "WOULD CREATE  $($column.name) (multi-line plain text, '$($column.displayName)')" -ForegroundColor Cyan
     return
@@ -90,6 +102,10 @@ if ($found) {
         Write-Host "  The internal name is NOT '$($column.name)' - ARC reads and writes that exact name. Stop and fix." -ForegroundColor Red
         return
     }
+    # Read it back rather than trusting the POST's answer.
+    $reread = (Invoke-MgGraphRequest -Method GET -Uri "$graph/columns").value |
+        Where-Object { $_["name"] -eq $column.name }
+    Test-LinkedFilesColumn $reread
 }
 
 if ($WhatIf -or $WriteCheckTaskId -le 0) {

@@ -15098,7 +15098,12 @@ Pieces: `lib/linkedFiles.ts` (pure), `api/taskLinkedFiles.ts`,
 `hooks/useTaskLinkedFiles.ts`, `components/LibraryFilePicker.tsx`, and
 `scripts/add-task-linked-files-column.ps1` (`-WriteCheckTaskId <test task>`
 writes twice, reads back, restores — proves the value lands and Append
-Changes is off). Rules that are load-bearing:
+Changes is off). **Graph created the live column with Append Changes ON**
+although the request asked for it off (2026-11-25); Tim turned it off in List
+settings, Graph then read `false`, and the write check on test task 3584
+(`T136-0000-TEST…`) showed the second write replacing the first. The script
+now re-reads the column after creating it and says so in red. Rules that are
+load-bearing:
 
 - **`LinkedFiles` is multi-line PLAIN text holding a JSON array** (Graph can't
   write a Hyperlink column). Each entry: drive item `id`, `name`, `webUrl`,
