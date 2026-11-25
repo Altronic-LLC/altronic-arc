@@ -913,9 +913,14 @@ function DatasheetField({
         <ExternalLink className="h-3 w-3" />
       </a>
     );
-    value = canReplace ? (
+    // ONE wrapper whether or not Replace shows: canReplace turns true when the
+    // Parts Roles list arrives, and a bare link re-wrapped in a span is a NEW
+    // element - React would swap the link out under somebody's pointer.
+    value = (
       <span className="inline-flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
         {open}
+        {canReplace && (
+          <>
         <input
           ref={replacePicker}
           type="file"
@@ -937,9 +942,9 @@ function DatasheetField({
           {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
           {upload.isPending ? "Replacing…" : "Replace datasheet"}
         </button>
+          </>
+        )}
       </span>
-    ) : (
-      open
     );
     if (flagged === false) note = `${sheet.name} is in the Datasheets folder, though Has Data Sheet is set to No.`;
   } else {

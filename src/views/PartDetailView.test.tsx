@@ -7,13 +7,14 @@ vi.mock("@/components/Toast", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/components/Toast")>();
   return { ...actual, pushToast };
 });
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { __resetPartsRolesMockStore } from "@/api/partsRoles";
 import { __resetAltronicPartsMockStore } from "@/api/altronicParts";
 import { __resetAltronicComponentsMockStore, deleteAltronicComponent, listAltronicComponents } from "@/api/altronicComponents";
 import { __resetDatasheetsMockStore, findDatasheet } from "@/api/datasheets";
+import { PARTS_ROLES_KEY } from "@/hooks/usePartsRoles";
 import { PartDetailView } from "./PartDetailView";
 
 // Mock mode: the demo user holds every Parts Roles tag unless a test empties
@@ -475,6 +476,19 @@ describe("PartDetailView — replacing a datasheet", () => {
   // Component 5, 601466: has a mock datasheet (184,320 bytes). Mock mode's
   // demo user holds every tag, SAP admin included.
   const pdf = () => new File([new Uint8Array([37, 80, 68, 70])], "601466 rev B.pdf", { type: "application/pdf" });
+
+  it("keeps the same link when Replace appears — the roles arriving late don't swap it out", async () => {
+    // Nobody on Parts Roles, so the link is drawn without Replace…
+    __resetPartsRolesMockStore([]);
+    const { queryClient } = renderPart("/engineering/parts/component/5");
+    const link = await screen.findByRole("link", { name: /Open datasheet/ });
+    expect(screen.queryByRole("button", { name: /Replace datasheet/ })).not.toBeInTheDocument();
+    // …then the list loads with the demo user as SAP admin.
+    __resetPartsRolesMockStore();
+    await act(() => queryClient.invalidateQueries({ queryKey: PARTS_ROLES_KEY }));
+    await screen.findByRole("button", { name: /Replace datasheet/ });
+    expect(link).toBeInTheDocument();
+  });
 
   it("lets the SAP admin replace it, after a confirm", async () => {
     renderPart("/engineering/parts/component/5");
