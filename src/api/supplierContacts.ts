@@ -12,6 +12,9 @@ import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { MOCK_SUPPLIER_CONTACTS } from "@/data/srmMockData";
 import { mockDelay } from "./mockLatency";
+import { readColumnChoices } from "./columnChoices";
+import { GraphError } from "./graph";
+import { SUPPLIER_CONTACT_CATEGORIES } from "@/types/task";
 
 // =============================================================================
 // "Supplier Contact List" — one row per person at a supplier, on the PMO
@@ -51,13 +54,66 @@ const SELECT =
 // the read just never asked for the column it maps.
 "Title,BPReference,BPReferenceLookupId,FirstName,LastName,Email,Phone,Status,ContactNotes,Communication,Watchers,Attachments,Created,Modified";
 
+/**
+ * `ContactCategory` (BusinessIT#80) came after the list and is added by
+ * scripts/add-supplier-contact-columns.ps1, which runs separately from any
+ * deploy. Selecting a column a list hasn't got 400s the WHOLE read, so a read
+ * asks for it and, on a 400 only, retries without and remembers (the MRB
+ * Watchers arrangement). A write naming it is then refused, naming the script.
+ */
+let categoryColumnAvailable: boolean | null = null;
+
+export function supplierContactCategoryAvailable(): boolean {
+  return categoryColumnAvailable !== false;
+}
+
+/** Tests only. */
+export function __resetSupplierContactCategoryColumn(): void {
+  categoryColumnAvailable = null;
+}
+
+const CATEGORY_MISSING =
+  "The Supplier Contact List has no Contact Category column yet - run scripts/add-supplier-contact-columns.ps1.";
+
+function refuseCategoryWhileMissing(fields: Record<string, unknown>): void {
+  if (categoryColumnAvailable === false && "ContactCategory" in fields) throw new Error(CATEGORY_MISSING);
+}
+
+/** Runs a read with ContactCategory in the $select, falling back without it on a 400. */
+async function readWithCategory<T>(read: (select: string) => Promise<T>): Promise<T> {
+  if (categoryColumnAvailable === false) return read(SELECT);
+  try {
+    const out = await read(`${SELECT},ContactCategory`);
+    categoryColumnAvailable = true;
+    return out;
+  } catch (err) {
+    if (categoryColumnAvailable === null && err instanceof GraphError && err.status === 400) {
+      const out = await read(SELECT);
+      categoryColumnAvailable = false;
+      return out;
+    }
+    throw err;
+  }
+}
+
+/**
+ * The Contact Category column's LIVE choices — a category added in SharePoint
+ * is offered with no deploy. SUPPLIER_CONTACT_CATEGORIES is the fallback.
+ */
+export async function listSupplierContactCategoryChoices(): Promise<string[]> {
+  if (USE_MOCK) return mockDelay([...SUPPLIER_CONTACT_CATEGORIES]);
+  return readColumnChoices(SITES.pmo, SP_SUPPLIER_CONTACTS_LIST_ID, "ContactCategory", SUPPLIER_CONTACT_CATEGORIES);
+}
+
 export async function listSupplierContacts(): Promise<SupplierContact[]> {
   if (USE_MOCK) {
     return mockDelay([...mockStore].sort(compareSupplierContacts).map((c) => ({ ...c })));
   }
   const listId = requireListId("load supplier contacts");
-  const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.pmo}/lists/${listId}/items?$expand=fields($select=${SELECT})&$top=999`,
+  const items = await readWithCategory((select) =>
+    graphFetchAll<GraphListItem>(
+      `/sites/${SITES.pmo}/lists/${listId}/items?$expand=fields($select=${select})&$top=999`,
+    ),
   );
   return items.map(toSupplierContact).sort(compareSupplierContacts);
 }
@@ -78,6 +134,7 @@ export async function createSupplierContact(
       email: input.email.trim(),
       phone: input.phone.trim(),
       status: input.status,
+      category: input.category || null,
       contactNotes: input.contactNotes.trim(),
       comments: [],
       watchers,
@@ -89,11 +146,15 @@ export async function createSupplierContact(
     return mockDelay(contact);
   }
   const listId = requireListId("create the contact");
+  const fields = buildSupplierContactCreateFields(input, { watchers });
+  refuseCategoryWhileMissing(fields);
   const created = await graphFetch<GraphListItem>(
     `/sites/${SITES.pmo}/lists/${listId}/items`,
-    { method: "POST", body: JSON.stringify({ fields: buildSupplierContactCreateFields(input, { watchers }) }) },
+    { method: "POST", body: JSON.stringify({ fields }) },
   );
-  const item = await graphFetch<GraphListItem>(`${itemPath(parseInt(created.id, 10))}?$expand=fields($select=${SELECT})`);
+  const item = await readWithCategory((select) =>
+    graphFetch<GraphListItem>(`${itemPath(parseInt(created.id, 10))}?$expand=fields($select=${select})`),
+  );
   return toSupplierContact(item);
 }
 
@@ -129,8 +190,11 @@ async function updateFields(id: number, fields: Record<string, unknown>): Promis
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     return mockDelay({ ...next });
   }
+  refuseCategoryWhileMissing(fields);
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
-  const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
+  const item = await readWithCategory((select) =>
+    graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${select})`),
+  );
   return toSupplierContact(item);
 }
 
@@ -141,6 +205,7 @@ function applyMockFields(next: SupplierContact, fields: Record<string, unknown>)
   if ("Email" in fields) next.email = String(fields.Email ?? "");
   if ("Phone" in fields) next.phone = String(fields.Phone ?? "");
   if ("Status" in fields) next.status = (fields.Status as SupplierContact["status"]) ?? null;
+  if ("ContactCategory" in fields) next.category = (fields.ContactCategory as string | null) || null;
   if ("ContactNotes" in fields) next.contactNotes = String(fields.ContactNotes ?? "");
   if (Array.isArray(fields.Watchers)) {
     next.watchers = fields.Watchers as Person[];

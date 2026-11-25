@@ -7,7 +7,7 @@ import type {
   SupplierLogoRef,
   SupplierStatus,
 } from "@/types/task";
-import { SUPPLIER_CORE_COMPETENCIES, SUPPLIER_STATUSES } from "@/types/task";
+import { SUPPLIER_STATUSES } from "@/types/task";
 import { parseCommunication } from "./communicationParser";
 import { parseSpDate } from "./spDates";
 import { parsePersonField, parseSinglePersonField } from "./taskMapper";
@@ -90,11 +90,19 @@ function toSupplierStatus(raw: unknown): SupplierStatus | null {
   return (SUPPLIER_STATUSES as readonly string[]).includes(v) ? (v as SupplierStatus) : null;
 }
 
+/**
+ * Every value the row holds — NOT clamped to SUPPLIER_CORE_COMPETENCIES. A
+ * choice added in SharePoint must show, and must survive the next edit, which
+ * writes the whole array back.
+ */
 function toCoreCompetencies(raw: unknown): SupplierCoreCompetency[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((v): v is SupplierCoreCompetency =>
-    (SUPPLIER_CORE_COMPETENCIES as readonly string[]).includes(String(v)),
-  );
+  const out: string[] = [];
+  for (const v of raw) {
+    const s = text(v).trim();
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out;
 }
 
 /**

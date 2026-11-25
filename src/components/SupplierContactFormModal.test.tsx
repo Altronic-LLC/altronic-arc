@@ -24,6 +24,7 @@ vi.mock("@/hooks/useSupplierContacts", () => ({
     },
     isPending: false,
   }),
+  useSupplierContactCategoryChoices: () => ({ data: ["Quality", "Accounting", "Customer Service"] }),
 }));
 
 function renderModal(supplierId = MOCK_SUPPLIERS[0].id) {
@@ -95,5 +96,23 @@ describe("SupplierContactFormModal", () => {
 
     expect(await screen.findByText(/at least a name or an email/i)).toBeInTheDocument();
     expect(created).toHaveLength(0);
+  });
+
+  it("sends the picked Contact Category (BusinessIT#80)", async () => {
+    renderModal();
+    await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "a@b.com");
+    await userEvent.click(screen.getByRole("button", { name: "Category" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Accounting" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0].category).toBe("Accounting");
+  });
+
+  it("sends no category when none is picked", async () => {
+    renderModal();
+    await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "a@b.com");
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0].category).toBeNull();
   });
 });

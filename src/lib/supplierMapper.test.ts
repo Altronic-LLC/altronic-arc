@@ -28,6 +28,15 @@ describe("toSupplier", () => {
     expect(supplier.status).toBe("Active");
   });
 
+  it("keeps a Core Competency the built-in list doesn't have — a choice added in SharePoint", () => {
+    // Clamping here hid the value, and the next edit (a whole-array write)
+    // erased it.
+    const supplier = toSupplier(
+      item({ CoreCompetency: ["Packaging", "Some New Choice", " ", "Packaging"] }),
+    );
+    expect(supplier.coreCompetencies).toEqual(["Packaging", "Some New Choice"]);
+  });
+
   it("drops a Status value outside the known choices", () => {
     expect(toSupplier(item({ Status: "Not A Status" })).status).toBeNull();
   });

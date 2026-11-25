@@ -4,6 +4,7 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   collectSupplierPeople,
+  coreCompetencyOptions,
   useAddSupplierComment,
   useClearSupplierLogo,
   useCreateSupplier,
@@ -67,6 +68,17 @@ describe("collectSupplierPeople", () => {
       ({ assignedBuyer: { displayName: email, email }, watchers: [{ displayName: email, email }] }) as Supplier;
     const people = collectSupplierPeople([s("a@x.com"), s("a@x.com"), s("b@x.com")]);
     expect(people.map((p) => p.email).sort()).toEqual(["a@x.com", "b@x.com"]);
+  });
+});
+
+describe("coreCompetencyOptions", () => {
+  it("keeps a value a supplier holds that the column no longer offers, after the live choices", () => {
+    // Dropping it from the picker would erase it on the next save.
+    expect(coreCompetencyOptions(["Assembly", "Packaging"], ["Old Choice", "Assembly", ""])).toEqual([
+      "Assembly",
+      "Packaging",
+      "Old Choice",
+    ]);
   });
 });
 

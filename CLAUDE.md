@@ -4454,6 +4454,24 @@ yet verified behaviourally (post two comments, confirm the second replaces
 rather than doubles) — do that before trusting a real-mode comment thread on
 this list.
 
+**Contact Category** (BusinessIT#80, Katie Fleming, 2026-11-24) —
+`ContactCategory`, a single strict choice (Quality / Accounting / Customer
+Service), added by the same `add-supplier-contact-columns.ps1` (which also
+tops up the choices on an existing column and write/read-back checks a
+throwaway contact). A drop-down beside Status on the contact card and the
+Add contact form, a chip on the collapsed row. Four rules:
+- **Live choices** (`listSupplierContactCategoryChoices`, fallback
+  `SUPPLIER_CONTACT_CATEGORIES`), and `category` is a plain `string`, so a
+  category added in SharePoint shows with no deploy; `withCurrentChoice`
+  keeps a held value in the card's picker.
+- **The column came after the list**: every read asks for it and, on a 400
+  only, retries without and remembers (`readWithCategory`, the MRB Watchers
+  arrangement); a write naming it is then refused, naming the script. Run
+  the script BEFORE the deploy anyway.
+- **A create leaves it out when blank**; `null` clears it on an edit.
+- Pinned in `api/supplierContacts.category.real.test.ts` (fallback verified
+  by breaking it).
+
 **Comments follow the full house rules** — `commentNotifyRecipients` (not
 ECN's narrower mention-only rule), `autoWatchFromMentions` against
 `resolvePmoSiteUserLookupId` (PMO site, same resolver Gray Market Requests
@@ -4571,6 +4589,57 @@ a row, 30 deliberately hasn't, to show the fallback). `VITE_FABRIC_IN_DEMO`
 is the Pricing Calculator's switch and does not reach this. Pinned in
 `api/supplierPerformance.real.test.ts` (the table name, paging) and the two
 `*.performance.test.tsx` view tests, verified by disabling the SAP-first rule.
+
+#### Core Competency comes from what SAP says we buy — a one-time backfill
+
+Tim, 2026-11-24: 528 of 531 suppliers had no Core Competency. **The choices
+ARE SAP material-group texts** (T023T `WGBEZ60`; "Magnetics - Transformers,
+Ferrite, Choke, Inductor, etc" was split into four), and every PO line has a
+material group, so `scripts/backfill-supplier-core-competency.ps1` fills it:
+
+- **`-PlanTo <dir>`** reads `sap.EKKO` → `sap.EKPO` → `sap.T023T` in the
+  mirrored S/4 database (`db-s4-altronic-prod-roundhouse`, Fabric SQL
+  endpoint, an `az` token on the connection; deleted lines out) and writes
+  `core-competency-proposal.csv`. A group counts at ≥ 10% of the supplier's
+  PO spend, top 3. Groups whose text isn't a choice go through the script's
+  `$GroupToChoices` table; the rest are named in `unmappedTop`, never
+  guessed. The folder must be OUTSIDE the repo (supplier spend).
+- **`-Csv <reviewed.csv> [-Apply]`** applies the `proposed` column as a
+  reviewer left it. It writes ONLY a supplier still blank on a fresh read,
+  refuses a row whose id is now another BP or that names any value the live
+  column doesn't declare (the whole row, never half), sends the
+  `Collection(Edm.String)` annotation, reads every write back, and writes a
+  results CSV. `-Limit n` to try a few first.
+
+- **`-UpdateChoices [-Apply]`** fixes the column FIRST (the apply refuses a
+  value the column doesn't declare): adds Packaging, Raw Material, Freight,
+  Machinery & Equipment and Services, and replaces "Casting / Steel Chemical
+  Connectors" — three choices glued into one — with "Casting / Steel".
+  Keeps every other choice, sorts A–Z, keeps checkBoxes, reads it back, and
+  refuses to retire a choice any supplier still holds.
+
+Supply Chain's decisions (2026-11-24): a ONE-TIME fill after they scrub the
+CSV (a live feed from Medius/SAP is a possible phase 2); add the five
+choices; 10% / top 3 is a fair start; the magnetics rows are reviewed by
+hand (SAP has one group for what the column splits four ways — the plan
+fills only "Magnetics - Transformers"). A `USE ONLY IF…` parent group is
+mapped only where the parent alone says what we buy (raw material, freight,
+service, machinery); **PRODUCT, **AUXILIARY MATERIAL and the rest stay
+unmapped. With the five: 457 proposed, 71 still unmatched (Electro magnets,
+Valves, Keypads, Ignition coil, coating, the vague parents).
+
+**ARC reads the column's LIVE choices and keeps whatever a row holds**
+(`listSupplierCoreCompetencyChoices`, `coreCompetencyOptions`). The mapper
+used to CLAMP to `SUPPLIER_CORE_COMPETENCIES`, so a choice added in
+SharePoint vanished from ARC and the next edit — a whole-array write —
+erased it. That const is only the fallback now; a new choice needs no
+deploy.
+
+**The website shows under the supplier's name** (Tim, 2026-11-24): a link
+opening in a new tab (`websiteHref` / `websiteLabel` in
+`lib/supplierColdCalls.ts`), plain text for a value that isn't an address
+(four live rows read "PERMANENTLY CLOSED"), and Add website — opening
+Details — when blank.
 
 #### The Cold Call Log — suppliers we don't do business with yet
 

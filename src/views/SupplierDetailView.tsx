@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Eye, Pencil, Plus, User, Users } from "lucide-react";
+import { AlertTriangle, ExternalLink, Eye, Globe, Pencil, Plus, User, Users } from "lucide-react";
+import { websiteHref, websiteLabel } from "@/lib/supplierColdCalls";
 import {
   collectSupplierPeople,
+  coreCompetencyOptions,
   useAddSupplierComment,
   useEditSupplierComment,
   useSetSupplierWatchers,
   useSupplier,
+  useSupplierCoreCompetencyChoices,
   useSuppliers,
   useUpdateSupplierAssignedBuyer,
   useUpdateSupplierDetails,
@@ -66,6 +69,7 @@ export function SupplierDetailView() {
   const uploadCommentFile = useCommentFileUpload("supplier", supplierId);
   const { data: supplier, isLoading } = useSupplier(supplierId);
   const { data: suppliers = [] } = useSuppliers();
+  const { data: liveCompetencies = SUPPLIER_CORE_COMPETENCIES } = useSupplierCoreCompetencyChoices();
   const currentUser = useCurrentUser();
   const directory = useDirectoryPeople();
 
@@ -172,9 +176,12 @@ export function SupplierDetailView() {
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
             {supplier.title || `Supplier #${supplier.id}`}
           </h1>
-          <p className="text-sm text-fg-muted">
-            {supplier.businessPartnerNumber ? `BP #${supplier.businessPartnerNumber}` : "No BP number"}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
+            <span>
+              {supplier.businessPartnerNumber ? `BP #${supplier.businessPartnerNumber}` : "No BP number"}
+            </span>
+            <SupplierWebsite website={supplier.website} onAdd={() => setEditingCard("Details")} />
+          </div>
         </div>
       </div>
 
@@ -287,13 +294,13 @@ export function SupplierDetailView() {
             <MultiSelect
               allLabel="Not set"
               searchPlaceholder="Search competencies…"
-              options={SUPPLIER_CORE_COMPETENCIES.map((c) => ({ value: c, label: c }))}
+              options={coreCompetencyOptions(liveCompetencies, supplier.coreCompetencies).map((c) => ({
+                value: c,
+                label: c,
+              }))}
               selected={supplier.coreCompetencies}
               onChange={(next) =>
-                updateDetails.mutate({
-                  current: supplier,
-                  changed: { coreCompetencies: next as (typeof SUPPLIER_CORE_COMPETENCIES)[number][] },
-                })
+                updateDetails.mutate({ current: supplier, changed: { coreCompetencies: next } })
               }
             />
           </SidebarField>
@@ -463,6 +470,50 @@ export function SupplierDetailView() {
         <SupplierIssueFormModal supplierId={supplier.id} onClose={() => setShowAddIssue(false)} />
       )}
     </div>
+  );
+}
+
+/**
+ * The supplier's website under its name: a link that opens in a new tab;
+ * plain text when the column holds something that isn't a web address (four
+ * live rows read "PERMANENTLY CLOSED", which is worth seeing); and an Add
+ * website button, opening the Details editor, when it's blank.
+ */
+function SupplierWebsite({ website, onAdd }: { website: string; onAdd: () => void }) {
+  const value = website.trim();
+  if (!value) {
+    return (
+      <button
+        type="button"
+        onClick={onAdd}
+        className="inline-flex items-center gap-1 text-accent underline-offset-2 hover:underline"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add website
+      </button>
+    );
+  }
+  const href = websiteHref(value);
+  if (!href) {
+    return (
+      <span className="inline-flex items-center gap-1" title="Not a web address">
+        <Globe className="h-3.5 w-3.5" />
+        {value}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={href}
+      className="inline-flex min-w-0 items-center gap-1 text-accent underline-offset-2 hover:underline"
+    >
+      <Globe className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate">{websiteLabel(href)}</span>
+      <ExternalLink className="h-3 w-3 shrink-0" />
+    </a>
   );
 }
 

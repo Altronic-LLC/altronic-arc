@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, User, X } from "lucide-react";
-import { SUPPLIER_CONTACT_STATUSES } from "@/types/task";
-import { useCreateSupplierContact } from "@/hooks/useSupplierContacts";
+import { SUPPLIER_CONTACT_CATEGORIES, SUPPLIER_CONTACT_STATUSES } from "@/types/task";
+import {
+  useCreateSupplierContact,
+  useSupplierContactCategoryChoices,
+} from "@/hooks/useSupplierContacts";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { supplierLabel } from "@/lib/supplierMapper";
 import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
@@ -42,6 +45,8 @@ export function SupplierContactFormModal({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState("");
+  const [category, setCategory] = useState("");
+  const { data: categoryOptions = SUPPLIER_CONTACT_CATEGORIES } = useSupplierContactCategoryChoices();
   const [error, setError] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
@@ -82,6 +87,7 @@ export function SupplierContactFormModal({
         email,
         phone,
         status: (status || null) as (typeof SUPPLIER_CONTACT_STATUSES)[number] | null,
+        category: category || null,
         contactNotes: "",
         watchers: [],
       });
@@ -139,6 +145,16 @@ export function SupplierContactFormModal({
               <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="input" disabled={create.isPending} />
             </FieldLabel>
           </div>
+          <FieldLabel label="Category">
+            <ChoiceSelect
+              value={category}
+              onChange={setCategory}
+              options={categoryOptions}
+              emptyLabel="Not set"
+              disabled={create.isPending}
+              ariaLabel="Category"
+            />
+          </FieldLabel>
           <FieldLabel label="Email">
             <input ref={emailRef} value={email} onChange={(e) => setEmail(e.target.value)} className="input" disabled={create.isPending} />
           </FieldLabel>
