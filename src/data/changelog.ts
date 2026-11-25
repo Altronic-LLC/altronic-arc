@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.237.0",
+    date: "2026-11-25",
+    changes: [
+      "Suppliers: a supplier's website now shows under its name — click it to open the site in a new tab",
+      "A supplier with no website has an Add website link that opens Details",
+      "Suppliers: Core Competency offers the choices set in SharePoint, so new ones (Packaging, Raw Material, Freight, Machinery & Equipment, Services) appear without an ARC update",
+      "A Core Competency ARC didn't recognise is no longer hidden, or lost the next time the supplier is edited",
+      "Supplier contacts have a Category — Quality, Accounting or Customer Service — set when adding a contact or on its card, and shown on the contact's row",
+    ],
+  },
+  {
     version: "0.236.1",
     date: "2026-11-25",
     changes: [

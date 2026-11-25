@@ -4,6 +4,7 @@ import {
   clearSupplierLogo,
   createSupplier,
   editSupplierComment,
+  listSupplierCoreCompetencyChoices,
   listSuppliers,
   setSupplierWatchers,
   updateSupplierAssignedBuyer,
@@ -52,6 +53,26 @@ export function useSuppliers() {
     queryFn: listSuppliers,
     staleTime: 60_000,
   });
+}
+
+/** The Core Competency column's live choices (fallback: the built-in list). */
+export function useSupplierCoreCompetencyChoices() {
+  return useQuery({
+    queryKey: ["suppliers", "coreCompetencyChoices"] as const,
+    queryFn: listSupplierCoreCompetencyChoices,
+    staleTime: 10 * 60_000,
+  });
+}
+
+/**
+ * The live choices plus every value in `held` the column no longer offers, so
+ * a picker never drops what a supplier already has (the next save would erase
+ * it).
+ */
+export function coreCompetencyOptions(live: readonly string[], held: readonly string[]): string[] {
+  const out = [...live];
+  for (const v of held) if (v && !out.includes(v)) out.push(v);
+  return out;
 }
 
 /** One supplier out of the cached list. */

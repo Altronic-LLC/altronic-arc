@@ -1,12 +1,20 @@
 <#
 .SYNOPSIS
-    Adds the Communication and Watchers columns to the Supplier Contact List.
+    Adds the Communication, Watchers and Contact Category columns to the
+    Supplier Contact List.
 
 .DESCRIPTION
     ARC's comment thread and watcher list need two columns this list doesn't
     have (Suppliers List and Supplier Issue Tracker already carry both). This
     adds them and nothing else — it does not touch data, existing columns, or
     any other list.
+
+    Contact Category (BusinessIT#80, Katie Fleming, 2026-11-24) is a single
+    choice: Quality / Accounting / Customer Service, strict (no fill-in). If
+    the column already exists, any of those it is missing are ADDED - nothing
+    is removed. More can be added in List settings; ARC reads the live
+    choices. After the columns, a throwaway contact is written with a
+    category, read back and deleted (a 2xx is not proof).
 
     Idempotent: a column that already exists is reported and skipped, so
     re-running after a partial failure is safe.
@@ -59,6 +67,16 @@ $wanted = @(
             allowMultipleSelection = $true
             chooseFromType         = "peopleOnly"
         }
+    },
+    @{
+        name        = "ContactCategory"
+        displayName = "Contact Category"
+        description = "What the contact is for at the supplier (BusinessIT#80)."
+        choice      = @{
+            allowTextEntry = $false
+            displayAs      = "dropDownMenu"
+            choices        = @("Quality", "Accounting", "Customer Service")
+        }
     }
 )
 
@@ -80,7 +98,18 @@ Write-Host "  $($have.Count) columns on the list"
 
 foreach ($col in $wanted) {
     if ($have -contains $col.name) {
-        Write-Host "SKIP   $($col.name) - already exists" -ForegroundColor Yellow
+        $found = $existing | Where-Object { $_["name"] -eq $col.name }
+        $missing = @()
+        if ($col.choice) { $missing = @($col.choice.choices | Where-Object { @($found["choice"]["choices"]) -notcontains $_ }) }
+        if (-not $missing.Count) { Write-Host "SKIP   $($col.name) - already exists" -ForegroundColor Yellow; continue }
+        if ($WhatIf) { Write-Host "WOULD ADD CHOICES  $($col.name): $($missing -join ', ')" -ForegroundColor Cyan; continue }
+        $merged = @($found["choice"]["choices"]) + $missing
+        $patch = @{ choice = @{ allowTextEntry = [bool]$found["choice"]["allowTextEntry"]; displayAs = $found["choice"]["displayAs"]; choices = $merged } } |
+            ConvertTo-Json -Depth 6
+        Invoke-MgGraphRequest -Method PATCH `
+            -Uri "https://graph.microsoft.com/v1.0/sites/$siteId/lists/$listId/columns/$($found["id"])" `
+            -Body $patch -ContentType "application/json" | Out-Null
+        Write-Host "CHOICES $($col.name) + $($missing -join ', ')" -ForegroundColor Green
         continue
     }
     if ($WhatIf) {
@@ -106,9 +135,33 @@ foreach ($col in $wanted) {
             "multiline=$($found['text']['allowMultipleLines']) append=$($found['text']['appendChangesToExistingText']) type=$($found['text']['textType'])"
         } elseif ($found.ContainsKey("personOrGroup")) {
             "multi=$($found['personOrGroup']['allowMultipleSelection']) from=$($found['personOrGroup']['chooseFromType'])"
+        } elseif ($found.ContainsKey("choice")) {
+            "$($found['choice']['displayAs']) fill-in=$($found['choice']['allowTextEntry']) choices=$(@($found['choice']['choices']) -join ' | ')"
         } else { "" }
         Write-Host ("  OK      {0,-16} {1}" -f $found["name"], $detail) -ForegroundColor Green
     } else {
         Write-Host ("  MISSING {0}" -f $col.name) -ForegroundColor Red
+    }
+}
+
+# A write through Graph, read back, on a throwaway contact (no supplier, so
+# it shows on no ARC screen), then deleted. A 2xx alone is not proof - Graph
+# silently drops some fields (see CLAUDE.md, "DisplayName").
+if (-not $WhatIf) {
+    Write-Host ""
+    Write-Host "=== Write check: Contact Category ===" -ForegroundColor Cyan
+    $items = "https://graph.microsoft.com/v1.0/sites/$siteId/lists/$listId/items"
+    $tmp = Invoke-MgGraphRequest -Method POST -Uri $items -ContentType "application/json" `
+        -Body (@{ fields = @{ Title = "ARC column check - delete me"; ContactCategory = "Quality" } } | ConvertTo-Json -Depth 4)
+    try {
+        $back = Invoke-MgGraphRequest -Method GET -Uri "$items/$($tmp.id)?`$expand=fields(`$select=ContactCategory)"
+        if ($back.fields.ContactCategory -eq "Quality") {
+            Write-Host "  OK      ContactCategory wrote and read back 'Quality'" -ForegroundColor Green
+        } else {
+            Write-Host "  FAILED  ContactCategory read back as '$($back.fields.ContactCategory)'" -ForegroundColor Red
+        }
+    } finally {
+        Invoke-MgGraphRequest -Method DELETE -Uri "$items/$($tmp.id)" | Out-Null
+        Write-Host "  throwaway contact $($tmp.id) deleted"
     }
 }

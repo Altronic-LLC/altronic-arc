@@ -156,3 +156,18 @@ export function websiteHref(raw: string): string | null {
     return null;
   }
 }
+
+/**
+ * What a website link reads as: the host without "www." plus any path,
+ * without the trailing slash ("https://www.avnet.com/americas/" →
+ * "avnet.com/americas"). Takes what `websiteHref` returned.
+ */
+export function websiteLabel(href: string): string {
+  try {
+    const url = new URL(href);
+    const path = url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, "");
+    return url.hostname.replace(/^www\./i, "") + path;
+  } catch {
+    return href;
+  }
+}

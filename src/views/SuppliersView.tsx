@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ExternalLink, MessageSquare, PhoneCall, Plus, Truck } from "lucide-react";
-import { useSuppliers } from "@/hooks/useSuppliers";
+import {
+  coreCompetencyOptions,
+  useSupplierCoreCompetencyChoices,
+  useSuppliers,
+} from "@/hooks/useSuppliers";
 import type { Supplier } from "@/types/task";
 import { SUPPLIER_CORE_COMPETENCIES, SUPPLIER_STATUSES } from "@/types/task";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
@@ -84,6 +88,13 @@ const MEDIUS_SUPPLIER_DIRECTORY_URL = "https://app.medius.com/cooperservices/sup
 export function SuppliersView() {
   const navigate = useNavigate();
   const { data: suppliers = [], isLoading } = useSuppliers();
+  const { data: liveCompetencies = SUPPLIER_CORE_COMPETENCIES } = useSupplierCoreCompetencyChoices();
+  // The live choices, plus anything a supplier holds that the column no
+  // longer offers, so every value on screen can be filtered on.
+  const competencyOptions = useMemo(
+    () => coreCompetencyOptions(liveCompetencies, suppliers.flatMap((s) => s.coreCompetencies)),
+    [liveCompetencies, suppliers],
+  );
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -104,7 +115,7 @@ export function SuppliersView() {
     const tokens = tokenizeQuery(q);
     return suppliers.filter((s) => {
       if (status && s.status !== status) return false;
-      if (competency && !s.coreCompetencies.includes(competency as Supplier["coreCompetencies"][number]))
+      if (competency && !s.coreCompetencies.includes(competency))
         return false;
       return matchesSearch(s, tokens);
     });
@@ -216,7 +227,7 @@ export function SuppliersView() {
           <ChoiceSelect
             value={competency}
             onChange={(v) => setParam("competency", v)}
-            options={SUPPLIER_CORE_COMPETENCIES}
+            options={competencyOptions}
             emptyLabel="Any competency"
             searchPlaceholder="Search competencies…"
           />

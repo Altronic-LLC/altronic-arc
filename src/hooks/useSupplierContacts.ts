@@ -4,6 +4,7 @@ import {
   createSupplierContact,
   deleteSupplierContact,
   editSupplierContactComment,
+  listSupplierContactCategoryChoices,
   listSupplierContacts,
   setSupplierContactWatchers,
   updateSupplierContactFields,
@@ -36,6 +37,15 @@ export const SUPPLIER_CONTACTS_KEY = ["supplierContacts"] as const;
 
 function errorToast(message: string) {
   pushToast({ message, variant: "error" });
+}
+
+/** The Contact Category column's live choices (fallback: the built-in three). */
+export function useSupplierContactCategoryChoices() {
+  return useQuery({
+    queryKey: ["supplierContacts", "categoryChoices"] as const,
+    queryFn: listSupplierContactCategoryChoices,
+    staleTime: 10 * 60_000,
+  });
 }
 
 export function useSupplierContacts() {

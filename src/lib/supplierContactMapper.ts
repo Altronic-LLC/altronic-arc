@@ -48,6 +48,7 @@ export function toSupplierContact(item: GraphListItem): SupplierContact {
     email: text(f.Email).trim(),
     phone: text(f.Phone).trim(),
     status: toContactStatus(f.Status),
+    category: text(f.ContactCategory).trim() || null,
     contactNotes: text(f.ContactNotes),
     comments: parseCommunication(text(f.Communication)),
     watchers: parsePersonField(f.Watchers),
@@ -69,6 +70,9 @@ export function buildSupplierContactCreateFields(
     Email: input.email.trim(),
     Phone: input.phone.trim(),
     Status: input.status ?? null,
+    // Left out when blank: the column came after the list, and a create
+    // naming a column the list hasn't got is a 400.
+    ...(input.category ? { ContactCategory: input.category } : {}),
     ContactNotes: input.contactNotes.trim(),
     ...multiPersonField("Watchers", resolved.watchers),
   };
@@ -79,7 +83,7 @@ export function supplierContactFieldPatch(
   changed: Partial<
     Pick<
       SupplierContactInput,
-      "name" | "firstName" | "lastName" | "email" | "phone" | "status" | "contactNotes"
+      "name" | "firstName" | "lastName" | "email" | "phone" | "status" | "category" | "contactNotes"
     >
   >,
 ): Record<string, unknown> {
@@ -90,6 +94,7 @@ export function supplierContactFieldPatch(
   if (changed.email !== undefined) fields.Email = changed.email.trim();
   if (changed.phone !== undefined) fields.Phone = changed.phone.trim();
   if (changed.status !== undefined) fields.Status = changed.status ?? null;
+  if (changed.category !== undefined) fields.ContactCategory = changed.category || null;
   if (changed.contactNotes !== undefined) fields.ContactNotes = changed.contactNotes.trim();
   return fields;
 }

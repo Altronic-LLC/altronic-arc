@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Eye, Trash2 } from "lucide-react";
-import { SUPPLIER_CONTACT_STATUSES, type Comment, type Person, type SupplierContact } from "@/types/task";
+import {
+  SUPPLIER_CONTACT_CATEGORIES,
+  SUPPLIER_CONTACT_STATUSES,
+  type Comment,
+  type Person,
+  type SupplierContact,
+} from "@/types/task";
 import {
   useAddSupplierContactComment,
   useDeleteSupplierContact,
   useEditSupplierContactComment,
   useSetSupplierContactWatchers,
+  useSupplierContactCategoryChoices,
   useUpdateSupplierContactFields,
 } from "@/hooks/useSupplierContacts";
+import { withCurrentChoice } from "@/api/columnChoices";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { supplierContactLabel } from "@/lib/supplierContactMapper";
 import { PersonMultiField } from "./PersonMultiField";
@@ -41,6 +49,7 @@ export function SupplierContactCard({
   const deleteContact = useDeleteSupplierContact();
   const addComment = useAddSupplierContactComment();
   const editComment = useEditSupplierContactComment();
+  const { data: liveCategories = SUPPLIER_CONTACT_CATEGORIES } = useSupplierContactCategoryChoices();
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,6 +104,11 @@ export function SupplierContactCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-fg">{supplierContactLabel(contact)}</span>
+            {contact.category && (
+              <span className="inline-flex items-center rounded-sm border border-superior-blue/40 bg-superior-blue/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg">
+                {contact.category}
+              </span>
+            )}
             {contact.status && (
               <span className="inline-flex items-center rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
                 {contact.status}
@@ -122,15 +136,27 @@ export function SupplierContactCard({
                 <InlineText label="Phone" value={contact.phone} onSave={(v) => patch({ phone: v })} />
               </div>
 
-              <label className="flex flex-col gap-1 text-xs">
-                <span className="font-semibold uppercase tracking-wider text-fg-muted">Status</span>
-                <ChoiceSelect
-                  value={contact.status ?? ""}
-                  onChange={(v) => patch({ status: (v || null) as SupplierContact["status"] })}
-                  options={SUPPLIER_CONTACT_STATUSES}
-                  emptyLabel="Not set"
-                />
-              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-semibold uppercase tracking-wider text-fg-muted">Category</span>
+                  <ChoiceSelect
+                    value={contact.category ?? ""}
+                    onChange={(v) => patch({ category: v || null })}
+                    options={withCurrentChoice(liveCategories, contact.category)}
+                    emptyLabel="Not set"
+                    ariaLabel="Category"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-semibold uppercase tracking-wider text-fg-muted">Status</span>
+                  <ChoiceSelect
+                    value={contact.status ?? ""}
+                    onChange={(v) => patch({ status: (v || null) as SupplierContact["status"] })}
+                    options={SUPPLIER_CONTACT_STATUSES}
+                    emptyLabel="Not set"
+                  />
+                </label>
+              </div>
 
               <TextAreaField
                 label="Contact Notes"

@@ -21,6 +21,8 @@ import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { MOCK_SUPPLIERS } from "@/data/srmMockData";
 import { mockDelay } from "./mockLatency";
+import { readColumnChoices } from "./columnChoices";
+import { SUPPLIER_CORE_COMPETENCIES } from "@/types/task";
 
 // =============================================================================
 // "Suppliers List" — the SRM tool's anchor list, on the PMO site. Supplier
@@ -90,6 +92,16 @@ export async function listSuppliers(): Promise<Supplier[]> {
   const suppliers = items.map(toSupplier);
   attachSupplierPeople(suppliers, siteUsers);
   return suppliers.sort(compareSuppliers);
+}
+
+/**
+ * The Core Competency column's LIVE choices, so a choice Supply Chain adds in
+ * SharePoint is offered with no deploy. SUPPLIER_CORE_COMPETENCIES is only the
+ * fallback (mock mode, or the column can't be read).
+ */
+export async function listSupplierCoreCompetencyChoices(): Promise<string[]> {
+  if (USE_MOCK) return mockDelay([...SUPPLIER_CORE_COMPETENCIES]);
+  return readColumnChoices(SITES.pmo, SP_SUPPLIERS_LIST_ID, "CoreCompetency", SUPPLIER_CORE_COMPETENCIES);
 }
 
 export async function getSupplier(id: number): Promise<Supplier | null> {

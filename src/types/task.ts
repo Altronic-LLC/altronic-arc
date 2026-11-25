@@ -2671,13 +2671,21 @@ export type SupplierStatus = (typeof SUPPLIER_STATUSES)[number];
  */
 export const SUPPLIER_PRIMARY_SUPPLY_FOCUSES = ["Choice"] as const;
 
-/** `CoreCompetency` — a MULTI choice (Graph returns an array). ~59 real options. */
+/**
+ * `CoreCompetency` — a MULTI choice (Graph returns an array). These are SAP
+ * material-group texts, plus the five Supply Chain added on 2026-11-24.
+ *
+ * Only the FALLBACK: screens offer the column's LIVE choices
+ * (`listSupplierCoreCompetencyChoices`), and a supplier keeps whatever its row
+ * holds — this list once clamped the read, so a choice added in SharePoint
+ * vanished from ARC and the next edit (a whole-array write) erased it.
+ */
 export const SUPPLIER_CORE_COMPETENCIES = [
   "Assembly",
   "Cable & Wire",
   "Capacitors",
   "Casting / Aluminum",
-  "Casting / Steel Chemical Connectors",
+  "Casting / Steel",
   "Chemical",
   "Choke",
   "Circuit Protection - Fuse",
@@ -2690,6 +2698,7 @@ export const SUPPLIER_CORE_COMPETENCIES = [
   "Ferrite",
   "Forging Part",
   "Forming Part",
+  "Freight",
   "Hardware",
   "Hose / Fitting",
   "Hydraulic Unit",
@@ -2701,6 +2710,7 @@ export const SUPPLIER_CORE_COMPETENCIES = [
   "Logistics / Handling",
   "Lubricants / Chemicals",
   "Machined Parts",
+  "Machinery & Equipment",
   "Magnetics - Transformers",
   "Mecatronic",
   "Miscellaneous auxiliary materials",
@@ -2711,14 +2721,17 @@ export const SUPPLIER_CORE_COMPETENCIES = [
   "Nut",
   "Office Material",
   "Output Switches",
+  "Packaging",
   "PCB/PCBA",
   "Perishable Tool",
   "PM Material (Mat group to be to revised)",
   "Profile",
+  "Raw Material",
   "Regulators",
   "Repair- and Spare parts",
   "Resistor",
   "Seals and Gaskets",
+  "Services",
   "Sockets",
   "Software",
   "Spark Plugs",
@@ -2733,7 +2746,8 @@ export const SUPPLIER_CORE_COMPETENCIES = [
   "Transducers",
   "Transistors",
 ] as const;
-export type SupplierCoreCompetency = (typeof SUPPLIER_CORE_COMPETENCIES)[number];
+/** Any string: whatever the live column offers, or a row already holds. */
+export type SupplierCoreCompetency = string;
 
 /**
  * "Suppliers List" — the SRM tool's anchor record.
@@ -2832,6 +2846,12 @@ export interface SupplierContact {
   email: string;
   phone: string;
   status: SupplierContactStatus | null;
+  /**
+   * `ContactCategory` — a single choice (Quality / Accounting / Customer
+   * Service to begin with; BusinessIT#80). Held as the stored string, so a
+   * category added in SharePoint shows with no deploy.
+   */
+  category: string | null;
   contactNotes: string;
   comments: Comment[];
   watchers: Person[];
@@ -2848,9 +2868,17 @@ export interface SupplierContactInput {
   email: string;
   phone: string;
   status: SupplierContactStatus | null;
+  category?: string | null;
   contactNotes: string;
   watchers: Person[];
 }
+
+/**
+ * The Supplier Contact List's `ContactCategory` choices (Katie Fleming via
+ * BusinessIT#80, 2026-11-24). Only the FALLBACK — screens offer the column's
+ * live choices (`listSupplierContactCategoryChoices`).
+ */
+export const SUPPLIER_CONTACT_CATEGORIES = ["Quality", "Accounting", "Customer Service"] as const;
 
 /**
  * "Supplier Issue Tracker" — `Status` and `Severity` are UNCONFIGURED

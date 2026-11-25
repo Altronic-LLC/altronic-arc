@@ -7,6 +7,7 @@ import {
   supplierColdCallProblem,
   toSupplierColdCall,
   websiteHref,
+  websiteLabel,
 } from "./supplierColdCalls";
 import { tokenizeQuery } from "./itemSearch";
 import type { SupplierColdCall } from "@/types/supplierColdCall";
@@ -140,5 +141,17 @@ describe("websiteHref", () => {
     expect(websiteHref("mailto:a@b.com")).toBeNull();
     expect(websiteHref("see notes")).toBeNull();
     expect(websiteHref("localhost")).toBeNull();
+  });
+});
+
+describe("websiteLabel", () => {
+  it("reads as the host without www, plus any path, no trailing slash", () => {
+    expect(websiteLabel("https://www.arrow.com/")).toBe("arrow.com");
+    expect(websiteLabel("https://www.avnet.com/americas/")).toBe("avnet.com/americas");
+    expect(websiteLabel("https://bgservice.com/")).toBe("bgservice.com");
+  });
+
+  it("hands back anything it can't read as given", () => {
+    expect(websiteLabel("not a url")).toBe("not a url");
   });
 });

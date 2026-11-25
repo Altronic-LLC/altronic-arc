@@ -1659,6 +1659,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "email", type: "text", kind: "field" },
       { name: "phone", type: "text", kind: "field" },
       { name: "status", type: "choice", kind: "field" },
+      { name: "category (ContactCategory)", type: "choice", kind: "field" },
       { name: "contactNotes", type: "text", kind: "field" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
     ],
