@@ -62,12 +62,15 @@ import { CommentThread } from "@/components/CommentThread";
 import { LinkedDiscussion } from "@/components/LinkedDiscussion";
 import { earlierLinkedComments } from "@/lib/buildRequestTaskLink";
 import { CommentComposer } from "@/components/CommentComposer";
-import { useUploadTaskFile } from "@/hooks/useTaskFiles";
+import { useResolvedTaskFolder, useUploadTaskFile } from "@/hooks/useTaskFiles";
 import { TaskFormModal } from "@/components/TaskFormModal";
 import { TestSheetFormModal } from "@/components/TestSheetFormModal";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { LabelChip, StatusBadge, statusColor } from "@/components/atoms";
 import { TaskAttachmentsSection } from "@/components/TaskAttachmentsSection";
+import { LibraryFilePicker } from "@/components/LibraryFilePicker";
+import { useLinkTaskFiles, useTaskLinkedFiles } from "@/hooks/useTaskLinkedFiles";
+import type { PickedLibraryFile } from "@/lib/linkedFiles";
 import { PcbChecklistCard } from "@/components/PcbChecklistCard";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
@@ -107,6 +110,30 @@ export function DetailView() {
   const watchTask = useWatchTask();
   const unwatchTask = useUnwatchTask();
   const uploadCommentFile = useUploadTaskFile(task ?? null);
+  // A comment can LINK a file already in the library (BusinessIT#62): the
+  // picker opens at the task's project folder, and once the comment posts the
+  // file joins the task's linked files too.
+  const { resolved: commentFolder } = useResolvedTaskFolder(task ?? null);
+  const linkedForComments = useTaskLinkedFiles(task?.id ?? null);
+  const linkCommentFiles = useLinkTaskFiles(task?.id ?? null);
+  const renderCommentLibraryPicker = (done: (picked: PickedLibraryFile[]) => void) => (
+    <LibraryFilePicker
+      title="Link a file in this comment"
+      confirmVerb="Add"
+      startFolder={commentFolder ? { id: commentFolder.folder.id, name: commentFolder.folder.name } : null}
+      onClose={() => done([])}
+      onPick={done}
+    />
+  );
+  const linkSentFiles = (files: PickedLibraryFile[]) => {
+    // Best-effort: the comment already holds the links. Only when the task's
+    // own list can take them (column there, value readable).
+    const current = linkedForComments.data;
+    if (!current || current.corrupt) return;
+    const have = new Set(current.files.map((f) => f.id));
+    const fresh = files.filter((f) => !have.has(f.id));
+    if (fresh.length > 0) linkCommentFiles.mutate(fresh);
+  };
   const [showEdit, setShowEdit] = useState(false);
   const [showNewTestSheet, setShowNewTestSheet] = useState(false);
   const [showNewChildTask, setShowNewChildTask] = useState(false);
@@ -785,6 +812,8 @@ export function DetailView() {
                 const uploaded = await uploadCommentFile.mutateAsync(file);
                 return { name: uploaded.name, webUrl: uploaded.webUrl };
               }}
+              renderLibraryPicker={renderCommentLibraryPicker}
+              onLibraryFilesSent={linkSentFiles}
             />
             {newExternalComments.length > 0 && (
               <NewCommentsBanner
@@ -808,6 +837,8 @@ export function DetailView() {
                   const uploaded = await uploadCommentFile.mutateAsync(file);
                   return { name: uploaded.name, webUrl: uploaded.webUrl };
                 }}
+                renderLibraryPicker={renderCommentLibraryPicker}
+                onLibraryFilesSent={linkSentFiles}
               />
             </div>
             {/* Each linked build request's comments from before the link —

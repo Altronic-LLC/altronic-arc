@@ -575,6 +575,7 @@ src/
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── commentMirror.ts          WRITES the comment mirrors — best-effort per target, never throws
 │   ├── projectFiles.ts           Documents-library project folders + files
+│   ├── taskLinkedFiles.ts        A task's LINKED library files (BusinessIT#62) — the LinkedFiles column read alone, fresh-read writes, a file's current name/folder by id
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
 │   ├── qzPrint.ts                QZ Tray browser-side client — silent print to a named printer, never throws
 │   ├── fabric.ts                 Microsoft Fabric API for GraphQL — READ-ONLY SAP warehouse transport, silent token, no write export
@@ -729,6 +730,7 @@ src/
 │   ├── useCurrentUser.ts         Signed-in user as a Person
 │   ├── useDirectory.ts           Tenant directory for pickers (+ diagnostics probe)
 │   ├── useTaskFiles.ts           Project-folder + list-item files for a task
+│   ├── useTaskLinkedFiles.ts     A task's linked library files — read, link, unlink (never deletes), each file's current state
 │   ├── useProjectFolders.ts      Project-folder browsing queries
 │   ├── useAttachments.ts         List-item attachment upload/list/delete
 │   ├── useFilters.ts             URL-backed task filter state + filterSearch()
@@ -750,6 +752,7 @@ src/
 │
 ├── lib/
 │   ├── cn.ts                     clsx + tailwind-merge helper
+│   ├── linkedFiles.ts            Linked library files (pure) — the LinkedFiles JSON (corrupt is never overwritten), add/remove by id, folder path below Project Folders
 │   ├── communicationParser.ts    Parse/serialize the Communication field
 │   ├── mentions.ts               @-mention parsing, recipients, rankMentionCandidates
 │   ├── mentionDetector.ts        Detecting @-mentions in stored comment HTML
@@ -1170,7 +1173,8 @@ src/
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
 │   ├── PendingAttachmentsCard.tsx  Files staged on a NEW form (EIR, MCN, Panel QC issue), uploaded once the item exists; renames same-name files
 │   ├── PhotoGallery.tsx          Photo tiles (folders first, lazy pictures) + the preview over the page (← →, Open / Download / Rename / Delete)
-│   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
+│   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage) + Linked from the library (From library, Unlink)
+│   ├── LibraryFilePicker.tsx     Browse General/Project Folders from the task's folder, tick files to link, Upload here (BusinessIT#62)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
 │   ├── ListAccessNotice.tsx        SharePoint list permission notice + retry
@@ -15082,9 +15086,57 @@ one place it goes.
 
 Code: `src/api/attachments.ts` (parametrised over `"task" | "eir"`).
 
+### 3. Linked from the library — no copy (BusinessIT#62)
+
+Engineers save files into a project's SUBFOLDERS first, then attach them to a
+task — which uploaded them again to the top of the project folder (Robert
+Ferrante, ARC Feature Request #36). Tim's decisions, 2026-11-25: a **From
+library** button that browses the library and LINKS; both the Attachments card
+and the comment box; a `LinkedFiles` column; Engineering tasks only.
+
+Pieces: `lib/linkedFiles.ts` (pure), `api/taskLinkedFiles.ts`,
+`hooks/useTaskLinkedFiles.ts`, `components/LibraryFilePicker.tsx`, and
+`scripts/add-task-linked-files-column.ps1` (`-WriteCheckTaskId <test task>`
+writes twice, reads back, restores — proves the value lands and Append
+Changes is off). Rules that are load-bearing:
+
+- **`LinkedFiles` is multi-line PLAIN text holding a JSON array** (Graph can't
+  write a Hyperlink column). Each entry: drive item `id`, `name`, `webUrl`,
+  `folderPath` (below Project Folders), who and when. A value ARC can't parse is
+  `corrupt` and is never written over (`LinkedFilesUnreadableError`); blank is
+  no links; `null` clears it.
+- **It is read ON ITS OWN** (`items/{id}?$expand=fields($select=LinkedFiles)`),
+  NEVER in the task list's `TASK_FIELD_SELECT` — so a missing column (the
+  script not run) costs only this card, which says to run the script, and the
+  3,000-row list download doesn't carry it. A 400 is remembered for the session.
+- **Every write reads fresh inside `withConflictRetry`** (exported from
+  `api/tasks.ts` for this), so two people linking at once both keep their
+  files; an unchanged list sends nothing.
+- **Unlink never touches the file** — no drive request at all (pinned).
+- **The file is looked up by id on display** (`lookUpLinkedFile`, one small
+  read per file, 5 min cache): a rename or move inside the library keeps the
+  link and shows the new name and folder; a 404 shows "No longer in
+  SharePoint"; any other failure keeps the stored details — "couldn't look" is
+  never "gone".
+- **The picker opens AT the task's project folder** (or Miscellaneous) and can go
+  up to Project Folders, so another project's file can be linked. Ticks are
+  kept across folders. **Upload here** uploads into the folder on screen
+  (`uploadFileToFolder`, one at a time) and ticks the result — the "ask where it
+  should go" half of the request. Not at Project Folders itself.
+- **Comments**: `CommentComposer`'s `renderLibraryPicker` / `onLibraryFilesSent`
+  (passed through `CommentThread` to the reply box). A picked file is a chip
+  that becomes a `📎` link in the body with NO upload; only once the comment
+  POSTS are the files added to the task's links (best-effort, only when the
+  column is there and readable). A failed post reports nothing.
+- **A linked file is NOT also attached to the task item** — no copy anywhere.
+- Demo mode: `listProjectFolders` now returns the mock tree's top-level folders
+  (it returned `[]`, so the demo Attachments card had no folder);
+  `mockDriveItem` answers the lookup. Mock task 15 has one link.
+
 ### UI layout
 
-The Attachments card on the task detail view shows two sub-lists:
+The Attachments card on the task detail view shows three sub-lists (the
+linked files between the two below):
 
 1. **On this task (N)** — task-specific list-item attachments. Shown first
    because they're specific to this task vs. shared across the project.

@@ -359,7 +359,16 @@ function readLookupId(fields: Record<string, unknown>): number {
  */
 export async function listProjectFolders(): Promise<ProjectFolder[]> {
   if (USE_MOCK) {
-    return [];
+    // The demo's top-level project folders, so a task's Attachments card and
+    // its library browser have a folder to work in.
+    return mockEntries()
+      .filter((e) => e.isFolder)
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        webUrl: e.webUrl,
+        projectLookupId: e.projectLookupId ?? 0,
+      }));
   }
   const path =
     `/sites/${SP_SITE_ID}/drive/root:/${encodeDrivePath(PROJECT_FOLDERS_PATH.split("/"))}` +
@@ -954,4 +963,35 @@ let mockTree = seedMockTree();
 
 function mockEntries(folderId?: string): DriveEntry[] {
   return mockTree.get(folderId ?? MOCK_ROOT) ?? [];
+}
+
+/**
+ * DEMO ONLY: a file or folder in the mock project-folder tree by id, with the
+ * folders above it (below Project Folders) — what a real drive item lookup
+ * answers. `null` when it isn't there (deleted, or never was).
+ */
+export function mockDriveItem(
+  id: string,
+): { name: string; webUrl: string; folderPath: string } | null {
+  for (const [parentKey, entries] of mockTree) {
+    const entry = entries.find((e) => e.id === id);
+    if (!entry) continue;
+    const names: string[] = [];
+    let key = parentKey;
+    while (key !== MOCK_ROOT) {
+      let parentOf: string | null = null;
+      for (const [k, list] of mockTree) {
+        const found = list.find((e) => e.id === key);
+        if (found) {
+          names.unshift(found.name);
+          parentOf = k;
+          break;
+        }
+      }
+      if (parentOf === null) break;
+      key = parentOf;
+    }
+    return { name: entry.name, webUrl: entry.webUrl, folderPath: names.join(" / ") };
+  }
+  return null;
 }

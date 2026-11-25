@@ -412,7 +412,7 @@ export const CONFLICT_RETRY_DELAYS_MS = [400, 1200] as const;
  * write the same item the comment PATCH writes, and SharePoint refuses
  * whichever arrives second (Thomas Terhune, 2026-09-30).
  */
-async function withConflictRetry<T>(write: () => Promise<T>): Promise<T> {
+export async function withConflictRetry<T>(write: () => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await write();

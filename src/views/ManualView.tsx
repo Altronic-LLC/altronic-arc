@@ -1348,9 +1348,16 @@ const SECTIONS: ManualSection[] = [
       "duplicate file name",
       "overwrite",
       "rename attachment",
+      "from library",
+      "link a file",
+      "linked files",
+      "unlink",
+      "subfolder",
+      "copy",
+      "duplicate copy",
     ],
     searchText:
-      "Task attachments are stored in two places at once: the task itself in SharePoint (as list-item attachments) and the project folder under General/Project Folders. Files specific to a task show under 'On this task'; shared project files show under 'From <folder name>'. Task-specific attachments take priority and appear first. Deletes are scoped — removing from one place doesn't touch the other. Comment attachments use the project-folder path only, since they end up as hyperlinks inside the comment body. Uploading a file whose name is already used in the project folder doesn't overwrite it — it's saved as name (2).ext instead.",
+      "A file already in the project folder library is LINKED to a task with From library, not uploaded again: pick it in the library window, which opens at the task's project folder and goes into any subfolder or up to Project Folders. Linked files show under 'Linked from the library' with the folder each is in; Unlink takes one off the task and leaves the file in SharePoint. A file not in SharePoint yet can be uploaded into the folder it belongs in from the same window, then linked. Comments have From library too. Task attachments are stored in two places at once: the task itself in SharePoint (as list-item attachments) and the project folder under General/Project Folders. Files specific to a task show under 'On this task'; shared project files show under 'From <folder name>'. Task-specific attachments take priority and appear first. Deletes are scoped — removing from one place doesn't touch the other. Comment attachments use the project-folder path only, since they end up as hyperlinks inside the comment body. Uploading a file whose name is already used in the project folder doesn't overwrite it — it's saved as name (2).ext instead.",
     render: () => (
       <>
         <P>
@@ -1371,15 +1378,45 @@ const SECTIONS: ManualSection[] = [
             one task.
           </li>
         </ul>
+        <H3>A file that's already in the library — From library</H3>
+        <P>
+          If the file is already in SharePoint — saved into a project subfolder
+          such as <code>CAT 3600 Controls 381-MT / CAT 3600 Misc / CAT
+          Actuators</code> — don't drag it onto the card: that uploads a
+          second copy to the top of the project folder. Click{" "}
+          <strong>From library</strong> instead. A window opens at the task's
+          project folder; go into any subfolder (or up to{" "}
+          <strong>Project Folders</strong> for another project's files), tick
+          the files and click <strong>Link</strong>. Nothing is copied: the
+          task points at the file where it is.
+        </P>
+        <P>
+          A file that isn't in SharePoint yet can go where it belongs from the
+          same window: open the right folder, click{" "}
+          <strong>Upload here</strong>, and the file is uploaded into that
+          folder and ticked, ready to link.
+        </P>
+        <P>
+          Linked files are listed under <strong>Linked from the library</strong>,
+          with the folder each one is in and who linked it. A file renamed or
+          moved in SharePoint stays linked and shows its new name and folder;
+          one that was deleted (or moved out of the library) says so.{" "}
+          <strong>Unlink</strong> (the broken-link icon) takes a file off the
+          task and leaves it in SharePoint — it never deletes anything.
+        </P>
         <H3>What you see on the task</H3>
         <P>
-          The Attachments card on a task shows two sub-lists:
+          The Attachments card on a task shows up to three sub-lists:
         </P>
         <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
           <li>
             <strong>On this task</strong> — task-specific list-item
             attachments. Listed first because they take priority (they were
             attached to this task explicitly, not shared across a project).
+          </li>
+          <li>
+            <strong>Linked from the library</strong> — files linked with From
+            library, each with the folder it sits in.
           </li>
           <li>
             <strong>From &lt;folder name&gt;</strong> — the 5 most-recently
@@ -1424,6 +1461,12 @@ const SECTIONS: ManualSection[] = [
           comment body (`📎 filename.pdf`). No list-item attachment is
           created for comment files, because the hyperlink in the comment
           is already the durable reference.
+        </P>
+        <P>
+          A task comment has <strong>From library</strong> too, beside Attach.
+          Pick a file that's already in SharePoint and the comment links to it
+          where it is — no upload. Once the comment is posted, the file is also
+          added to the task's Linked from the library list.
         </P>
         <H3>Limits</H3>
         <P>

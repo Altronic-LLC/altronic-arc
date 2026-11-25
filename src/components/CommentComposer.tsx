@@ -1,6 +1,7 @@
-import { AtSign, Paperclip, Send, Type, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AtSign, Library, Link2, Paperclip, Send, Type, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CommentAttachment, Person } from "@/types/task";
+import type { PickedLibraryFile } from "@/lib/linkedFiles";
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import {
   buildCommentHtml,
@@ -76,6 +77,14 @@ interface CommentComposerProps {
    * a thread that emails only mentions (Customer Notes).
    */
   notifies?: Person[];
+  /**
+   * Offer "From library" (BusinessIT#62): a file already in SharePoint is
+   * LINKED in the comment rather than uploaded again. Renders the picker;
+   * call `done` with the files picked, or `[]` to close it with none.
+   */
+  renderLibraryPicker?: (done: (picked: PickedLibraryFile[]) => void) => ReactNode;
+  /** The library files a comment linked, once it has posted. */
+  onLibraryFilesSent?: (files: PickedLibraryFile[]) => void;
 }
 
 /**
@@ -87,11 +96,13 @@ interface CommentComposerProps {
  */
 /**
  * Local extension of CommentAttachment — keeps the raw File reference
- * so we can upload it on submit when the parent provides `uploadFile`.
- * Not exported; this stays inside the composer.
+ * so we can upload it on submit when the parent provides `uploadFile`,
+ * or, for a file picked from the library, the file it links to (nothing is
+ * uploaded for those). Not exported; this stays inside the composer.
  */
 interface PendingAttachment extends CommentAttachment {
-  file: File;
+  file?: File;
+  library?: PickedLibraryFile;
 }
 
 /**
@@ -137,6 +148,8 @@ export function CommentComposer({
   placeholder = "Write a comment…",
   notifies,
   autoFocus,
+  renderLibraryPicker,
+  onLibraryFilesSent,
 }: CommentComposerProps) {
   // A half-written comment survives navigating away to look something up —
   // the thing Alexander Masgras lost "multiple paragraphs, full lists" to.
@@ -144,6 +157,7 @@ export function CommentComposer({
   const [text, setText] = useState(draft.initialRich ? "" : draft.initialValue);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [busy, setBusy] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -195,6 +209,23 @@ export function CommentComposer({
       });
     }
     setAttachments((prev) => [...prev, ...newOnes]);
+  }
+
+  /** Files picked in the library — linked on Send, never uploaded. */
+  function addLibraryFiles(picked: PickedLibraryFile[]) {
+    setAttachments((prev) => {
+      const have = new Set(prev.map((a) => a.library?.id).filter(Boolean));
+      const fresh = picked
+        .filter((p) => !have.has(p.id))
+        .map<PendingAttachment>((p) => ({
+          id: `lib-${p.id}`,
+          filename: p.name,
+          contentType: "",
+          sizeBytes: 0,
+          library: p,
+        }));
+      return [...prev, ...fresh];
+    });
   }
 
   function removeAttachment(id: string) {
@@ -328,17 +359,20 @@ export function CommentComposer({
     // hyperlink for each one at the bottom of the body. The legacy
     // `attachments` channel goes empty in that path — the links live
     // in the comment HTML, which is what users actually see + click.
-    if (uploadFile && attachments.length > 0) {
+    const fileAttachments = attachments.filter((a) => a.file);
+    const libraryLinks = attachments.flatMap((a) => (a.library ? [a.library] : []));
+    const links: { name: string; webUrl: string }[] = [];
+    if (uploadFile && fileAttachments.length > 0) {
       const uploaded: { name: string; webUrl: string }[] = [];
       try {
-        for (const a of attachments) {
+        for (const a of fileAttachments) {
           // A file an earlier, failed attempt already uploaded is linked
           // again rather than uploaded twice — a second upload lands as
           // "IMG_1224 (2).jpg" beside the first.
           let result = uploadedRef.current.get(a.id);
           if (!result) {
             // eslint-disable-next-line no-await-in-loop
-            result = await uploadFile(a.file);
+            result = await uploadFile(a.file as File);
             uploadedRef.current.set(a.id, result);
           }
           uploaded.push(result);
@@ -352,15 +386,18 @@ export function CommentComposer({
         setBusy(false);
         return;
       }
-      html =
-        html +
-        uploaded
-          .map(
-            (u) =>
-              `<p>📎 <a href="${escapeAttr(u.webUrl)}" target="_blank" rel="noopener noreferrer">${escapeText(u.name)}</a></p>`,
-          )
-          .join("");
+      links.push(...uploaded);
     }
+    // A library file is linked where it already is — no upload, no copy.
+    links.push(...libraryLinks.map((f) => ({ name: f.name, webUrl: f.webUrl })));
+    html =
+      html +
+      links
+        .map(
+          (u) =>
+            `<p>📎 <a href="${escapeAttr(u.webUrl)}" target="_blank" rel="noopener noreferrer">${escapeText(u.name)}</a></p>`,
+        )
+        .join("");
 
     // Hand it over, then clear straight away so the next comment can be
     // typed while this one saves. Clear the draft FIRST: `clear()` cancels
@@ -370,7 +407,7 @@ export function CommentComposer({
     try {
       // Legacy in-memory attachment shape (EIR composer + mock mode) when
       // there's no upload hook; otherwise the links are already in the body.
-      pending = onSubmit(html, uploadFile ? [] : attachments);
+      pending = onSubmit(html, uploadFile ? [] : fileAttachments);
     } catch (err) {
       pending = Promise.reject(err);
     }
@@ -393,6 +430,7 @@ export function CommentComposer({
       if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
       uploadedRef.current.delete(a.id);
     }
+    if (libraryLinks.length > 0) onLibraryFilesSent?.(libraryLinks);
   }
 
   /**
@@ -662,6 +700,18 @@ export function CommentComposer({
             <Paperclip className="h-3.5 w-3.5" />
             Attach
           </button>
+          {renderLibraryPicker && (
+            <button
+              type="button"
+              onClick={() => setLibraryOpen(true)}
+              disabled={disabled || busy}
+              title="Link a file already in the project folder library — nothing is copied"
+              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+            >
+              <Library className="h-3.5 w-3.5" />
+              From library
+            </button>
+          )}
           {/*
             Switching ON warns first (it costs the @-mention picker);
             switching OFF is a free, reversible action and needs no dialog.
@@ -717,7 +767,7 @@ export function CommentComposer({
         >
           <Send className="h-3.5 w-3.5" />
           {busy
-            ? attachments.length > 0 && uploadFile
+            ? attachments.some((a) => a.file) && uploadFile
               ? "Uploading…"
               : "Sending…"
             : "Send"}
@@ -731,6 +781,12 @@ export function CommentComposer({
           {uploadError}
         </div>
       )}
+
+      {libraryOpen &&
+        renderLibraryPicker?.((picked) => {
+          setLibraryOpen(false);
+          addLibraryFiles(picked);
+        })}
 
       {namingQueue.length > 0 && (
         <NameAttachmentDialog
@@ -766,10 +822,11 @@ function AttachmentChip({
   attachment,
   onRemove,
 }: {
-  attachment: CommentAttachment;
+  attachment: PendingAttachment;
   onRemove: () => void;
 }) {
   const isImage = attachment.contentType.startsWith("image/");
+  const library = attachment.library;
 
   return (
     <div className="relative flex items-center gap-2 rounded-md border border-border bg-surface-2 p-1.5 pr-7">
@@ -781,14 +838,16 @@ function AttachmentChip({
         />
       ) : (
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-surface text-fg-muted">
-          <Paperclip className="h-4 w-4" />
+          {library ? <Link2 className="h-4 w-4" /> : <Paperclip className="h-4 w-4" />}
         </div>
       )}
       <div className="min-w-0 max-w-[160px] text-xs">
         <div className="truncate font-medium text-fg" title={attachment.filename}>
           {attachment.filename}
         </div>
-        <div className="text-fg-muted">{formatBytes(attachment.sizeBytes)}</div>
+        <div className="truncate text-fg-muted" title={library?.folderPath}>
+          {library ? `Linked · ${library.folderPath || "Project Folders"}` : formatBytes(attachment.sizeBytes)}
+        </div>
       </div>
       <button
         onClick={onRemove}

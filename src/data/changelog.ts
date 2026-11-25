@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.239.0",
+    date: "2026-11-25",
+    changes: [
+      "Engineering tasks: a From library button on Attachments links files already in the project folder library, so they are no longer copied to the top of the project folder",
+      "The library opens at the task's project folder; go into any subfolder, or up to Project Folders, and tick the files to link",
+      "A file that isn't in SharePoint yet can be uploaded into the folder it belongs in, from the same window, then linked",
+      "Linked files are listed on the task with the folder each is in, and still open after they are renamed or moved in SharePoint",
+      "Unlink takes a file off the task and leaves it where it is in SharePoint",
+      "Comments on Engineering tasks have From library too: the comment links the file instead of uploading a copy, and the file is linked to the task",
+    ],
+  },
+  {
     version: "0.238.0",
     date: "2026-11-25",
     changes: [
